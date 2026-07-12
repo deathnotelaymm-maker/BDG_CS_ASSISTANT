@@ -27,6 +27,7 @@ jobs:
         with:
           node-version: 22.18.0
           cache: npm
+          registry-url: https://registry.npmjs.org
           cache-dependency-path: |
             backend-api/package-lock.json
             guide-pro/package-lock.json
@@ -36,27 +37,27 @@ jobs:
       - name: Verify Render backend
         working-directory: backend-api
         run: |
-          npm ci
+          npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
           npm run check
           npm audit --omit=dev --audit-level=high
 
       - name: Build Guide Pro
         working-directory: guide-pro
         run: |
-          npm ci
+          npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
           npm run build
           npm audit --omit=dev --audit-level=high
 
       - name: Build Chat Pro
         working-directory: chat-pro
         run: |
-          npm ci
+          npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
           npm run build
           npm audit --omit=dev --audit-level=high
 
       - name: Build Admin Pro
         working-directory: admin-pro
         run: |
-          npm ci --legacy-peer-deps
+          npm ci --legacy-peer-deps --no-audit --no-fund --registry=https://registry.npmjs.org/
           npm run build
           npm audit --omit=dev --audit-level=high
