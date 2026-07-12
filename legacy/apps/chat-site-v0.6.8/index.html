@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>BDG AI Support</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="phone-shell">
+    <header class="chat-top">
+      <a id="guideLink" class="back" href="http://localhost:5501">‹ Guide</a>
+      <div class="agent">
+        <span id="logoText" class="logo">BDG</span>
+        <div><strong id="siteName">BDG AI Support</strong><small><i></i> Online assistant</small></div>
+      </div>
+      <a id="supportLink" class="support" href="#" target="_blank" rel="noreferrer">Support</a>
+    </header>
+
+    <section class="notice-card">
+      <p class="eyebrow">Smart Guide AI</p>
+      <h1>Ask a question. Get the matched guide image.</h1>
+      <p>AI answers from admin-approved FAQ, guides, prompt rules, memory, and smart guide images.</p>
+    </section>
+
+    <section class="quick-row">
+      <button class="quick">How to withdraw?</button>
+      <button class="quick">How to bind bank card?</button>
+      <button class="quick">How to deposit?</button>
+      <button class="quick">I cannot login</button>
+    </section>
+
+    <section class="chat-card">
+      <div id="messages" class="messages">
+        <div class="bubble bot">
+          <b>Hello 👋</b><br />Please ask your question. If a guide image matches your keywords, I will show it here.
+        </div>
+      </div>
+      <form id="chatForm" class="composer">
+        <label class="upload-chip" title="Upload receipt or screenshot"><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />📎</label>
+        <input id="messageInput" placeholder="Type your question..." autocomplete="off" />
+        <button>Send</button>
+        <div id="uploadPreview" class="upload-preview"></div>
+      </form>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

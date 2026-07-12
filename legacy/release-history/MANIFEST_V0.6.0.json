@@ -1,0 +1,39 @@
+{
+  "version": "0.6.0",
+  "release": "Smart Match Guide + AI Control Center",
+  "worker_version": "0.6.0-worker",
+  "changed_files": [
+    "worker-api/src/index.js",
+    "worker-api/package.json",
+    "chat-pro/src/App.tsx",
+    "chat-pro/src/lib/api.ts",
+    "guide-pro/src/components/public/PublicLayout.tsx",
+    "admin-pro/src/lib/api.ts",
+    "admin-pro/src/components/AdminLayout.tsx",
+    "admin-pro/src/routes/_admin.smart-match-guides.tsx",
+    "admin-pro/src/routes/_admin.theme-settings.tsx",
+    "admin-pro/src/routeTree.gen.ts",
+    "FIX-WORKER-CONFIG-WINDOWS.ps1",
+    "DEPLOY-WORKER-V0.6.0-WINDOWS.ps1",
+    "DEPLOY-PRO-PAGES-V0.6.0-WINDOWS.ps1",
+    "DEPLOY-ALL-V0.6.0-WINDOWS.ps1"
+  ],
+  "new_tables": [
+    "smart_match_guides",
+    "unmatched_questions"
+  ],
+  "new_features": [
+    "smart-match-guide",
+    "ai-intent-detection",
+    "ai-enhanced-official-replies",
+    "inline-guide-images",
+    "chat-icon-control",
+    "support-button-removal"
+  ],
+  "deployment": [
+    "Cloudflare Worker API",
+    "Cloudflare Pages guide-pro",
+    "Cloudflare Pages chat-pro",
+    "Cloudflare Pages admin-pro"
+  ]
+}

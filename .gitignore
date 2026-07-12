@@ -1,0 +1,32 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node dependencies and builds
+**/node_modules/
+**/dist/
+**/.vite/
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+!.env.production
+*.local
+.render-secrets.local.txt
+
+# Database exports and local data
+database-backups/
+*.dump
+*.backup
+*.sql.gz
+app.db
+
+# Python legacy artifacts
+__pycache__/
+*.pyc
+.venv/
+.render-neon-secrets.local.txt

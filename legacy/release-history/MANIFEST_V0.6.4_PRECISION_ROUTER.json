@@ -1,0 +1,16 @@
+{
+  "version": "0.6.4",
+  "release_name": "Precision AI Router + Conversation State + Safe Guide Delivery",
+  "worker_version": "0.6.4-worker",
+  "main_changes": [
+    "AI Intent Router before Smart Match",
+    "confidence bands",
+    "second-best confidence gap",
+    "conversation state fields",
+    "risk-based guide delivery",
+    "AI Test Lab decision trace",
+    "incorrect match reports",
+    "knowledge versions"
+  ],
+  "deploy_script": "DEPLOY-ALL-V0.6.4-WINDOWS.ps1"
+}

@@ -1,0 +1,25 @@
+name = "bdg-ai-help-api"
+main = "src/index.js"
+compatibility_date = "2026-07-07"
+compatibility_flags = ["nodejs_compat"]
+
+# Paste your Hyperdrive ID after running:
+# npx wrangler hyperdrive create bdg-ai-hyperdrive --connection-string="postgres://USER:PASSWORD@HOST:5432/bdg_ai_help?sslmode=require"
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "PASTE_HYPERDRIVE_ID_HERE"
+
+# Create first:
+# npx wrangler r2 bucket create bdg-ai-guide-images
+[[r2_buckets]]
+binding = "GUIDE_IMAGES"
+bucket_name = "bdg-ai-guide-images"
+
+[vars]
+APP_NAME = "BDG Help Center"
+SUPPORT_LINK = "https://t.me/your_support_bot"
+ALLOWED_ORIGINS = "*"
+AI_MODE_ENABLED = "true"
+DEEPSEEK_API_BASE = "https://api.deepseek.com"
+DEEPSEEK_MODEL = "deepseek-chat"
+ADMIN_EMAIL = "admin@example.com"

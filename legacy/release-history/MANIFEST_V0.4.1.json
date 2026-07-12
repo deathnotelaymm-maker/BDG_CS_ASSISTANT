@@ -1,0 +1,17 @@
+{
+  "version": "0.4.1",
+  "release_name": "Cloudflare Worker API Deploy Package",
+  "added": [
+    "worker-api",
+    "worker-api/schema/schema.sql",
+    "worker-api/wrangler.toml.example",
+    "docs/NEON_CLOUDFLARE_WORKER_DEPLOY_V0.4.1.md",
+    "SET-FRONTEND-API-URL.ps1"
+  ],
+  "kept": [
+    "backend FastAPI local backend",
+    "guide-site",
+    "chat-site",
+    "admin-site"
+  ]
+}

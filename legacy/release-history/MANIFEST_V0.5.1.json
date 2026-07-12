@@ -1,0 +1,11 @@
+{
+  "version": "0.5.1",
+  "release": "Admin Pro Lovable Merge",
+  "imported_zip": "bdg-admin-console-main.zip",
+  "new_folder": "admin-pro",
+  "backend_status": "unchanged",
+  "worker_api_status": "unchanged from v0.5.0",
+  "admin_pro_api_mode": "live Worker API",
+  "api_base": "https://bdg-ai-help-api.bdgservice.workers.dev",
+  "deploy_script": "DEPLOY-ADMIN-PRO-WINDOWS.ps1"
+}

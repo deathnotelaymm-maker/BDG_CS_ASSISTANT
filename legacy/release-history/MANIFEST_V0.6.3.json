@@ -1,0 +1,38 @@
+{
+  "version": "0.6.3",
+  "release_name": "Clarify-First AI + 2FA Admin Security",
+  "worker_version": "0.6.3-worker",
+  "components": [
+    "worker-api",
+    "admin-pro",
+    "guide-pro",
+    "chat-pro"
+  ],
+  "deploy_scripts": [
+    "DEPLOY-ALL-V0.6.3-WINDOWS.ps1",
+    "DEPLOY-WORKER-V0.6.3-WINDOWS.ps1",
+    "DEPLOY-PRO-PAGES-V0.6.3-WINDOWS.ps1"
+  ],
+  "features": [
+    "clarify-first-ai",
+    "smart-match-confidence-thresholds",
+    "required-confirmation",
+    "negative-keywords",
+    "rich-smart-match-blocks",
+    "no-random-guide-cards",
+    "no-smart-match-label",
+    "markdown-star-cleanup",
+    "totp-2fa",
+    "owner-admin-permissions",
+    "single-session-login",
+    "force-logout",
+    "reset-admin-2fa",
+    "enhanced-audit-logs"
+  ],
+  "default_urls": {
+    "worker": "https://bdg-ai-help-api.bdgservice.workers.dev",
+    "admin": "https://bdg-admin-pages.pages.dev",
+    "guide": "https://bdg-guide-pages.pages.dev",
+    "chat": "https://bdg-chat-pages.pages.dev"
+  }
+}

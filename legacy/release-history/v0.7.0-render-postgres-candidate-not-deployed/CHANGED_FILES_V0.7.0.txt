@@ -1,0 +1,68 @@
+# Changed Files — v0.7.0
+
+Status | Path
+--- | ---
+ADDED | backend-api/.env.example
+ADDED | backend-api/README.md
+ADDED | backend-api/migrations/001_v0.7.0_render_business_backend.sql
+ADDED | backend-api/migrations/README.md
+ADDED | backend-api/package-lock.json
+ADDED | backend-api/package.json
+ADDED | backend-api/scripts/smoke-test.js
+ADDED | backend-api/src/core.js
+ADDED | backend-api/src/env.js
+ADDED | backend-api/src/migrate.js
+ADDED | backend-api/src/r2-adapter.js
+ADDED | backend-api/src/server.js
+ADDED | guide-pro/.env.production
+MOVED_TO_LEGACY | guide-pro/README_MERGE.md
+MODIFIED | guide-pro/package-lock.json
+MODIFIED | guide-pro/package.json
+ADDED | guide-pro/src/components/public/ServiceErrorPanel.tsx
+MODIFIED | guide-pro/src/lib/api.ts
+MODIFIED | guide-pro/src/router.tsx
+MODIFIED | guide-pro/src/routes/_public.faq.tsx
+MODIFIED | guide-pro/src/routes/_public.guides.$slug.tsx
+MODIFIED | guide-pro/src/routes/_public.guides.tsx
+MODIFIED | guide-pro/src/routes/_public.index.tsx
+ADDED | chat-pro/.env.production
+MOVED_TO_LEGACY | chat-pro/README_MERGE.md
+MODIFIED | chat-pro/package-lock.json
+MODIFIED | chat-pro/package.json
+MODIFIED | chat-pro/src/lib/api.ts
+MODIFIED | admin-pro/.env.production
+MOVED_TO_LEGACY | admin-pro/README_MERGE.md
+ADDED | admin-pro/package-lock.json
+MODIFIED | admin-pro/package.json
+MODIFIED | admin-pro/src/lib/api.ts
+MODIFIED | admin-pro/src/routes/login.tsx
+MODIFIED | .gitignore
+ADDED | ACTIVE_ARCHITECTURE_V0.7.0.md
+ADDED | APPLY-PATCH-V0.7.0-WINDOWS.ps1
+ADDED | CHANGELOG_V0.7.0.md
+ADDED | DEPLOY-CLOUDFLARE-PAGES-V0.7.0-WINDOWS.ps1
+ADDED | DEPLOYMENT_CHECKLIST_V0.7.0.md
+ADDED | ENVIRONMENT_VARIABLES_V0.7.0.md
+ADDED | GENERATE-RENDER-SECRETS-WINDOWS.ps1
+ADDED | MANIFEST_V0.7.0.json
+ADDED | MIGRATE-NEON-TO-RENDER-WINDOWS.ps1
+ADDED | PREPARE-GITHUB-RENDER-V0.7.0-WINDOWS.ps1
+MODIFIED | README.md
+ADDED | README_V0.7.0.md
+ADDED | RELEASE_NOTES_V0.7.0.md
+ADDED | ROLLBACK-RENDER-DATABASE-WINDOWS.ps1
+ADDED | ROLLBACK_V0.7.0.md
+MODIFIED | START-HERE-WINDOWS.bat
+MODIFIED | TEST_RESULT.md
+ADDED | VERIFY-V0.7.0-WINDOWS.ps1
+MODIFIED | package.json
+ADDED | render.staging.example.yaml
+ADDED | render.yaml
+ADDED | .github/workflows/ci.yml
+ADDED | docs/ (v0.7.0 deployment set)
+MOVED_TO_LEGACY | worker-api/ -> legacy/apps/worker-api-v0.6.8/
+MOVED_TO_LEGACY | guide-site/ -> legacy/apps/guide-site-v0.6.8/
+MOVED_TO_LEGACY | chat-site/ -> legacy/apps/chat-site-v0.6.8/
+MOVED_TO_LEGACY | admin-site/ -> legacy/apps/admin-site-v0.6.8/
+MOVED_TO_LEGACY | backend/ -> legacy/apps/backend-v0.6.8/
+MOVED_TO_LEGACY | historical release scripts/docs -> legacy/release-history/

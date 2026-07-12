@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BDG Business Admin CMS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main id="loginScreen" class="login-screen">
+    <section class="login-card">
+      <div class="brand"><span class="logo">BDG</span><span>Business Admin CMS</span></div>
+      <h1>Help Center Management</h1>
+      <p>Manage guide content, FAQ, AI prompt rules, images, support links, and chat operations from one business dashboard.</p>
+      <form id="loginForm" class="stack">
+        <input id="email" type="email" placeholder="Admin email" required value="admin@example.com" />
+        <input id="password" type="password" placeholder="Password" required value="ChangeMe123!" />
+        <button>Login</button>
+      </form>
+      <p class="hint">Use Cloudflare Worker secrets for production credentials.</p>
+    </section>
+  </main>
+
+  <main id="appScreen" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand"><span id="sideLogo" class="logo">BDG</span><span id="siteName">Admin CMS</span></div>
+      <nav>
+        <button class="nav active" data-view="dashboard">Dashboard</button>
+        <button class="nav" data-view="siteContent">Site Content</button>
+        <button class="nav" data-view="guides">Guide Images</button>
+        <button class="nav" data-view="categories">Categories</button>
+        <button class="nav" data-view="faqs">FAQ</button>
+        <button class="nav" data-view="knowledge">AI Knowledge</button>
+        <button class="nav" data-view="aiMode">AI Mode</button>
+        <button class="nav" data-view="theme">Theme & Support</button>
+        <button class="nav" data-view="logs">Chat Logs</button>
+        <button class="nav" data-view="audit">Audit Logs</button>
+      </nav>
+      <button id="logoutBtn" class="logout">Logout</button>
+    </aside>
+
+    <section class="main">
+      <header class="main-head">
+        <div><p class="eyebrow">Business control panel</p><h1 id="viewTitle">Dashboard</h1></div>
+        <div class="head-actions"><a id="openGuide" target="_blank">Open Guide</a><a id="openChat" target="_blank">Open Chat</a><button id="refreshBtn">Refresh</button></div>
+      </header>
+
+      <section id="dashboard" class="view active-view">
+        <div class="stats-grid">
+          <div class="stat"><span>📖</span><strong id="statGuides">0</strong><p>Guides</p></div>
+          <div class="stat"><span>❓</span><strong id="statFaqs">0</strong><p>FAQ</p></div>
+          <div class="stat"><span>🧠</span><strong id="statPrompts">0</strong><p>Prompts</p></div>
+          <div class="stat"><span>💬</span><strong id="statLogs">0</strong><p>Chat Logs</p></div>
+          <div class="stat"><span>🧾</span><strong id="statAudit">0</strong><p>Audit Logs</p></div>
+        </div>
+        <div class="grid two top-gap">
+          <div class="card"><h2>Business CMS checklist</h2><ol><li>Edit guide homepage text in <b>Site Content</b>.</li><li>Control Popular Help cards and bottom navigation.</li><li>Upload guide images with smart keywords.</li><li>Manage AI prompt rules and version history.</li><li>Use AI Diagnostics before testing customer chat.</li></ol></div>
+          <div class="card"><h2>System status</h2><div id="diagnosticsBox" class="diagnostics">Click refresh to load diagnostics.</div></div>
+        </div>
+      </section>
+
+      <section id="siteContent" class="view">
+        <div class="card toolbar"><div><h2>Guide Site Content Manager</h2><p class="hint">All customer-facing text on the guide homepage is editable here. AI Chat is removed from guide navigation.</p></div><button id="saveContentBlocks">Save All Text</button></div>
+        <div class="grid two top-gap">
+          <div class="card"><h2>Text Blocks</h2><div id="contentBlocks" class="form-list"></div></div>
+          <div class="card"><h2>Homepage Sections</h2><div id="homeSections" class="list compact"></div></div>
+        </div>
+        <div class="grid three top-gap">
+          <form id="popularForm" class="card stack"><h2 id="popularFormTitle">Popular Help Card</h2><input type="hidden" id="popularId"/><label>Title<input id="popularTitleInput" required/></label><label>Subtitle<input id="popularSubtitle"/></label><div class="form-row"><label>Icon<input id="popularIcon" value="✨"/></label><label>Query<input id="popularQuery"/></label></div><div class="form-row"><label>Linked category slug<input id="popularCategorySlug"/></label><label>Sort<input id="popularSort" type="number" value="100"/></label></div><label>Status<select id="popularStatus"><option>active</option><option>inactive</option></select></label><div class="actions"><button>Save Card</button><button type="button" class="ghost" id="resetPopular">New</button></div></form>
+          <form id="navForm" class="card stack"><h2 id="navFormTitle">Bottom Navigation</h2><input type="hidden" id="navId"/><label>Key<input id="navKey" placeholder="home" required/></label><label>Label<input id="navLabel" required/></label><div class="form-row"><label>Icon<input id="navIcon" value="•"/></label><label>Href<input id="navHref" placeholder="#"/></label></div><div class="form-row"><label>Sort<input id="navSort" type="number" value="100"/></label><label>Status<select id="navStatus"><option>active</option><option>inactive</option></select></label></div><div class="actions"><button>Save Nav</button><button type="button" class="ghost" id="resetNav">New</button></div></form>
+          <form id="quickForm" class="card stack"><h2 id="quickFormTitle">Chat Quick Reply</h2><input type="hidden" id="quickId"/><label>Button text<input id="quickText" required/></label><label>Query sent to AI<input id="quickQuery"/></label><div class="form-row"><label>Sort<input id="quickSort" type="number" value="100"/></label><label>Status<select id="quickStatus"><option>active</option><option>inactive</option></select></label></div><div class="actions"><button>Save Reply</button><button type="button" class="ghost" id="resetQuick">New</button></div></form>
+        </div>
+        <div class="grid three top-gap"><div class="card"><h2>Popular Help Cards</h2><div id="popularList" class="list compact"></div></div><div class="card"><h2>Bottom Navigation</h2><div id="navList" class="list compact"></div></div><div class="card"><h2>Chat Quick Replies</h2><div id="quickList" class="list compact"></div></div></div>
+      </section>
+
+      <section id="guides" class="view"><div class="grid two"><form id="guideForm" class="card stack"><h2 id="guideFormTitle">Create smart guide</h2><input type="hidden" id="guideId"/><label>Title<input id="guideTitle" required/></label><label>Slug<input id="guideSlug" placeholder="Optional"/></label><div class="form-row"><label>Category<select id="guideCategory"></select></label><label>Priority<input id="guidePriority" type="number" value="100"/></label></div><div class="form-row"><label>Language<input id="guideLanguage" value="en"/></label><label>Status<select id="guideStatus"><option>published</option><option>draft</option></select></label></div><label>Short answer<textarea id="guideSummary" rows="3"></textarea></label><label>Step-by-step body<textarea id="guideBody" rows="7" required></textarea></label><label>Smart keywords<textarea id="guideKeywords" rows="3"></textarea></label><label>Guide images<div class="upload-row"><input id="guideImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/><button type="button" id="uploadGuideImage">Upload</button></div><textarea id="guideImages" rows="4"></textarea></label><div id="guidePreview" class="image-preview"></div><div class="actions"><button>Save Guide</button><button type="button" class="ghost" id="resetGuide">New</button></div></form><div class="card"><h2>All smart guides</h2><div id="guideList" class="list"></div></div></div></section>
+      <section id="categories" class="view"><div class="grid two"><form id="categoryForm" class="card stack"><h2 id="categoryFormTitle">Create category</h2><input type="hidden" id="categoryId"/><label>Name<input id="categoryName" required/></label><label>Slug<input id="categorySlug"/></label><div class="form-row"><label>Icon<input id="categoryIcon" value="🎯"/></label><label>Sort order<input id="categorySort" type="number" value="100"/></label></div><label>Description<textarea id="categoryDescription"></textarea></label><div class="actions"><button>Save Category</button><button type="button" class="ghost" id="resetCategory">New</button></div></form><div class="card"><h2>All categories</h2><div id="categoryList" class="list"></div></div></div></section>
+      <section id="faqs" class="view"><div class="grid two"><form id="faqForm" class="card stack"><h2 id="faqFormTitle">Create FAQ</h2><input type="hidden" id="faqId"/><label>Question<input id="faqQuestion" required/></label><label>Simple answer<textarea id="faqAnswer" rows="7" required></textarea></label><label>Keywords<textarea id="faqKeywords" rows="3"></textarea></label><div class="form-row"><label>Priority<input id="faqPriority" type="number" value="100"/></label><label>Status<select id="faqStatus"><option>published</option><option>draft</option></select></label></div><div class="actions"><button>Save FAQ</button><button type="button" class="ghost" id="resetFaq">New</button></div></form><div class="card"><h2>All FAQs</h2><div id="faqList" class="list"></div></div></div></section>
+      <section id="knowledge" class="view"><div class="grid two"><form id="knowledgeForm" class="card stack"><h2 id="knowledgeFormTitle">Create knowledge</h2><input type="hidden" id="knowledgeId"/><label>Title<input id="knowledgeTitle" required/></label><label>Approved AI information<textarea id="knowledgeContent" rows="8" required></textarea></label><label>Keywords<textarea id="knowledgeKeywords" rows="3"></textarea></label><div class="form-row"><label>Priority<input id="knowledgePriority" type="number" value="100"/></label><label>Status<select id="knowledgeStatus"><option>active</option><option>inactive</option></select></label></div><div class="actions"><button>Save Knowledge</button><button type="button" class="ghost" id="resetKnowledge">New</button></div></form><div class="card"><h2>All knowledge</h2><div id="knowledgeList" class="list"></div></div></div></section>
+
+      <section id="aiMode" class="view">
+        <div class="grid two"><form id="aiSettingsForm" class="card stack"><h2>DeepSeek + Memory Settings</h2><p class="hint">Secret key stays in Cloudflare Worker secret <b>DEEPSEEK_API_KEY</b>.</p><div class="form-row"><label>Provider<input id="aiProvider" value="deepseek"/></label><label>Model<input id="aiModel" value="deepseek-chat"/></label></div><label>API Base<input id="aiApiBase"/></label><div class="form-row"><label>Temperature<input id="aiTemperature" type="number" step="0.1" value="0.2"/></label><label>Max tokens<input id="aiMaxTokens" type="number" value="700"/></label></div><div class="checks"><label><input id="aiEnabled" type="checkbox"/> Enable DeepSeek replies</label><label><input id="aiRequireContext" type="checkbox"/> Require approved context</label><label><input id="aiMemoryEnabled" type="checkbox"/> Enable chat memory</label></div><div class="form-row"><label>Memory max<input id="aiMemoryMax" type="number" value="12"/></label><label>Memory TTL days<input id="aiMemoryTtl" type="number" value="30"/></label></div><div id="aiKeyStatus" class="status-box"></div><div class="actions"><button>Save AI Settings</button><button type="button" class="ghost" id="loadDiagnosticsBtn">Diagnostics</button></div></form>
+          <form id="aiPromptForm" class="card stack"><h2 id="aiPromptFormTitle">Prompt Section</h2><input type="hidden" id="aiPromptId"/><label>Section key<select id="aiPromptKey"><option value="role">Role</option><option value="job">Job</option><option value="knowledge">Knowledge</option><option value="faq_prompt">FAQ Prompt</option><option value="example_answers">Example Answers</option><option value="response_policy">Response Policy</option><option value="language_rules">Language Rules</option><option value="safety_rules">Safety Rules</option><option value="escalation_rules">Escalation Rules</option><option value="image_receipt_rules">Image / Receipt Rules</option><option value="smart_guide_rules">Smart Guide Rules</option><option value="fallback_reply_rules">Fallback Reply Rules</option><option value="forbidden_actions">Forbidden Actions</option></select></label><label>Title<input id="aiPromptTitle"/></label><label>Prompt content<textarea id="aiPromptContent" rows="10"></textarea></label><div class="form-row"><label>Priority<input id="aiPromptPriority" type="number" value="100"/></label><label>Enabled<select id="aiPromptEnabled"><option value="true">enabled</option><option value="false">disabled</option></select></label></div><div class="actions"><button>Save Prompt</button><button type="button" class="ghost" id="resetAiPrompt">New</button></div></form></div>
+        <div class="grid two top-gap"><div class="card"><h2>Prompt Sections</h2><p class="hint">Saved prompt sections appear here with edit and version history.</p><div id="aiPromptList" class="list prompt-list"></div></div><div class="card"><h2>Prompt Version History</h2><div id="promptVersionList" class="list compact"></div></div></div>
+        <div class="grid two top-gap"><form id="aiTestForm" class="card stack"><h2>AI Test Playground</h2><label>Test session ID<input id="aiTestSession" placeholder="optional-test-session"/></label><label>Customer message<textarea id="aiTestMessage" rows="5" placeholder="How to bind bank card?"></textarea></label><label>Image URLs<textarea id="aiTestImages" rows="3"></textarea></label><div class="actions"><button>Test AI Reply</button></div><div id="aiTestResult" class="test-result"></div></form><div class="card"><h2>Chat Memory Sessions</h2><div id="sessionList" class="list logs"></div></div></div>
+      </section>
+
+      <section id="theme" class="view"><form id="themeForm" class="card stack theme-card"><h2>Theme and support settings</h2><div class="form-row"><label>App name<input id="themeAppName"/></label><label>Logo text<input id="themeLogoText"/></label></div><label>Mobile banner title<input id="themeBannerTitle"/></label><label>Mobile banner subtitle<textarea id="themeBannerSubtitle" rows="3"></textarea></label><label>Support link<input id="themeSupportLink"/></label><label>Primary gold color<input id="themePrimaryColor"/></label><div class="actions"><button>Save Theme</button></div></form></section>
+      <section id="logs" class="view"><div class="card"><h2>Latest customer AI chats</h2><div id="logList" class="list logs"></div></div></section>
+      <section id="audit" class="view"><div class="card"><h2>Business audit logs</h2><div id="auditList" class="list logs"></div></div></section>
+    </section>
+  </main>
+  <div id="toast" class="toast"></div>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

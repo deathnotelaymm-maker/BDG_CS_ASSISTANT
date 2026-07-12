@@ -1,0 +1,26 @@
+{
+  "version": "0.6.5",
+  "name": "Prompt-First AI + Optional Guide Delivery",
+  "worker_version": "0.6.5-worker",
+  "changed_files": [
+    "worker-api/src/index.js",
+    "admin-pro/src/routes/_admin.smart-match-guides.tsx",
+    "admin-pro/src/components/AdminLayout.tsx",
+    "admin-pro/src/routes/_admin.unmatched-questions.tsx",
+    "DEPLOY-ALL-V0.6.5-WINDOWS.ps1",
+    "DEPLOY-WORKER-V0.6.5-WINDOWS.ps1",
+    "DEPLOY-PRO-PAGES-V0.6.5-WINDOWS.ps1",
+    "README_V0.6.5.md",
+    "CHANGELOG_V0.6.5.md"
+  ],
+  "features": [
+    "prompt-first-ai",
+    "optional-guide-delivery",
+    "guide-attachment-library",
+    "guide-usage-policy",
+    "guide-attach-mode",
+    "when-to-attach-rules",
+    "when-not-to-attach-rules"
+  ],
+  "expected_health": "0.6.5-worker"
+}

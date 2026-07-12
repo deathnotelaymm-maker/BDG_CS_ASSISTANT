@@ -1,0 +1,23 @@
+{
+  "version": "0.6.6",
+  "release": "Admin Foundation + Owner Control + Full Chinese UI",
+  "worker_version": "0.6.6-worker",
+  "owner_email": "lacus.mm.ph@gmail.com",
+  "folders": [
+    "worker-api",
+    "admin-pro",
+    "guide-pro",
+    "chat-pro"
+  ],
+  "deploy_scripts": [
+    "DEPLOY-ALL-V0.6.6-WINDOWS.ps1",
+    "DEPLOY-WORKER-V0.6.6-WINDOWS.ps1",
+    "DEPLOY-PRO-PAGES-V0.6.6-WINDOWS.ps1"
+  ],
+  "notes": [
+    "Admin foundation first",
+    "Owner/admin control",
+    "English + Chinese UI direction",
+    "Prompt Manager remains AI brain"
+  ]
+}

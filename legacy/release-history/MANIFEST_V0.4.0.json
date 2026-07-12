@@ -1,0 +1,17 @@
+{
+  "version": "0.4.0",
+  "release_name": "AI Mode Control Center + DeepSeek Smart Memory",
+  "apps": ["backend", "guide-site", "chat-site", "admin-site"],
+  "database": "SQLite local, PostgreSQL production",
+  "ai_provider": "DeepSeek OpenAI-compatible chat completions",
+  "new_features": [
+    "admin prompt sections",
+    "DeepSeek settings",
+    "chat memory",
+    "customer image upload",
+    "AI playground",
+    "memory sessions",
+    "Cloudflare Pages docs",
+    "PostgreSQL docs"
+  ]
+}

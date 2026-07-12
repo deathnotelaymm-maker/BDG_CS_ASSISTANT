@@ -1,0 +1,25 @@
+{
+  "version": "0.6.2",
+  "release_name": "Owner Admin Control + Clean Chat UX + Data Fix",
+  "worker_version": "0.6.2-worker",
+  "changed": [
+    "worker-api/src/index.js",
+    "admin-pro/src/lib/api.ts",
+    "admin-pro/src/components/AdminLayout.tsx",
+    "admin-pro/src/routes/_admin.admin-users.tsx",
+    "admin-pro/src/routes/_admin.audit-logs.tsx",
+    "admin-pro/src/routes/_admin.guide-images.tsx",
+    "chat-pro/src/App.tsx",
+    "admin-pro/index.html",
+    "guide-pro/index.html",
+    "chat-pro/index.html",
+    "admin-pro/public/favicon-bdg.png",
+    "guide-pro/public/favicon-bdg.png",
+    "chat-pro/public/favicon-bdg.png"
+  ],
+  "deploy_scripts": [
+    "DEPLOY-ALL-V0.6.2-WINDOWS.ps1",
+    "DEPLOY-WORKER-V0.6.2-WINDOWS.ps1",
+    "DEPLOY-PRO-PAGES-V0.6.2-WINDOWS.ps1"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "version": "0.5.0",
+  "release_name": "Business Admin CMS + Professional Help Center",
+  "worker_version": "0.5.0-worker",
+  "frontends": ["guide-site", "chat-site", "admin-site"],
+  "backend": "worker-api",
+  "database": "Neon PostgreSQL via Cloudflare Hyperdrive",
+  "storage": "Cloudflare R2",
+  "ai_provider": "DeepSeek",
+  "new_tables": ["site_content_blocks", "popular_help_cards", "navigation_items", "guide_home_sections", "chat_quick_replies", "ai_prompt_versions", "admin_audit_logs"]
+}

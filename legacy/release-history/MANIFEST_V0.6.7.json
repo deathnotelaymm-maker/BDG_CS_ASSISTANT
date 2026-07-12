@@ -1,0 +1,20 @@
+{
+  "version": "0.6.7",
+  "name": "AI Guide Builder + Hindi Layout Assistant",
+  "worker_version": "0.6.7-worker",
+  "main_changes": [
+    "AI Guide Builder inside Guide CMS",
+    "Raw text to professional editable blocks",
+    "Hindi/Indian layout copy assistant",
+    "Image placement suggestions",
+    "Admin review before publish"
+  ],
+  "changed_files": [
+    "worker-api/src/index.js",
+    "admin-pro/src/lib/api.ts",
+    "admin-pro/src/routes/_admin.guide-images.tsx",
+    "DEPLOY-ALL-V0.6.7-WINDOWS.ps1",
+    "DEPLOY-WORKER-V0.6.7-WINDOWS.ps1",
+    "DEPLOY-PRO-PAGES-V0.6.7-WINDOWS.ps1"
+  ]
+}

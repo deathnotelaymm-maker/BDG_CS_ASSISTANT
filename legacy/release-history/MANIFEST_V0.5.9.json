@@ -1,0 +1,21 @@
+{
+  "version": "0.5.9",
+  "release_name": "Guide Detail Route + Premium Reader Fix",
+  "type": "guide-pro frontend hotfix",
+  "changed_files": [
+    "guide-pro/src/routes/_public.guides.tsx",
+    "guide-pro/src/routes/_public.guides.$slug.tsx",
+    "guide-pro/src/lib/api.ts",
+    "DEPLOY-GUIDE-V0.5.9-WINDOWS.ps1",
+    "DEPLOY-ALL-V0.5.9-WINDOWS.ps1",
+    "README_V0.5.9.md",
+    "CHANGELOG_V0.5.9.md"
+  ],
+  "database_changes": [],
+  "worker_changes": false,
+  "notes": [
+    "Worker v0.5.8 was already healthy and serving guide data.",
+    "This release fixes the Guide Pro route display issue only.",
+    "Use DEPLOY-GUIDE-V0.5.9-WINDOWS.ps1 for fastest recovery."
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "release": {
+    "version": "0.7.0a",
+    "name": "Render Backend + Neon Production Database",
+    "status": "built_candidate_not_deployed"
+  },
+  "baseline": "v0.7.0 Render Business Backend Migration candidate",
+  "runtime": {
+    "api_version": "0.7.0a-render-neon",
+    "host": "Render paid web service",
+    "region": "singapore"
+  },
+  "database": {
+    "provider": "Neon PostgreSQL",
+    "existing_data_preserved": true,
+    "runtime_connection": "pooled DATABASE_URL",
+    "migration_connection": "direct MIGRATION_DATABASE_URL",
+    "data_transfer_required": false,
+    "schema_migration_required": true,
+    "migration_key": "v0.7.0a_render_neon_backend"
+  },
+  "frontends": [
+    "guide-pro",
+    "chat-pro",
+    "admin-pro"
+  ],
+  "storage": "Cloudflare R2",
+  "ai": "DeepSeek deepseek-chat",
+  "deployment": {
+    "blueprint": "render.yaml",
+    "pages_script": "DEPLOY-CLOUDFLARE-PAGES-V0.7.0A-WINDOWS.ps1",
+    "verification_script": "VERIFY-V0.7.0A-WINDOWS.ps1",
+    "neon_backup_script": "BACKUP-NEON-V0.7.0A-WINDOWS.ps1"
+  },
+  "known_non_blocking": [
+    "Guide CategoryIcon chunk approximately 594 KB",
+    "Admin main bundle approximately 1.27 MB",
+    "vite-tsconfig-paths warning",
+    "Recharts 2.x warning"
+  ],
+  "validation": {
+    "archive_integrity": "pass",
+    "backend_syntax": "pass",
+    "guide_build": "pass",
+    "chat_build": "pass",
+    "admin_build": "pass",
+    "production_dependency_audits": "0 vulnerabilities reported",
+    "blueprint_yaml": "pass",
+    "github_ci_yaml": "pass",
+    "neon_connection_validation": "pass",
+    "liveness": "pass",
+    "readiness_fail_closed": "pass",
+    "cors_rejection": "pass",
+    "patch_overlay_simulation": "pass"
+  },
+  "files": {
+    "changed_files_index": "CHANGED_FILES_V0.7.0A.txt",
+    "internal_checksums": "FILE_CHECKSUMS_V0.7.0A.sha256",
+    "artifact_checksums": "SHA256SUMS-v0.7.0a.txt"
+  }
+}

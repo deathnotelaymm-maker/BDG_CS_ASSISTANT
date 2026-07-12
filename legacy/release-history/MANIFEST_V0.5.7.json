@@ -1,0 +1,23 @@
+{
+  "version": "0.5.7",
+  "release_name": "Deployment Recovery + Pro UI Restore",
+  "primary_goal": "Recover Worker deployment and restore professional Lovable Pro frontends.",
+  "deploy_targets": {
+    "worker": "worker-api",
+    "admin": "admin-pro",
+    "guide": "guide-pro",
+    "chat": "chat-pro"
+  },
+  "scripts": [
+    "FIX-WORKER-CONFIG-WINDOWS.ps1",
+    "DEPLOY-WORKER-FIX-V0.5.7-WINDOWS.ps1",
+    "DEPLOY-PRO-PAGES-FIX-V0.5.7-WINDOWS.ps1",
+    "DEPLOY-ALL-V0.5.7-WINDOWS.ps1"
+  ],
+  "worker_health_expected": "0.5.7-worker",
+  "notes": [
+    "The deploy script stops if the Worker does not update to v0.5.7-worker.",
+    "Pro frontends are deployed to both main and production branches.",
+    "Fallback static folders remain included but are not the deployment target for recovery."
+  ]
+}

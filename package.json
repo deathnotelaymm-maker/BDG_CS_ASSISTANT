@@ -1,0 +1,12 @@
+{
+  "name": "bdg-help-center-business-platform",
+  "version": "0.7.0-a.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:guide": "npm --prefix guide-pro run build",
+    "build:chat": "npm --prefix chat-pro run build",
+    "build:admin": "npm --prefix admin-pro run build",
+    "check:backend": "npm --prefix backend-api run check"
+  }
+}

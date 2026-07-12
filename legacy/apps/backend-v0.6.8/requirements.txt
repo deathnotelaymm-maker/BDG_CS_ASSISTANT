@@ -1,0 +1,11 @@
+# Python 3.12+ friendly package ranges.
+# v0.2.0 failed on Python 3.14 because old pydantic-core was pinned.
+fastapi>=0.128.0,<1.0
+uvicorn[standard]>=0.32.1,<1.0
+sqlalchemy>=2.0.36,<3.0
+pydantic>=2.12.0,<3.0
+python-multipart>=0.0.19,<1.0
+psycopg2-binary>=2.9.10,<3.0
+email-validator>=2.2.0,<3.0
+
+httpx>=0.28.1,<1.0

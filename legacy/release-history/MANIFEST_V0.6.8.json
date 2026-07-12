@@ -1,0 +1,25 @@
+{
+  "version": "0.6.8",
+  "name": "Public Guide Backend Binding + Demo Data Removal",
+  "created_at": "2026-07-11",
+  "changed_files": [
+    "guide-pro/src/lib/api.ts",
+    "guide-pro/src/routes/_public.index.tsx",
+    "guide-pro/src/routes/_public.guides.tsx",
+    "worker-api/src/index.js",
+    "DEPLOY-ALL-V0.6.8-WINDOWS.ps1",
+    "DEPLOY-WORKER-V0.6.8-WINDOWS.ps1",
+    "DEPLOY-PRO-PAGES-V0.6.8-WINDOWS.ps1",
+    "README_V0.6.8.md",
+    "CHANGELOG_V0.6.8.md",
+    "MANIFEST_V0.6.8.json"
+  ],
+  "features": [
+    "backend-only-public-guides",
+    "demo-data-removal",
+    "real-categories",
+    "real-guide-list",
+    "real-guide-detail",
+    "empty-state-instead-of-mock"
+  ]
+}

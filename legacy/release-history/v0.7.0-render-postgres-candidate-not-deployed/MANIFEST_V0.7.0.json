@@ -1,0 +1,108 @@
+{
+  "release": {
+    "version": "0.7.0",
+    "name": "Render Business Backend Migration",
+    "created_at": "2026-07-12",
+    "status": "built-and-locally-validated-not-yet-deployed",
+    "baseline": "v0.6.8-public-guide-backend-binding-demo-removal"
+  },
+  "active_components": {
+    "backend_api": {
+      "path": "backend-api",
+      "runtime": "Node.js 22",
+      "host": "Render Web Service",
+      "version": "0.7.0-render"
+    },
+    "guide_pro": {
+      "path": "guide-pro",
+      "host": "Cloudflare Pages",
+      "project": "bdg-guide-pages"
+    },
+    "chat_pro": {
+      "path": "chat-pro",
+      "host": "Cloudflare Pages",
+      "project": "bdg-chat-pages"
+    },
+    "admin_pro": {
+      "path": "admin-pro",
+      "host": "Cloudflare Pages",
+      "project": "bdg-admin-pages"
+    },
+    "database": {
+      "provider": "Render PostgreSQL",
+      "region": "singapore",
+      "name": "bdg-help-postgres",
+      "postgres_major_version": "17"
+    },
+    "object_storage": {
+      "provider": "Cloudflare R2",
+      "bucket": "bdg-ai-guide-images",
+      "adapter": "AWS SDK for JavaScript v3"
+    },
+    "ai": {
+      "provider": "DeepSeek",
+      "model": "deepseek-chat"
+    }
+  },
+  "database_migration": {
+    "required": true,
+    "source": "Neon PostgreSQL",
+    "target": "Render PostgreSQL",
+    "method": "pg_dump/pg_restore plus Render preDeploy migration",
+    "migration_key": "v0.7.0_render_business_backend",
+    "source_destructive_changes": false
+  },
+  "security": [
+    "required secrets validated",
+    "no production default password/JWT fallback",
+    "strict DB/session token validation",
+    "scrypt password hashing",
+    "owner-only administrator password reset",
+    "exact-origin CORS",
+    "rate limiting",
+    "request size limit"
+  ],
+  "deployment": {
+    "blueprint": "render.yaml",
+    "optional_staging_blueprint": "render.staging.example.yaml",
+    "ci": ".github/workflows/ci.yml",
+    "pages_script": "DEPLOY-CLOUDFLARE-PAGES-V0.7.0-WINDOWS.ps1",
+    "verification_script": "VERIFY-V0.7.0-WINDOWS.ps1"
+  },
+  "tests": {
+    "backend_syntax": "pass",
+    "guide_build": "pass",
+    "chat_build": "pass",
+    "admin_build": "pass",
+    "production_dependency_audits": "0 vulnerabilities",
+    "runtime_fail_closed": "pass",
+    "patch_overlay_simulation": "pass",
+    "render_yaml_parse": "pass",
+    "github_ci_yaml_parse": "pass",
+    "guide_public_error_states_build": "pass",
+    "active_old_worker_url_scan": "pass"
+  },
+  "known_non_blocking_warnings": [
+    "Guide Pro CategoryIcon chunk approximately 594 KB",
+    "Admin Pro main bundle approximately 1.27 MB",
+    "vite-tsconfig-paths deprecation warning",
+    "Recharts 2.x deprecation warning"
+  ],
+  "account_specific_actions_not_performed": [
+    "Render resource creation",
+    "Neon to Render production restore",
+    "Cloudflare Pages production deployment",
+    "custom-domain DNS change",
+    "real R2/DeepSeek integration test"
+  ],
+  "changed_files_index": "CHANGED_FILES_V0.7.0.txt",
+  "internal_checksums": "FILE_CHECKSUMS_V0.7.0.sha256",
+  "artifact_checksums": "SHA256SUMS-v0.7.0.txt",
+  "frontend_reliability": [
+    "No production fallback to old Worker URL",
+    "Guide home/list/detail/FAQ distinguish API failure from empty content",
+    "Retryable bilingual service-error panel",
+    "404 guide handling remains separate",
+    "React Query retry and bounded stale cache"
+  ]
+}

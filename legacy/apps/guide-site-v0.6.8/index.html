@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0906" />
+  <title>BDG Help Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="phone-shell" role="main">
+    <header class="app-header">
+      <div class="brand-pill">
+        <span id="logoText" class="logo">BDG</span>
+        <div class="brand-text">
+          <strong id="siteName">BDG Help Center</strong>
+          <small><span class="dot"></span> <span id="headerStatus">Official Help Center</span></small>
+        </div>
+      </div>
+      <a id="supportLink" class="support-btn" href="#" target="_blank" rel="noreferrer"><span aria-hidden="true">🎧</span> <span id="supportButtonText">Support</span></a>
+    </header>
+
+    <section id="heroSection" class="hero-card" aria-labelledby="bannerTitle">
+      <p id="heroEyebrow" class="eyebrow">24/7 · HELP & GUIDE</p>
+      <h1 id="bannerTitle">BDG Mobile Help Center</h1>
+      <p id="bannerSubtitle" class="hero-sub">Search FAQ and view official guide images.</p>
+      <form id="searchForm" class="search-box" role="search" onsubmit="return false;">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input id="searchInput" type="search" autocomplete="off" placeholder="Search help, FAQ, or guide" aria-label="Search help" />
+        <button id="searchBtn" type="submit">Search</button>
+      </form>
+      <div id="quickChips" class="chips" role="list" aria-label="Quick help"></div>
+    </section>
+
+    <section id="popularSection" class="section" aria-labelledby="popularTitle">
+      <div class="section-title"><h2 id="popularTitle">Popular Help</h2></div>
+      <div id="popularGrid" class="popular-grid"></div>
+    </section>
+
+    <section id="topicsSection" class="section" aria-labelledby="topicsTitle">
+      <div class="section-title"><h2 id="topicsTitle">Topics</h2><button id="clearBtn" class="ghost-btn" type="button">Clear</button></div>
+      <div id="categories" class="topic-scroll" role="tablist"></div>
+    </section>
+
+    <section id="guidesSection" class="section" aria-labelledby="resultTitle">
+      <div class="section-title"><h2 id="resultTitle">Official Guides</h2></div>
+      <div id="guideGrid" class="guide-list" aria-live="polite"></div>
+    </section>
+
+    <section id="faqSection" class="section faq-section" aria-labelledby="faqTitle">
+      <div class="section-title"><h2 id="faqTitle">Frequently Asked</h2></div>
+      <div id="faqFilter" class="faq-filter" role="tablist" aria-label="FAQ categories"></div>
+      <div id="faqList" class="faq-list"></div>
+    </section>
+
+    <section id="supportSection" class="section support-panel">
+      <div class="state">
+        <div class="state-icon">🎧</div>
+        <strong id="supportBlockTitle">Need official support?</strong>
+        <span id="supportBlockText">Contact the official support channel if your account, payment, or withdrawal needs manual checking.</span>
+        <a id="supportBlockLink" class="support-btn block-link" href="#" target="_blank" rel="noreferrer">Open Support</a>
+      </div>
+    </section>
+
+    <div id="footerNote" class="footnote">Official BDG Mobile Help Center</div>
+
+    <nav id="bottomNav" class="bottom-nav" aria-label="Primary"></nav>
+  </main>
+
+  <dialog id="guideDialog" aria-labelledby="guideArticle">
+    <button class="close" id="closeDialog" aria-label="Close">×</button>
+    <article id="guideArticle"></article>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

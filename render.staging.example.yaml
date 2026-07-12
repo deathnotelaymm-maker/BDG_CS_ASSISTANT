@@ -1,0 +1,65 @@
+# Optional staging service. Use a separate Neon branch/database and staging R2 bucket.
+services:
+  - type: web
+    name: bdg-ai-help-api-staging
+    runtime: node
+    rootDir: backend-api
+    region: singapore
+    plan: starter
+    buildCommand: npm ci --omit=dev
+    preDeployCommand: npm run migrate
+    startCommand: npm start
+    healthCheckPath: /health/ready
+    maxShutdownDelaySeconds: 30
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_VERSION
+        value: 22.18.0
+      - key: NODE_ENV
+        value: production
+      - key: APP_NAME
+        value: BDG Help Center Staging
+      - key: DATABASE_PROVIDER
+        value: neon
+      - key: DATABASE_URL
+        sync: false
+      - key: MIGRATION_DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: "true"
+      - key: REQUIRE_NEON_POOLER
+        value: "true"
+      - key: DB_POOL_MAX
+        value: "5"
+      - key: DB_CONNECT_TIMEOUT_MS
+        value: "10000"
+      - key: DB_QUERY_TIMEOUT_MS
+        value: "20000"
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: RESET_OWNER_PASSWORD_ON_DEPLOY
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_BASE
+        value: https://api.deepseek.com
+      - key: DEEPSEEK_MODEL
+        value: deepseek-chat
+      - key: AI_MODE_ENABLED
+        value: "true"
+      - key: R2_REQUIRED
+        value: "true"
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: bdg-ai-guide-images-staging

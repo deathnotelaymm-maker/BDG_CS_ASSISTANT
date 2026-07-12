@@ -1,0 +1,20 @@
+{
+  "version": "0.6.1",
+  "release_name": "Admin Real Connection + Visual Guide Builder",
+  "worker_version": "0.6.1-worker",
+  "changed_files": [
+    "worker-api/src/index.js",
+    "admin-pro/src/lib/api.ts",
+    "admin-pro/src/components/DataPage.tsx",
+    "admin-pro/src/routes/_admin.theme-settings.tsx",
+    "admin-pro/src/routes/_admin.chat-quick-replies.tsx",
+    "admin-pro/src/routes/_admin.guide-images.tsx",
+    "admin-pro/src/routes/_admin.smart-match-guides.tsx",
+    "admin-pro/src/routes/_admin.ai-diagnostics.tsx",
+    "guide-pro/src/lib/api.ts",
+    "guide-pro/src/routes/_public.index.tsx",
+    "DEPLOY-WORKER-V0.6.1-WINDOWS.ps1",
+    "DEPLOY-PRO-PAGES-V0.6.1-WINDOWS.ps1",
+    "DEPLOY-ALL-V0.6.1-WINDOWS.ps1"
+  ]
+}
