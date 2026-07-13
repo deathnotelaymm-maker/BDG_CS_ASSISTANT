@@ -8,9 +8,11 @@ export type Settings = {
 };
 
 export type SiteContent = {
+  heroEyebrow: string;
   heroTitle: string;
   heroSubtitle: string;
   searchPlaceholder: string;
+  searchButtonText: string;
   popularHelpTitle: string;
   topicsTitle: string;
   featuredGuidesTitle: string;
@@ -26,9 +28,23 @@ export type SiteContent = {
   };
 };
 
-export type Category = { id: string; slug: string; name: string; icon: string; description: string };
+export type Category = {
+  id: string;
+  slug: string;
+  name: string;
+  icon: string;
+  description: string;
+};
 export type Faq = { id: string; question: string; answer: string; category?: string };
-export type PopularHelp = { id: string; title: string; subtitle: string; icon: string; link: string; sort: number; active: boolean };
+export type PopularHelp = {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  link: string;
+  sort: number;
+  active: boolean;
+};
 
 export type GuideBlock =
   | { type: "heading"; text: string; level?: 2 | 3 }
@@ -67,9 +83,11 @@ export const settings: Settings = {
 };
 
 export const siteContent: SiteContent = {
+  heroEyebrow: "BDG Official Help",
   heroTitle: "How can we help you today?",
   heroSubtitle: "Guides, tutorials and answers for everything BDG.",
   searchPlaceholder: "Search deposit, withdrawal, login…",
+  searchButtonText: "Search",
   popularHelpTitle: "Popular help",
   topicsTitle: "Browse by topic",
   featuredGuidesTitle: "Featured guides",
@@ -87,26 +105,115 @@ export const siteContent: SiteContent = {
 
 export const categories: Category[] = [
   { id: "c1", slug: "deposit", name: "Deposit", icon: "Wallet", description: "Fund your account" },
-  { id: "c2", slug: "withdrawal", name: "Withdrawal", icon: "Banknote", description: "Withdraw earnings" },
-  { id: "c3", slug: "bank-card", name: "Bank Card", icon: "CreditCard", description: "Manage cards" },
-  { id: "c4", slug: "account", name: "Account & Login", icon: "UserRound", description: "Login & security" },
-  { id: "c5", slug: "getting-started", name: "Getting started", icon: "Rocket", description: "New user basics" },
-  { id: "c6", slug: "promotions", name: "Promotions", icon: "Gift", description: "Bonuses & rewards" },
+  {
+    id: "c2",
+    slug: "withdrawal",
+    name: "Withdrawal",
+    icon: "Banknote",
+    description: "Withdraw earnings",
+  },
+  {
+    id: "c3",
+    slug: "bank-card",
+    name: "Bank Card",
+    icon: "CreditCard",
+    description: "Manage cards",
+  },
+  {
+    id: "c4",
+    slug: "account",
+    name: "Account & Login",
+    icon: "UserRound",
+    description: "Login & security",
+  },
+  {
+    id: "c5",
+    slug: "getting-started",
+    name: "Getting started",
+    icon: "Rocket",
+    description: "New user basics",
+  },
+  {
+    id: "c6",
+    slug: "promotions",
+    name: "Promotions",
+    icon: "Gift",
+    description: "Bonuses & rewards",
+  },
 ];
 
 export const popularHelp: PopularHelp[] = [
-  { id: "p1", title: "Deposit", subtitle: "Add funds to your account", icon: "Wallet", link: "/guides/how-to-deposit", sort: 1, active: true },
-  { id: "p2", title: "Withdrawal", subtitle: "Withdraw your earnings", icon: "Banknote", link: "/guides/how-to-withdraw", sort: 2, active: true },
-  { id: "p3", title: "Bank Card", subtitle: "Link and manage cards", icon: "CreditCard", link: "/guides/bank-card-setup", sort: 3, active: true },
-  { id: "p4", title: "Login", subtitle: "Sign in and recover access", icon: "LogIn", link: "/guides/login-help", sort: 4, active: true },
+  {
+    id: "p1",
+    title: "Deposit",
+    subtitle: "Add funds to your account",
+    icon: "Wallet",
+    link: "/guides/how-to-deposit",
+    sort: 1,
+    active: true,
+  },
+  {
+    id: "p2",
+    title: "Withdrawal",
+    subtitle: "Withdraw your earnings",
+    icon: "Banknote",
+    link: "/guides/how-to-withdraw",
+    sort: 2,
+    active: true,
+  },
+  {
+    id: "p3",
+    title: "Bank Card",
+    subtitle: "Link and manage cards",
+    icon: "CreditCard",
+    link: "/guides/bank-card-setup",
+    sort: 3,
+    active: true,
+  },
+  {
+    id: "p4",
+    title: "Login",
+    subtitle: "Sign in and recover access",
+    icon: "LogIn",
+    link: "/guides/login-help",
+    sort: 4,
+    active: true,
+  },
 ];
 
 export const faqs: Faq[] = [
-  { id: "f1", question: "How long does a withdrawal take?", answer: "Most withdrawals complete within 5–30 minutes. Bank transfers may take up to 24 hours.", category: "withdrawal" },
-  { id: "f2", question: "What is the minimum deposit?", answer: "The minimum deposit is ₹100 for most payment methods.", category: "deposit" },
-  { id: "f3", question: "I forgot my password. What should I do?", answer: "Tap 'Forgot password' on the login screen and follow the SMS/email reset link.", category: "account" },
-  { id: "f4", question: "Why was my card declined?", answer: "Check the card number, expiry and CVV. If issue persists, contact your bank or try another card.", category: "bank-card" },
-  { id: "f5", question: "How do I claim a bonus?", answer: "Visit Promotions in your account and tap 'Claim' on any eligible offer.", category: "promotions" },
+  {
+    id: "f1",
+    question: "How long does a withdrawal take?",
+    answer:
+      "Most withdrawals complete within 5–30 minutes. Bank transfers may take up to 24 hours.",
+    category: "withdrawal",
+  },
+  {
+    id: "f2",
+    question: "What is the minimum deposit?",
+    answer: "The minimum deposit is ₹100 for most payment methods.",
+    category: "deposit",
+  },
+  {
+    id: "f3",
+    question: "I forgot my password. What should I do?",
+    answer: "Tap 'Forgot password' on the login screen and follow the SMS/email reset link.",
+    category: "account",
+  },
+  {
+    id: "f4",
+    question: "Why was my card declined?",
+    answer:
+      "Check the card number, expiry and CVV. If issue persists, contact your bank or try another card.",
+    category: "bank-card",
+  },
+  {
+    id: "f5",
+    question: "How do I claim a bonus?",
+    answer: "Visit Promotions in your account and tap 'Claim' on any eligible offer.",
+    category: "promotions",
+  },
 ];
 
 const img = (seed: string, w = 1200, h = 600) =>
@@ -127,15 +234,44 @@ export const guides: Guide[] = [
     keywords: ["deposit", "add funds", "payment"],
     supportCta: true,
     blocks: [
-      { type: "paragraph", text: "Adding funds to your BDG account takes about a minute. Follow the steps below and you'll be ready to play or trade in no time." },
-      { type: "step", title: "Step 1 — Open your wallet", text: "Tap the Wallet icon in the bottom navigation of the BDG app.", image: img("1563986768609-322da13575f3", 800, 500) },
-      { type: "step", title: "Step 2 — Choose Deposit", text: "Select 'Deposit', then pick your preferred payment method: UPI, bank card, or net banking." },
-      { type: "step", title: "Step 3 — Enter amount", text: "Enter the amount (minimum ₹100). Review any applicable bonus and tap Continue." },
-      { type: "note", text: "Deposits are typically credited instantly. Bank transfers may take up to 10 minutes." },
-      { type: "step", title: "Step 4 — Complete payment", text: "Authorise the payment in your bank or UPI app. You'll receive a confirmation once complete." },
-      { type: "warning", text: "Never share your OTP or PIN with anyone claiming to be from BDG support." },
+      {
+        type: "paragraph",
+        text: "Adding funds to your BDG account takes about a minute. Follow the steps below and you'll be ready to play or trade in no time.",
+      },
+      {
+        type: "step",
+        title: "Step 1 — Open your wallet",
+        text: "Tap the Wallet icon in the bottom navigation of the BDG app.",
+        image: img("1563986768609-322da13575f3", 800, 500),
+      },
+      {
+        type: "step",
+        title: "Step 2 — Choose Deposit",
+        text: "Select 'Deposit', then pick your preferred payment method: UPI, bank card, or net banking.",
+      },
+      {
+        type: "step",
+        title: "Step 3 — Enter amount",
+        text: "Enter the amount (minimum ₹100). Review any applicable bonus and tap Continue.",
+      },
+      {
+        type: "note",
+        text: "Deposits are typically credited instantly. Bank transfers may take up to 10 minutes.",
+      },
+      {
+        type: "step",
+        title: "Step 4 — Complete payment",
+        text: "Authorise the payment in your bank or UPI app. You'll receive a confirmation once complete.",
+      },
+      {
+        type: "warning",
+        text: "Never share your OTP or PIN with anyone claiming to be from BDG support.",
+      },
       { type: "heading", text: "Common issues", level: 2 },
-      { type: "paragraph", text: "If your deposit doesn't show up within 10 minutes, check your bank statement first — money is rarely lost, only delayed." },
+      {
+        type: "paragraph",
+        text: "If your deposit doesn't show up within 10 minutes, check your bank statement first — money is rarely lost, only delayed.",
+      },
     ],
     relatedGuides: ["how-to-withdraw", "bank-card-setup"],
     relatedFaqs: ["f2", "f4"],
@@ -153,12 +289,30 @@ export const guides: Guide[] = [
     views: 9854,
     supportCta: true,
     blocks: [
-      { type: "paragraph", text: "Withdrawals are fast, secure and available 24/7. Make sure your KYC is verified before your first withdrawal." },
+      {
+        type: "paragraph",
+        text: "Withdrawals are fast, secure and available 24/7. Make sure your KYC is verified before your first withdrawal.",
+      },
       { type: "step", title: "Step 1 — Open Wallet", text: "Open the BDG app and tap Wallet." },
-      { type: "step", title: "Step 2 — Choose Withdraw", text: "Tap Withdraw and pick a saved bank account or UPI ID." },
-      { type: "step", title: "Step 3 — Enter amount", text: "Enter the amount you want to withdraw. Minimum ₹200." },
-      { type: "note", text: "First-time withdrawals require KYC verification. This is a one-time process." },
-      { type: "step", title: "Step 4 — Confirm", text: "Confirm with your PIN. The funds will arrive within 5–30 minutes." },
+      {
+        type: "step",
+        title: "Step 2 — Choose Withdraw",
+        text: "Tap Withdraw and pick a saved bank account or UPI ID.",
+      },
+      {
+        type: "step",
+        title: "Step 3 — Enter amount",
+        text: "Enter the amount you want to withdraw. Minimum ₹200.",
+      },
+      {
+        type: "note",
+        text: "First-time withdrawals require KYC verification. This is a one-time process.",
+      },
+      {
+        type: "step",
+        title: "Step 4 — Confirm",
+        text: "Confirm with your PIN. The funds will arrive within 5–30 minutes.",
+      },
     ],
     relatedGuides: ["how-to-deposit", "bank-card-setup"],
     relatedFaqs: ["f1"],
@@ -175,10 +329,24 @@ export const guides: Guide[] = [
     priority: 3,
     views: 6220,
     blocks: [
-      { type: "paragraph", text: "Save your card once and skip re-entering details on every transaction." },
-      { type: "step", title: "Step 1 — Open Account settings", text: "Go to Profile → Payment methods." },
-      { type: "step", title: "Step 2 — Add card", text: "Tap 'Add card' and enter card number, expiry and CVV." },
-      { type: "warning", text: "Only save cards on trusted devices. Never share your card details over chat." },
+      {
+        type: "paragraph",
+        text: "Save your card once and skip re-entering details on every transaction.",
+      },
+      {
+        type: "step",
+        title: "Step 1 — Open Account settings",
+        text: "Go to Profile → Payment methods.",
+      },
+      {
+        type: "step",
+        title: "Step 2 — Add card",
+        text: "Tap 'Add card' and enter card number, expiry and CVV.",
+      },
+      {
+        type: "warning",
+        text: "Only save cards on trusted devices. Never share your card details over chat.",
+      },
     ],
     relatedGuides: ["how-to-deposit"],
     relatedFaqs: ["f4"],
@@ -195,10 +363,24 @@ export const guides: Guide[] = [
     priority: 4,
     views: 4310,
     blocks: [
-      { type: "paragraph", text: "Trouble signing in? Follow these steps to get back into your account quickly." },
-      { type: "step", title: "Step 1 — Try 'Forgot password'", text: "On the login screen tap 'Forgot password' and enter your registered mobile number." },
-      { type: "step", title: "Step 2 — Enter OTP", text: "You'll get an SMS with a 6-digit code. Enter it in the app." },
-      { type: "note", text: "OTPs expire after 10 minutes. Request a new one if it stops working." },
+      {
+        type: "paragraph",
+        text: "Trouble signing in? Follow these steps to get back into your account quickly.",
+      },
+      {
+        type: "step",
+        title: "Step 1 — Try 'Forgot password'",
+        text: "On the login screen tap 'Forgot password' and enter your registered mobile number.",
+      },
+      {
+        type: "step",
+        title: "Step 2 — Enter OTP",
+        text: "You'll get an SMS with a 6-digit code. Enter it in the app.",
+      },
+      {
+        type: "note",
+        text: "OTPs expire after 10 minutes. Request a new one if it stops working.",
+      },
     ],
     relatedFaqs: ["f3"],
   },
@@ -214,7 +396,10 @@ export const guides: Guide[] = [
     priority: 5,
     views: 3105,
     blocks: [
-      { type: "paragraph", text: "Welcome to BDG. Here's everything you need to make the most of your first session." },
+      {
+        type: "paragraph",
+        text: "Welcome to BDG. Here's everything you need to make the most of your first session.",
+      },
       { type: "heading", text: "1. Create your profile" },
       { type: "paragraph", text: "Add your name and a photo so friends can find you." },
     ],

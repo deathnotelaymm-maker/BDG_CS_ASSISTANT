@@ -153,6 +153,9 @@ function normalizeResourcePayload(resource: string, payload: any): any[] {
       error_type: log.error_type || "",
       latency_ms: Number(log.latency_ms || 0),
       request_id: log.request_id || "",
+      response_blocks: Array.isArray(log.response_blocks) ? log.response_blocks : [],
+      response_format: log.response_format || "text",
+      resolution_state: log.resolution_state || "open",
     }));
   }
 
@@ -289,6 +292,26 @@ function normalizeForCreate(resource: string, data: any) {
       ai_enhance: data.ai_enhance !== false,
       strict_mode: data.strict_mode !== false,
       confidence_threshold: Number(data.confidence_threshold || 90),
+      intent_id: data.intent_id || data.slug || "",
+      positive_examples: data.positive_examples || "",
+      negative_examples: data.negative_examples || "",
+      common_misspellings: data.common_misspellings || data.typo_keywords || "",
+      required_fields: data.required_fields || "",
+      excluded_situations: data.excluded_situations || "",
+      risk_level: data.risk_level || "normal",
+      human_escalation_required: data.human_escalation_required === true,
+      allowed_response_content: data.allowed_response_content || "",
+      forbidden_claims: data.forbidden_claims || "",
+      required_warning: data.required_warning || "",
+      intent_policy_json: data.intent_policy_json || "",
+      max_clarification_questions: Number(data.max_clarification_questions || 1),
+      clarification_questions_json: data.clarification_questions_json || "",
+      response_layout_json: data.response_layout_json || "",
+      attach_mode: data.attach_mode || "auto_when_clear",
+      when_to_attach: data.when_to_attach || "",
+      when_not_to_attach: data.when_not_to_attach || "",
+      guide_usage_policy: data.guide_usage_policy || "",
+      knowledge_version: data.knowledge_version || "v1",
     };
   }
   return data;

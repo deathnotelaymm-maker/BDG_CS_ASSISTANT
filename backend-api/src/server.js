@@ -5,13 +5,13 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '0.7.1-admin-stability-reliable-fallback';
+const API_VERSION = '0.8.0-structured-rich-responses-precision-guide-delivery';
 validateRuntimeEnv(env);
 env.GUIDE_IMAGES = createR2Adapter(env);
 
 const counters = new Map();
-// Theme and chat content are intentionally excluded so admin changes publish immediately.
-const publicCachePaths = new Set(['/guide/content', '/public/guide-content', '/popular-help', '/public/popular-help', '/navigation', '/public/navigation', '/categories', '/public/categories', '/guides', '/public/guides', '/faqs', '/public/faqs']);
+// Theme, chat content, and Guide Page content are excluded so Admin changes publish immediately.
+const publicCachePaths = new Set(['/popular-help', '/public/popular-help', '/navigation', '/public/navigation', '/categories', '/public/categories', '/guides', '/public/guides', '/faqs', '/public/faqs']);
 
 function clientIp(req) {
   return String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
@@ -107,7 +107,7 @@ const server = http.createServer(async (req, res) => {
     else delete headers['access-control-allow-origin'];
     if (req.method === 'GET' && (publicCachePaths.has(path) || path.startsWith('/guides/'))) {
       headers['cache-control'] = 'public, max-age=60, stale-while-revalidate=600, stale-if-error=86400';
-    } else if (path.startsWith('/admin/') || path.startsWith('/auth/') || path === '/chat') {
+    } else if (path.startsWith('/admin/') || path.startsWith('/auth/') || path === '/chat' || path === '/guide/content' || path === '/public/guide-content') {
       headers['cache-control'] = 'no-store';
     }
     const responseBody = req.method === 'HEAD' ? null : Buffer.from(await response.arrayBuffer());

@@ -5,7 +5,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '0.7.1-admin-stability-reliable-fallback';
+const VERSION = '0.8.0-structured-rich-responses-precision-guide-delivery';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -46,7 +46,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['true-rich-guide-cms','separate-guide-language-content','admin-cn-en','public-hi-en','favicon-upload','chat-navigation-fix','admin-login-json-fix','guide-pro-data-binding-fix','owner-admin-control','clean-chat-ux','favicon-hardcode','admin-data-fix','admin-real-connection','visual-guide-builder','bulk-cleanup','smart-match-guide','ai-control-center','chat-icon-control','support-button-removal','deployment-recovery','pro-ui-restore','business-cms','professional-help-center','site-content-control','prompt-versions','audit-logs','render-node','neon-postgresql','neon-pooled-runtime','neon-direct-migrations','pooled-database','r2-s3-api','deepseek','smart-memory','clarify-first-ai','smart-match-confidence-thresholds','smart-match-negative-keywords','smart-match-rich-blocks','admin-2fa','single-session-login','owner-permissions','conversation-state-ai','guide-rejection-detection','topic-reset','real-2fa-admin-control','precision-ai-router','intent-first-routing','confidence-bands','second-best-gap-check','safe-guide-delivery','ai-test-lab','incorrect-match-reports','knowledge-versions','prompt-first-ai','optional-guide-delivery','guide-attachment-library','guide-usage-policy','ai-prompt-primary-source','guide-attach-mode','public-guide-backend-binding','demo-data-removal','backend-only-public-guides'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['true-rich-guide-cms','separate-guide-language-content','admin-cn-en','public-hi-en','favicon-upload','chat-navigation-fix','admin-login-json-fix','guide-pro-data-binding-fix','owner-admin-control','clean-chat-ux','favicon-hardcode','admin-data-fix','admin-real-connection','visual-guide-builder','bulk-cleanup','smart-match-guide','ai-control-center','chat-icon-control','support-button-removal','deployment-recovery','pro-ui-restore','business-cms','professional-help-center','site-content-control','prompt-versions','audit-logs','render-node','neon-postgresql','neon-pooled-runtime','neon-direct-migrations','pooled-database','r2-s3-api','deepseek','smart-memory','clarify-first-ai','smart-match-confidence-thresholds','smart-match-negative-keywords','smart-match-rich-blocks','admin-2fa','single-session-login','owner-permissions','conversation-state-ai','guide-rejection-detection','topic-reset','real-2fa-admin-control','precision-ai-router','intent-first-routing','confidence-bands','second-best-gap-check','safe-guide-delivery','ai-test-lab','incorrect-match-reports','knowledge-versions','prompt-first-ai','optional-guide-delivery','guide-attachment-library','guide-usage-policy','ai-prompt-primary-source','guide-attach-mode','public-guide-backend-binding','demo-data-removal','backend-only-public-guides','structured-rich-responses','semantic-response-colors','live-guide-content-binding','explicit-resolution-only','customer-question-chat-logs'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -59,7 +59,7 @@ async function route(request, env, url) {
   if (method === 'GET' && path.startsWith('/guides/')) return json(await getGuide(env, decodeURIComponent(path.split('/').pop()), url.searchParams.get('language') || url.searchParams.get('lang') || 'en'), 200, env);
   if (method === 'GET' && (path === '/faqs' || path === '/public/faqs')) return json(await listFaqs(env, false), 200, env);
   if (method === 'GET' && (path === '/chat/content' || path === '/public/chat-content')) return json(await getChatContent(env), 200, env);
-  if (method === 'POST' && path === '/chat') return json(await runAiChat(env, await readJson(request), false), 200, env);
+  if (method === 'POST' && path === '/chat') return json(finalizeChatResponse(await runAiChat(env, await readJson(request), false)), 200, env);
   if (method === 'POST' && path === '/chat/uploads') return uploadToR2(request, env, 'chat');
 
   if (method === 'POST' && (path === '/auth/login' || path === '/login' || path === '/api/login')) return login(request, env);
@@ -165,7 +165,7 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/api-diagnostics') return json(await adminApiDiagnostics(env), 200, env);
   if (method === 'GET' && path === '/admin/system-health') return json(await systemHealth(env), 200, env);
   if (method === 'GET' && path === '/admin/foundation-diagnostics') return json(await adminFoundationDiagnostics(env), 200, env);
-  if (method === 'POST' && path === '/admin/ai/test') return json(await runAiChat(env, await readJson(request), true), 200, env);
+  if (method === 'POST' && path === '/admin/ai/test') return json(finalizeChatResponse(await runAiChat(env, await readJson(request), true)), 200, env);
 
   if (method === 'GET' && path === '/admin/chat-sessions') return json(await listSessions(env), 200, env);
   if (method === 'DELETE' && path.startsWith('/admin/chat-sessions/')) return json(await clearSession(env, decodeURIComponent(path.replace('/admin/chat-sessions/', ''))), 200, env);
@@ -353,9 +353,9 @@ async function createTables(env) {
     `CREATE TABLE IF NOT EXISTS theme_settings (id SERIAL PRIMARY KEY,app_name VARCHAR(160) DEFAULT 'BDG Help Center',logo_text VARCHAR(40) DEFAULT 'BDG',banner_title VARCHAR(200) DEFAULT 'BDG Mobile Help Center',banner_subtitle VARCHAR(255) DEFAULT 'Search FAQ and view official guide images.',support_link VARCHAR(500) DEFAULT 'https://t.me/your_support_bot',primary_color VARCHAR(40) DEFAULT '#f7c948',updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS ai_prompt_sections (id SERIAL PRIMARY KEY,section_key VARCHAR(80) UNIQUE NOT NULL,title VARCHAR(180) NOT NULL,content TEXT DEFAULT '',enabled BOOLEAN DEFAULT TRUE,priority INTEGER DEFAULT 100,updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS ai_model_settings (id SERIAL PRIMARY KEY,provider VARCHAR(50) DEFAULT 'deepseek',model VARCHAR(120) DEFAULT 'deepseek-chat',api_base VARCHAR(500) DEFAULT 'https://api.deepseek.com',enabled BOOLEAN DEFAULT FALSE,temperature DOUBLE PRECISION DEFAULT 0.2,max_tokens INTEGER DEFAULT 700,require_approved_context BOOLEAN DEFAULT TRUE,memory_enabled BOOLEAN DEFAULT TRUE,memory_max_messages INTEGER DEFAULT 12,memory_ttl_days INTEGER DEFAULT 30,updated_at TIMESTAMPTZ DEFAULT NOW())`,
-    `CREATE TABLE IF NOT EXISTS chat_sessions (id SERIAL PRIMARY KEY,session_id VARCHAR(120) UNIQUE NOT NULL,memory_summary TEXT,message_count INTEGER DEFAULT 0,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS chat_sessions (id SERIAL PRIMARY KEY,session_id VARCHAR(120) UNIQUE NOT NULL,memory_summary TEXT,message_count INTEGER DEFAULT 0,resolution_state TEXT DEFAULT 'open',resolved_at TIMESTAMPTZ,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS chat_memory_messages (id SERIAL PRIMARY KEY,session_id VARCHAR(120) NOT NULL,role VARCHAR(20) NOT NULL,content TEXT NOT NULL,image_urls TEXT,created_at TIMESTAMPTZ DEFAULT NOW())`,
-    `CREATE TABLE IF NOT EXISTS chat_logs (id SERIAL PRIMARY KEY,session_id VARCHAR(120),customer_message TEXT NOT NULL,assistant_reply TEXT NOT NULL,matched_sources TEXT,matched_images TEXT,uploaded_images TEXT,used_deepseek BOOLEAN DEFAULT FALSE,model VARCHAR(120),created_at TIMESTAMPTZ DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS chat_logs (id SERIAL PRIMARY KEY,session_id VARCHAR(120),customer_message TEXT NOT NULL,assistant_reply TEXT NOT NULL,matched_sources TEXT,matched_images TEXT,uploaded_images TEXT,used_deepseek BOOLEAN DEFAULT FALSE,model VARCHAR(120),response_blocks_json TEXT,response_format TEXT DEFAULT 'structured-v1',resolution_state TEXT DEFAULT 'open',created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS site_content_blocks (id SERIAL PRIMARY KEY,block_key VARCHAR(100) UNIQUE NOT NULL,label VARCHAR(160) NOT NULL,value TEXT DEFAULT '',input_type VARCHAR(40) DEFAULT 'text',sort_order INTEGER DEFAULT 100,updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS popular_help_cards (id SERIAL PRIMARY KEY,title VARCHAR(120) NOT NULL,subtitle VARCHAR(200),icon VARCHAR(24) DEFAULT 'star',query VARCHAR(200),linked_category_slug VARCHAR(150),sort_order INTEGER DEFAULT 100,status VARCHAR(30) DEFAULT 'active',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS navigation_items (id SERIAL PRIMARY KEY,nav_key VARCHAR(80) UNIQUE NOT NULL,label VARCHAR(80) NOT NULL,icon VARCHAR(24) DEFAULT '•',href VARCHAR(500) DEFAULT '#',sort_order INTEGER DEFAULT 100,status VARCHAR(30) DEFAULT 'active',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -466,6 +466,8 @@ async function createTables(env) {
   await q(env, `ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS last_unresolved_question TEXT`);
   await q(env, `ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS guide_already_sent BOOLEAN DEFAULT FALSE`);
   await q(env, `ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS sensitive_confirmation_status TEXT`);
+  await q(env, `ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS resolution_state TEXT DEFAULT 'open'`);
+  await q(env, `ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ`);
   await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS provider_status TEXT DEFAULT 'fallback'`);
   await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS error_type TEXT`);
   await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS error_detail TEXT`);
@@ -474,6 +476,11 @@ async function createTables(env) {
   await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS intent_id TEXT`);
   await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS confidence INTEGER`);
   await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS attachment_decision TEXT`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS response_blocks_json TEXT`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS response_format TEXT DEFAULT 'structured-v1'`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS resolution_state TEXT DEFAULT 'open'`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_chat_logs_created_at ON chat_logs(created_at DESC)`);
+  await q(env, `INSERT INTO system_migrations(migration_key, notes) VALUES('v0.8.0_structured_rich_responses_precision_guide_delivery', 'Structured response blocks, explicit resolution state, live Guide content, and customer-first Chat Logs') ON CONFLICT(migration_key) DO NOTHING`);
   await q(env, `INSERT INTO system_migrations(migration_key, notes) VALUES('v0.7.1_admin_stability_reliable_ai_fallback', 'Chat diagnostics, stable content/theme contracts, and reliable AI fallback') ON CONFLICT(migration_key) DO NOTHING`);
   await q(env, `INSERT INTO ai_router_settings(id,direct_send_threshold,clarify_threshold,fallback_threshold,min_confidence_gap,max_clarification_questions,strict_guide_delivery,show_admin_diagnostics) VALUES(1,90,70,50,12,1,TRUE,TRUE) ON CONFLICT(id) DO NOTHING`);
 }
@@ -490,7 +497,7 @@ async function seedDefaults(env) {
 }
 async function seedContent(env) {
   const blocks = [
-    ['header_status','Header status text','Official Help Center','text',10],['hero_eyebrow','Hero eyebrow','24/7 HELP & GUIDE','text',20],['hero_title','Hero title','BDG Mobile Help Center','text',30],['hero_subtitle','Hero subtitle','Search FAQ, view guide images, or contact official support.','textarea',40],['search_placeholder','Search placeholder','Search help, FAQ, or guide','text',50],['quick_help_title','Quick help label','Quick help','text',60],['popular_title','Popular help title','Popular Help','text',70],['topics_title','Topics title','Topics','text',80],['guides_title','Guides title','Official Guides','text',90],['faq_title','FAQ title','Frequently Asked','text',100],['support_button_text','Support button text','Support','text',110],['footer_note','Footer note','Official BDG Mobile Help Center','text',120],['guide_empty_title','No guide title','No guides yet','text',130],['guide_empty_message','No guide message','Guide images will appear here after admin publishes them.','textarea',140]
+    ['header_status','Header status text','Official Help Center','text',10],['hero_eyebrow','Hero eyebrow','24/7 HELP & GUIDE','text',20],['hero_title','Hero title','BDG Mobile Help Center','text',30],['hero_subtitle','Hero subtitle','Search FAQ, view guide images, or contact official support.','textarea',40],['search_placeholder','Search placeholder','Search help, FAQ, or guide','text',50],['search_button_text','Search button text','Search','text',55],['quick_help_title','Quick help label','Quick help','text',60],['popular_title','Popular help title','Popular Help','text',70],['topics_title','Topics title','Topics','text',80],['guides_title','Guides title','Official Guides','text',90],['faq_title','FAQ title','Frequently Asked','text',100],['support_button_text','Support button text','Support','text',110],['read_guide_text','Read guide button text','Read guide','text',112],['view_all_text','View all button text','View all','text',114],['footer_note','Footer note','Official BDG Mobile Help Center','text',120],['guide_empty_title','No guide title','No guides yet','text',130],['guide_empty_message','No guide message','Guide images will appear here after admin publishes them.','textarea',140],['error_state_text','Guide loading error','Unable to load guide content from the backend.','textarea',150]
   ];
   for (const b of blocks) await q(env, `INSERT INTO site_content_blocks(block_key,label,value,input_type,sort_order) VALUES($1,$2,$3,$4,$5) ON CONFLICT(block_key) DO NOTHING`, b);
   const cards = [['Deposit','Add funds to your account','money','deposit','deposit',10,'active'],['Withdrawal','Cash out safely','card','withdrawal','withdrawal',20,'active'],['Bank Card','Link or verify your card','bank','bank card','withdrawal',30,'active'],['Login','Sign-in and password help','lock','login','account',40,'active']];
@@ -551,7 +558,7 @@ async function seedPromptSections(env) {
 function splitUrls(value) { return !value ? [] : String(value).split(/\r?\n/).map(x => x.trim()).filter(Boolean); }
 function joinUrls(urls) { return (urls || []).map(u => String(u || '').trim()).filter(Boolean).join('\n'); }
 function slugify(value) { return String(value || '').trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/[\s-]+/g, '-').replace(/^-|-$/g, '') || 'item'; }
-function cleanAssistantText(text) { return String(text || '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1').replace(/\s+$/gm, '').trim(); }
+function cleanAssistantText(text) { return String(text || '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1').replace(/[ \t]+$/gm, '').trim(); }
 function firstSentences(text, max = 500) { const s = String(text || '').replace(/\s+/g, ' ').trim(); return s.length > max ? s.slice(0, max - 1) + '...' : s; }
 function tokenize(text) { const source = String(text || '').toLowerCase(); const words = source.match(/[a-z0-9]+/g) || []; const expanded = []; for (const w of words) { if (!STOPWORDS.has(w)) expanded.push(w); for (const list of Object.values(SYNONYMS)) if (list.includes(w)) expanded.push(...list); } return expanded; }
 function scoreMatch(message, fields = [], keywords = '') { const msg = tokenize(message); if (!msg.length) return 0; const hay = tokenize([...fields, keywords].join(' ')); const hset = new Set(hay); let score = 0; for (const w of msg) if (hset.has(w)) score += 5; const k = String(keywords || '').toLowerCase().split(',').map(x => x.trim()).filter(Boolean); for (const phrase of k) if (String(message || '').toLowerCase().includes(phrase)) score += 18; return score; }
@@ -602,7 +609,7 @@ function faqOut(row) { return { id: row.id, question: row.question, answer: row.
 function knowledgeOut(row) { return { id: row.id, title: row.title, content: row.content, keywords: row.keywords || '', priority: row.priority ?? 100, status: row.status || 'active' }; }
 function promptOut(row) { return { id: row.id, section_key: row.section_key, title: row.title, content: row.content || '', enabled: !!row.enabled, priority: row.priority ?? 100, updated_at: String(row.updated_at || '') }; }
 function aiSettingOut(row, env) { row = row || {}; return { id: row.id || 1, provider: row.provider || 'deepseek', model: row.model || env.DEEPSEEK_MODEL || 'deepseek-chat', api_base: row.api_base || env.DEEPSEEK_API_BASE || 'https://api.deepseek.com', enabled: !!row.enabled, temperature: Number(row.temperature ?? 0.2), max_tokens: row.max_tokens ?? 700, require_approved_context: !!row.require_approved_context, memory_enabled: row.memory_enabled !== false, memory_max_messages: row.memory_max_messages ?? 12, memory_ttl_days: row.memory_ttl_days ?? 30, has_api_key: !!env.DEEPSEEK_API_KEY }; }
-function blockOut(row) { return { id: row.id, block_key: row.block_key, label: row.label, value: row.value || '', input_type: row.input_type || 'text', sort_order: row.sort_order ?? 100 }; }
+function blockOut(row) { return { id: row.id, block_key: row.block_key, label: row.label, value: row.value || '', input_type: row.input_type || 'text', sort_order: row.sort_order ?? 100, updated_at: row.updated_at ? String(row.updated_at) : '' }; }
 function cardOut(row) { return { id: row.id, title: row.title, subtitle: row.subtitle || '', icon: row.icon || 'star', query: row.query || '', linked_category_slug: row.linked_category_slug || '', sort_order: row.sort_order ?? 100, status: row.status || 'active' }; }
 function navOut(row) { return { id: row.id, nav_key: row.nav_key, label: row.label, icon: row.icon || '•', href: row.href || '#', sort_order: row.sort_order ?? 100, status: row.status || 'active' }; }
 function sectionOut(row) { return { id: row.id, section_key: row.section_key, title: row.title, enabled: !!row.enabled, sort_order: row.sort_order ?? 100 }; }
@@ -776,7 +783,7 @@ async function listPopularHelp(env, admin = false) { const { rows } = await q(en
 async function listNavigation(env, admin = false) { const { rows } = await q(env, `SELECT * FROM navigation_items ${admin ? '' : "WHERE status='active'"} ORDER BY sort_order ASC, id ASC`); return rows.map(navOut); }
 async function listHomeSections(env, admin = false) { const { rows } = await q(env, `SELECT * FROM guide_home_sections ${admin ? '' : 'WHERE enabled=TRUE'} ORDER BY sort_order ASC, id ASC`); return rows.map(sectionOut); }
 async function listQuickReplies(env, admin = false) { const { rows } = await q(env, `SELECT * FROM chat_quick_replies ${admin ? '' : "WHERE status='active'"} ORDER BY sort_order ASC, id ASC`); return rows.map(quickReplyOut); }
-async function getGuideContent(env) { const settings = await getTheme(env); const blocks = await listContentBlocks(env); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); return { settings, content, blocks, popular_help: [], navigation: await listNavigation(env, false), home_sections: (await listHomeSections(env, false)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false), public_languages: [{code:'en',label:'English'}, {code:'hi',label:'Hindi'}], admin_languages: [{code:'en',label:'English'}, {code:'zh',label:'中文'}] }; }
+async function getGuideContent(env) { const settings = await getTheme(env); const blocks = await listContentBlocks(env); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; return { settings, content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false), home_sections: (await listHomeSections(env, false)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false), public_languages: [{code:'en',label:'English'}, {code:'hi',label:'Hindi'}], admin_languages: [{code:'en',label:'English'}, {code:'zh',label:'中文'}] }; }
 async function getChatContent(env) { const theme = await getTheme(env); const quick_replies = await listQuickReplies(env, false); return { settings: theme, branding: { chat_icon_url: theme.chat_icon_url || '', title: theme.chat_header_title || 'BDG AI Support', online: theme.chat_online_text || 'Online assistant' }, languages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }], quick_replies, support_enabled: theme.show_chat_support_button === true, texts: { en: { title: theme.chat_header_title || 'BDG AI Support', online: theme.chat_online_text || 'Online assistant', welcome: theme.chat_welcome_subtitle || 'Please describe your issue and we will guide you step by step.', welcome_title: theme.chat_welcome_title || 'Welcome to BDG AI Support', placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }, hi: { title: theme.chat_header_title || 'BDG AI Support', online: 'ऑनलाइन सहायक', welcome: theme.chat_welcome_subtitle || 'कृपया अपनी समस्या बताएं। हम आपको चरण-दर-चरण मार्गदर्शन देंगे।', welcome_title: theme.chat_welcome_title || 'BDG AI Support में आपका स्वागत है', placeholder: theme.chat_input_placeholder || 'अपना संदेश लिखें...', busy: 'कृपया वर्तमान उत्तर की प्रतीक्षा करें...' } } }; }
 async function getAdminSiteContent(env) { return { settings: await getTheme(env), blocks: await listContentBlocks(env), popular_help: [], navigation: await listNavigation(env, true), home_sections: await listHomeSections(env, true), chat_quick_replies: await listQuickReplies(env, true) }; }
 async function updateContentBlock(env, key, p) { const { rows } = await q(env, `UPDATE site_content_blocks SET label=$2, value=$3, input_type=$4, sort_order=$5, updated_at=NOW() WHERE block_key=$1 RETURNING *`, [key, p.label || key, p.value || '', p.input_type || 'text', p.sort_order ?? 100]); if (!rows[0]) { const ins = await q(env, `INSERT INTO site_content_blocks(block_key,label,value,input_type,sort_order) VALUES($1,$2,$3,$4,$5) RETURNING *`, [key, p.label || key, p.value || '', p.input_type || 'text', p.sort_order ?? 100]); await audit(env,'create','site_content_blocks',key,'Content block created'); return blockOut(ins.rows[0]); } await audit(env,'update','site_content_blocks',key,'Content block updated'); return blockOut(rows[0]); }
@@ -847,6 +854,90 @@ async function restorePromptVersion(env,promptId,versionId){ const {rows}=await 
 async function updateAiSettings(env, p) { const { rows } = await q(env, `UPDATE ai_model_settings SET provider=$1, model=$2, api_base=$3, enabled=$4, temperature=$5, max_tokens=$6, require_approved_context=$7, memory_enabled=$8, memory_max_messages=$9, memory_ttl_days=$10, updated_at=NOW() WHERE id=(SELECT id FROM ai_model_settings ORDER BY id ASC LIMIT 1) RETURNING *`, [p.provider || 'deepseek', p.model || 'deepseek-chat', p.api_base || 'https://api.deepseek.com', !!p.enabled, Number(p.temperature ?? 0.2), Number(p.max_tokens ?? 700), !!p.require_approved_context, !!p.memory_enabled, Number(p.memory_max_messages ?? 12), Number(p.memory_ttl_days ?? 30)]); await audit(env,'update','ai_model_settings','1','AI settings updated'); return aiSettingOut(rows[0], env); }
 
 function parseBlocks(value) { try { const v = JSON.parse(value || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
+function safeResponseUrl(value) {
+  const url = String(value || '').trim();
+  if (!url) return '';
+  if (url.startsWith('/') || /^https?:\/\//i.test(url)) return url.slice(0, 1200);
+  return '';
+}
+function responseText(value, max = 2000) {
+  return cleanAssistantText(String(value || '')).slice(0, max);
+}
+export function normalizeResponseBlocks(value) {
+  let source = value;
+  if (typeof value === 'string') {
+    try { source = JSON.parse(value || '[]'); }
+    catch { source = []; }
+  }
+  if (!Array.isArray(source)) return [];
+  const blocks = [];
+  for (const raw of source.slice(0, 16)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const type = String(raw.type || 'paragraph').toLowerCase().replace(/[^a-z_-]/g, '');
+    const text = responseText(raw.text || raw.content || raw.title || raw.label);
+    if (type === 'divider') {
+      blocks.push({ type: 'divider' });
+      continue;
+    }
+    if (type === 'heading' && text) {
+      blocks.push({ type: 'heading', text, level: Number(raw.level) === 3 ? 3 : 2 });
+      continue;
+    }
+    if (type === 'steps' || type === 'step' || type === 'list') {
+      const items = (Array.isArray(raw.items) ? raw.items : [raw.text || raw.content])
+        .map((item) => responseText(typeof item === 'object' ? item?.text || item?.title : item, 500))
+        .filter(Boolean)
+        .slice(0, 10);
+      if (items.length) blocks.push({ type: 'steps', title: responseText(raw.title, 160), items });
+      continue;
+    }
+    if (['warning','error','success','notice','info'].includes(type) && text) {
+      blocks.push({ type: type === 'info' ? 'notice' : type, text });
+      continue;
+    }
+    if (type === 'button' || type === 'link') {
+      const url = safeResponseUrl(raw.url || raw.href);
+      const label = responseText(raw.label || raw.text || raw.title, 160);
+      if (url && label) blocks.push({ type: 'link', label, url });
+      continue;
+    }
+    if (text) blocks.push({ type: 'paragraph', text });
+  }
+  return blocks.slice(0, 12);
+}
+export function responseBlocksFromText(value) {
+  const text = cleanAssistantText(value);
+  if (!text) return [];
+  const blocks = [];
+  for (const section of text.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean)) {
+    const lines = section.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+    const numbered = lines.map((line) => line.match(/^\d+[.)]\s+(.+)$/)).filter(Boolean);
+    const bullets = lines.map((line) => line.match(/^[•*-]\s+(.+)$/)).filter(Boolean);
+    if (numbered.length === lines.length || bullets.length === lines.length) {
+      const matches = numbered.length ? numbered : bullets;
+      blocks.push({ type: 'steps', title: '', items: matches.map((match) => responseText(match[1], 500)).slice(0, 10) });
+      continue;
+    }
+    const clean = responseText(section);
+    if (/^(important|warning|caution)\s*[:：]/i.test(clean)) blocks.push({ type: 'warning', text: clean.replace(/^[^:：]+[:：]\s*/, '') });
+    else if (/^(note|please note)\s*[:：]/i.test(clean)) blocks.push({ type: 'notice', text: clean.replace(/^[^:：]+[:：]\s*/, '') });
+    else blocks.push({ type: 'paragraph', text: clean });
+  }
+  return normalizeResponseBlocks(blocks);
+}
+function finalizeChatResponse(payload = {}) {
+  const preferred = payload.response_blocks
+    || payload.smart_match?.answer_blocks
+    || payload.optional_guide?.answer_blocks
+    || [];
+  const approved = normalizeResponseBlocks(preferred);
+  return {
+    ...payload,
+    response_format: 'structured-v1',
+    response_blocks: approved.length ? approved : responseBlocksFromText(payload.reply || ''),
+    resolution_state: payload.resolution_state || 'open',
+  };
+}
 function blocksToText(blocks) {
   if (!Array.isArray(blocks)) return '';
   return blocks.map((b) => {
@@ -1234,22 +1325,25 @@ function textFromSmartBlocks(row, lang='en') {
   }
   return out.join('\n');
 }
-function shouldAttachOptionalGuide(row, decision, message, lang='en') {
+export function shouldAttachOptionalGuide(row, decision, message, lang='en') {
   if (!row || !decision) return { attach: false, reason: 'no-guide' };
   const mode = String(row.attach_mode || 'auto_when_clear').toLowerCase();
   if (mode === 'never') return { attach: false, reason: 'attach mode is never' };
+  const availableImages = [...splitUrls(row.image_urls), ...splitUrls(row.image_urls_hi)];
+  if (!availableImages.length) return { attach: false, reason: 'guide has no image' };
   const avoid = triggeredPhrases(message, [row.when_not_to_attach, row.negative_keywords, row.negative_examples, row.excluded_situations].join('\n'));
   if (avoid.length) return { attach: false, reason: 'when-not-to-attach rule triggered', triggers: avoid };
   if (decision.action !== 'send') return { attach: false, reason: `decision is ${decision.action}` };
   if (mode === 'ask_first') return { attach: false, ask_first: true, reason: 'attach mode asks first' };
-  const hints = triggeredPhrases(message, [row.when_to_attach, row.keywords, row.positive_examples, row.typo_keywords, row.language_keywords].join('\n'));
-  return { attach: true, reason: hints.length ? 'guide image clearly useful' : 'high confidence optional attachment' };
+  const visualRequest = /\b(how|steps?|guide|show|where|screen|screenshot|image|photo|tutorial|process|button|option|click|tap|open)\b/i.test(String(message || ''));
+  if (!visualRequest) return { attach: false, reason: 'text answer is sufficient; no visual-step request' };
+  return { attach: true, reason: 'high-confidence intent with explicit visual-step request' };
 }
 function promptFirstSystemPolicy(lang='en') {
   return `
 
 ## Prompt-First AI Policy
-AI Prompt Manager is the primary decision source. Guide Attachments are optional support materials only, not the brain of the answer. Answer the customer naturally from the active AI prompt sections first. If the question is unclear, ask one short clarification question before using any guide. If a guide image is useful, attach it after the text answer. Never force a guide when the user rejects it or says the issue is already solved. Never show SMART MATCH, matched guide, confidence, recommended guide, Open Guide, or any internal routing details to customers. Do not use raw markdown stars. Reply in ${lang === 'hi' ? 'Hindi' : 'English'} unless the user clearly uses another language.`;
+AI Prompt Manager is the primary decision source. Guide Attachments are optional support materials only, not the brain of the answer. Answer the customer naturally from the active AI prompt sections first. If the question is unclear, ask one short clarification question before using any guide. If a guide image is useful, attach it after the text answer. Never force a guide when the user rejects it or says the issue is already solved. Never claim an issue is resolved unless the customer explicitly confirms it. Never show SMART MATCH, matched guide, confidence, recommended guide, Open Guide, or any internal routing details to customers. Do not return HTML, CSS, scripts, raw color values, or markdown stars. Put numbered instructions on separate lines so the safe Chat renderer can present them as structured steps. Reply in ${lang === 'hi' ? 'Hindi' : 'English'} unless the user clearly uses another language.`;
 }
 function optionalGuideContext(row, decision) {
   if (!row || !decision || decision.action !== 'send') return '';
@@ -1318,7 +1412,8 @@ function localFallback(selectedGuides, selectedFaqs, selectedKnowledge, uploaded
 async function callDeepSeek(env, settings, systemPrompt, userMessage) {
   if (!settings.enabled || !env.DEEPSEEK_API_KEY) return { reply: null, error: !settings.enabled ? 'AI model disabled' : 'Missing DEEPSEEK_API_KEY', error_type: 'configuration', attempts: 0 };
   const apiBase = (settings.api_base || 'https://api.deepseek.com').replace(/\/$/, '');
-  const timeoutMs = Number(env.DEEPSEEK_TIMEOUT_MS || 15000);
+  // Two bounded attempts must complete before the 20-second public chat budget.
+  const timeoutMs = Math.max(3000, Math.min(Number(env.DEEPSEEK_TIMEOUT_MS || 8000), 9000));
   let last = { reply: null, error: 'DeepSeek request failed', error_type: 'provider', attempts: 0 };
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const controller = new AbortController();
@@ -1363,6 +1458,10 @@ function isGuideRejection(message) {
     'deposit already arrived', 'no need', 'dont need', "don't need", 'stop', 'cancel', 'okay no need', 'not now'
   ]);
 }
+function isExplicitResolutionConfirmation(message) {
+  const msg = normalizeForMatch(message);
+  return /^(it is fixed|its fixed|issue solved|problem solved|already solved|resolved|resolved now|working now|it works now|received now|deposit arrived|deposit arrived now)$/i.test(msg);
+}
 function isConfirmYes(message) {
   const msg = normalizeForMatch(message);
   return /^(yes|yeah|yep|correct|right|ok|okay|sure|confirm|that is right|this is the issue|send guide)$/i.test(msg);
@@ -1375,7 +1474,9 @@ async function finishChatTurn(env, session, settings, adminTest, message, reply,
   let memorySummary = session.memory_summary;
   if (settings.memory_enabled && !adminTest) memorySummary = await updateMemory(env, session, message, reply, uploaded, settings.memory_max_messages || 12);
   if (!adminTest) {
-    await q(env, 'INSERT INTO chat_logs(session_id, customer_message, assistant_reply, matched_sources, matched_images, uploaded_images, used_deepseek, model, provider_status, error_type, error_detail, latency_ms, request_id, intent_id, confidence, attachment_decision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)', [session.session_id, message, reply, logMeta.sources || '', logMeta.images || '', joinUrls(uploaded), !!logMeta.usedDeepseek, logMeta.model || 'conversation-state-local', logMeta.provider_status || (logMeta.usedDeepseek ? 'success' : 'fallback'), logMeta.error_type || '', logMeta.error_detail || '', Number(logMeta.latency_ms || 0), logMeta.request_id || '', logMeta.intent_id || '', logMeta.confidence == null ? null : Number(logMeta.confidence), logMeta.attachment_decision || 'none']);
+    const responseBlocks = normalizeResponseBlocks(logMeta.response_blocks);
+    const finalBlocks = responseBlocks.length ? responseBlocks : responseBlocksFromText(reply);
+    await q(env, 'INSERT INTO chat_logs(session_id, customer_message, assistant_reply, matched_sources, matched_images, uploaded_images, used_deepseek, model, provider_status, error_type, error_detail, latency_ms, request_id, intent_id, confidence, attachment_decision,response_blocks_json,response_format,resolution_state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)', [session.session_id, message, reply, logMeta.sources || '', logMeta.images || '', joinUrls(uploaded), !!logMeta.usedDeepseek, logMeta.model || 'conversation-state-local', logMeta.provider_status || (logMeta.usedDeepseek ? 'success' : 'fallback'), logMeta.error_type || '', logMeta.error_detail || '', Number(logMeta.latency_ms || 0), logMeta.request_id || '', logMeta.intent_id || '', logMeta.confidence == null ? null : Number(logMeta.confidence), logMeta.attachment_decision || 'none', JSON.stringify(finalBlocks), 'structured-v1', logMeta.resolution_state || 'open']);
   }
   return memorySummary;
 }
@@ -1409,6 +1510,16 @@ async function runAiChat(env, payload, adminTest) {
     return { reply, smart_match: null, guide_images: [], matched_guides: [], sources: [], session_id: session.session_id, language: lang, memory_summary: memorySummary, used_deepseek: false, model: 'frustration-safe-reply' };
   }
 
+  if (isExplicitResolutionConfirmation(message)) {
+    const reply = lang === 'hi'
+      ? 'अच्छा लगा कि समस्या हल हो गई। यदि आपको किसी और चीज़ में सहायता चाहिए, तो नया सवाल भेजें।'
+      : 'I am glad the issue is solved. If you need help with anything else, send a new question.';
+    const responseBlocks = [{ type: 'success', text: reply }];
+    if (!adminTest) await q(env, `UPDATE chat_sessions SET resolution_state='confirmed_by_user', resolved_at=NOW(), pending_smart_slug=NULL, pending_smart_status='resolved', last_smart_slug=NULL, updated_at=NOW() WHERE session_id=$1`, [session.session_id]);
+    const memorySummary = await finishChatTurn(env, session, settings, adminTest, message, reply, uploaded, { model: 'explicit-resolution-confirmation', response_blocks: responseBlocks, resolution_state: 'confirmed_by_user', request_id: turnRequestId, latency_ms: Date.now() - turnStarted });
+    return { reply, response_blocks: responseBlocks, resolution_state: 'confirmed_by_user', smart_match: null, guide_images: [], matched_guides: [], sources: [], session_id: session.session_id, request_id: turnRequestId, language: lang, memory_summary: memorySummary, used_deepseek: false, model: 'explicit-resolution-confirmation' };
+  }
+
   if (session.pending_smart_slug) {
     const pendingRow = await getSmartMatchBySlug(env, session.pending_smart_slug);
     if (isGuideRejection(message)) {
@@ -1420,12 +1531,13 @@ async function runAiChat(env, payload, adminTest) {
     }
     if (pendingRow && isConfirmYes(message)) {
       const reply = await buildSmartMatchReply(env, settings, pendingRow, message, lang, adminTest);
+      const responseBlocks = normalizeResponseBlocks(pendingRow.answer_blocks_json || '');
       const hiImages = splitUrls(pendingRow.image_urls_hi);
       const enImages = splitUrls(pendingRow.image_urls);
       const images = lang === 'hi' && hiImages.length ? hiImages : (lang === 'hi' && pendingRow.fallback_to_english_images === false ? [] : enImages);
       await setConversationState(env, session.session_id, { pending_smart_slug: null, pending_smart_status: 'confirmed', last_smart_slug: pendingRow.slug });
-      const memorySummary = await finishChatTurn(env, session, settings, adminTest, message, reply, uploaded, { sources: `Confirmed Smart Match Guide: ${pendingRow.name}`, images: images.join('\n'), model: 'smart-match-confirmed' });
-      return { reply, smart_match: smartMatchOut(pendingRow, 99, 'confirmed by user'), response_blocks: parseBlocks(pendingRow.answer_blocks_json || ''), guide_images: images, matched_guides: [], sources: [], session_id: session.session_id, language: lang, memory_summary: memorySummary, used_deepseek: false, model: 'smart-match-confirmed' };
+      const memorySummary = await finishChatTurn(env, session, settings, adminTest, message, reply, uploaded, { sources: `Confirmed Smart Match Guide: ${pendingRow.name}`, images: images.join('\n'), model: 'smart-match-confirmed', response_blocks: responseBlocks, request_id: turnRequestId, intent_id: pendingRow.intent_id || pendingRow.slug, confidence: 99, attachment_decision: images.length ? 'attached:user-confirmed' : 'blocked:no-image' });
+      return { reply, smart_match: smartMatchOut(pendingRow, 99, 'confirmed by user'), response_blocks: responseBlocks, guide_images: images, matched_guides: [], sources: [], session_id: session.session_id, request_id: turnRequestId, language: lang, memory_summary: memorySummary, used_deepseek: false, model: 'smart-match-confirmed' };
     }
     if (isLikelyNewTopic(message)) {
       await setConversationState(env, session.session_id, { pending_smart_slug: null, pending_smart_status: 'changed-topic' });
@@ -1488,10 +1600,11 @@ Reason: ${decision.reason}`, model: 'prompt-first-clarify' });
     : '';
   const localPromptFallback = approvedIntentFallback || localFallback([], matches.selectedFaqs, matches.selectedKnowledge, uploaded, theme);
   const reply = cleanAssistantText(aiReply || localPromptFallback);
+  const responseBlocks = normalizeResponseBlocks(optRow?.answer_blocks_json || '');
   if (optRow && optionalImages.length) await setConversationState(env, session.session_id, { pending_smart_slug: null, pending_smart_status: 'optional-guide-attached', last_smart_slug: optRow.slug });
-  const memorySummary = await finishChatTurn(env, session, settings, adminTest, message, reply, uploaded, { sources: [context.sources.join('\\n'), optRow ? `Optional guide candidate: ${optRow.name}; attach=${!!optionalImages.length}; reason=${optAttach.reason}` : 'No optional guide candidate'].filter(Boolean).join('\\n'), images: optionalImages.join('\\n'), usedDeepseek: usedDeepSeek, provider_status: usedDeepSeek ? 'success' : (deepSeekResult?.error_type === 'configuration' ? 'fallback' : 'error'), error_type: usedDeepSeek ? '' : (deepSeekResult?.error_type || 'fallback'), error_detail: usedDeepSeek ? '' : (deepSeekResult?.error || ''), latency_ms: Date.now() - turnStarted, request_id: turnRequestId, intent_id: optRow?.intent_id || optRow?.slug || '', confidence: optionalGuide?.match?.score ?? null, attachment_decision: optionalImages.length ? `attached:${optAttach.reason}` : `blocked:${optAttach.reason}`, model: usedDeepSeek ? settings.model : 'prompt-first-local-fallback' });
+  const memorySummary = await finishChatTurn(env, session, settings, adminTest, message, reply, uploaded, { sources: [context.sources.join('\\n'), optRow ? `Optional guide candidate: ${optRow.name}; attach=${!!optionalImages.length}; reason=${optAttach.reason}` : 'No optional guide candidate'].filter(Boolean).join('\\n'), images: optionalImages.join('\\n'), usedDeepseek: usedDeepSeek, provider_status: usedDeepSeek ? 'success' : (deepSeekResult?.error_type === 'configuration' ? 'fallback' : 'error'), error_type: usedDeepSeek ? '' : (deepSeekResult?.error_type || 'fallback'), error_detail: usedDeepSeek ? '' : (deepSeekResult?.error || ''), latency_ms: Date.now() - turnStarted, request_id: turnRequestId, intent_id: optRow?.intent_id || optRow?.slug || '', confidence: optionalGuide?.match?.score ?? null, attachment_decision: optionalImages.length ? `attached:${optAttach.reason}` : `blocked:${optAttach.reason}`, response_blocks: responseBlocks, model: usedDeepSeek ? settings.model : 'prompt-first-local-fallback' });
   if (!adminTest && !matches.selectedFaqs.length && !matches.selectedKnowledge.length && !uploaded.length && !optRow) await q(env, 'INSERT INTO unmatched_questions(session_id, customer_message, language, suggested_intent) VALUES($1,$2,$3,$4)', [session.session_id, message, lang, 'prompt-first-no-guide-needed']);
-  return { reply, sources: context.sources, guide_images: optionalImages, matched_guides: [], smart_match: null, optional_guide: optRow && optionalImages.length ? smartMatchOut(optRow, optionalGuide.match.score, optAttach.reason) : null, session_id: session.session_id, request_id: turnRequestId, language: lang, memory_summary: memorySummary, used_deepseek: usedDeepSeek, model: usedDeepSeek ? settings.model : 'prompt-first-local-fallback', fallback: !usedDeepSeek, fallback_reason: usedDeepSeek ? null : (deepSeekResult?.error_type || 'approved_local_fallback'), deepseek_error: usedDeepSeek ? null : (deepSeekResult?.error || null), diagnostics: adminTest ? { prompt_first: true, prompt_sections_used: (await listPrompts(env)).filter(p=>p.enabled).length, optional_guide: optRow ? optRow.name : null, attach_decision: optAttach, matched_faqs: matches.selectedFaqs.length, matched_knowledge: matches.selectedKnowledge.length } : undefined };
+  return { reply, response_blocks: responseBlocks, sources: context.sources, guide_images: optionalImages, matched_guides: [], smart_match: null, optional_guide: optRow && optionalImages.length ? smartMatchOut(optRow, optionalGuide.match.score, optAttach.reason) : null, session_id: session.session_id, request_id: turnRequestId, language: lang, memory_summary: memorySummary, used_deepseek: usedDeepSeek, model: usedDeepSeek ? settings.model : 'prompt-first-local-fallback', fallback: !usedDeepSeek, fallback_reason: usedDeepSeek ? null : (deepSeekResult?.error_type || 'approved_local_fallback'), deepseek_error: usedDeepSeek ? null : (deepSeekResult?.error || null), diagnostics: adminTest ? { prompt_first: true, prompt_sections_used: (await listPrompts(env)).filter(p=>p.enabled).length, optional_guide: optRow ? optRow.name : null, attach_decision: optAttach, matched_faqs: matches.selectedFaqs.length, matched_knowledge: matches.selectedKnowledge.length } : undefined };
 
 }
 
@@ -1638,7 +1751,7 @@ async function systemHealth(env) {
   return { ok: !failed.length, status: failed.length ? 'degraded' : 'healthy', version: VERSION, checks, timestamp: new Date().toISOString() };
 }
 
-async function listChatLogs(env) { const { rows } = await q(env, 'SELECT * FROM chat_logs ORDER BY id DESC LIMIT 200'); return rows.map(x => ({ id: x.id, session_id: x.session_id, customer_message: x.customer_message, assistant_reply: x.assistant_reply, matched_sources: splitUrls(x.matched_sources), matched_images: splitUrls(x.matched_images), uploaded_images: splitUrls(x.uploaded_images), used_deepseek: !!x.used_deepseek, provider_status: x.provider_status || (x.used_deepseek ? 'success' : 'fallback'), error_type: x.error_type || '', error_detail: x.error_detail || '', latency_ms: Number(x.latency_ms || 0), request_id: x.request_id || '', intent_id: x.intent_id || '', confidence: x.confidence == null ? null : Number(x.confidence), attachment_decision: x.attachment_decision || '', model: x.model, created_at: String(x.created_at) })); }
+async function listChatLogs(env) { const { rows } = await q(env, 'SELECT * FROM chat_logs ORDER BY created_at DESC, id DESC LIMIT 300'); return rows.map(x => ({ id: x.id, session_id: x.session_id, customer_message: x.customer_message || '', assistant_reply: x.assistant_reply || '', matched_sources: splitUrls(x.matched_sources), matched_images: splitUrls(x.matched_images), uploaded_images: splitUrls(x.uploaded_images), used_deepseek: !!x.used_deepseek, provider_status: x.provider_status || (x.used_deepseek ? 'success' : 'fallback'), error_type: x.error_type || '', error_detail: x.error_detail || '', latency_ms: Number(x.latency_ms || 0), request_id: x.request_id || '', intent_id: x.intent_id || '', confidence: x.confidence == null ? null : Number(x.confidence), attachment_decision: x.attachment_decision || '', response_blocks: normalizeResponseBlocks(x.response_blocks_json || ''), response_format: x.response_format || 'text', resolution_state: x.resolution_state || 'open', model: x.model, created_at: String(x.created_at) })); }
 async function listUnmatchedQuestions(env) { const { rows } = await q(env, 'SELECT * FROM unmatched_questions ORDER BY id DESC LIMIT 300'); return rows.map(x => ({ id: x.id, session_id: x.session_id, customer_message: x.customer_message, language: x.language || 'en', suggested_intent: x.suggested_intent || '', created_at: String(x.created_at) })); }
 
 

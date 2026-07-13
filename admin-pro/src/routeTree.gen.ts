@@ -13,7 +13,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminThemeSettingsRouteImport } from './routes/_admin.theme-settings'
-import { Route as AdminSupportSettingsRouteImport } from './routes/_admin.support-settings'
 import { Route as AdminSiteContentRouteImport } from './routes/_admin.site-content'
 import { Route as AdminPromptHistoryRouteImport } from './routes/_admin.prompt-history'
 import { Route as AdminHelpCardsRouteImport } from './routes/_admin.help-cards'
@@ -48,11 +47,6 @@ const IndexRoute = IndexRouteImport.update({
 const AdminThemeSettingsRoute = AdminThemeSettingsRouteImport.update({
   id: '/theme-settings',
   path: '/theme-settings',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSupportSettingsRoute = AdminSupportSettingsRouteImport.update({
-  id: '/support-settings',
-  path: '/support-settings',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminSiteContentRoute = AdminSiteContentRouteImport.update({
@@ -155,7 +149,6 @@ export interface FileRoutesByFullPath {
   '/prompt-history': typeof AdminPromptHistoryRoute
   '/smart-match-guides': typeof AdminSmartMatchGuidesRoute
   '/site-content': typeof AdminSiteContentRoute
-  '/support-settings': typeof AdminSupportSettingsRoute
   '/theme-settings': typeof AdminThemeSettingsRoute
 }
 export interface FileRoutesByTo {
@@ -177,7 +170,6 @@ export interface FileRoutesByTo {
   '/prompt-history': typeof AdminPromptHistoryRoute
   '/smart-match-guides': typeof AdminSmartMatchGuidesRoute
   '/site-content': typeof AdminSiteContentRoute
-  '/support-settings': typeof AdminSupportSettingsRoute
   '/theme-settings': typeof AdminThemeSettingsRoute
 }
 export interface FileRoutesById {
@@ -201,7 +193,6 @@ export interface FileRoutesById {
   '/_admin/prompt-history': typeof AdminPromptHistoryRoute
   '/_admin/smart-match-guides': typeof AdminSmartMatchGuidesRoute
   '/_admin/site-content': typeof AdminSiteContentRoute
-  '/_admin/support-settings': typeof AdminSupportSettingsRoute
   '/_admin/theme-settings': typeof AdminThemeSettingsRoute
 }
 export interface FileRouteTypes {
@@ -225,7 +216,6 @@ export interface FileRouteTypes {
     | '/prompt-history'
     | '/smart-match-guides'
     | '/site-content'
-    | '/support-settings'
     | '/theme-settings'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -247,7 +237,6 @@ export interface FileRouteTypes {
     | '/prompt-history'
     | '/smart-match-guides'
     | '/site-content'
-    | '/support-settings'
     | '/theme-settings'
   id:
     | '__root__'
@@ -270,7 +259,6 @@ export interface FileRouteTypes {
     | '/_admin/prompt-history'
     | '/_admin/smart-match-guides'
     | '/_admin/site-content'
-    | '/_admin/support-settings'
     | '/_admin/theme-settings'
   fileRoutesById: FileRoutesById
 }
@@ -308,13 +296,6 @@ declare module '@tanstack/react-router' {
       path: '/theme-settings'
       fullPath: '/theme-settings'
       preLoaderRoute: typeof AdminThemeSettingsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/_admin/support-settings': {
-      id: '/_admin/support-settings'
-      path: '/support-settings'
-      fullPath: '/support-settings'
-      preLoaderRoute: typeof AdminSupportSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/site-content': {
@@ -449,7 +430,6 @@ interface AdminRouteChildren {
   AdminPromptHistoryRoute: typeof AdminPromptHistoryRoute
   AdminSmartMatchGuidesRoute: typeof AdminSmartMatchGuidesRoute
   AdminSiteContentRoute: typeof AdminSiteContentRoute
-  AdminSupportSettingsRoute: typeof AdminSupportSettingsRoute
   AdminThemeSettingsRoute: typeof AdminThemeSettingsRoute
 }
 
@@ -470,7 +450,6 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminPromptHistoryRoute: AdminPromptHistoryRoute,
   AdminSmartMatchGuidesRoute: AdminSmartMatchGuidesRoute,
   AdminSiteContentRoute: AdminSiteContentRoute,
-  AdminSupportSettingsRoute: AdminSupportSettingsRoute,
   AdminThemeSettingsRoute: AdminThemeSettingsRoute,
 }
 

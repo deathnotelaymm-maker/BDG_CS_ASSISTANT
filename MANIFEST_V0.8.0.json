@@ -1,0 +1,26 @@
+{
+  "version": "0.8.0",
+  "name": "Structured Rich Responses + Precision Guide Delivery",
+  "base_version": "0.7.1",
+  "deployment": {
+    "backend": "Render Node.js",
+    "database": "Neon PostgreSQL",
+    "frontends": "Cloudflare Pages",
+    "storage": "Cloudflare R2",
+    "ai_provider": "DeepSeek"
+  },
+  "components": ["backend-api", "admin-pro", "chat-pro", "guide-pro"],
+  "response_contract": "structured-v1",
+  "response_block_types": ["heading", "paragraph", "steps", "notice", "warning", "success", "error", "link", "divider"],
+  "migration": "backend-api/migrations/003_v0.8.0_structured_rich_responses_precision_guide_delivery.sql",
+  "regression_command": "npm --prefix backend-api run test:regression",
+  "apply_script": "APPLY-PATCH-V0.8.0-WINDOWS.ps1",
+  "production_deploy_script": "DEPLOY-V0.8.0-PRODUCTION-WINDOWS.ps1",
+  "artifacts": [
+    "one-domain-help-ai-admin-v0.8.0-structured-rich-responses-precision-guide-delivery-patch.zip",
+    "one-domain-help-ai-admin-v0.8.0-structured-rich-responses-precision-guide-delivery-full.zip",
+    "one-domain-help-ai-admin-v0.8.0-docs-and-windows-scripts.zip",
+    "FILE_CHECKSUMS_V0.8.0.sha256"
+  ],
+  "status": "built-candidate-not-deployed"
+}

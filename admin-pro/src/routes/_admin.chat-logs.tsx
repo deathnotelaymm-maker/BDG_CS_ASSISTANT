@@ -103,7 +103,14 @@ function ChatLogsPage() {
             key: row.id,
             label: (
               <Space wrap>
-                <Typography.Text strong>{row.session_id || "Unknown session"}</Typography.Text>
+                <Tag color="blue">User asked</Tag>
+                <Typography.Text
+                  strong
+                  style={{ maxWidth: 560 }}
+                  ellipsis={{ tooltip: row.customer_message }}
+                >
+                  {row.customer_message || "No customer message recorded"}
+                </Typography.Text>
                 <Tag
                   color={
                     row.provider_status === "success"
@@ -115,15 +122,16 @@ function ChatLogsPage() {
                 >
                   {row.provider_status}
                 </Tag>
-                <Tag>{row.model || "local"}</Tag>
                 <Typography.Text type="secondary">{row.created_at}</Typography.Text>
               </Space>
             ),
             children: (
               <Space direction="vertical" size={12} style={{ width: "100%" }}>
                 <div>
-                  <Typography.Text type="secondary">Customer</Typography.Text>
-                  <Typography.Paragraph copyable>{row.customer_message}</Typography.Paragraph>
+                  <Typography.Text type="secondary">Customer asked</Typography.Text>
+                  <Typography.Paragraph copyable style={{ fontSize: 16, marginTop: 4 }}>
+                    {row.customer_message || "No customer message recorded"}
+                  </Typography.Paragraph>
                 </div>
                 <div>
                   <Typography.Text type="secondary">Assistant</Typography.Text>
@@ -138,10 +146,18 @@ function ChatLogsPage() {
                   />
                 )}
                 <Typography.Text type="secondary">
-                  Intent: {row.intent_id || "—"} · Confidence: {row.confidence ?? "—"} · Attachment:{" "}
+                  Session: {row.session_id || "—"} · Model: {row.model || "local"} · Intent:{" "}
+                  {row.intent_id || "—"} · Confidence: {row.confidence ?? "—"} · Attachment:{" "}
                   {row.attachment_decision || "none"} · Latency: {row.latency_ms || 0} ms · Request:{" "}
                   {row.request_id || "—"}
                 </Typography.Text>
+                {!!row.response_blocks?.length && (
+                  <Typography.Text type="secondary">
+                    Rich response: {row.response_format || "structured-v1"} ·{" "}
+                    {row.response_blocks.length} block(s) · Resolution:{" "}
+                    {row.resolution_state || "open"}
+                  </Typography.Text>
+                )}
                 {!!row.matched_sources?.length && (
                   <Typography.Paragraph>
                     <b>Sources:</b> {row.matched_sources.join(", ")}

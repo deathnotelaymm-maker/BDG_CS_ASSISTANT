@@ -85,8 +85,6 @@ body {
   line-height: 56px !important;
   display: flex; align-items: center; justify-content: space-between;
 }
-.bdg-header-badges { display: flex; align-items: center; gap: 8px; }
-
 /* Content */
 .bdg-content {
   background: var(--navy-900) !important;

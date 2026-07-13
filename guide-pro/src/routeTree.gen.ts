@@ -14,7 +14,6 @@ import { Route as PublicRouteImport } from './routes/_public'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as PublicIndexRouteImport } from './routes/_public.index'
 import { Route as AdminVersionsRouteImport } from './routes/admin.versions'
-import { Route as AdminSupportSettingsRouteImport } from './routes/admin.support-settings'
 import { Route as AdminSiteContentRouteImport } from './routes/admin.site-content'
 import { Route as AdminPopularHelpRouteImport } from './routes/admin.popular-help'
 import { Route as AdminNavigationRouteImport } from './routes/admin.navigation'
@@ -51,11 +50,6 @@ const PublicIndexRoute = PublicIndexRouteImport.update({
 const AdminVersionsRoute = AdminVersionsRouteImport.update({
   id: '/versions',
   path: '/versions',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminSupportSettingsRoute = AdminSupportSettingsRouteImport.update({
-  id: '/support-settings',
-  path: '/support-settings',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminSiteContentRoute = AdminSiteContentRouteImport.update({
@@ -137,7 +131,6 @@ export interface FileRoutesByFullPath {
   '/admin/navigation': typeof AdminNavigationRoute
   '/admin/popular-help': typeof AdminPopularHelpRoute
   '/admin/site-content': typeof AdminSiteContentRoute
-  '/admin/support-settings': typeof AdminSupportSettingsRoute
   '/admin/versions': typeof AdminVersionsRoute
   '/admin/': typeof AdminIndexRoute
   '/guides/$slug': typeof PublicGuidesSlugRoute
@@ -155,7 +148,6 @@ export interface FileRoutesByTo {
   '/admin/navigation': typeof AdminNavigationRoute
   '/admin/popular-help': typeof AdminPopularHelpRoute
   '/admin/site-content': typeof AdminSiteContentRoute
-  '/admin/support-settings': typeof AdminSupportSettingsRoute
   '/admin/versions': typeof AdminVersionsRoute
   '/': typeof PublicIndexRoute
   '/admin': typeof AdminIndexRoute
@@ -177,7 +169,6 @@ export interface FileRoutesById {
   '/admin/navigation': typeof AdminNavigationRoute
   '/admin/popular-help': typeof AdminPopularHelpRoute
   '/admin/site-content': typeof AdminSiteContentRoute
-  '/admin/support-settings': typeof AdminSupportSettingsRoute
   '/admin/versions': typeof AdminVersionsRoute
   '/_public/': typeof PublicIndexRoute
   '/admin/': typeof AdminIndexRoute
@@ -200,7 +191,6 @@ export interface FileRouteTypes {
     | '/admin/navigation'
     | '/admin/popular-help'
     | '/admin/site-content'
-    | '/admin/support-settings'
     | '/admin/versions'
     | '/admin/'
     | '/guides/$slug'
@@ -218,7 +208,6 @@ export interface FileRouteTypes {
     | '/admin/navigation'
     | '/admin/popular-help'
     | '/admin/site-content'
-    | '/admin/support-settings'
     | '/admin/versions'
     | '/'
     | '/admin'
@@ -239,7 +228,6 @@ export interface FileRouteTypes {
     | '/admin/navigation'
     | '/admin/popular-help'
     | '/admin/site-content'
-    | '/admin/support-settings'
     | '/admin/versions'
     | '/_public/'
     | '/admin/'
@@ -288,13 +276,6 @@ declare module '@tanstack/react-router' {
       path: '/versions'
       fullPath: '/admin/versions'
       preLoaderRoute: typeof AdminVersionsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/support-settings': {
-      id: '/admin/support-settings'
-      path: '/support-settings'
-      fullPath: '/admin/support-settings'
-      preLoaderRoute: typeof AdminSupportSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/site-content': {
@@ -442,7 +423,6 @@ interface AdminRouteChildren {
   AdminNavigationRoute: typeof AdminNavigationRoute
   AdminPopularHelpRoute: typeof AdminPopularHelpRoute
   AdminSiteContentRoute: typeof AdminSiteContentRoute
-  AdminSupportSettingsRoute: typeof AdminSupportSettingsRoute
   AdminVersionsRoute: typeof AdminVersionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -455,7 +435,6 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminNavigationRoute: AdminNavigationRoute,
   AdminPopularHelpRoute: AdminPopularHelpRoute,
   AdminSiteContentRoute: AdminSiteContentRoute,
-  AdminSupportSettingsRoute: AdminSupportSettingsRoute,
   AdminVersionsRoute: AdminVersionsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

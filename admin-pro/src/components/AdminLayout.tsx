@@ -2,12 +2,10 @@ import { ReactNode, useState } from "react";
 import {
   Layout,
   Menu,
-  Badge,
   Dropdown,
   Avatar,
   Space,
   Breadcrumb,
-  Tag,
   Select,
   ConfigProvider,
   theme,
@@ -26,14 +24,11 @@ import {
   MessageOutlined,
   MessageFilled,
   BgColorsOutlined,
-  CustomerServiceOutlined,
   AuditOutlined,
   TeamOutlined,
-  BellOutlined,
   UserOutlined,
   LogoutOutlined,
   DownOutlined,
-  CheckCircleFilled,
 } from "@ant-design/icons";
 import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-router";
 import { getCurrentUser, logout } from "@/lib/api";
@@ -41,39 +36,147 @@ import { getCurrentUser, logout } from "@/lib/api";
 const { Sider, Header, Content } = Layout;
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
-  { key: "/dashboard", to: "/dashboard", label: "Dashboard", icon: <DashboardOutlined />, group: "OVERVIEW" },
+  {
+    key: "/dashboard",
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: <DashboardOutlined />,
+    group: "OVERVIEW",
+  },
 
-  { key: "/site-content", to: "/site-content", label: "Site Content", icon: <FileTextOutlined />, group: "CONTENT" },
-  { key: "/categories", to: "/categories", label: "Categories", icon: <AppstoreOutlined />, group: "CONTENT" },
-  { key: "/guide-images", to: "/guide-images", label: "Guide", icon: <FileTextOutlined />, group: "CONTENT" },
+  {
+    key: "/site-content",
+    to: "/site-content",
+    label: "Site Content",
+    icon: <FileTextOutlined />,
+    group: "CONTENT",
+  },
+  {
+    key: "/categories",
+    to: "/categories",
+    label: "Categories",
+    icon: <AppstoreOutlined />,
+    group: "CONTENT",
+  },
+  {
+    key: "/guide-images",
+    to: "/guide-images",
+    label: "Guide",
+    icon: <FileTextOutlined />,
+    group: "CONTENT",
+  },
   { key: "/faq", to: "/faq", label: "FAQ", icon: <QuestionCircleOutlined />, group: "CONTENT" },
 
-  { key: "/ai-prompt-manager", to: "/ai-prompt-manager", label: "AI Prompt Manager", icon: <RobotOutlined />, group: "AI" },
-  { key: "/smart-match-guides", to: "/smart-match-guides", label: "Guide Attachments", icon: <ThunderboltOutlined />, group: "AI" },
-  { key: "/prompt-history", to: "/prompt-history", label: "Prompt Version History", icon: <HistoryOutlined />, group: "AI" },
-  { key: "/ai-diagnostics", to: "/ai-diagnostics", label: "AI Diagnostics", icon: <MonitorOutlined />, group: "AI" },
+  {
+    key: "/ai-prompt-manager",
+    to: "/ai-prompt-manager",
+    label: "AI Prompt Manager",
+    icon: <RobotOutlined />,
+    group: "AI",
+  },
+  {
+    key: "/smart-match-guides",
+    to: "/smart-match-guides",
+    label: "Guide Attachments",
+    icon: <ThunderboltOutlined />,
+    group: "AI",
+  },
+  {
+    key: "/prompt-history",
+    to: "/prompt-history",
+    label: "Prompt Version History",
+    icon: <HistoryOutlined />,
+    group: "AI",
+  },
+  {
+    key: "/ai-diagnostics",
+    to: "/ai-diagnostics",
+    label: "AI Diagnostics",
+    icon: <MonitorOutlined />,
+    group: "AI",
+  },
 
-  { key: "/chat-quick-replies", to: "/chat-quick-replies", label: "Chat Quick Replies", icon: <MessageOutlined />, group: "CHAT" },
-  { key: "/chat-logs", to: "/chat-logs", label: "Chat Logs", icon: <MessageFilled />, group: "CHAT" },
-  { key: "/unmatched-questions", to: "/unmatched-questions", label: "Unmatched Questions", icon: <MessageOutlined />, group: "CHAT" },
+  {
+    key: "/chat-quick-replies",
+    to: "/chat-quick-replies",
+    label: "Chat Quick Replies",
+    icon: <MessageOutlined />,
+    group: "CHAT",
+  },
+  {
+    key: "/chat-logs",
+    to: "/chat-logs",
+    label: "Chat Logs",
+    icon: <MessageFilled />,
+    group: "CHAT",
+  },
+  {
+    key: "/unmatched-questions",
+    to: "/unmatched-questions",
+    label: "Unmatched Questions",
+    icon: <MessageOutlined />,
+    group: "CHAT",
+  },
 
-  { key: "/theme-settings", to: "/theme-settings", label: "Theme Settings", icon: <BgColorsOutlined />, group: "SETTINGS" },
-  { key: "/support-settings", to: "/support-settings", label: "Support Settings", icon: <CustomerServiceOutlined />, group: "SETTINGS" },
-  { key: "/audit-logs", to: "/audit-logs", label: "Audit Logs", icon: <AuditOutlined />, group: "SETTINGS" },
-  { key: "/admin-users", to: "/admin-users", label: "Admin Users", icon: <TeamOutlined />, group: "SETTINGS" },
+  {
+    key: "/theme-settings",
+    to: "/theme-settings",
+    label: "Theme Settings",
+    icon: <BgColorsOutlined />,
+    group: "SETTINGS",
+  },
+  {
+    key: "/audit-logs",
+    to: "/audit-logs",
+    label: "Audit Logs",
+    icon: <AuditOutlined />,
+    group: "SETTINGS",
+  },
+  {
+    key: "/admin-users",
+    to: "/admin-users",
+    label: "Admin Users",
+    icon: <TeamOutlined />,
+    group: "SETTINGS",
+  },
 ];
 
-
 const ZH: Record<string, string> = {
-  Dashboard: "仪表盘", "Site Content": "网站内容", Categories: "分类", Guide: "指南", FAQ: "常见问题",
-  "AI Prompt Manager": "AI 提示词管理", "Guide Attachments": "指南附件", "Prompt Version History": "提示词版本历史", "AI Diagnostics": "AI 诊断",
-  "Chat Quick Replies": "聊天快捷回复", "Chat Logs": "聊天记录", "Unmatched Questions": "未匹配问题",
-  "Theme Settings": "主题设置", "Support Settings": "客服设置", "Audit Logs": "审计日志", "Admin Users": "管理员账号",
-  OVERVIEW: "概览", CONTENT: "内容", AI: "AI", CHAT: "聊天", SETTINGS: "设置", Console: "控制台",
-  Alerts: "提醒", "System normal": "系统正常", "Sign out": "退出登录", "My Profile": "我的资料"
+  Dashboard: "仪表盘",
+  "Site Content": "网站内容",
+  Categories: "分类",
+  Guide: "指南",
+  FAQ: "常见问题",
+  "AI Prompt Manager": "AI 提示词管理",
+  "Guide Attachments": "指南附件",
+  "Prompt Version History": "提示词版本历史",
+  "AI Diagnostics": "AI 诊断",
+  "Chat Quick Replies": "聊天快捷回复",
+  "Chat Logs": "聊天记录",
+  "Unmatched Questions": "未匹配问题",
+  "Theme Settings": "主题设置",
+  "Audit Logs": "审计日志",
+  "Admin Users": "管理员账号",
+  OVERVIEW: "概览",
+  CONTENT: "内容",
+  AI: "AI",
+  CHAT: "聊天",
+  SETTINGS: "设置",
+  Console: "控制台",
+  "Sign out": "退出登录",
+  "My Profile": "我的资料",
 };
-function langNow() { try { return localStorage.getItem("bdg_admin_lang") || "en"; } catch { return "en"; } }
-function tr(v?: string) { if (!v) return ""; return langNow() === "zh" ? (ZH[v] || v) : v; }
+function langNow() {
+  try {
+    return localStorage.getItem("bdg_admin_lang") || "en";
+  } catch {
+    return "en";
+  }
+}
+function tr(v?: string) {
+  if (!v) return "";
+  return langNow() === "zh" ? ZH[v] || v : v;
+}
 
 function buildMenu(userRole?: string): MenuProps["items"] {
   const groups = new Map<string, typeof NAV>();
@@ -99,7 +202,15 @@ function buildMenu(userRole?: string): MenuProps["items"] {
   return items;
 }
 
-export default function AdminLayout({ children, title, subtitle }: { children: ReactNode; title?: string; subtitle?: string }) {
+export default function AdminLayout({
+  children,
+  title,
+  subtitle,
+}: {
+  children: ReactNode;
+  title?: string;
+  subtitle?: string;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const [adminLang, setAdminLang] = useState(langNow());
   const user = getCurrentUser();
@@ -113,7 +224,15 @@ export default function AdminLayout({ children, title, subtitle }: { children: R
   const userMenu: MenuProps["items"] = [
     { key: "profile", icon: <UserOutlined />, label: tr("My Profile") },
     { type: "divider" },
-    { key: "logout", icon: <LogoutOutlined />, label: tr("Sign out"), onClick: () => { logout(); navigate({ to: "/login" }); } },
+    {
+      key: "logout",
+      icon: <LogoutOutlined />,
+      label: tr("Sign out"),
+      onClick: () => {
+        logout();
+        navigate({ to: "/login" });
+      },
+    },
   ];
 
   return (
@@ -147,32 +266,35 @@ export default function AdminLayout({ children, title, subtitle }: { children: R
             {!collapsed && (
               <div>
                 <div className="bdg-brand-title">BDG Help Center</div>
-                <div className="bdg-brand-sub">{adminLang === "zh" ? "业务管理后台" : "Business Admin Console"}</div>
+                <div className="bdg-brand-sub">
+                  {adminLang === "zh" ? "业务管理后台" : "Business Admin Console"}
+                </div>
               </div>
             )}
           </div>
           <Menu
             mode="inline"
             selectedKeys={current ? [current.key] : []}
-            items={buildMenu(user?.role)} key={adminLang}
+            items={buildMenu(user?.role)}
+            key={adminLang}
             style={{ paddingBottom: 24 }}
           />
         </Sider>
 
         <Layout>
           <Header className="bdg-header">
-            <div className="bdg-header-badges">
-              <Badge count={4} size="small">
-                <Tag icon={<BellOutlined />} color="warning" style={{ margin: 0 }}>{tr("Alerts")}</Tag>
-              </Badge>
-              <Tag color="processing" style={{ margin: 0 }}>Active users · 128</Tag>
-              <Tag color="blue" style={{ margin: 0 }}>Role · {user?.role || "admin"}</Tag>
-              <Tag icon={<CheckCircleFilled />} color="success" style={{ margin: 0 }}>{tr("System normal")}</Tag>
-            </div>
+            <div />
             <Space size={12}>
               <Select
                 value={adminLang}
-                onChange={(v) => { try { localStorage.setItem("bdg_admin_lang", v); } catch {} setAdminLang(v); }}
+                onChange={(v) => {
+                  try {
+                    localStorage.setItem("bdg_admin_lang", v);
+                  } catch {
+                    // Language preference is optional when browser storage is unavailable.
+                  }
+                  setAdminLang(v);
+                }}
                 size="small"
                 style={{ width: 96 }}
                 variant="borderless"

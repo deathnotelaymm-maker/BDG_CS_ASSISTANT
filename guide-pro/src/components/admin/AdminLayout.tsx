@@ -8,7 +8,6 @@ import {
   HelpCircle,
   FileText,
   Compass,
-  Settings,
   History,
   LogOut,
   Search,
@@ -25,7 +24,6 @@ const NAV = [
   { to: "/admin/faqs", label: "FAQ", icon: HelpCircle },
   { to: "/admin/site-content", label: "Site content", icon: FileText },
   { to: "/admin/navigation", label: "Navigation", icon: Compass },
-  { to: "/admin/support-settings", label: "Support settings", icon: Settings },
   { to: "/admin/versions", label: "Version history", icon: History },
 ] as const;
 
@@ -53,12 +51,15 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
           </span>
           <div className="leading-tight">
             <div className="font-display text-sm font-semibold">BDG Guide CMS</div>
-            <div className="text-[10px] uppercase tracking-widest text-sidebar-foreground/60">Admin</div>
+            <div className="text-[10px] uppercase tracking-widest text-sidebar-foreground/60">
+              Admin
+            </div>
           </div>
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-3 text-sm">
           {NAV.map((item) => {
-            const active = (('exact' in item && item.exact) ? pathname === item.to : pathname.startsWith(item.to));
+            const active =
+              "exact" in item && item.exact ? pathname === item.to : pathname.startsWith(item.to);
             const Icon = item.icon;
             return (
               <Link
@@ -101,7 +102,9 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
                 {i === crumbs.length - 1 ? (
                   <span className="font-medium text-foreground">{c.label}</span>
                 ) : (
-                  <Link to={c.href} className="hover:text-foreground">{c.label}</Link>
+                  <Link to={c.href} className="hover:text-foreground">
+                    {c.label}
+                  </Link>
                 )}
               </span>
             ))}

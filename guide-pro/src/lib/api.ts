@@ -6,7 +6,9 @@
 import * as mock from "@/mock/data";
 
 const configuredApiBase = (import.meta as any).env?.VITE_API_BASE as string | undefined;
-export const API_BASE = (configuredApiBase || ((import.meta as any).env?.DEV ? "http://localhost:10000" : "")).replace(/\/$/, "");
+export const API_BASE = (
+  configuredApiBase || ((import.meta as any).env?.DEV ? "http://localhost:10000" : "")
+).replace(/\/$/, "");
 
 const USE_MOCK =
   (import.meta as any).env?.VITE_USE_MOCK === "true" ||
@@ -19,14 +21,15 @@ export const PUBLIC_LANGUAGES: { code: PublicLanguage; label: string }[] = [
   { code: "hi", label: "Hindi" },
 ];
 
-
 // Public Guide must never show Lovable/demo fallback records in production.
 // These are neutral copy defaults only; categories/guides/FAQ arrays stay empty
 // unless the Render backend returns real admin-published data.
 const productionSiteContent: mock.SiteContent = {
+  heroEyebrow: "BDG Official Help",
   heroTitle: "How can we help you today?",
   heroSubtitle: "Official guides and tutorials from BDG support.",
   searchPlaceholder: "Search guides…",
+  searchButtonText: "Search",
   popularHelpTitle: "Popular help",
   topicsTitle: "Browse by topic",
   featuredGuidesTitle: "Featured guides",
@@ -80,15 +83,24 @@ async function request<T>(path: string, init: ReqInit = {}): Promise<T> {
     headers.set("Authorization", `Bearer ${auth.token}`);
   }
 
-  if (!API_BASE) throw new Error("Guide API is not configured. Set VITE_API_BASE during the Cloudflare Pages build.");
+  if (!API_BASE)
+    throw new Error(
+      "Guide API is not configured. Set VITE_API_BASE during the Cloudflare Pages build.",
+    );
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 15000);
   const signal = init.signal ?? controller.signal;
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...init, headers, signal });
+    res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+      signal,
+      ...(path.startsWith("/guide/content") ? { cache: "no-store" as RequestCache } : {}),
+    });
   } catch (error) {
-    if ((error as Error)?.name === "AbortError") throw new Error("Guide service timed out. Please try again.");
+    if ((error as Error)?.name === "AbortError")
+      throw new Error("Guide service timed out. Please try again.");
     throw error;
   } finally {
     window.clearTimeout(timeout);
@@ -168,15 +180,23 @@ function normalizeSiteContent(raw: any): mock.SiteContent {
   const settings = raw.settings || {};
   return {
     ...productionSiteContent,
+    heroEyebrow: text(c.hero_eyebrow, productionSiteContent.heroEyebrow),
     heroTitle: text(c.hero_title, settings.banner_title || productionSiteContent.heroTitle),
-    heroSubtitle: text(c.hero_subtitle, settings.banner_subtitle || productionSiteContent.heroSubtitle),
+    heroSubtitle: text(
+      c.hero_subtitle,
+      settings.banner_subtitle || productionSiteContent.heroSubtitle,
+    ),
     searchPlaceholder: text(c.search_placeholder, productionSiteContent.searchPlaceholder),
+    searchButtonText: text(c.search_button_text, productionSiteContent.searchButtonText),
     popularHelpTitle: text(c.popular_title, productionSiteContent.popularHelpTitle),
     topicsTitle: text(c.topics_title, productionSiteContent.topicsTitle),
     featuredGuidesTitle: text(c.guides_title, productionSiteContent.featuredGuidesTitle),
     faqTitle: text(c.faq_title, productionSiteContent.faqTitle),
     supportCtaTitle: text(c.support_cta_title, productionSiteContent.supportCtaTitle),
-    supportCtaSubtitle: text(c.support_cta_subtitle, c.footer_note || productionSiteContent.supportCtaSubtitle),
+    supportCtaSubtitle: text(
+      c.support_cta_subtitle,
+      c.footer_note || productionSiteContent.supportCtaSubtitle,
+    ),
     emptyStateText: text(c.guide_empty_message, productionSiteContent.emptyStateText),
     errorStateText: text(c.error_state_text, productionSiteContent.errorStateText),
     buttons: {
@@ -250,39 +270,60 @@ function bodyToBlocks(body: unknown, imageUrls: string[] = []): mock.GuideBlock[
   for (const url of imageUrls.filter(Boolean)) {
     blocks.push({ type: "image", url, alt: "Guide screenshot", caption: "Guide screenshot" });
   }
-  return blocks.length ? blocks : [{ type: "paragraph", text: "Guide details will be updated soon." }];
+  return blocks.length
+    ? blocks
+    : [{ type: "paragraph", text: "Guide details will be updated soon." }];
 }
 
 function normalizeGuide(row: any): mock.Guide {
   const lang = getPublicLanguage();
   const tr = row?.translations?.[lang] || null;
-  const imgs = Array.isArray(tr?.image_urls) && tr.image_urls.length
-    ? tr.image_urls
-    : Array.isArray(row?.image_urls)
-      ? row.image_urls
-      : Array.isArray(row?.images)
-        ? row.images
-        : row?.image_url
-          ? [row.image_url]
-          : [];
+  const imgs =
+    Array.isArray(tr?.image_urls) && tr.image_urls.length
+      ? tr.image_urls
+      : Array.isArray(row?.image_urls)
+        ? row.image_urls
+        : Array.isArray(row?.images)
+          ? row.images
+          : row?.image_url
+            ? [row.image_url]
+            : [];
   const title = text(tr?.title || row?.title, "Guide");
-  const slug = text(row?.slug, title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+  const slug = text(
+    row?.slug,
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, ""),
+  );
   const bodyHtml = tr?.body_html || row?.body_html || "";
   const bodyText = tr?.body || row?.body || row?.content || bodyHtml || "";
   return {
     id: String(row?.id ?? slug),
     slug,
     title,
-    summary: text(tr?.summary || row?.summary || row?.short_answer || row?.description, "Step-by-step official guide."),
+    summary: text(
+      tr?.summary || row?.summary || row?.short_answer || row?.description,
+      "Step-by-step official guide.",
+    ),
     category: text(row?.category || row?.category_name || row?.category_slug, "Guide"),
-    cover: text(tr?.cover_image_url || row?.cover || row?.cover_image_url || row?.thumbnail || imgs[0], ""),
+    cover: text(
+      tr?.cover_image_url || row?.cover || row?.cover_image_url || row?.thumbnail || imgs[0],
+      "",
+    ),
     updatedAt: text(row?.updatedAt || row?.updated_at || row?.created_at, ""),
-    status: (row?.status === "draft" || row?.status === "archived") ? row.status : "published",
+    status: row?.status === "draft" || row?.status === "archived" ? row.status : "published",
     priority: Number(row?.priority ?? row?.sort_order ?? 100),
     views: Number(row?.views ?? 0),
-    keywords: Array.isArray(row?.keywords) ? row.keywords : String(row?.keywords || "").split(",").map((x) => x.trim()).filter(Boolean),
+    keywords: Array.isArray(row?.keywords)
+      ? row.keywords
+      : String(row?.keywords || "")
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean),
     supportCta: false,
-    blocks: Array.isArray(row?.blocks) && row.blocks.length ? row.blocks : bodyToBlocks(bodyText, imgs),
+    blocks:
+      Array.isArray(row?.blocks) && row.blocks.length ? row.blocks : bodyToBlocks(bodyText, imgs),
     relatedGuides: row?.relatedGuides || [],
     relatedFaqs: row?.relatedFaqs || [],
   };
@@ -291,7 +332,12 @@ function normalizeGuide(row: any): mock.Guide {
 function normalizePopular(row: any): mock.PopularHelp {
   const linked = text(row?.linked_category_slug || row?.category_slug, "");
   const query = text(row?.query, row?.title || "");
-  const href = row?.link || row?.href || (linked ? `/guides?category=${encodeURIComponent(linked)}` : `/guides?q=${encodeURIComponent(query)}`);
+  const href =
+    row?.link ||
+    row?.href ||
+    (linked
+      ? `/guides?category=${encodeURIComponent(linked)}`
+      : `/guides?q=${encodeURIComponent(query)}`);
   return {
     id: String(row?.id ?? row?.title ?? Math.random()),
     title: text(row?.title, "Help"),
@@ -299,7 +345,11 @@ function normalizePopular(row: any): mock.PopularHelp {
     icon: iconName(row?.icon, "LifeBuoy"),
     link: href,
     sort: Number(row?.sort ?? row?.sort_order ?? 100),
-    active: row?.active === true || row?.status === "active" || row?.status === "published" || row?.status == null,
+    active:
+      row?.active === true ||
+      row?.status === "active" ||
+      row?.status === "published" ||
+      row?.status == null,
   };
 }
 
@@ -314,10 +364,18 @@ async function getGuideContentRaw() {
 
 // ---------- Public endpoints ----------
 export const api = {
-  getSettings: () => publicSafe("/settings", () => ({ brand: "BDG", logoText: "BDG Help", supportUrl: "/support", supportEnabled: false })),
+  getSettings: () =>
+    publicSafe("/settings", () => ({
+      brand: "BDG",
+      logoText: "BDG Help",
+      supportUrl: "/support",
+      supportEnabled: false,
+    })),
   getSiteContent: async () => normalizeSiteContent(await getGuideContentRaw()),
-  getCategories: async () => (await publicSafe<any[]>("/categories", () => emptyCategories)).map(normalizeCategory),
-  getFaqs: async () => (await publicSafe<any[]>(withLanguage("/faqs"), () => emptyFaqs)).map(normalizeFaq),
+  getCategories: async () =>
+    (await publicSafe<any[]>("/categories", () => emptyCategories)).map(normalizeCategory),
+  getFaqs: async () =>
+    (await publicSafe<any[]>(withLanguage("/faqs"), () => emptyFaqs)).map(normalizeFaq),
   getGuides: async (params?: { category?: string; q?: string }) => {
     const usp = new URLSearchParams();
     if (params?.category) usp.set("category", params.category);
@@ -328,7 +386,10 @@ export const api = {
     return rows.map(normalizeGuide);
   },
   getGuide: async (slugOrId: string) => {
-    const row = await publicSafe<any | null>(withLanguage(`/guides/${encodeURIComponent(slugOrId)}`), () => null);
+    const row = await publicSafe<any | null>(
+      withLanguage(`/guides/${encodeURIComponent(slugOrId)}`),
+      () => null,
+    );
     return row ? normalizeGuide(row) : null;
   },
   getPopularHelp: async () => [],
@@ -340,7 +401,11 @@ export const adminApi = {
     const result = await safe<any>(
       "/auth/login",
       { method: "POST", body: JSON.stringify({ email, password }) },
-      () => ({ access_token: "mock-admin-token", token: "mock-admin-token", user: { email, name: "Admin" } }),
+      () => ({
+        access_token: "mock-admin-token",
+        token: "mock-admin-token",
+        user: { email, name: "Admin" },
+      }),
     );
     return {
       token: result.token || result.access_token,
@@ -350,21 +415,36 @@ export const adminApi = {
 
   getSiteContent: () => safe("/admin/site-content", { admin: true }, () => mock.siteContent),
   updateSiteContent: (data: unknown) =>
-    safe("/admin/site-content", { admin: true, method: "PUT", body: JSON.stringify(data) }, () => ({ ok: true })),
+    safe("/admin/site-content", { admin: true, method: "PUT", body: JSON.stringify(data) }, () => ({
+      ok: true,
+    })),
 
   getPopularHelp: () => safe("/admin/popular-help", { admin: true }, () => mock.popularHelp),
   createPopularHelp: (data: unknown) =>
-    safe("/admin/popular-help", { admin: true, method: "POST", body: JSON.stringify(data) }, () => ({ ok: true })),
+    safe(
+      "/admin/popular-help",
+      { admin: true, method: "POST", body: JSON.stringify(data) },
+      () => ({ ok: true }),
+    ),
   updatePopularHelp: (id: string, data: unknown) =>
-    safe(`/admin/popular-help/${id}`, { admin: true, method: "PUT", body: JSON.stringify(data) }, () => ({ ok: true })),
+    safe(
+      `/admin/popular-help/${id}`,
+      { admin: true, method: "PUT", body: JSON.stringify(data) },
+      () => ({ ok: true }),
+    ),
   deletePopularHelp: (id: string) =>
     safe(`/admin/popular-help/${id}`, { admin: true, method: "DELETE" }, () => ({ ok: true })),
 
   getGuides: () => safe("/admin/guides", { admin: true }, () => mock.guides),
   createGuide: (data: unknown) =>
-    safe("/admin/guides", { admin: true, method: "POST", body: JSON.stringify(data) }, () => ({ ok: true, id: `g_${Date.now()}` })),
+    safe("/admin/guides", { admin: true, method: "POST", body: JSON.stringify(data) }, () => ({
+      ok: true,
+      id: `g_${Date.now()}`,
+    })),
   updateGuide: (id: string, data: unknown) =>
-    safe(`/admin/guides/${id}`, { admin: true, method: "PUT", body: JSON.stringify(data) }, () => ({ ok: true })),
+    safe(`/admin/guides/${id}`, { admin: true, method: "PUT", body: JSON.stringify(data) }, () => ({
+      ok: true,
+    })),
   deleteGuide: (id: string) =>
     safe(`/admin/guides/${id}`, { admin: true, method: "DELETE" }, () => ({ ok: true })),
 
@@ -380,4 +460,4 @@ export const adminApi = {
   },
 };
 
-export type { };
+export type {};

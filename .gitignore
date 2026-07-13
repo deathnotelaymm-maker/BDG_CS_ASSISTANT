@@ -8,6 +8,8 @@ Thumbs.db
 **/node_modules/
 **/dist/
 **/.vite/
+**/.tanstack/
+.wrangler/
 *.log
 
 # Local configuration and secrets
