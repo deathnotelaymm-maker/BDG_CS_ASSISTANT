@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-center-business-platform",
-  "version": "0.7.0-a.1",
+  "version": "0.7.1",
   "private": true,
   "type": "module",
   "scripts": {

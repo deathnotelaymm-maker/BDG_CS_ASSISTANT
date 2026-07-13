@@ -4,11 +4,16 @@
 import { mock } from "@/mock/data";
 
 const configuredApiBase =
-  typeof import.meta !== "undefined" ? ((import.meta as any).env?.VITE_API_BASE_URL as string | undefined) : undefined;
-export const API_BASE_URL = (configuredApiBase || ((import.meta as any).env?.DEV ? "http://localhost:10000" : "")).replace(/\/$/, "");
+  typeof import.meta !== "undefined"
+    ? ((import.meta as any).env?.VITE_API_BASE_URL as string | undefined)
+    : undefined;
+export const API_BASE_URL = (
+  configuredApiBase || ((import.meta as any).env?.DEV ? "http://localhost:10000" : "")
+).replace(/\/$/, "");
 
 export const MOCK_MODE =
-  ((typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_MOCK_MODE) || "false") === "true";
+  ((typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_MOCK_MODE) || "false") ===
+  "true";
 
 const TOKEN_KEY = "admin_token";
 const USER_KEY = "admin_user";
@@ -27,7 +32,11 @@ export function logout() {
 
 export function getCurrentUser() {
   if (typeof localStorage === "undefined") return null;
-  try { return JSON.parse(localStorage.getItem(USER_KEY) || "null"); } catch { return null; }
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY) || "null");
+  } catch {
+    return null;
+  }
 }
 
 async function request<T>(path: string, init?: RequestInit, auth = true): Promise<T> {
@@ -38,7 +47,10 @@ async function request<T>(path: string, init?: RequestInit, auth = true): Promis
   };
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
-  if (!API_BASE_URL) throw new Error("Admin API is not configured. Set VITE_API_BASE_URL during the Cloudflare Pages build.");
+  if (!API_BASE_URL)
+    throw new Error(
+      "Admin API is not configured. Set VITE_API_BASE_URL during the Cloudflare Pages build.",
+    );
   const timeoutSignal = AbortSignal.timeout(20000);
   const signal = init?.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -76,13 +88,13 @@ const resourcePath: Record<string, string> = {
   "site-content": "/admin/site-content",
   "help-cards": "/admin/popular-help",
   "popular-help": "/admin/popular-help",
-  "categories": "/admin/categories",
+  categories: "/admin/categories",
   "guide-images": "/admin/guides",
-  "guides": "/admin/guides",
-  "faq": "/admin/faqs",
-  "faqs": "/admin/faqs",
+  guides: "/admin/guides",
+  faq: "/admin/faqs",
+  faqs: "/admin/faqs",
   "ai-knowledge": "/admin/knowledge",
-  "knowledge": "/admin/knowledge",
+  knowledge: "/admin/knowledge",
   "prompt-history": "/admin/ai/prompt-versions",
   "chat-quick-replies": "/admin/chat-quick-replies",
   "smart-match-guides": "/admin/smart-matches",
@@ -114,16 +126,33 @@ function normalizeResourcePayload(resource: string, payload: any): any[] {
 
   if (resource === "site-content") {
     return (payload?.blocks || []).map((b: any) => ({
-      id: b.id || b.block_key,
+      // The API updates content by immutable block_key, never by the numeric DB id.
+      id: b.block_key,
+      database_id: b.id,
       key: b.block_key || b.key,
       block_key: b.block_key || b.key,
       label: b.label || b.block_key,
       value: b.value || "",
-      locale: "en",
       input_type: b.input_type || "text",
       sort_order: b.sort_order ?? 100,
       updatedAt: b.updated_at || "",
       status: "active",
+    }));
+  }
+
+  if (resource === "chat-logs") {
+    const arr = Array.isArray(payload) ? payload : [];
+    return arr.map((log: any) => ({
+      ...log,
+      customer_message: log.customer_message || "",
+      assistant_reply: log.assistant_reply || "",
+      matched_sources: Array.isArray(log.matched_sources) ? log.matched_sources : [],
+      matched_images: Array.isArray(log.matched_images) ? log.matched_images : [],
+      uploaded_images: Array.isArray(log.uploaded_images) ? log.uploaded_images : [],
+      provider_status: log.provider_status || (log.used_deepseek ? "success" : "fallback"),
+      error_type: log.error_type || "",
+      latency_ms: Number(log.latency_ms || 0),
+      request_id: log.request_id || "",
     }));
   }
 
@@ -136,7 +165,11 @@ function normalizeForCreate(resource: string, data: any) {
       name: data.name || "Admin",
       email: data.email,
       password: data.password || data.new_password || undefined,
-      role: String(data.role || "admin").toLowerCase().includes("owner") ? "admin" : String(data.role || "admin").toLowerCase(),
+      role: String(data.role || "admin")
+        .toLowerCase()
+        .includes("owner")
+        ? "admin"
+        : String(data.role || "admin").toLowerCase(),
       status: data.status || "active",
       is_active: data.status !== "inactive",
     };
@@ -177,10 +210,16 @@ function normalizeForCreate(resource: string, data: any) {
       cover_image_url_hi: data.cover_image_url_hi || "",
       image_urls: Array.isArray(data.image_urls)
         ? data.image_urls
-        : String(data.image_urls || data.image_url || data.cover_image_url || "").split(/\r?\n|,/).map((x) => x.trim()).filter(Boolean),
+        : String(data.image_urls || data.image_url || data.cover_image_url || "")
+            .split(/\r?\n|,/)
+            .map((x) => x.trim())
+            .filter(Boolean),
       image_urls_hi: Array.isArray(data.image_urls_hi)
         ? data.image_urls_hi
-        : String(data.image_urls_hi || data.cover_image_url_hi || "").split(/\r?\n|,/).map((x) => x.trim()).filter(Boolean),
+        : String(data.image_urls_hi || data.cover_image_url_hi || "")
+            .split(/\r?\n|,/)
+            .map((x) => x.trim())
+            .filter(Boolean),
       keywords: data.keywords || "",
       language: data.language || "en",
       priority: Number(data.priority || 100),
@@ -233,8 +272,18 @@ function normalizeForCreate(resource: string, data: any) {
       action_url: data.action_url || "",
       guide_text: data.guide_text || "",
       guide_text_hi: data.guide_text_hi || "",
-      image_urls: Array.isArray(data.image_urls) ? data.image_urls : String(data.image_urls || "").split(/\r?\n|,/).map((x) => x.trim()).filter(Boolean),
-      image_urls_hi: Array.isArray(data.image_urls_hi) ? data.image_urls_hi : String(data.image_urls_hi || "").split(/\r?\n|,/).map((x) => x.trim()).filter(Boolean),
+      image_urls: Array.isArray(data.image_urls)
+        ? data.image_urls
+        : String(data.image_urls || "")
+            .split(/\r?\n|,/)
+            .map((x) => x.trim())
+            .filter(Boolean),
+      image_urls_hi: Array.isArray(data.image_urls_hi)
+        ? data.image_urls_hi
+        : String(data.image_urls_hi || "")
+            .split(/\r?\n|,/)
+            .map((x) => x.trim())
+            .filter(Boolean),
       fallback_to_english_images: data.fallback_to_english_images === true,
       ai_enabled: data.ai_enabled !== false,
       ai_enhance: data.ai_enhance !== false,
@@ -247,7 +296,8 @@ function normalizeForCreate(resource: string, data: any) {
 
 function pathFor(resource: string, id?: string | number) {
   const base = resourcePath[resource] || `/admin/${resource}`;
-  if (resource === "site-content" && id) return `/admin/site-content/blocks/${encodeURIComponent(String(id))}`;
+  if (resource === "site-content" && id)
+    return `/admin/site-content/blocks/${encodeURIComponent(String(id))}`;
   if (id) return `${base}/${id}`;
   return base;
 }
@@ -268,8 +318,13 @@ function diagnosticsOut(d: any) {
 
 export const api = {
   login: async (email: string, password: string, twofa_code?: string) => {
-    if (MOCK_MODE) return delay({ token: "mock-token", user: { email, name: "Admin", role: "owner" } });
-    const res: any = await request("/auth/login", { method: "POST", body: JSON.stringify({ email, password, twofa_code }) }, false);
+    if (MOCK_MODE)
+      return delay({ token: "mock-token", user: { email, name: "Admin", role: "owner" } });
+    const res: any = await request(
+      "/auth/login",
+      { method: "POST", body: JSON.stringify({ email, password, twofa_code }) },
+      false,
+    );
     if (res?.twofa_required) return { twofa_required: true };
     const token = res.access_token || res.token;
     if (!token) throw new Error("Login succeeded but no token was returned");
@@ -282,15 +337,17 @@ export const api = {
 
   getDashboardStats: async () => {
     if (MOCK_MODE) return delay(mock.dashboardStats);
-    const [categories, guides, faqs, prompts, sessions, audits] = await Promise.allSettled([
+    const [categories, guides, faqs, prompts, sessions, audits, health] = await Promise.allSettled([
       api.list("categories"),
       api.list("guide-images"),
       api.list("faq"),
       api.list("ai-prompts"),
       api.list("chat-sessions"),
       api.list("audit-logs"),
+      api.getSystemHealth(),
     ]);
-    const count = (x: PromiseSettledResult<any>) => (x.status === "fulfilled" && Array.isArray(x.value) ? x.value.length : 0);
+    const count = (x: PromiseSettledResult<any>) =>
+      x.status === "fulfilled" && Array.isArray(x.value) ? x.value.length : 0;
     return {
       totalGuides: count(guides),
       totalFAQ: count(faqs),
@@ -298,15 +355,29 @@ export const api = {
       smartMatches: 0,
       aiPromptSections: count(prompts),
       chatSessions: count(sessions),
-      deepSeekStatus: "operational",
-      databaseStatus: "operational",
-      r2StorageStatus: "operational",
-      recentActivity: (audits.status === "fulfilled" && Array.isArray(audits.value) ? audits.value : []).slice(0, 6).map((a: any) => ({
-        id: a.id,
-        actor: a.actor || "system",
-        action: a.action || a.message || JSON.stringify(a).slice(0, 80),
-        time: a.created_at || a.time || "recently",
-      })),
+      deepSeekStatus:
+        health.status === "fulfilled"
+          ? health.value?.checks?.find((x: any) => x.name === "deepseek")?.status || "unknown"
+          : "unavailable",
+      databaseStatus:
+        health.status === "fulfilled"
+          ? health.value?.checks?.find((x: any) => x.name === "database")?.status || "unknown"
+          : "unavailable",
+      r2StorageStatus:
+        health.status === "fulfilled"
+          ? health.value?.checks?.find((x: any) => x.name === "r2")?.status || "unknown"
+          : "unavailable",
+      recentActivity: (audits.status === "fulfilled" && Array.isArray(audits.value)
+        ? audits.value
+        : []
+      )
+        .slice(0, 6)
+        .map((a: any) => ({
+          id: a.id,
+          actor: a.actor || "system",
+          action: a.action || a.message || JSON.stringify(a).slice(0, 80),
+          time: a.created_at || a.time || "recently",
+        })),
     };
   },
 
@@ -320,23 +391,37 @@ export const api = {
 
   create: async (resource: string, data: any) => {
     if (MOCK_MODE) return delay({ ...data, id: Date.now() });
-    if (resource === "site-content") return request(pathFor(resource, data.block_key || data.key), { method: "PUT", body: JSON.stringify(normalizeForCreate(resource, data)) });
-    return request(pathFor(resource), { method: "POST", body: JSON.stringify(normalizeForCreate(resource, data)) });
+    if (resource === "site-content")
+      return request(pathFor(resource, data.block_key || data.key), {
+        method: "PUT",
+        body: JSON.stringify(normalizeForCreate(resource, data)),
+      });
+    return request(pathFor(resource), {
+      method: "POST",
+      body: JSON.stringify(normalizeForCreate(resource, data)),
+    });
   },
 
   update: async (resource: string, id: string | number, data: any) => {
     if (MOCK_MODE) return delay({ ...data, id });
-    return request(pathFor(resource, id), { method: "PUT", body: JSON.stringify(normalizeForCreate(resource, data)) });
+    return request(pathFor(resource, id), {
+      method: "PUT",
+      body: JSON.stringify(normalizeForCreate(resource, data)),
+    });
   },
 
   remove: async (resource: string, id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true });
-    if (resource === "site-content" || resource === "prompt-history" || resource === "chat-logs" || resource === "audit-logs") {
+    if (
+      resource === "site-content" ||
+      resource === "prompt-history" ||
+      resource === "chat-logs" ||
+      resource === "audit-logs"
+    ) {
       return { ok: true, skipped: true };
     }
     return request(pathFor(resource, id), { method: "DELETE" });
   },
-
 
   bulkRemove: async (resource: string, ids: Array<string | number>) => {
     if (MOCK_MODE) return delay({ ok: true, deleted: ids.length });
@@ -351,12 +436,18 @@ export const api = {
 
   cleanupQuickReplyDuplicates: async () => {
     if (MOCK_MODE) return delay({ ok: true, deleted: 0 });
-    return request("/admin/chat-quick-replies/cleanup-duplicates", { method: "POST", body: JSON.stringify({}) });
+    return request("/admin/chat-quick-replies/cleanup-duplicates", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
   },
 
   changeAdminPassword: async (id: string | number, password: string) => {
     if (MOCK_MODE) return delay({ ok: true });
-    return request(`/admin/admin-users/${id}/password`, { method: "POST", body: JSON.stringify({ password }) });
+    return request(`/admin/admin-users/${id}/password`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    });
   },
 
   getMe: async () => {
@@ -381,22 +472,40 @@ export const api = {
 
   forceLogoutAdmin: async (id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true });
-    return request(`/admin/admin-users/${id}/force-logout`, { method: "POST", body: JSON.stringify({}) });
+    return request(`/admin/admin-users/${id}/force-logout`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
   },
 
   resetAdmin2FA: async (id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true });
-    return request(`/admin/admin-users/${id}/reset-2fa`, { method: "POST", body: JSON.stringify({}) });
+    return request(`/admin/admin-users/${id}/reset-2fa`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
   },
 
   getSettings: async () => {
-    if (MOCK_MODE) return delay({ app_name: "BDG Help Center", logo_text: "BDG", support_link: "", primary_color: "#3b82f6", favicon_url: "" });
+    if (MOCK_MODE)
+      return delay({
+        app_name: "BDG Help Center",
+        logo_text: "BDG",
+        support_link: "",
+        primary_color: "#3b82f6",
+        favicon_url: "",
+      });
     return request("/settings", undefined, false);
   },
 
   updateSettings: async (data: any) => {
     if (MOCK_MODE) return delay(data);
     return request("/admin/settings", { method: "PUT", body: JSON.stringify(data) });
+  },
+
+  getSystemHealth: async () => {
+    if (MOCK_MODE) return delay({ ok: true, status: "healthy", checks: [] });
+    return request("/admin/system-health");
   },
 
   upload: async (file: File) => {
@@ -414,23 +523,38 @@ export const api = {
   },
 
   testSmartMatch: async (message: string, language = "en") => {
-    if (MOCK_MODE) return delay({ ok: true, matched: null, confidence: 0, preview: "Mock Smart Match preview" });
-    return request("/admin/smart-matches/test", { method: "POST", body: JSON.stringify({ message, language }) });
+    if (MOCK_MODE)
+      return delay({ ok: true, matched: null, confidence: 0, preview: "Mock Smart Match preview" });
+    return request("/admin/smart-matches/test", {
+      method: "POST",
+      body: JSON.stringify({ message, language }),
+    });
   },
 
   generateGuideLayout: async (data: { raw_text: string; language?: string; template?: string }) => {
     if (MOCK_MODE) {
-      const lines = data.raw_text.split(/\n+/).map((x) => x.trim()).filter(Boolean);
+      const lines = data.raw_text
+        .split(/\n+/)
+        .map((x) => x.trim())
+        .filter(Boolean);
       return delay({
         ok: true,
         title: lines[0] || "AI Generated Guide",
         summary: lines.slice(1, 3).join(" ") || "Professional guide draft.",
-        slug: (lines[0] || "ai-generated-guide").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        slug: (lines[0] || "ai-generated-guide")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
         keywords: "guide, support, help",
         blocks: [
           { type: "heading", level: 2, text: lines[0] || "AI Generated Guide" },
           { type: "paragraph", text: lines.slice(1).join("\n") || data.raw_text },
-          { type: "image", url: "", alt: "Guide screenshot", caption: "Upload related screenshot here" },
+          {
+            type: "image",
+            url: "",
+            alt: "Guide screenshot",
+            caption: "Upload related screenshot here",
+          },
         ],
       });
     }
@@ -438,8 +562,12 @@ export const api = {
   },
 
   copyGuideLayout: async (blocks: any[], target_language = "hi") => {
-    if (MOCK_MODE) return delay({ ok: true, target_language, blocks: blocks.map((b) => ({ ...b })) });
-    return request("/admin/guides/ai-copy-layout", { method: "POST", body: JSON.stringify({ blocks, target_language }) });
+    if (MOCK_MODE)
+      return delay({ ok: true, target_language, blocks: blocks.map((b) => ({ ...b })) });
+    return request("/admin/guides/ai-copy-layout", {
+      method: "POST",
+      body: JSON.stringify({ blocks, target_language }),
+    });
   },
 
   getDiagnostics: async () => {
@@ -460,7 +588,9 @@ export const api = {
   testAI: async (message: string) => {
     if (MOCK_MODE)
       return delay({
-        reply: "Mock reply: this is where the DeepSeek response would appear. Message received: " + message,
+        reply:
+          "Mock reply: this is where the DeepSeek response would appear. Message received: " +
+          message,
         latencyMs: 812,
       });
     const started = Date.now();

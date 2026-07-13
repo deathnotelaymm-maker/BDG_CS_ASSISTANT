@@ -5,12 +5,13 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '0.7.0a-render-neon';
+const API_VERSION = '0.7.1-admin-stability-reliable-fallback';
 validateRuntimeEnv(env);
 env.GUIDE_IMAGES = createR2Adapter(env);
 
 const counters = new Map();
-const publicCachePaths = new Set(['/settings', '/public/theme', '/guide/content', '/public/guide-content', '/popular-help', '/public/popular-help', '/navigation', '/public/navigation', '/categories', '/public/categories', '/guides', '/public/guides', '/faqs', '/public/faqs', '/chat/content', '/public/chat-content']);
+// Theme and chat content are intentionally excluded so admin changes publish immediately.
+const publicCachePaths = new Set(['/guide/content', '/public/guide-content', '/popular-help', '/public/popular-help', '/navigation', '/public/navigation', '/categories', '/public/categories', '/guides', '/public/guides', '/faqs', '/public/faqs']);
 
 function clientIp(req) {
   return String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();

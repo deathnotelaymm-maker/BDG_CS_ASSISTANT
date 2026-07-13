@@ -5,7 +5,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '0.7.0a-render-neon';
+const VERSION = '0.7.1-admin-stability-reliable-fallback';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -163,6 +163,7 @@ async function route(request, env, url) {
   if (method === 'PUT' && path === '/admin/ai/settings') return json(await updateAiSettings(env, await readJson(request)), 200, env);
   if (method === 'GET' && path === '/admin/ai/diagnostics') return json(await aiDiagnostics(env), 200, env);
   if (method === 'GET' && path === '/admin/api-diagnostics') return json(await adminApiDiagnostics(env), 200, env);
+  if (method === 'GET' && path === '/admin/system-health') return json(await systemHealth(env), 200, env);
   if (method === 'GET' && path === '/admin/foundation-diagnostics') return json(await adminFoundationDiagnostics(env), 200, env);
   if (method === 'POST' && path === '/admin/ai/test') return json(await runAiChat(env, await readJson(request), true), 200, env);
 
@@ -465,6 +466,15 @@ async function createTables(env) {
   await q(env, `ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS last_unresolved_question TEXT`);
   await q(env, `ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS guide_already_sent BOOLEAN DEFAULT FALSE`);
   await q(env, `ALTER TABLE chat_sessions ADD COLUMN IF NOT EXISTS sensitive_confirmation_status TEXT`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS provider_status TEXT DEFAULT 'fallback'`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS error_type TEXT`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS error_detail TEXT`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS latency_ms INTEGER DEFAULT 0`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS request_id TEXT`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS intent_id TEXT`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS confidence INTEGER`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS attachment_decision TEXT`);
+  await q(env, `INSERT INTO system_migrations(migration_key, notes) VALUES('v0.7.1_admin_stability_reliable_ai_fallback', 'Chat diagnostics, stable content/theme contracts, and reliable AI fallback') ON CONFLICT(migration_key) DO NOTHING`);
   await q(env, `INSERT INTO ai_router_settings(id,direct_send_threshold,clarify_threshold,fallback_threshold,min_confidence_gap,max_clarification_questions,strict_guide_delivery,show_admin_diagnostics) VALUES(1,90,70,50,12,1,TRUE,TRUE) ON CONFLICT(id) DO NOTHING`);
 }
 async function seedDefaults(env) {
@@ -726,23 +736,24 @@ async function getTheme(env) {
   };
 }
 async function updateTheme(env, p = {}) {
+  const current = await getTheme(env);
   const values = [
-    p.app_name || appName(env),
-    p.logo_text || 'BDG',
-    p.banner_title || 'BDG Mobile Help Center',
-    p.banner_subtitle || '',
-    p.support_link || env.SUPPORT_LINK || DEFAULT_SUPPORT,
-    p.primary_color || '#f7c948',
-    p.favicon_url || p.favicon || '',
-    p.chat_icon_url || '',
-    p.guide_logo_url || '',
-    p.chat_header_title || 'BDG AI Support',
-    p.chat_online_text || 'Online assistant',
-    p.show_chat_support_button === true,
-    p.show_guide_support_button === true,
-    p.chat_welcome_title || 'Welcome to BDG AI Support',
-    p.chat_welcome_subtitle || 'Please describe your issue and we will guide you step by step.',
-    p.chat_input_placeholder || 'Type your message...'
+    p.app_name ?? current.app_name,
+    p.logo_text ?? current.logo_text,
+    p.banner_title ?? current.banner_title,
+    p.banner_subtitle ?? current.banner_subtitle,
+    p.support_link ?? current.support_link,
+    p.primary_color ?? current.primary_color,
+    p.favicon_url ?? p.favicon ?? current.favicon_url,
+    p.chat_icon_url ?? current.chat_icon_url,
+    p.guide_logo_url ?? current.guide_logo_url,
+    p.chat_header_title ?? current.chat_header_title,
+    p.chat_online_text ?? current.chat_online_text,
+    p.show_chat_support_button ?? current.show_chat_support_button,
+    p.show_guide_support_button ?? current.show_guide_support_button,
+    p.chat_welcome_title ?? current.chat_welcome_title,
+    p.chat_welcome_subtitle ?? current.chat_welcome_subtitle,
+    p.chat_input_placeholder ?? current.chat_input_placeholder
   ];
   const { rows } = await q(env, `UPDATE theme_settings SET app_name=$1, logo_text=$2, banner_title=$3, banner_subtitle=$4, support_link=$5, primary_color=$6, favicon_url=$7, chat_icon_url=$8, guide_logo_url=$9, chat_header_title=$10, chat_online_text=$11, show_chat_support_button=$12, show_guide_support_button=$13, chat_welcome_title=$14, chat_welcome_subtitle=$15, chat_input_placeholder=$16, updated_at=NOW() WHERE id=(SELECT id FROM theme_settings ORDER BY id ASC LIMIT 1) RETURNING *`, values);
   if (!rows[0]) {
@@ -794,6 +805,7 @@ async function testSmartMatch(env, p) {
   const preview = decision.action === 'send' && picked
     ? await buildSmartMatchReply(env, settings, picked.row, message, lang, true)
     : (decision.question || clarificationText(lang, decision.action === 'confirm' && picked ? picked.row : null, decision.reason));
+  const attachment = picked ? shouldAttachOptionalGuide(picked.row, decision, message, lang) : { attach: false, reason: 'no matching intent' };
   return {
     ok: true,
     engine: 'precision-ai-router',
@@ -810,6 +822,7 @@ async function testSmartMatch(env, p) {
     missing_required_information: decision.missing_required_fields || [],
     risk_level: picked ? (picked.row.risk_level || 'normal') : 'none',
     selected_guide: picked ? smartMatchOut(picked.row, picked.score, picked.reason) : null,
+    attachment_decision: attachment,
     candidates: local.candidates.slice(0,5).map(x => smartMatchOut(x.row, x.score, x.reason)),
     final_reply_preview: preview || 'No Smart Match Guide matched. Ask clarification or create a new intent.',
   };
@@ -1302,7 +1315,40 @@ Steps: ${firstSentences(item.body || item.body_html || '', 700)}`); } for (const
 ${k.content}`); } if (uploadedImages?.length) parts.push('Customer uploaded image/receipt URLs: ' + uploadedImages.join(', ')); parts.push(`Official support link: ${theme.support_link || DEFAULT_SUPPORT}`); return { approvedContext: parts.join('\n\n'), sources, images: [...new Set(images)], matchedGuides }; }
 async function buildPrompt(env, approvedContext, memorySummary, uploadedImages) { const prompts = await listPrompts(env); const sectionText = prompts.filter(p => p.enabled).map(p => `## ${p.title}\n${p.content}`).join('\n\n'); const memoryText = memorySummary || 'No prior memory for this customer session.'; const imageNote = uploadedImages?.length ? 'Customer uploaded images are present. Follow Image / Receipt Rules strictly.' : 'No customer image uploaded in this message.'; return `${sectionText}\n\n## Approved Context\n${approvedContext || 'No approved context matched.'}\n\n## Customer Memory\n${memoryText}\n\n## Image Context\n${imageNote}\n\n## Final Instruction\nAnswer the customer using only the prompt rules and approved context. Keep it short, helpful, and safe. If approved context is not enough, use the fallback/escalation rules.`.trim(); }
 function localFallback(selectedGuides, selectedFaqs, selectedKnowledge, uploadedImages, theme) { const parts = []; if (selectedFaqs.length) parts.push(selectedFaqs[0][1].answer); if (selectedGuides.length) { parts.push('Please follow the matched guide below:'); selectedGuides.forEach(([_, g]) => parts.push(`• ${g.title}\n${g.summary || firstSentences(g.body, 340)}`)); } if (selectedKnowledge.length && !parts.length) parts.push(firstSentences(selectedKnowledge[0][1].content, 520)); if (uploadedImages?.length) parts.push('I received your uploaded image. I can guide you, but I cannot approve payment, withdrawal, bonus, or account changes from an image. Please contact official support for verification.'); if (!parts.length) return `Sorry, I do not have an approved guide for this question yet.\n\nPlease contact official support: ${theme.support_link || DEFAULT_SUPPORT}`; return `${parts.join('\n\n')}\n\nNeed more help? Contact official support: ${theme.support_link || DEFAULT_SUPPORT}`; }
-async function callDeepSeek(env, settings, systemPrompt, userMessage) { if (!settings.enabled || !env.DEEPSEEK_API_KEY) return { reply: null, error: !settings.enabled ? 'AI model disabled' : 'Missing DEEPSEEK_API_KEY' }; const apiBase = (settings.api_base || 'https://api.deepseek.com').replace(/\/$/, ''); const controller = new AbortController(); const timeoutMs = Number(env.DEEPSEEK_TIMEOUT_MS || 10000); const timeout = setTimeout(() => controller.abort(`DeepSeek timeout after ${timeoutMs}ms`), timeoutMs); try { const res = await fetch(`${apiBase}/chat/completions`, { method: 'POST', signal: controller.signal, headers: { Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: settings.model || 'deepseek-chat', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }], temperature: Number(settings.temperature ?? 0.2), max_tokens: Number(settings.max_tokens ?? 700), stream: false }) }); const text = await res.text(); if (!res.ok) return { reply: null, error: `DeepSeek HTTP ${res.status}: ${text.slice(0, 220)}` }; let data; try { data = JSON.parse(text); } catch { return { reply: null, error: 'DeepSeek returned non-JSON response' }; } return { reply: data?.choices?.[0]?.message?.content || null, error: null }; } catch (err) { return { reply: null, error: err?.name === 'AbortError' ? `DeepSeek request timed out after ${timeoutMs}ms` : (err?.message || 'DeepSeek request failed') }; } finally { clearTimeout(timeout); } }
+async function callDeepSeek(env, settings, systemPrompt, userMessage) {
+  if (!settings.enabled || !env.DEEPSEEK_API_KEY) return { reply: null, error: !settings.enabled ? 'AI model disabled' : 'Missing DEEPSEEK_API_KEY', error_type: 'configuration', attempts: 0 };
+  const apiBase = (settings.api_base || 'https://api.deepseek.com').replace(/\/$/, '');
+  const timeoutMs = Number(env.DEEPSEEK_TIMEOUT_MS || 15000);
+  let last = { reply: null, error: 'DeepSeek request failed', error_type: 'provider', attempts: 0 };
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${apiBase}/chat/completions`, {
+        method: 'POST', signal: controller.signal,
+        headers: { Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: settings.model || 'deepseek-chat', messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userMessage }], temperature: Number(settings.temperature ?? 0.2), max_tokens: Number(settings.max_tokens ?? 700), stream: false })
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        const retryable = res.status === 429 || res.status >= 500;
+        last = { reply: null, error: `DeepSeek HTTP ${res.status}: ${text.slice(0, 220)}`, error_type: res.status === 429 ? 'rate_limit' : 'provider', attempts: attempt };
+        if (retryable && attempt < 2) continue;
+        return last;
+      }
+      let data;
+      try { data = JSON.parse(text); }
+      catch { return { reply: null, error: 'DeepSeek returned non-JSON response', error_type: 'invalid_response', attempts: attempt }; }
+      const reply = data?.choices?.[0]?.message?.content;
+      return reply ? { reply, error: null, error_type: null, attempts: attempt } : { reply: null, error: 'DeepSeek returned an empty response', error_type: 'invalid_response', attempts: attempt };
+    } catch (err) {
+      const timedOut = err?.name === 'AbortError';
+      last = { reply: null, error: timedOut ? `DeepSeek request timed out after ${timeoutMs}ms` : (err?.message || 'DeepSeek request failed'), error_type: timedOut ? 'timeout' : 'network', attempts: attempt };
+      if (attempt < 2) continue;
+    } finally { clearTimeout(timeout); }
+  }
+  return last;
+}
 
 function hasAnyNormalized(message, phrases) {
   const msg = normalizeForMatch(message);
@@ -1329,7 +1375,7 @@ async function finishChatTurn(env, session, settings, adminTest, message, reply,
   let memorySummary = session.memory_summary;
   if (settings.memory_enabled && !adminTest) memorySummary = await updateMemory(env, session, message, reply, uploaded, settings.memory_max_messages || 12);
   if (!adminTest) {
-    await q(env, 'INSERT INTO chat_logs(session_id, customer_message, assistant_reply, matched_sources, matched_images, uploaded_images, used_deepseek, model) VALUES($1,$2,$3,$4,$5,$6,$7,$8)', [session.session_id, message, reply, logMeta.sources || '', logMeta.images || '', joinUrls(uploaded), !!logMeta.usedDeepseek, logMeta.model || 'conversation-state-local']);
+    await q(env, 'INSERT INTO chat_logs(session_id, customer_message, assistant_reply, matched_sources, matched_images, uploaded_images, used_deepseek, model, provider_status, error_type, error_detail, latency_ms, request_id, intent_id, confidence, attachment_decision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)', [session.session_id, message, reply, logMeta.sources || '', logMeta.images || '', joinUrls(uploaded), !!logMeta.usedDeepseek, logMeta.model || 'conversation-state-local', logMeta.provider_status || (logMeta.usedDeepseek ? 'success' : 'fallback'), logMeta.error_type || '', logMeta.error_detail || '', Number(logMeta.latency_ms || 0), logMeta.request_id || '', logMeta.intent_id || '', logMeta.confidence == null ? null : Number(logMeta.confidence), logMeta.attachment_decision || 'none']);
   }
   return memorySummary;
 }
@@ -1346,6 +1392,8 @@ function frustrationText(lang) {
 
 async function updateMemory(env, session, userMessage, assistantReply, uploadedImages, maxMessages = 12) { await q(env, 'INSERT INTO chat_memory_messages(session_id, role, content, image_urls) VALUES($1,$2,$3,$4),($1,$5,$6,$7)', [session.session_id, 'user', userMessage, joinUrls(uploadedImages), 'assistant', assistantReply, '']); await q(env, 'UPDATE chat_sessions SET message_count=message_count+1, updated_at=NOW() WHERE session_id=$1', [session.session_id]); const recent = (await q(env, 'SELECT * FROM chat_memory_messages WHERE session_id=$1 ORDER BY id DESC LIMIT $2', [session.session_id, Math.max(4, maxMessages)])).rows.reverse(); const summary = 'Recent session memory:\n' + recent.map(m => `${m.role}: ${firstSentences(m.content, 160)}${splitUrls(m.image_urls).length ? ' [image uploaded]' : ''}`).join('\n'); await q(env, 'UPDATE chat_sessions SET memory_summary=$2, updated_at=NOW() WHERE session_id=$1', [session.session_id, summary]); return summary; }
 async function runAiChat(env, payload, adminTest) {
+  const turnStarted = Date.now();
+  const turnRequestId = crypto.randomUUID();
   const message = String(payload.message || '').trim();
   if (!message) bad('Message is required');
   const uploaded = Array.isArray(payload.image_urls) ? payload.image_urls : [];
@@ -1435,14 +1483,15 @@ Reason: ${decision.reason}`, model: 'prompt-first-clarify' });
   const deepSeekResult = shouldCall ? await callDeepSeek(env, settings, systemPrompt, message) : { reply: null, error: 'DeepSeek skipped because AI model is disabled or API key is missing' };
   const aiReply = deepSeekResult?.reply || null;
   const usedDeepSeek = !!aiReply;
-  const localPromptFallback = optRow && promptFirstDecision?.action === 'send'
-    ? (lang === 'hi' ? 'मैं समझ गया। कृपया अपनी समस्या का विवरण बताएं। यदि ज़रूरी होगा तो मैं सही guide image भी भेज दूँगा।' : 'I understand. Please describe or confirm the issue clearly. If a guide image helps, I will attach it after the answer.')
-    : localFallback([], matches.selectedFaqs, matches.selectedKnowledge, uploaded, theme);
+  const approvedIntentFallback = optRow && promptFirstDecision?.action === 'send'
+    ? cleanAssistantText((lang === 'hi' && optRow.guide_text_hi ? optRow.guide_text_hi : optRow.guide_text) || optRow.allowed_response_content || optRow.required_warning || '')
+    : '';
+  const localPromptFallback = approvedIntentFallback || localFallback([], matches.selectedFaqs, matches.selectedKnowledge, uploaded, theme);
   const reply = cleanAssistantText(aiReply || localPromptFallback);
   if (optRow && optionalImages.length) await setConversationState(env, session.session_id, { pending_smart_slug: null, pending_smart_status: 'optional-guide-attached', last_smart_slug: optRow.slug });
-  const memorySummary = await finishChatTurn(env, session, settings, adminTest, message, reply, uploaded, { sources: [context.sources.join('\\n'), optRow ? `Optional guide candidate: ${optRow.name}; attach=${!!optionalImages.length}; reason=${optAttach.reason}` : 'No optional guide candidate'].filter(Boolean).join('\\n'), images: optionalImages.join('\\n'), usedDeepseek: usedDeepSeek, model: usedDeepSeek ? settings.model : 'prompt-first-local-fallback' });
+  const memorySummary = await finishChatTurn(env, session, settings, adminTest, message, reply, uploaded, { sources: [context.sources.join('\\n'), optRow ? `Optional guide candidate: ${optRow.name}; attach=${!!optionalImages.length}; reason=${optAttach.reason}` : 'No optional guide candidate'].filter(Boolean).join('\\n'), images: optionalImages.join('\\n'), usedDeepseek: usedDeepSeek, provider_status: usedDeepSeek ? 'success' : (deepSeekResult?.error_type === 'configuration' ? 'fallback' : 'error'), error_type: usedDeepSeek ? '' : (deepSeekResult?.error_type || 'fallback'), error_detail: usedDeepSeek ? '' : (deepSeekResult?.error || ''), latency_ms: Date.now() - turnStarted, request_id: turnRequestId, intent_id: optRow?.intent_id || optRow?.slug || '', confidence: optionalGuide?.match?.score ?? null, attachment_decision: optionalImages.length ? `attached:${optAttach.reason}` : `blocked:${optAttach.reason}`, model: usedDeepSeek ? settings.model : 'prompt-first-local-fallback' });
   if (!adminTest && !matches.selectedFaqs.length && !matches.selectedKnowledge.length && !uploaded.length && !optRow) await q(env, 'INSERT INTO unmatched_questions(session_id, customer_message, language, suggested_intent) VALUES($1,$2,$3,$4)', [session.session_id, message, lang, 'prompt-first-no-guide-needed']);
-  return { reply, sources: context.sources, guide_images: optionalImages, matched_guides: [], smart_match: null, optional_guide: optRow && optionalImages.length ? smartMatchOut(optRow, optionalGuide.match.score, optAttach.reason) : null, session_id: session.session_id, language: lang, memory_summary: memorySummary, used_deepseek: usedDeepSeek, model: usedDeepSeek ? settings.model : 'prompt-first-local-fallback', deepseek_error: usedDeepSeek ? null : (deepSeekResult?.error || null), diagnostics: adminTest ? { prompt_first: true, prompt_sections_used: (await listPrompts(env)).filter(p=>p.enabled).length, optional_guide: optRow ? optRow.name : null, attach_decision: optAttach, matched_faqs: matches.selectedFaqs.length, matched_knowledge: matches.selectedKnowledge.length } : undefined };
+  return { reply, sources: context.sources, guide_images: optionalImages, matched_guides: [], smart_match: null, optional_guide: optRow && optionalImages.length ? smartMatchOut(optRow, optionalGuide.match.score, optAttach.reason) : null, session_id: session.session_id, request_id: turnRequestId, language: lang, memory_summary: memorySummary, used_deepseek: usedDeepSeek, model: usedDeepSeek ? settings.model : 'prompt-first-local-fallback', fallback: !usedDeepSeek, fallback_reason: usedDeepSeek ? null : (deepSeekResult?.error_type || 'approved_local_fallback'), deepseek_error: usedDeepSeek ? null : (deepSeekResult?.error || null), diagnostics: adminTest ? { prompt_first: true, prompt_sections_used: (await listPrompts(env)).filter(p=>p.enabled).length, optional_guide: optRow ? optRow.name : null, attach_decision: optAttach, matched_faqs: matches.selectedFaqs.length, matched_knowledge: matches.selectedKnowledge.length } : undefined };
 
 }
 
@@ -1572,7 +1621,24 @@ async function adminApiDiagnostics(env) {
   return { ok: checks.every(c => c.ok), version: VERSION, checks };
 }
 
-async function listChatLogs(env) { const { rows } = await q(env, 'SELECT * FROM chat_logs ORDER BY id DESC LIMIT 100'); return rows.map(x => ({ id: x.id, session_id: x.session_id, customer_message: x.customer_message, assistant_reply: x.assistant_reply, matched_sources: splitUrls(x.matched_sources), matched_images: splitUrls(x.matched_images), uploaded_images: splitUrls(x.uploaded_images), used_deepseek: !!x.used_deepseek, model: x.model, created_at: String(x.created_at) })); }
+async function systemHealth(env) {
+  const checks = [];
+  const check = async (name, run, configured = true) => {
+    if (!configured) { checks.push({ name, status: 'not_enabled', ok: true }); return; }
+    const started = Date.now();
+    try { const detail = await run(); checks.push({ name, status: 'healthy', ok: true, latency_ms: Date.now() - started, detail }); }
+    catch (err) { checks.push({ name, status: 'unavailable', ok: false, latency_ms: Date.now() - started, error: err?.message || String(err) }); }
+  };
+  await check('database', async () => Number((await q(env, 'SELECT 1 AS ok')).rows[0]?.ok) === 1);
+  await check('r2', async () => { await env.GUIDE_IMAGES.health(); return true; }, !!env.GUIDE_IMAGES);
+  const settings = aiSettingOut(await getAiSettings(env), env);
+  if (settings.enabled && env.DEEPSEEK_API_KEY) checks.push({ name: 'deepseek', status: 'configured', ok: true, model: settings.model });
+  else checks.push({ name: 'deepseek', status: 'not_enabled', ok: true });
+  const failed = checks.filter(x => !x.ok);
+  return { ok: !failed.length, status: failed.length ? 'degraded' : 'healthy', version: VERSION, checks, timestamp: new Date().toISOString() };
+}
+
+async function listChatLogs(env) { const { rows } = await q(env, 'SELECT * FROM chat_logs ORDER BY id DESC LIMIT 200'); return rows.map(x => ({ id: x.id, session_id: x.session_id, customer_message: x.customer_message, assistant_reply: x.assistant_reply, matched_sources: splitUrls(x.matched_sources), matched_images: splitUrls(x.matched_images), uploaded_images: splitUrls(x.uploaded_images), used_deepseek: !!x.used_deepseek, provider_status: x.provider_status || (x.used_deepseek ? 'success' : 'fallback'), error_type: x.error_type || '', error_detail: x.error_detail || '', latency_ms: Number(x.latency_ms || 0), request_id: x.request_id || '', intent_id: x.intent_id || '', confidence: x.confidence == null ? null : Number(x.confidence), attachment_decision: x.attachment_decision || '', model: x.model, created_at: String(x.created_at) })); }
 async function listUnmatchedQuestions(env) { const { rows } = await q(env, 'SELECT * FROM unmatched_questions ORDER BY id DESC LIMIT 300'); return rows.map(x => ({ id: x.id, session_id: x.session_id, customer_message: x.customer_message, language: x.language || 'en', suggested_intent: x.suggested_intent || '', created_at: String(x.created_at) })); }
 
 
