@@ -5,13 +5,14 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '0.9.0a-reliable-r2-image-upload-diagnostics-hotfix';
+const API_VERSION = '0.10.0-ai-knowledge-orchestrator-multilingual-visual-guide-studio';
+const API_FEATURES = ['ai-knowledge-orchestrator-v2','backend-keyword-scoring-disabled','multilingual-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-buttons','durable-site-content-delete','unified-content-versions','r2-s3-api'];
 validateRuntimeEnv(env);
 env.GUIDE_IMAGES = createR2Adapter(env);
 
 const counters = new Map();
 // Theme, chat content, and Guide Page content are excluded so Admin changes publish immediately.
-const publicCachePaths = new Set(['/popular-help', '/public/popular-help', '/navigation', '/public/navigation', '/categories', '/public/categories', '/guides', '/public/guides', '/faqs', '/public/faqs']);
+const publicCachePaths = new Set(['/popular-help', '/public/popular-help', '/navigation', '/public/navigation', '/categories', '/public/categories', '/guides', '/public/guides', '/faqs', '/public/faqs', '/action-buttons', '/public/action-buttons']);
 
 function clientIp(req) {
   return String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
@@ -60,7 +61,7 @@ function jsonResponse(res, status, payload, headers = {}) {
 }
 
 async function handleHealth(path) {
-  if (path === '/health/live') return { ok: true, service: env.APP_NAME, version: API_VERSION, runtime: 'render-node-neon', ...databaseDescriptor(env), timestamp: new Date().toISOString() };
+  if (path === '/health/live') return { ok: true, service: env.APP_NAME, version: API_VERSION, features:API_FEATURES, runtime: 'render-node-neon', ...databaseDescriptor(env), timestamp: new Date().toISOString() };
   const db = await readiness(env);
   if (path === '/health/dependencies') {
     let r2 = env.R2_REQUIRED ? 'not_checked' : 'optional';
@@ -68,9 +69,9 @@ async function handleHealth(path) {
       await env.GUIDE_IMAGES.health();
       r2 = 'ok';
     }
-    return { ...db, r2, deepseek: env.DEEPSEEK_API_KEY ? 'configured' : 'not_configured', timestamp: new Date().toISOString() };
+    return { ...db, features:API_FEATURES, r2, deepseek: env.DEEPSEEK_API_KEY ? 'configured' : 'not_configured', timestamp: new Date().toISOString() };
   }
-  return { ...db, runtime: 'render-node-neon', timestamp: new Date().toISOString() };
+  return { ...db, features:API_FEATURES, runtime: 'render-node-neon', timestamp: new Date().toISOString() };
 }
 
 const server = http.createServer(async (req, res) => {

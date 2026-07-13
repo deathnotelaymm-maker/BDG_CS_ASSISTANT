@@ -30,12 +30,15 @@ export interface ChatSource {
   url?: string;
 }
 
+export type RichSegment = { text: string; marks?: { bold?: boolean; italic?: boolean; underline?: boolean; color?: string; highlight?: string } };
+
 export type ResponseBlock =
-  | { type: "heading"; text: string; level?: 2 | 3 }
-  | { type: "paragraph"; text: string }
-  | { type: "steps"; title?: string; items: string[] }
+  | { type: "heading"; text: string; segments?: RichSegment[]; level?: 2 | 3 }
+  | { type: "paragraph"; text: string; segments?: RichSegment[] }
+  | { type: "steps" | "list"; title?: string; items: string[]; rich_items?: RichSegment[][]; ordered?: boolean }
   | { type: "warning" | "notice" | "success" | "error"; text: string }
-  | { type: "link"; label: string; url: string }
+  | { type: "link" | "button"; id?: number; label: string; subtitle?: string; url: string; icon_url?: string; target?: string; action_type?: string }
+  | { type: "image"; url: string; alt?: string; caption?: string }
   | { type: "divider" };
 
 export interface ChatResponse {
@@ -44,7 +47,7 @@ export interface ChatResponse {
   sources?: ChatSource[];
   memory_note?: string;
   technical_failure?: boolean;
-  response_format?: "structured-v1" | string;
+  response_format?: "structured-v1" | "structured-v2" | string;
   response_blocks?: ResponseBlock[];
   resolution_state?: "open" | "confirmed_by_user" | string;
 }

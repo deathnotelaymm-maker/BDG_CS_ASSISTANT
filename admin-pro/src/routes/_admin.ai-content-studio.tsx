@@ -44,8 +44,12 @@ function AiContentStudioPage() {
   const [saving, setSaving] = useState(false);
   const [richJson, setRichJson] = useState(blankDocument);
   const [richHtml, setRichHtml] = useState("");
+  const [richJsonHi, setRichJsonHi] = useState(blankDocument);
+  const [richHtmlHi, setRichHtmlHi] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [actionButtons, setActionButtons] = useState<any[]>([]);
   const [testMessage, setTestMessage] = useState("hello");
+  const [testLanguage, setTestLanguage] = useState("en");
   const [testResult, setTestResult] = useState<any | null>(null);
   const [testing, setTesting] = useState(false);
   const [form] = Form.useForm();
@@ -53,7 +57,9 @@ function AiContentStudioPage() {
   const load = async () => {
     setLoading(true);
     try {
-      setRows((await api.list("ai-content")) as any[]);
+      const [items, buttons] = await Promise.all([api.list("ai-content"), api.list("action-buttons")]);
+      setRows(items as any[]);
+      setActionButtons(buttons as any[]);
     } catch (error: any) {
       message.error(error?.message || "Failed to load AI Content");
     } finally {
@@ -73,10 +79,13 @@ function AiContentStudioPage() {
       confidence_threshold: 86,
       image_delivery: "after_answer",
       version_label: "v1",
+      approval_status: "draft",
     };
     setEditing(current);
     setRichJson(current.rich_json || blankDocument);
     setRichHtml(current.rich_html || "");
+    setRichJsonHi(current.rich_json_hi || blankDocument);
+    setRichHtmlHi(current.rich_html_hi || "");
     setImages(Array.isArray(current.image_urls) ? current.image_urls : []);
     form.setFieldsValue(current);
   };
@@ -87,13 +96,15 @@ function AiContentStudioPage() {
     setImages([]);
     setRichJson(blankDocument);
     setRichHtml("");
+    setRichJsonHi(blankDocument);
+    setRichHtmlHi("");
   };
 
   const save = async () => {
     const values = await form.validateFields();
     setSaving(true);
     try {
-      const payload = { ...values, rich_json: richJson, rich_html: richHtml, image_urls: images };
+      const payload = { ...values, rich_json: richJson, rich_html: richHtml, rich_json_hi: richJsonHi, rich_html_hi: richHtmlHi, image_urls: images };
       if (editing?.id) await api.update("ai-content", editing.id, payload);
       else await api.create("ai-content", payload);
       message.success(editing?.id ? "AI Content updated" : "AI Content created");
@@ -133,7 +144,7 @@ function AiContentStudioPage() {
     if (!testMessage.trim()) return;
     setTesting(true);
     try {
-      setTestResult(await api.testAiContent(testMessage.trim(), "en"));
+      setTestResult(await api.testAiContent(testMessage.trim(), testLanguage));
     } catch (error: any) {
       message.error(error?.message || "Test failed");
     } finally {
@@ -149,7 +160,7 @@ function AiContentStudioPage() {
     },
     { title: "Locale", dataIndex: "locale", width: 90, render: (value: string) => <Tag>{String(value || "en").toUpperCase()}</Tag> },
     { title: "Status", dataIndex: "status", width: 110, render: (value: string) => <Tag color={value === "published" ? "green" : value === "archived" ? "red" : "gold"}>{value}</Tag> },
-    { title: "Confidence", dataIndex: "confidence_threshold", width: 110, render: (value: number) => `${value || 86}%` },
+    { title: "Approval", dataIndex: "approval_status", width: 110, render: (value: string) => <Tag color={value === "approved" ? "green" : "gold"}>{value || "draft"}</Tag> },
     { title: "Images", dataIndex: "image_urls", width: 80, render: (value: string[]) => Array.isArray(value) ? value.length : 0 },
     { title: "Updated", dataIndex: "updated_at", width: 190, render: (value: string) => value ? new Date(value).toLocaleString() : "—" },
     {
@@ -169,23 +180,23 @@ function AiContentStudioPage() {
       <Alert
         showIcon
         type="info"
-        message="Prompt-first content policy"
-        description="AI Prompt Manager is always primary. The router may select only one published content item at high confidence. Greetings bypass content matching, and images never influence topic detection."
+        message="AI Knowledge Orchestrator"
+        description="The AI Meaning Judge understands typos, broken English, Hindi, and Hinglish. It decides match, clarification, greeting, or no match from positive examples, negative examples, item instruction, and approved knowledge. Backend keyword scoring is disabled."
         style={{ marginBottom: 12 }}
       />
 
       <Card className="bdg-card" size="small" title="Routing safety test" style={{ marginBottom: 12 }}>
         <Space.Compact style={{ width: "100%" }}>
+          <Select value={testLanguage} onChange={setTestLanguage} options={[{ value:"en",label:"English" },{ value:"hi",label:"Hindi / Indian" }]} style={{ width:150 }} />
           <Input value={testMessage} onChange={(event) => setTestMessage(event.target.value)} onPressEnter={runTest} placeholder="Try: hello, deposit not received, account number" />
           <Button icon={<ExperimentOutlined />} type="primary" loading={testing} onClick={runTest}>Test</Button>
         </Space.Compact>
         {testResult && <div style={{ marginTop: 10 }}>
-          {testResult.greeting_bypass
-            ? <Tag color="green">Greeting bypass — no content selected</Tag>
-            : testResult.selected_content
-              ? <Tag color="blue">Selected: {testResult.selected_content.title} ({testResult.selected_content.score}%)</Tag>
-              : <Tag color="gold">No high-confidence content selected</Tag>}
-          {typeof testResult.confidence_gap === "number" && <Tag>Gap: {testResult.confidence_gap}</Tag>}
+          <Tag color={testResult.ok ? "blue" : "red"}>Decision: {testResult.decision?.decision || "provider error"}</Tag>
+          {testResult.selected_content && <Tag color="green">Selected: {testResult.selected_content.title}</Tag>}
+          {typeof testResult.decision?.confidence === "number" && <Tag>AI confidence: {testResult.decision.confidence}%</Tag>}
+          {testResult.decision?.user_intent && <div style={{ marginTop:8, color:"#8ea0bd" }}>Understood: {testResult.decision.user_intent} → {testResult.decision.desired_outcome}</div>}
+          {testResult.provider_error && <Alert style={{ marginTop:8 }} type="error" showIcon message={testResult.provider_error} />}
         </div>}
       </Card>
 
@@ -215,16 +226,18 @@ function AiContentStudioPage() {
                   <Col xs={24} md={12}><Form.Item name="intent_key" label="Intent key" rules={[{ required: true }]}><Input placeholder="deposit-not-received" /></Form.Item></Col>
                   <Col xs={12} md={6}><Form.Item name="locale" label="Locale"><Select options={[{ value: "en", label: "English" }, { value: "hi", label: "Hindi" }, { value: "all", label: "All languages" }]} /></Form.Item></Col>
                   <Col xs={12} md={6}><Form.Item name="status" label="Status"><Select options={["draft", "published", "archived"].map((value) => ({ value, label: value }))} /></Form.Item></Col>
-                  <Col xs={12} md={6}><Form.Item name="priority" label="Priority"><InputNumber min={1} max={999} style={{ width: "100%" }} /></Form.Item></Col>
-                  <Col xs={12} md={6}><Form.Item name="confidence_threshold" label="Confidence threshold"><InputNumber min={70} max={99} addonAfter="%" style={{ width: "100%" }} /></Form.Item></Col>
+                  <Col xs={12} md={6}><Form.Item name="priority" label="Catalog order"><InputNumber min={1} max={999} style={{ width: "100%" }} /></Form.Item></Col>
+                  <Col xs={12} md={6}><Form.Item name="approval_status" label="Knowledge approval"><Select options={[{value:"draft",label:"Draft"},{value:"approved",label:"Approved"},{value:"archived",label:"Archived"}]} /></Form.Item></Col>
                 </Row>
-                <Form.Item name="keywords" label="Intent keywords" extra="One phrase per line. Single broad words cannot trigger content by themselves."><Input.TextArea rows={4} placeholder={"deposit not received\nrecharge pending\nbalance not added"} /></Form.Item>
                 <Row gutter={12}>
                   <Col xs={24} md={12}><Form.Item name="positive_examples" label="Positive examples — should match"><Input.TextArea rows={5} placeholder={"My deposit has not arrived\nMoney was deducted but balance was not added"} /></Form.Item></Col>
                   <Col xs={24} md={12}><Form.Item name="negative_examples" label="Negative examples — must not match"><Input.TextArea rows={5} placeholder={"How do I deposit?\nWithdrawal not received\nHello"} /></Form.Item></Col>
                 </Row>
                 <Form.Item name="required_fields" label="Required information"><Input.TextArea rows={3} placeholder={"payment method\nwaiting time"} /></Form.Item>
-                <Form.Item name="ai_instruction" label="Item-specific AI instruction"><Input.TextArea rows={5} placeholder="Ask for the missing details first. Never promise a balance adjustment." /></Form.Item>
+                <Row gutter={12}>
+                  <Col xs={24} md={12}><Form.Item name="ai_instruction" label="English item-specific AI instruction"><Input.TextArea rows={5} placeholder="Ask for the missing details first. Never promise a balance adjustment." /></Form.Item></Col>
+                  <Col xs={24} md={12}><Form.Item name="ai_instruction_hi" label="Hindi / Indian item-specific AI instruction"><Input.TextArea rows={5} placeholder="Hindi/Hinglish handling instructions" /></Form.Item></Col>
+                </Row>
               </>,
             },
             {
@@ -234,20 +247,36 @@ function AiContentStudioPage() {
                 <Row gutter={12}>
                   <Col xs={24} md={8}><Form.Item name="faq_content" label="Approved FAQ"><Input.TextArea rows={8} /></Form.Item></Col>
                   <Col xs={24} md={8}><Form.Item name="knowledge_content" label="Approved knowledge"><Input.TextArea rows={8} /></Form.Item></Col>
-                  <Col xs={24} md={8}><Form.Item name="example_answers" label="Example answers"><Input.TextArea rows={8} /></Form.Item></Col>
+                  <Col xs={24} md={8}><Form.Item name="example_answers" label="English example answers / output style"><Input.TextArea rows={8} /></Form.Item></Col>
                 </Row>
+                <Form.Item name="example_answers_hi" label="Hindi / Indian example answers / output style"><Input.TextArea rows={6} /></Form.Item>
               </>,
             },
             {
               key: "visual",
-              label: "Visual knowledge editor",
+              label: "English Visual Knowledge",
               children: <RichKnowledgeEditor value={richJson} onChange={(json, html) => { setRichJson(json); setRichHtml(html); }} uploadImage={uploadImage} />,
+            },
+            {
+              key: "visual-hi",
+              label: "Hindi / Indian Visual Knowledge",
+              children: <RichKnowledgeEditor value={richJsonHi} onChange={(json, html) => { setRichJsonHi(json); setRichHtmlHi(html); }} uploadImage={uploadImage} />,
+            },
+            {
+              key: "buttons",
+              label: "Recommended buttons",
+              children: <>
+                <Alert showIcon type="info" style={{ marginBottom:12 }} message="The AI may recommend only buttons assigned here. It decides whether each button is relevant to the customer request." />
+                <Form.Item name="button_ids" label="Approved buttons">
+                  <Select mode="multiple" optionFilterProp="label" placeholder="Choose reusable buttons" options={actionButtons.filter((button) => button.status === "active").map((button) => ({ value:button.id,label:`${button.label} — ${button.action_type}` }))} />
+                </Form.Item>
+              </>,
             },
             {
               key: "images",
               label: `Response images (${images.length})`,
               children: <>
-                <Alert type="warning" showIcon message="Images are sent only after the AI text answer and only when this content item is the single high-confidence match." style={{ marginBottom: 12 }} />
+                <Alert type="warning" showIcon message="The AI chooses whether and where each approved image belongs. Images never cause a topic match." style={{ marginBottom: 12 }} />
                 <Row gutter={12}>
                   <Col xs={24} md={8}><Form.Item name="image_delivery" label="Image delivery"><Select options={[{ value: "after_answer", label: "After the text answer" }, { value: "never", label: "Never send automatically" }]} /></Form.Item></Col>
                   <Col xs={24} md={8}><Form.Item name="version_label" label="Knowledge version"><Input placeholder="v1" /></Form.Item></Col>

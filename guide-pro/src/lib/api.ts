@@ -323,6 +323,8 @@ function normalizeGuide(row: any): mock.Guide {
           .map((x) => x.trim())
           .filter(Boolean),
     supportCta: false,
+    richDocument: row?.rich_document?.type === "doc" ? row.rich_document : null,
+    actionButtons: Array.isArray(row?.action_buttons) ? row.action_buttons : [],
     blocks:
       Array.isArray(row?.blocks) && row.blocks.length ? row.blocks : bodyToBlocks(bodyText, imgs),
     relatedGuides: row?.relatedGuides || [],

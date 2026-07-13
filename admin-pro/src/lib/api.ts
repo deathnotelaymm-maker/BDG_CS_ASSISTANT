@@ -98,6 +98,8 @@ const resourcePath: Record<string, string> = {
   "prompt-history": "/admin/ai/prompt-versions",
   "chat-quick-replies": "/admin/chat-quick-replies",
   "ai-content": "/admin/ai-content",
+  "action-buttons": "/admin/action-buttons",
+  "content-versions": "/admin/content-versions",
   "chat-logs": "/admin/chat-logs",
   "unmatched-questions": "/admin/unmatched-questions",
   "audit-logs": "/admin/audit-logs",
@@ -122,7 +124,16 @@ function normalizeResourcePayload(resource: string, payload: any): any[] {
     }));
   }
 
-  if (Array.isArray(payload)) return payload;
+  if (resource === "prompt-history") {
+    const arr = Array.isArray(payload) ? payload : [];
+    return arr.map((version: any) => ({
+      ...version,
+      section: version.title || version.section_key,
+      version: version.id,
+      editor: version.actor_email || "admin",
+      changedAt: version.created_at || "",
+    }));
+  }
 
   if (resource === "site-content") {
     return (payload?.blocks || []).map((b: any) => ({
@@ -158,6 +169,8 @@ function normalizeResourcePayload(resource: string, payload: any): any[] {
       resolution_state: log.resolution_state || "open",
     }));
   }
+
+  if (Array.isArray(payload)) return payload;
 
   return [];
 }
@@ -209,6 +222,7 @@ function normalizeForCreate(resource: string, data: any) {
       body_html: data.body_html || "",
       body_blocks_json: data.body_blocks_json || "",
       body_blocks_json_hi: data.body_blocks_json_hi || "",
+      body_html_hi: data.body_html_hi || "",
       cover_image_url: data.cover_image_url || data.cover || data.image_url || "",
       cover_image_url_hi: data.cover_image_url_hi || "",
       image_urls: Array.isArray(data.image_urls)
@@ -229,6 +243,7 @@ function normalizeForCreate(resource: string, data: any) {
       status: data.status || "published",
       category_id: data.category_id || null,
       category_slug: data.category_slug || data.category || "",
+      button_ids: Array.isArray(data.button_ids) ? data.button_ids : String(data.button_ids || "").split(/\r?\n|,/).map((x) => Number(x.trim())).filter(Boolean),
     };
   }
   if (resource === "faq") {
@@ -282,9 +297,13 @@ function normalizeForCreate(resource: string, data: any) {
       faq_content: data.faq_content || "",
       knowledge_content: data.knowledge_content || "",
       example_answers: data.example_answers || "",
+      example_answers_hi: data.example_answers_hi || "",
       ai_instruction: data.ai_instruction || "",
+      ai_instruction_hi: data.ai_instruction_hi || "",
       rich_json: data.rich_json || "",
       rich_html: data.rich_html || "",
+      rich_json_hi: data.rich_json_hi || "",
+      rich_html_hi: data.rich_html_hi || "",
       image_urls: Array.isArray(data.image_urls)
         ? data.image_urls
         : String(data.image_urls || "")
@@ -292,7 +311,26 @@ function normalizeForCreate(resource: string, data: any) {
             .map((x) => x.trim())
             .filter(Boolean),
       image_delivery: data.image_delivery || "after_answer",
+      button_ids: Array.isArray(data.button_ids) ? data.button_ids : String(data.button_ids || "").split(/\r?\n|,/).map((x) => Number(x.trim())).filter(Boolean),
+      approval_status: data.approval_status || (data.status === "published" ? "approved" : "draft"),
       version_label: data.version_label || "v1",
+    };
+  }
+  if (resource === "action-buttons") {
+    return {
+      button_key: data.button_key,
+      label: data.label,
+      label_hi: data.label_hi || "",
+      subtitle: data.subtitle || "",
+      subtitle_hi: data.subtitle_hi || "",
+      icon_url: data.icon_url || "",
+      action_type: data.action_type || "url",
+      url: data.url || "",
+      fallback_url: data.fallback_url || "",
+      target: data.target || "same_window",
+      allowed_hosts: data.allowed_hosts || "",
+      status: data.status || "active",
+      sort_order: Number(data.sort_order || 100),
     };
   }
   return data;
@@ -418,7 +456,6 @@ export const api = {
   remove: async (resource: string, id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true });
     if (
-      resource === "site-content" ||
       resource === "prompt-history" ||
       resource === "chat-logs" ||
       resource === "audit-logs"
@@ -546,6 +583,34 @@ export const api = {
     return request("/admin/ai-content/test", {
       method: "POST",
       body: JSON.stringify({ message, language }),
+    });
+  },
+
+  listContentVersions: async (entityType?: string, entityId?: string | number) => {
+    const params = new URLSearchParams();
+    if (entityType) params.set("entity_type", entityType);
+    if (entityId != null) params.set("entity_id", String(entityId));
+    return request(`/admin/content-versions${params.size ? `?${params.toString()}` : ""}`);
+  },
+
+  restoreContentVersion: async (versionId: number | string) => {
+    return request(`/admin/content-versions/${versionId}/restore`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+
+  restorePromptVersion: async (promptId: number | string, versionId: number | string) => {
+    return request(`/admin/ai/prompts/${promptId}/restore/${versionId}`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+
+  restoreSiteContent: async (blockKey: string) => {
+    return request(`/admin/site-content/blocks/${encodeURIComponent(blockKey)}/restore`, {
+      method: "POST",
+      body: JSON.stringify({}),
     });
   },
 

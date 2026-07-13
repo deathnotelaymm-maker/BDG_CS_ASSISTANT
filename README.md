@@ -1,6 +1,6 @@
-# v0.9.0a — Reliable R2 Image Upload + Upload Diagnostics Hotfix
+# v0.10.0 — AI Knowledge Orchestrator + Multilingual Visual Guide Studio
 
-This is the focused production hotfix for the v0.9.0 BDG Help Center platform. See `RELEASE_NOTES_V0.9.0A.md` and `DEPLOYMENT_CHECKLIST_V0.9.0A.md` first.
+This release adds AI-only semantic knowledge selection, multilingual visual knowledge and Guide editing, rich Chat output, reusable action buttons, durable Site Content deletion, and unified version history. See `RELEASE_NOTES_V0.10.0.md` and `DEPLOYMENT_CHECKLIST_V0.10.0.md` first.
 
 It preserves the v0.9.0 Prompt-First AI Content Studio and fixes Render-to-R2 image uploads by buffering each validated image and attaching an exact S3 `ContentLength`. It also adds request-aware upload diagnostics to Render logs and the Admin error message.
 

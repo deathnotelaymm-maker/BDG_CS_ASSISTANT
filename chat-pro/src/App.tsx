@@ -216,7 +216,7 @@ export default function App() {
           </div>
 
           {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} onRetry={() => m.retryOf && send(m.retryOf)} />
+            <MessageBubble key={m.id} message={m} onRetry={() => m.retryOf && send(m.retryOf)} onPrompt={send} />
           ))}
           {isProcessing && <TypingIndicator />}
         </div>
@@ -267,7 +267,7 @@ export default function App() {
   );
 }
 
-function MessageBubble({ message, onRetry }: { message: Message; onRetry: () => void }) {
+function MessageBubble({ message, onRetry, onPrompt }: { message: Message; onRetry: () => void; onPrompt: (text:string) => void }) {
   const isUser = message.role === "user";
   return (
     <div className={`flex msg-in ${isUser ? "justify-end" : "justify-start"}`}>
@@ -275,7 +275,7 @@ function MessageBubble({ message, onRetry }: { message: Message; onRetry: () => 
         className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser ? "bg-bubble-user text-bubble-user-foreground rounded-br-sm" : "bg-bubble-ai text-bubble-ai-foreground rounded-bl-sm border border-border"}`}
       >
         {message.blocks && message.blocks.length > 0 ? (
-          <StructuredResponse blocks={message.blocks} />
+          <StructuredResponse blocks={message.blocks} onPrompt={onPrompt} />
         ) : (
           <div>{message.content}</div>
         )}
@@ -314,7 +314,13 @@ function MessageBubble({ message, onRetry }: { message: Message; onRetry: () => 
   );
 }
 
-function StructuredResponse({ blocks }: { blocks: ResponseBlock[] }) {
+const textColors: Record<string,string> = { brand:"text-blue-300",accent:"text-amber-300",success:"text-emerald-300",warning:"text-amber-200",danger:"text-red-300",muted:"text-muted-foreground",default:"" };
+const highlights: Record<string,string> = { brand:"bg-blue-400/20",accent:"bg-amber-300/25",success:"bg-emerald-400/20",warning:"bg-amber-400/20",danger:"bg-red-400/20",muted:"bg-white/10",default:"" };
+function RichText({ segments, fallback }: { segments?: any[]; fallback:string }) {
+  if (!segments?.length) return <>{fallback}</>;
+  return <>{segments.map((segment,index)=><span key={index} className={`${segment.marks?.bold ? "font-bold" : ""} ${segment.marks?.italic ? "italic" : ""} ${segment.marks?.underline ? "underline" : ""} ${textColors[segment.marks?.color || "default"] || ""} ${highlights[segment.marks?.highlight || "default"] || ""}`}>{segment.text}</span>)}</>;
+}
+function StructuredResponse({ blocks, onPrompt }: { blocks: ResponseBlock[]; onPrompt:(text:string)=>void }) {
   return (
     <div className="space-y-3 whitespace-normal">
       {blocks.map((block, index) => {
@@ -329,18 +335,18 @@ function StructuredResponse({ blocks }: { blocks: ResponseBlock[] }) {
                   : "text-base font-semibold tracking-tight"
               }
             >
-              {block.text}
+              <RichText segments={block.segments} fallback={block.text} />
             </h3>
           );
         }
         if (block.type === "paragraph") {
           return (
             <p key={key} className="whitespace-pre-wrap leading-relaxed">
-              {block.text}
+              <RichText segments={block.segments} fallback={block.text} />
             </p>
           );
         }
-        if (block.type === "steps") {
+        if (block.type === "steps" || block.type === "list") {
           return (
             <div key={key} className="rounded-xl border border-white/8 bg-black/10 p-3">
               {block.title ? (
@@ -352,7 +358,7 @@ function StructuredResponse({ blocks }: { blocks: ResponseBlock[] }) {
                     <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand text-[10px] font-bold text-brand-foreground">
                       {itemIndex + 1}
                     </span>
-                    <span className="min-w-0 flex-1 leading-relaxed">{item}</span>
+                    <span className="min-w-0 flex-1 leading-relaxed"><RichText segments={block.rich_items?.[itemIndex]} fallback={item} /></span>
                   </li>
                 ))}
               </ol>
@@ -382,16 +388,21 @@ function StructuredResponse({ blocks }: { blocks: ResponseBlock[] }) {
             </div>
           );
         }
-        if (block.type === "link") {
+        if (block.type === "image") {
+          return <figure key={key} className="overflow-hidden rounded-xl border border-border bg-black/10"><a href={block.url} target="_blank" rel="noreferrer"><img src={block.url} alt={block.alt || "Support visual"} className="w-full max-h-96 object-contain" loading="lazy" /></a>{block.caption && <figcaption className="border-t border-border px-3 py-2 text-xs text-muted-foreground">{block.caption}</figcaption>}</figure>;
+        }
+        if (block.type === "link" || block.type === "button") {
+          const isPrompt = block.action_type === "chat_prompt" || block.url.startsWith("prompt:");
+          if (isPrompt) return <button key={key} type="button" onClick={()=>onPrompt(block.url.replace(/^prompt:/i,"").trim() || block.label)} className="flex w-full items-center gap-2 rounded-xl bg-brand px-3 py-2 text-left text-xs font-semibold text-brand-foreground transition-colors hover:bg-brand-glow">{block.icon_url && <img src={block.icon_url} alt="" className="h-7 w-7 rounded-lg object-contain"/>}<span className="flex-1"><span className="block">{block.label}</span>{block.subtitle && <span className="mt-0.5 block font-normal opacity-75">{block.subtitle}</span>}</span></button>;
           return (
             <a
               key={key}
               href={block.url}
-              target="_blank"
+              target={block.target === "new_window" ? "_blank" : undefined}
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-brand-foreground transition-colors hover:bg-brand-glow"
             >
-              {block.label} <ExternalLink className="h-3.5 w-3.5" />
+              {block.icon_url && <img src={block.icon_url} alt="" className="h-5 w-5 rounded object-contain"/>}{block.label} <ExternalLink className="h-3.5 w-3.5" />
             </a>
           );
         }

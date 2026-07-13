@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import api, { uploadToR2 } from '../src/core.js';
 import { createR2Adapter } from '../src/r2-adapter.js';
 
-const version = '0.9.0a-reliable-r2-image-upload-diagnostics-hotfix';
+const version = '0.10.0-ai-knowledge-orchestrator-multilingual-visual-guide-studio';
 const env = {
   R2_ACCOUNT_ID: 'test-account',
   R2_ACCESS_KEY_ID: 'test-access-key',

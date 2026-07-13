@@ -28,6 +28,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   DownOutlined,
+  LinkOutlined,
 } from "@ant-design/icons";
 import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-router";
 import { getCurrentUser, logout } from "@/lib/api";
@@ -85,6 +86,13 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     to: "/prompt-history",
     label: "Prompt Version History",
     icon: <HistoryOutlined />,
+    group: "AI",
+  },
+  {
+    key: "/action-buttons",
+    to: "/action-buttons",
+    label: "Buttons Configuration",
+    icon: <LinkOutlined />,
     group: "AI",
   },
   {
@@ -149,6 +157,7 @@ const ZH: Record<string, string> = {
   "AI Prompt Manager": "AI 提示词管理",
   "AI Prompt & Image": "AI 提示与图片",
   "Prompt Version History": "提示词版本历史",
+  "Buttons Configuration": "按钮配置",
   "AI Diagnostics": "AI 诊断",
   "Chat Quick Replies": "聊天快捷回复",
   "Chat Logs": "聊天记录",

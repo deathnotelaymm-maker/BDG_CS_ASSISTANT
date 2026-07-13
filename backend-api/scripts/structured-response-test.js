@@ -4,7 +4,6 @@ import {
   isGreetingOnly,
   normalizeResponseBlocks,
   responseBlocksFromText,
-  scoreAiContent,
 } from "../src/core.js";
 
 const normalized = normalizeResponseBlocks([
@@ -28,18 +27,10 @@ assert.equal(derived[2].type, "warning");
 assert.equal(isGreetingOnly("Hello!"), true);
 assert.equal(isGreetingOnly("hello, my deposit is missing"), false);
 
-const content = {
-  title: "Deposit not received",
-  intent_key: "deposit-not-received",
-  priority: 10,
-  keywords: "deposit\ndeposit not received\nrecharge pending\nbalance not added",
-  positive_examples: "My deposit has not arrived\nMoney deducted but balance not added",
-  negative_examples: "How do I deposit?\nWithdrawal not received\nHello",
-};
-assert.equal(scoreAiContent("hello", content).score, 0, "greetings must never select content");
-assert.ok(scoreAiContent("My deposit has not arrived", content).score >= 86);
-assert.equal(scoreAiContent("How do I deposit?", content).score, -100);
-assert.ok(scoreAiContent("deposit", content).score < 70, "one broad word cannot select content");
+const rich = normalizeResponseBlocks([{type:"paragraph",segments:[{text:"Important",marks:{bold:true,color:"brand",highlight:"warning"}}]},{type:"button",label:"Open deposit",url:"bdg://deposit",action_type:"deep_link"},{type:"button",label:"Unsafe",url:"javascript:alert(1)"},{type:"image",url:"https://cdn.example.com/guide.png"}]);
+assert.equal(rich.length,3);
+assert.equal(rich[0].segments[0].marks.color,"brand");
+assert.equal(rich[1].url,"bdg://deposit");
 
 assert.deepEqual(
   imageUrlsFromHtml('<p>Text</p><img src="https://cdn.example.com/a.png"><img src="javascript:bad">'),
@@ -48,7 +39,6 @@ assert.deepEqual(
 
 console.log("PASS structured response normalization");
 console.log("PASS unsafe response links are rejected");
-console.log("PASS greetings bypass AI Content routing");
-console.log("PASS high-confidence positive and negative examples");
+console.log("PASS structured-v2 marks and approved deep links");
 console.log("PASS visual editor image URLs are safely extracted");
-console.log("\n5/5 structured and prompt-first checks passed");
+console.log("\n4/4 structured and prompt-first checks passed");

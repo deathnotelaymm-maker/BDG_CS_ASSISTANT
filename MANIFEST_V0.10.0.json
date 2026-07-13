@@ -1,0 +1,12 @@
+{
+  "release": "v0.10.0",
+  "version": "0.10.0-ai-knowledge-orchestrator-multilingual-visual-guide-studio",
+  "title": "AI Knowledge Orchestrator + Multilingual Visual Guide Studio",
+  "database_migration": "backend-api/migrations/005_v0.10.0_ai_knowledge_orchestrator_visual_guide_studio.sql",
+  "windows": {
+    "apply": "APPLY-V0.10.0-WINDOWS.ps1",
+    "deploy": "DEPLOY-V0.10.0-PRODUCTION-WINDOWS.ps1",
+    "verify": "VERIFY-V0.10.0-WINDOWS.ps1"
+  },
+  "expected_checks": { "regression": 32, "structured_response": 4, "r2_upload": 4 }
+}

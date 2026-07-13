@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Calendar, Info, AlertTriangle, LifeBuoy, ArrowRight, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, Info, AlertTriangle, LifeBuoy, ArrowRight, Loader2, ExternalLink } from "lucide-react";
 import { api, getPublicLanguage } from "@/lib/api";
 import type { GuideBlock } from "@/mock/data";
 import { Button } from "@/components/ui/button";
@@ -110,9 +110,11 @@ function GuideDetail() {
 
       <section className="rounded-[2rem] border border-border bg-card p-5 shadow-[var(--shadow-card)] md:p-8">
         <div className="space-y-5">
-          {guide.blocks.map((b, i) => <BlockView key={i} block={b} />)}
+          {guide.richDocument ? <RichDocumentView document={guide.richDocument} /> : guide.blocks.map((b, i) => <BlockView key={i} block={b} />)}
         </div>
       </section>
+
+      {!!guide.actionButtons?.length && <section className="grid gap-3 sm:grid-cols-2">{guide.actionButtons.map((action)=><a key={action.id} href={action.url} target={action.target === "new_window" ? "_blank" : undefined} rel="noreferrer" className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)] hover:bg-muted">{action.icon_url ? <img src={action.icon_url} alt="" className="h-10 w-10 rounded-xl object-contain"/> : <ArrowRight className="h-5 w-5"/>}<span className="min-w-0 flex-1"><b className="block text-sm">{action.label}</b>{action.subtitle && <span className="block text-xs text-muted-foreground">{action.subtitle}</span>}</span><ExternalLink className="h-4 w-4 text-muted-foreground"/></a>)}</section>}
 
       {faqs.length > 0 && (
         <section className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
@@ -168,6 +170,40 @@ function GuideDetail() {
       )}
     </article>
   );
+}
+
+function safeUrl(value:unknown) { const url=String(value||"").trim(); return url.startsWith("/") || /^https?:\/\//i.test(url) ? url : ""; }
+function RichDocumentView({ document }: { document:any }) { return <div className="space-y-4">{(document?.content || []).map((node:any,index:number)=><RichNode key={index} node={node}/>)}</div>; }
+function RichInline({ nodes=[] }: { nodes?:any[] }) { return <>{nodes.map((node,index)=>{
+  if (node.type === "hardBreak") return <br key={index}/>;
+  if (node.type !== "text") return <RichNode key={index} node={node}/>;
+  let content:any = node.text || "";
+  for (const mark of node.marks || []) {
+    if (mark.type === "bold") content=<strong>{content}</strong>;
+    else if (mark.type === "italic") content=<em>{content}</em>;
+    else if (mark.type === "underline") content=<u>{content}</u>;
+    else if (mark.type === "strike") content=<s>{content}</s>;
+    else if (mark.type === "textStyle" && /^#[0-9a-f]{3,8}$/i.test(mark.attrs?.color || "")) content=<span style={{color:mark.attrs.color}}>{content}</span>;
+    else if (mark.type === "highlight" && /^#[0-9a-f]{3,8}$/i.test(mark.attrs?.color || "")) content=<mark style={{backgroundColor:mark.attrs.color}}>{content}</mark>;
+    else if (mark.type === "link" && safeUrl(mark.attrs?.href)) content=<a href={safeUrl(mark.attrs.href)} target="_blank" rel="noreferrer" className="font-semibold text-[color:var(--bdg-navy)] underline">{content}</a>;
+  }
+  return <span key={index}>{content}</span>;
+})}</>; }
+function RichNode({ node }: { node:any }): any {
+  const children=node?.content || [];
+  if (node.type === "paragraph") return <p className="text-[15px] leading-8 text-foreground/90 md:text-base" style={{textAlign:node.attrs?.textAlign || undefined}}><RichInline nodes={children}/></p>;
+  if (node.type === "heading") { const level=Math.min(3,Math.max(1,Number(node.attrs?.level || 2))); return level === 1 ? <h2 className="font-display text-3xl font-black"><RichInline nodes={children}/></h2> : level === 3 ? <h3 className="font-display text-lg font-bold"><RichInline nodes={children}/></h3> : <h2 className="border-b border-border pb-2 font-display text-2xl font-black"><RichInline nodes={children}/></h2>; }
+  if (node.type === "bulletList") return <ul className="list-disc space-y-2 pl-6">{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</ul>;
+  if (node.type === "orderedList") return <ol className="list-decimal space-y-2 pl-6">{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</ol>;
+  if (node.type === "listItem") return <li className="leading-7">{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</li>;
+  if (node.type === "blockquote") return <blockquote className="rounded-2xl border-l-4 border-[color:var(--bdg-gold)] bg-muted p-4">{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</blockquote>;
+  if (node.type === "image" && safeUrl(node.attrs?.src)) return <figure className="overflow-hidden rounded-2xl border border-border bg-muted"><img src={safeUrl(node.attrs.src)} alt={String(node.attrs?.alt || "")} className="w-full object-contain" loading="lazy"/></figure>;
+  if (node.type === "horizontalRule") return <hr className="border-border"/>;
+  if (node.type === "table") return <div className="overflow-x-auto"><table className="w-full border-collapse">{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</table></div>;
+  if (node.type === "tableRow") return <tr>{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</tr>;
+  if (node.type === "tableHeader") return <th className="border border-border bg-muted p-2 text-left"><RichInline nodes={children.flatMap((child:any)=>child.content || [child])}/></th>;
+  if (node.type === "tableCell") return <td className="border border-border p-2"><RichInline nodes={children.flatMap((child:any)=>child.content || [child])}/></td>;
+  return <>{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</>;
 }
 
 function BlockView({ block }: { block: GuideBlock }) {

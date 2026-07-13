@@ -74,6 +74,8 @@ export type Guide = {
   relatedGuides?: string[];
   relatedFaqs?: string[];
   supportCta?: boolean;
+  richDocument?: any;
+  actionButtons?: Array<{ id:number; label:string; subtitle?:string; icon_url?:string; url:string; target?:string; action_type?:string }>;
 };
 
 export const settings: Settings = {

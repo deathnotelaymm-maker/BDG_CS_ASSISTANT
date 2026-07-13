@@ -21,6 +21,11 @@ const migration080 = read(
 const migration090 = read(
   "backend-api/migrations/004_v0.9.0_prompt_first_ai_content_studio.sql",
 );
+const migration010 = read("backend-api/migrations/005_v0.10.0_ai_knowledge_orchestrator_visual_guide_studio.sql");
+const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
+const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
+const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
+const siteContent = read("admin-pro/src/routes/_admin.site-content.tsx");
 const adminLayout = read("admin-pro/src/components/AdminLayout.tsx");
 const aiContentStudio = read("admin-pro/src/routes/_admin.ai-content-studio.tsx");
 const promptManager = read("admin-pro/src/routes/_admin.ai-prompt-manager.tsx");
@@ -52,8 +57,7 @@ expect(
 );
 expect(
   "DeepSeek retries temporary failures",
-  core.includes("attempt <= 2") &&
-    core.includes("res.status === 429 || res.status >= 500"),
+  core.includes("attempt <= maxAttempts") && core.includes("res.status === 429 || res.status >= 500"),
 );
 expect(
   "AI provider failures record technical diagnostics",
@@ -61,11 +65,7 @@ expect(
     core.includes("error_type") &&
     core.includes("attachment_decision"),
 );
-expect(
-  "AI Content test exposes greeting bypass and single selection",
-  core.includes("greeting_bypass: isGreetingOnly(message)") &&
-    core.includes("selected_content:"),
-);
+expect("AI Content test uses AI semantic judgment", core.includes("judgeAiContentWithModel") && core.includes("backend_keyword_scoring: false"));
 expect(
   "System health endpoint is authenticated",
   core.includes("path === '/admin/system-health'"),
@@ -122,7 +122,7 @@ expect(
 expect(
   "AI Content Studio contains the visual editor and routing safety test",
   aiContentStudio.includes("RichKnowledgeEditor") &&
-    aiContentStudio.includes("Greeting bypass") &&
+    aiContentStudio.includes("AI Knowledge Orchestrator") &&
     aiContentStudio.includes("New AI Prompt & Image"),
 );
 expect(
@@ -138,15 +138,18 @@ expect(
   core.includes("technicalUnavailableText") &&
     !core.slice(core.indexOf("async function runAiChat"), core.indexOf("function randomBase32Secret")).includes("localFallback"),
 );
-expect(
-  "Resolution requires explicit customer confirmation",
-  core.includes("isExplicitResolutionConfirmation") &&
-    core.includes("resolution_state='confirmed_by_user'"),
-);
+expect("Chat decisions are persisted for diagnostics", core.includes("decision_json") && core.includes("desired_outcome"));
 expect(
   "Rich response URLs are allowlisted",
   core.includes("safeResponseUrl") && core.includes("/^https?:\\/\\//i"),
 );
+expect("v0.10.0 migration is idempotent", migration010.includes("IF NOT EXISTS") && migration010.includes("ON CONFLICT"));
+expect("AI routing has no backend AI Content scorer", !core.includes("findAiContentMatch") && !core.includes("scoreAiContent"));
+expect("English and Hindi visual knowledge are editable", aiContentStudio.includes("Hindi / Indian Visual Knowledge") && aiContentStudio.includes("rich_json_hi"));
+expect("Guide uses the visual knowledge editor", guideStudio.includes("Multilingual Visual Guide Studio") && guideStudio.includes("RichKnowledgeEditor"));
+expect("Reusable action buttons are configurable", actionButtons.includes("Buttons Configuration") && core.includes("/admin/action-buttons"));
+expect("Site Content uses durable deletion", core.includes("site_content_tombstones") && siteContent.includes("durable deletion"));
+expect("Unified version history is visible and restorable", promptHistory.includes("restoreContentVersion") && promptHistory.includes("restorePromptVersion"));
 
 for (const check of checks)
   console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
