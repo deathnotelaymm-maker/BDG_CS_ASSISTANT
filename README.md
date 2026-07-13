@@ -1,8 +1,8 @@
-# v0.9.0 — Prompt-First AI Content Studio + Visual Knowledge Editor
+# v0.9.0a — Reliable R2 Image Upload + Upload Diagnostics Hotfix
 
-This is the complete production candidate for the BDG Guide Pro, Chat Pro, Admin Pro, and Render API platform. See `RELEASE_NOTES_V0.9.0.md` and `DEPLOYMENT_CHECKLIST_V0.9.0.md` first.
+This is the focused production hotfix for the v0.9.0 BDG Help Center platform. See `RELEASE_NOTES_V0.9.0A.md` and `DEPLOYMENT_CHECKLIST_V0.9.0A.md` first.
 
-The v0.9 runtime uses AI Prompt Manager as the primary source, selects at most one high-confidence AI Content item, bypasses content matching for greetings, and treats images only as response output. The old Guide Attachments system is archived and not exposed by the active API or Admin UI.
+It preserves the v0.9.0 Prompt-First AI Content Studio and fixes Render-to-R2 image uploads by buffering each validated image and attaching an exact S3 `ContentLength`. It also adds request-aware upload diagnostics to Render logs and the Admin error message.
 
 ## Active stack
 - Cloudflare Pages: Guide Pro, Chat Pro, Admin Pro
@@ -25,15 +25,15 @@ $env:MIGRATION_DATABASE_URL = "YOUR_NEON_DIRECT_URL"
 
 Apply and validate locally:
 ```powershell
-& "C:\path\to\APPLY-PATCH-V0.9.0-WINDOWS.ps1" -ProjectRoot "C:\path\to\project" -PatchZip "C:\path\to\v0.9.0-patch.zip"
+& "C:\path\to\APPLY-PATCH-V0.9.0A-WINDOWS.ps1" -ProjectRoot "C:\path\to\project" -PatchZip "C:\path\to\v0.9.0a-patch.zip"
 ```
 
 Publish only when ready:
 ```powershell
-& "C:\path\to\project\DEPLOY-V0.9.0-PRODUCTION-WINDOWS.ps1" -ProjectRoot "C:\path\to\project"
+& "C:\path\to\project\DEPLOY-V0.9.0A-PRODUCTION-WINDOWS.ps1" -ProjectRoot "C:\path\to\project"
 ```
 
 ## Package roles
 - Full ZIP: complete source and recommended deployment source.
-- Patch ZIP: overlay for the complete v0.8.0 source.
+- Patch ZIP: overlay for the deployed v0.9.0 source.
 - Docs ZIP: deployment, environment, rollback, test, and PowerShell documentation.

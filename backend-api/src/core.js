@@ -5,7 +5,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '0.9.0-prompt-first-ai-content-studio-visual-knowledge-editor';
+const VERSION = '0.9.0a-reliable-r2-image-upload-diagnostics-hotfix';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -35,8 +35,32 @@ export default {
       }
       return await route(request, env, url);
     } catch (err) {
-      console.error('Worker error:', err?.stack || err?.message || err);
-      return json({ ok: false, error: err?.message || 'Server error', version: VERSION }, err.status || 500, env);
+      const status = Number(err?.status || 500);
+      const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
+      const url = new URL(request.url);
+      console.error(JSON.stringify({
+        level: 'error',
+        event: 'api_request_failed',
+        request_id: requestId,
+        method: request.method,
+        path: url.pathname,
+        status,
+        code: err?.code || 'INTERNAL_ERROR',
+        message: err?.message || String(err),
+        cause: err?.cause?.message || undefined,
+        stack: err?.stack || undefined,
+        version: VERSION,
+      }));
+      const publicMessage = status >= 500
+        ? (err?.publicMessage || 'Service temporarily unavailable')
+        : (err?.message || 'Request failed');
+      return json({
+        ok: false,
+        error: publicMessage,
+        code: err?.code || (status >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),
+        request_id: requestId,
+        version: VERSION,
+      }, status, env);
     }
   }
 };
@@ -217,7 +241,7 @@ export async function closeDatabasePools() {
 function corsHeaders(env) { return { 'Access-Control-Allow-Origin': env.ALLOWED_ORIGINS || '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Max-Age': '86400' }; }
 function corsResponse(body, status, env, headers = {}) { return new Response(body, { status, headers: { ...corsHeaders(env), ...headers } }); }
 function json(data, status = 200, env) { return corsResponse(JSON.stringify(data), status, env, { 'Content-Type': 'application/json; charset=utf-8' }); }
-function bad(message, status = 400) { const e = new Error(message); e.status = status; throw e; }
+function bad(message, status = 400, code = 'BAD_REQUEST') { const e = new Error(message); e.status = status; e.code = code; throw e; }
 
 
 function slugifyGuideText(text) {
@@ -1061,8 +1085,59 @@ async function verifyPassword(password, hash) {
     return given.length === expected.length && given.every((b, i) => b === expected[i]);
   } catch { return false; }
 }
-async function uploadToR2(request, env, prefix) { if (!env.GUIDE_IMAGES) bad('Missing R2 binding: GUIDE_IMAGES', 500); const form = await request.formData(); const file = form.get('file'); if (!file || typeof file === 'string') bad('File is required'); const ext = safeExt(file.name || 'image.png'); const key = `${prefix}/${Date.now()}-${crypto.randomUUID()}${ext}`; await env.GUIDE_IMAGES.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'application/octet-stream' } }); const origin = new URL(request.url).origin; return json({ ok: true, filename: key, url: `${origin}/uploads/${key}` }, 200, env); }
-function safeExt(name) { const ext = (name.match(/\.[a-z0-9]+$/i)?.[0] || '.png').toLowerCase(); if (!['.png','.jpg','.jpeg','.webp','.gif'].includes(ext)) bad('Only png, jpg, jpeg, webp, and gif files are allowed'); return ext; }
+export async function uploadToR2(request, env, prefix) {
+  if (!env.GUIDE_IMAGES) bad('Image storage is not configured', 503, 'UPLOAD_STORAGE_NOT_CONFIGURED');
+  const form = await request.formData();
+  const file = form.get('file');
+  if (!file || typeof file === 'string') bad('Image file is required', 400, 'UPLOAD_FILE_REQUIRED');
+
+  const ext = safeExt(file.name || 'image.png');
+  const contentType = String(file.type || '').toLowerCase();
+  const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+  if (!allowedTypes.has(contentType)) {
+    bad('Only PNG, JPG, JPEG, WebP, and GIF images are allowed', 415, 'UPLOAD_TYPE_NOT_ALLOWED');
+  }
+  const expectedTypes = ext === '.png'
+    ? new Set(['image/png'])
+    : ['.jpg', '.jpeg'].includes(ext)
+      ? new Set(['image/jpeg'])
+      : ext === '.webp'
+        ? new Set(['image/webp'])
+        : new Set(['image/gif']);
+  if (!expectedTypes.has(contentType)) {
+    bad('Image filename extension does not match its content type', 400, 'UPLOAD_TYPE_MISMATCH');
+  }
+
+  const maxBytes = Math.min(Number(env.MAX_REQUEST_BYTES || 20 * 1024 * 1024), 10 * 1024 * 1024);
+  if (!Number.isFinite(file.size) || file.size < 1) bad('Image file is empty', 400, 'UPLOAD_FILE_EMPTY');
+  if (file.size > maxBytes) bad(`Image exceeds the ${Math.floor(maxBytes / 1024 / 1024)} MB upload limit`, 413, 'UPLOAD_FILE_TOO_LARGE');
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (bytes.byteLength !== file.size) bad('Image upload body is incomplete', 400, 'UPLOAD_BODY_INCOMPLETE');
+  const key = `${prefix}/${Date.now()}-${crypto.randomUUID()}${ext}`;
+  try {
+    await env.GUIDE_IMAGES.put(key, bytes, {
+      httpMetadata: { contentType },
+      contentLength: bytes.byteLength,
+    });
+  } catch (cause) {
+    const error = new Error('R2 image upload failed');
+    error.status = 502;
+    error.code = 'UPLOAD_STORAGE_WRITE_FAILED';
+    error.publicMessage = 'Image storage is temporarily unavailable';
+    error.cause = cause;
+    throw error;
+  }
+  const origin = new URL(request.url).origin;
+  return json({ ok: true, filename: key, url: `${origin}/uploads/${key}`, content_type: contentType, size_bytes: bytes.byteLength }, 200, env);
+}
+function safeExt(name) {
+  const ext = (name.match(/\.[a-z0-9]+$/i)?.[0] || '.png').toLowerCase();
+  if (!['.png','.jpg','.jpeg','.webp','.gif'].includes(ext)) {
+    bad('Only PNG, JPG, JPEG, WebP, and GIF images are allowed', 415, 'UPLOAD_EXTENSION_NOT_ALLOWED');
+  }
+  return ext;
+}
 async function serveUpload(request, env, path) { const key = decodeURIComponent(path.replace('/uploads/', '')); const obj = await env.GUIDE_IMAGES.get(key); if (!obj) return new Response('Not found', { status: 404, headers: corsHeaders(env) }); return new Response(obj.body, { headers: { ...corsHeaders(env), 'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000' } }); }
 
 

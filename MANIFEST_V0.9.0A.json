@@ -1,0 +1,19 @@
+{
+  "release": "v0.9.0a",
+  "name": "Reliable R2 Image Upload + Upload Diagnostics Hotfix",
+  "api_version": "0.9.0a-reliable-r2-image-upload-diagnostics-hotfix",
+  "base_release": "v0.9.0-prompt-first-ai-content-studio-visual-knowledge-editor",
+  "database_migration_required": false,
+  "render_environment_change_required": false,
+  "cloudflare_projects": ["bdg-admin-pages"],
+  "cloudflare_production_branch": "production",
+  "backend_tests": {
+    "existing_regression": 25,
+    "structured_prompt_first": 5,
+    "r2_upload": 4,
+    "total": 34
+  },
+  "apply_script": "APPLY-PATCH-V0.9.0A-WINDOWS.ps1",
+  "verify_script": "VERIFY-V0.9.0A-WINDOWS.ps1",
+  "deploy_script": "DEPLOY-V0.9.0A-PRODUCTION-WINDOWS.ps1"
+}

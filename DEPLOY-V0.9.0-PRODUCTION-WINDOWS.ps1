@@ -69,7 +69,7 @@ function Assert-DeployedBundle {
   $bundle = ''
   foreach ($match in $matches) {
     $asset = $match.Groups[1].Value
-    if ($asset -match '\.js$') { $bundle += (Invoke-WebRequest -UseBasicParsing -Uri "${SiteUrl}$asset?v=$stamp" -Headers @{ 'Cache-Control' = 'no-cache' } -TimeoutSec 30).Content }
+    if ($asset -match '\.js$') { $bundle += (Invoke-WebRequest -UseBasicParsing -Uri "${SiteUrl}${asset}?v=$stamp" -Headers @{ 'Cache-Control' = 'no-cache' } -TimeoutSec 30).Content }
   }
   if (-not $bundle.Contains(([Uri]$ApiBaseUrl).Host)) { throw "FAIL $Name bundle does not contain the Render API hostname." }
   if ($bundle.Contains('bdg-ai-help-api.bdgservice.workers.dev')) { throw "FAIL $Name bundle contains the retired Worker hostname." }

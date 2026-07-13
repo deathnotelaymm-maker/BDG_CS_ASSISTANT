@@ -5,7 +5,7 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '0.9.0-prompt-first-ai-content-studio-visual-knowledge-editor';
+const API_VERSION = '0.9.0a-reliable-r2-image-upload-diagnostics-hotfix';
 validateRuntimeEnv(env);
 env.GUIDE_IMAGES = createR2Adapter(env);
 
@@ -92,9 +92,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     const body = ['GET', 'HEAD'].includes(req.method || 'GET') ? undefined : await readBody(req);
+    const requestHeaders = { ...req.headers, 'x-request-id': requestId };
     const request = new Request(url, {
       method: req.method,
-      headers: req.headers,
+      headers: requestHeaders,
       body,
       ...(body ? { duplex: 'half' } : {}),
     });

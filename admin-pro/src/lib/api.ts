@@ -523,8 +523,21 @@ export const api = {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: fd,
     });
-    if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-    return (await res.json()) as { url: string; filename?: string };
+    const text = await res.text();
+    let payload: any = null;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch {
+      payload = text;
+    }
+    if (!res.ok) {
+      const requestId = payload?.request_id || res.headers.get("x-request-id");
+      const reason = payload?.error || payload?.message || res.statusText || "Upload failed";
+      const code = payload?.code ? ` [${payload.code}]` : "";
+      const trace = requestId ? ` (Request ID: ${requestId})` : "";
+      throw new Error(`Upload failed: ${reason}${code}${trace}`);
+    }
+    return payload as { url: string; filename?: string; content_type?: string; size_bytes?: number };
   },
 
   testAiContent: async (message: string, language = "en") => {
