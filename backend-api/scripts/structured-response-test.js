@@ -1,28 +1,22 @@
 import assert from "node:assert/strict";
 import {
+  imageUrlsFromHtml,
+  isGreetingOnly,
   normalizeResponseBlocks,
   responseBlocksFromText,
-  shouldAttachOptionalGuide,
+  scoreAiContent,
 } from "../src/core.js";
 
 const normalized = normalizeResponseBlocks([
   { type: "heading", text: "Deposit pending", color: "#ff00ff" },
   { type: "warning", text: "Never share your OTP." },
-  {
-    type: "steps",
-    title: "Check this",
-    items: ["Open Wallet", "Check history"],
-  },
-  { type: "link", label: "Official guide", url: "https://example.com/guide" },
+  { type: "steps", title: "Check this", items: ["Open Wallet", "Check history"] },
+  { type: "link", label: "Official content", url: "https://example.com/help" },
   { type: "link", label: "Unsafe", url: "javascript:alert(1)" },
 ]);
 
 assert.equal(normalized.length, 4, "unsafe links must be removed");
-assert.equal(
-  "color" in normalized[0],
-  false,
-  "model/admin arbitrary colors must be ignored",
-);
+assert.equal("color" in normalized[0], false, "arbitrary model colors must be ignored");
 assert.deepEqual(normalized[2].items, ["Open Wallet", "Check history"]);
 
 const derived = responseBlocksFromText(
@@ -31,43 +25,30 @@ const derived = responseBlocksFromText(
 assert.equal(derived[1].type, "steps");
 assert.equal(derived[2].type, "warning");
 
-const row = {
-  attach_mode: "auto_when_clear",
-  image_urls: "https://example.com/deposit-guide.png",
-  image_urls_hi: "",
-  when_not_to_attach: "already solved",
-  negative_keywords: "",
-  negative_examples: "",
-  excluded_situations: "",
-};
-const decision = { action: "send" };
+assert.equal(isGreetingOnly("Hello!"), true);
+assert.equal(isGreetingOnly("hello, my deposit is missing"), false);
 
-assert.equal(
-  shouldAttachOptionalGuide(row, decision, "My deposit has not arrived").attach,
-  false,
-  "text-only questions must not receive an image automatically",
-);
-assert.equal(
-  shouldAttachOptionalGuide(
-    row,
-    decision,
-    "Show me the steps for a missing deposit",
-  ).attach,
-  true,
-  "explicit visual-step requests should receive the matching image",
-);
-assert.equal(
-  shouldAttachOptionalGuide(
-    row,
-    decision,
-    "Show me the guide, but it is already solved",
-  ).attach,
-  false,
-  "when-not-to-attach rules must override visual requests",
+const content = {
+  title: "Deposit not received",
+  intent_key: "deposit-not-received",
+  priority: 10,
+  keywords: "deposit\ndeposit not received\nrecharge pending\nbalance not added",
+  positive_examples: "My deposit has not arrived\nMoney deducted but balance not added",
+  negative_examples: "How do I deposit?\nWithdrawal not received\nHello",
+};
+assert.equal(scoreAiContent("hello", content).score, 0, "greetings must never select content");
+assert.ok(scoreAiContent("My deposit has not arrived", content).score >= 86);
+assert.equal(scoreAiContent("How do I deposit?", content).score, -100);
+assert.ok(scoreAiContent("deposit", content).score < 70, "one broad word cannot select content");
+
+assert.deepEqual(
+  imageUrlsFromHtml('<p>Text</p><img src="https://cdn.example.com/a.png"><img src="javascript:bad">'),
+  ["https://cdn.example.com/a.png"],
 );
 
 console.log("PASS structured response normalization");
-console.log("PASS semantic colors reject arbitrary color values");
 console.log("PASS unsafe response links are rejected");
-console.log("PASS precision guide attachment decisions");
-console.log("\n4/4 structured response checks passed");
+console.log("PASS greetings bypass AI Content routing");
+console.log("PASS high-confidence positive and negative examples");
+console.log("PASS visual editor image URLs are safely extracted");
+console.log("\n5/5 structured and prompt-first checks passed");

@@ -1,6 +1,8 @@
-# v0.7.0a — Render Backend + Neon Production Database
+# v0.9.0 — Prompt-First AI Content Studio + Visual Knowledge Editor
 
-This is the complete production candidate for the BDG Guide Pro, Chat Pro, Admin Pro, and API platform.
+This is the complete production candidate for the BDG Guide Pro, Chat Pro, Admin Pro, and Render API platform. See `RELEASE_NOTES_V0.9.0.md` and `DEPLOYMENT_CHECKLIST_V0.9.0.md` first.
+
+The v0.9 runtime uses AI Prompt Manager as the primary source, selects at most one high-confidence AI Content item, bypasses content matching for greetings, and treats images only as response output. The old Guide Attachments system is archived and not exposed by the active API or Admin UI.
 
 ## Active stack
 - Cloudflare Pages: Guide Pro, Chat Pro, Admin Pro
@@ -11,7 +13,7 @@ This is the complete production candidate for the BDG Guide Pro, Chat Pro, Admin
 
 **No Render PostgreSQL database is created. No production data transfer is required.**
 
-Start with `docs/DEPLOYMENT_V0.7.0A.md` and `DEPLOYMENT_CHECKLIST_V0.7.0A.md`.
+The infrastructure remains Render + Neon + Cloudflare Pages + R2 + DeepSeek.
 
 ## Essential commands
 ```powershell
@@ -21,13 +23,17 @@ $env:MIGRATION_DATABASE_URL = "YOUR_NEON_DIRECT_URL"
 .\VERIFY-NEON-CONNECTIONS-V0.7.0A-WINDOWS.ps1
 ```
 
-After Render deployment:
+Apply and validate locally:
 ```powershell
-.\VERIFY-V0.7.0A-WINDOWS.ps1 -ApiBaseUrl "https://YOUR-RENDER-SERVICE.onrender.com"
-.\DEPLOY-CLOUDFLARE-PAGES-V0.7.0A-WINDOWS.ps1 -ApiBaseUrl "https://YOUR-RENDER-SERVICE.onrender.com"
+& "C:\path\to\APPLY-PATCH-V0.9.0-WINDOWS.ps1" -ProjectRoot "C:\path\to\project" -PatchZip "C:\path\to\v0.9.0-patch.zip"
+```
+
+Publish only when ready:
+```powershell
+& "C:\path\to\project\DEPLOY-V0.9.0-PRODUCTION-WINDOWS.ps1" -ProjectRoot "C:\path\to\project"
 ```
 
 ## Package roles
 - Full ZIP: complete source and recommended deployment source.
-- Patch ZIP: overlay for the complete v0.7.0 candidate only.
+- Patch ZIP: overlay for the complete v0.8.0 source.
 - Docs ZIP: deployment, environment, rollback, test, and PowerShell documentation.

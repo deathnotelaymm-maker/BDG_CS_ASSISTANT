@@ -21,7 +21,6 @@ interface Message {
   content: string;
   images?: string[];
   blocks?: ResponseBlock[];
-  smartMatchName?: string;
   error?: boolean;
   retryOf?: string;
 }
@@ -102,8 +101,7 @@ export default function App() {
             role: "assistant",
             content: cleanDisplayText(res.reply || chatConfig.fallbackMessage),
             blocks: res.response_blocks || [],
-            images: res.guide_images || [],
-            smartMatchName: res.smart_match?.name,
+            images: res.content_images || [],
           },
         ]);
       } catch {
@@ -293,7 +291,7 @@ function MessageBubble({ message, onRetry }: { message: Message; onRetry: () => 
               >
                 <img
                   src={src}
-                  alt="Guide screenshot"
+                  alt="AI support visual"
                   className="w-full max-h-80 object-contain bg-black/15"
                   loading="lazy"
                 />

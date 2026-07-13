@@ -8,22 +8,6 @@ export const API_BASE = (
   configuredApiBase || (import.meta.env.DEV ? "http://localhost:10000" : "")
 ).replace(/\/$/, "");
 
-export interface MatchedGuide {
-  id?: string;
-  title: string;
-  summary?: string;
-  url?: string;
-  thumbnail?: string;
-}
-
-export interface SmartMatchGuide {
-  id?: string | number;
-  name: string;
-  slug: string;
-  confidence?: number;
-  reason?: string;
-}
-
 export interface ChatContent {
   branding?: { chat_icon_url?: string; title?: string; online?: string };
   texts?: Record<
@@ -56,12 +40,10 @@ export type ResponseBlock =
 
 export interface ChatResponse {
   reply: string;
-  matched_guides?: MatchedGuide[];
-  smart_match?: SmartMatchGuide | null;
-  guide_images?: string[];
+  content_images?: string[];
   sources?: ChatSource[];
   memory_note?: string;
-  fallback?: boolean;
+  technical_failure?: boolean;
   response_format?: "structured-v1" | string;
   response_blocks?: ResponseBlock[];
   resolution_state?: "open" | "confirmed_by_user" | string;

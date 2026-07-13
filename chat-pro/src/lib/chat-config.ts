@@ -28,8 +28,7 @@ const texts = {
     placeholderIdle: "Type your message...",
     placeholderBusy: "Please wait for the current reply...",
     waitInlineNote: "Please wait for the current reply.",
-    fallbackMessage:
-      "Sorry, I couldn’t process your request right now. Please try again or contact support.",
+    fallbackMessage: "AI support is temporarily unavailable. Please try again in a moment.",
     replyingLabel: "AI is replying...",
     languageLabel: "Language",
   },
@@ -50,8 +49,7 @@ const texts = {
     placeholderIdle: "अपना संदेश लिखें...",
     placeholderBusy: "कृपया वर्तमान उत्तर की प्रतीक्षा करें...",
     waitInlineNote: "कृपया वर्तमान उत्तर की प्रतीक्षा करें।",
-    fallbackMessage:
-      "माफ़ करें, अभी आपका सवाल process नहीं हो पाया। कृपया फिर कोशिश करें या support से संपर्क करें।",
+    fallbackMessage: "AI सहायता अभी अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ देर बाद फिर प्रयास करें।",
     replyingLabel: "AI जवाब दे रहा है...",
     languageLabel: "भाषा",
   },

@@ -97,7 +97,7 @@ const resourcePath: Record<string, string> = {
   knowledge: "/admin/knowledge",
   "prompt-history": "/admin/ai/prompt-versions",
   "chat-quick-replies": "/admin/chat-quick-replies",
-  "smart-match-guides": "/admin/smart-matches",
+  "ai-content": "/admin/ai-content",
   "chat-logs": "/admin/chat-logs",
   "unmatched-questions": "/admin/unmatched-questions",
   "audit-logs": "/admin/audit-logs",
@@ -257,61 +257,42 @@ function normalizeForCreate(resource: string, data: any) {
       status: data.status || "active",
     };
   }
-  if (resource === "smart-match-guides") {
+  if (resource === "categories") {
     return {
-      name: data.name || data.title,
+      name: data.name,
       slug: data.slug,
-      status: data.status || "active",
-      priority: Number(data.priority || 100),
-      keywords: data.keywords || "",
-      typo_keywords: data.typo_keywords || "",
-      language_keywords: data.language_keywords || "",
-      negative_keywords: data.negative_keywords || "",
-      require_confirmation: data.require_confirmation === true,
-      clarify_question: data.clarify_question || "",
-      answer_blocks_json: data.answer_blocks_json || "",
+      description: data.description || "",
+      icon: data.icon || "target",
       icon_url: data.icon_url || "",
-      action_label: data.action_label || "",
-      action_url: data.action_url || "",
-      guide_text: data.guide_text || "",
-      guide_text_hi: data.guide_text_hi || "",
+      sort_order: Number(data.sort_order || 100),
+    };
+  }
+  if (resource === "ai-content") {
+    return {
+      title: data.title,
+      intent_key: data.intent_key,
+      locale: data.locale || "en",
+      status: data.status || "draft",
+      priority: Number(data.priority || 100),
+      confidence_threshold: Number(data.confidence_threshold || 86),
+      keywords: data.keywords || "",
+      positive_examples: data.positive_examples || "",
+      negative_examples: data.negative_examples || "",
+      required_fields: data.required_fields || "",
+      faq_content: data.faq_content || "",
+      knowledge_content: data.knowledge_content || "",
+      example_answers: data.example_answers || "",
+      ai_instruction: data.ai_instruction || "",
+      rich_json: data.rich_json || "",
+      rich_html: data.rich_html || "",
       image_urls: Array.isArray(data.image_urls)
         ? data.image_urls
         : String(data.image_urls || "")
             .split(/\r?\n|,/)
             .map((x) => x.trim())
             .filter(Boolean),
-      image_urls_hi: Array.isArray(data.image_urls_hi)
-        ? data.image_urls_hi
-        : String(data.image_urls_hi || "")
-            .split(/\r?\n|,/)
-            .map((x) => x.trim())
-            .filter(Boolean),
-      fallback_to_english_images: data.fallback_to_english_images === true,
-      ai_enabled: data.ai_enabled !== false,
-      ai_enhance: data.ai_enhance !== false,
-      strict_mode: data.strict_mode !== false,
-      confidence_threshold: Number(data.confidence_threshold || 90),
-      intent_id: data.intent_id || data.slug || "",
-      positive_examples: data.positive_examples || "",
-      negative_examples: data.negative_examples || "",
-      common_misspellings: data.common_misspellings || data.typo_keywords || "",
-      required_fields: data.required_fields || "",
-      excluded_situations: data.excluded_situations || "",
-      risk_level: data.risk_level || "normal",
-      human_escalation_required: data.human_escalation_required === true,
-      allowed_response_content: data.allowed_response_content || "",
-      forbidden_claims: data.forbidden_claims || "",
-      required_warning: data.required_warning || "",
-      intent_policy_json: data.intent_policy_json || "",
-      max_clarification_questions: Number(data.max_clarification_questions || 1),
-      clarification_questions_json: data.clarification_questions_json || "",
-      response_layout_json: data.response_layout_json || "",
-      attach_mode: data.attach_mode || "auto_when_clear",
-      when_to_attach: data.when_to_attach || "",
-      when_not_to_attach: data.when_not_to_attach || "",
-      guide_usage_policy: data.guide_usage_policy || "",
-      knowledge_version: data.knowledge_version || "v1",
+      image_delivery: data.image_delivery || "after_answer",
+      version_label: data.version_label || "v1",
     };
   }
   return data;
@@ -360,11 +341,12 @@ export const api = {
 
   getDashboardStats: async () => {
     if (MOCK_MODE) return delay(mock.dashboardStats);
-    const [categories, guides, faqs, prompts, sessions, audits, health] = await Promise.allSettled([
+    const [categories, guides, faqs, prompts, aiContent, sessions, audits, health] = await Promise.allSettled([
       api.list("categories"),
       api.list("guide-images"),
       api.list("faq"),
       api.list("ai-prompts"),
+      api.list("ai-content"),
       api.list("chat-sessions"),
       api.list("audit-logs"),
       api.getSystemHealth(),
@@ -375,7 +357,7 @@ export const api = {
       totalGuides: count(guides),
       totalFAQ: count(faqs),
       totalCategories: count(categories),
-      smartMatches: 0,
+      aiContentItems: count(aiContent),
       aiPromptSections: count(prompts),
       chatSessions: count(sessions),
       deepSeekStatus:
@@ -545,10 +527,10 @@ export const api = {
     return (await res.json()) as { url: string; filename?: string };
   },
 
-  testSmartMatch: async (message: string, language = "en") => {
+  testAiContent: async (message: string, language = "en") => {
     if (MOCK_MODE)
-      return delay({ ok: true, matched: null, confidence: 0, preview: "Mock Smart Match preview" });
-    return request("/admin/smart-matches/test", {
+      return delay({ ok: true, selected_content: null, candidates: [], greeting_bypass: false });
+    return request("/admin/ai-content/test", {
       method: "POST",
       body: JSON.stringify({ message, language }),
     });

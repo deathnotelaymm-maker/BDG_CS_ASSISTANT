@@ -1,0 +1,32 @@
+{
+  "version": "0.9.0",
+  "name": "Prompt-First AI Content Studio + Visual Knowledge Editor",
+  "base_version": "0.8.0",
+  "status": "built-candidate-not-deployed",
+  "deployment": {
+    "backend": "Render Node.js",
+    "database": "Neon PostgreSQL",
+    "frontends": "Cloudflare Pages",
+    "storage": "Cloudflare R2",
+    "ai_provider": "DeepSeek",
+    "production_branches": {
+      "bdg-guide-pages": "main",
+      "bdg-chat-pages": "production",
+      "bdg-admin-pages": "production"
+    }
+  },
+  "routing_contract": "prompt-first-single-content-v1",
+  "image_contract": "content_images",
+  "migration": "backend-api/migrations/004_v0.9.0_prompt_first_ai_content_studio.sql",
+  "regression_command": "npm --prefix backend-api run test:regression",
+  "apply_script": "APPLY-PATCH-V0.9.0-WINDOWS.ps1",
+  "verify_script": "VERIFY-V0.9.0-WINDOWS.ps1",
+  "production_deploy_script": "DEPLOY-V0.9.0-PRODUCTION-WINDOWS.ps1",
+  "components": ["backend-api", "admin-pro", "chat-pro", "guide-pro"],
+  "artifacts": [
+    "one-domain-help-ai-admin-v0.9.0-prompt-first-ai-content-studio-visual-knowledge-editor-patch.zip",
+    "one-domain-help-ai-admin-v0.9.0-prompt-first-ai-content-studio-visual-knowledge-editor-full.zip",
+    "one-domain-help-ai-admin-v0.9.0-docs-and-windows-scripts.zip",
+    "FILE_CHECKSUMS_V0.9.0.sha256"
+  ]
+}

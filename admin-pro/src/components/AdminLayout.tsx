@@ -18,7 +18,6 @@ import {
   QuestionCircleOutlined,
   BulbOutlined,
   RobotOutlined,
-  ThunderboltOutlined,
   HistoryOutlined,
   MonitorOutlined,
   MessageOutlined,
@@ -75,10 +74,10 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     group: "AI",
   },
   {
-    key: "/smart-match-guides",
-    to: "/smart-match-guides",
-    label: "Guide Attachments",
-    icon: <ThunderboltOutlined />,
+    key: "/ai-content-studio",
+    to: "/ai-content-studio",
+    label: "AI Prompt & Image",
+    icon: <BulbOutlined />,
     group: "AI",
   },
   {
@@ -148,7 +147,7 @@ const ZH: Record<string, string> = {
   Guide: "指南",
   FAQ: "常见问题",
   "AI Prompt Manager": "AI 提示词管理",
-  "Guide Attachments": "指南附件",
+  "AI Prompt & Image": "AI 提示与图片",
   "Prompt Version History": "提示词版本历史",
   "AI Diagnostics": "AI 诊断",
   "Chat Quick Replies": "聊天快捷回复",
@@ -262,7 +261,7 @@ export default function AdminLayout({
           trigger={null}
         >
           <div className="bdg-brand">
-            <div className="bdg-brand-mark">B</div>
+            <div className="bdg-brand-mark">BDG</div>
             {!collapsed && (
               <div>
                 <div className="bdg-brand-title">BDG Help Center</div>

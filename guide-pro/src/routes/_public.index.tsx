@@ -114,7 +114,7 @@ function Home() {
                 className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-muted"
               >
                 <div className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--bdg-navy)] text-[color:var(--bdg-gold)]">
-                  <CategoryIcon name={cat.icon} className="h-4 w-4" />
+                  <CategoryIcon name={cat.icon} url={cat.iconUrl} className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{cat.name}</div>

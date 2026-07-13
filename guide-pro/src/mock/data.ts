@@ -33,6 +33,7 @@ export type Category = {
   slug: string;
   name: string;
   icon: string;
+  iconUrl?: string;
   description: string;
 };
 export type Faq = { id: string; question: string; answer: string; category?: string };

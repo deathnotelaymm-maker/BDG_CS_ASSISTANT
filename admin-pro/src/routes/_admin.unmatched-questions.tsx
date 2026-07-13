@@ -30,7 +30,7 @@ function UnmatchedQuestionsPage() {
     <div className="bdg-filters">
       <div style={{ flex: 1 }}>
         <h2 style={{ margin: 0 }}>Unmatched Questions</h2>
-        <div style={{ color: "#8ea0bd", fontSize: 12 }}>Messages where Prompt-First AI could not confidently answer or decide whether a guide attachment was useful. Use these to improve AI Prompt Manager and Guide Attachment rules.</div>
+        <div style={{ color: "#8ea0bd", fontSize: 12 }}>Messages where Prompt-First AI did not select a high-confidence content item. Use these to improve AI Prompt Manager and AI Prompt & Image examples.</div>
       </div>
       <Space><Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button></Space>
     </div>

@@ -213,6 +213,7 @@ function normalizeCategory(row: any): mock.Category {
     slug: text(row?.slug, text(row?.name, "category").toLowerCase().replace(/\s+/g, "-")),
     name: text(row?.name, "Category"),
     icon: iconName(row?.icon),
+    iconUrl: text(row?.icon_url, ""),
     description: text(row?.description, ""),
   };
 }

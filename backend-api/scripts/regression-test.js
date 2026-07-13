@@ -18,7 +18,13 @@ const migration = read(
 const migration080 = read(
   "backend-api/migrations/003_v0.8.0_structured_rich_responses_precision_guide_delivery.sql",
 );
+const migration090 = read(
+  "backend-api/migrations/004_v0.9.0_prompt_first_ai_content_studio.sql",
+);
 const adminLayout = read("admin-pro/src/components/AdminLayout.tsx");
+const aiContentStudio = read("admin-pro/src/routes/_admin.ai-content-studio.tsx");
+const promptManager = read("admin-pro/src/routes/_admin.ai-prompt-manager.tsx");
+const categoryAdmin = read("admin-pro/src/routes/_admin.categories.tsx");
 const chatApp = read("chat-pro/src/App.tsx");
 const guideApi = read("guide-pro/src/lib/api.ts");
 const server = read("backend-api/src/server.js");
@@ -50,14 +56,15 @@ expect(
     core.includes("res.status === 429 || res.status >= 500"),
 );
 expect(
-  "Fallback records provider diagnostics",
+  "AI provider failures record technical diagnostics",
   core.includes("provider_status") &&
     core.includes("error_type") &&
     core.includes("attachment_decision"),
 );
 expect(
-  "Smart Match test exposes attachment decision",
-  core.includes("attachment_decision: attachment"),
+  "AI Content test exposes greeting bypass and single selection",
+  core.includes("greeting_bypass: isGreetingOnly(message)") &&
+    core.includes("selected_content:"),
 );
 expect(
   "System health endpoint is authenticated",
@@ -98,6 +105,38 @@ expect(
   "v0.8.0 migration is idempotent",
   migration080.includes("IF NOT EXISTS") &&
     migration080.includes("ON CONFLICT"),
+);
+expect(
+  "v0.9.0 migration is idempotent",
+  migration090.includes("IF NOT EXISTS") &&
+    migration090.includes("ON CONFLICT") &&
+    migration090.includes("to_regclass('public.smart_match_guides')") &&
+    migration090.includes("archived"),
+);
+expect(
+  "Guide Attachments are removed from active Admin and API routes",
+  !adminLayout.includes("Guide Attachments") &&
+    !core.includes("path === '/admin/smart-matches'") &&
+    !adminApi.includes("/admin/smart-matches"),
+);
+expect(
+  "AI Content Studio contains the visual editor and routing safety test",
+  aiContentStudio.includes("RichKnowledgeEditor") &&
+    aiContentStudio.includes("Greeting bypass") &&
+    aiContentStudio.includes("New AI Prompt & Image"),
+);
+expect(
+  "Prompt Manager exposes audited delete",
+  promptManager.includes("Delete this prompt section") && core.includes("async function deletePrompt"),
+);
+expect(
+  "Category Admin supports custom icon uploads",
+  categoryAdmin.includes("Custom topic icon") && core.includes("icon_url"),
+);
+expect(
+  "Chat runtime has no business fallback path",
+  core.includes("technicalUnavailableText") &&
+    !core.slice(core.indexOf("async function runAiChat"), core.indexOf("function randomBase32Secret")).includes("localFallback"),
 );
 expect(
   "Resolution requires explicit customer confirmation",

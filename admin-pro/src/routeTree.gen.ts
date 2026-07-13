@@ -25,7 +25,7 @@ import { Route as AdminUnmatchedQuestionsRouteImport } from './routes/_admin.unm
 import { Route as AdminCategoriesRouteImport } from './routes/_admin.categories'
 import { Route as AdminAuditLogsRouteImport } from './routes/_admin.audit-logs'
 import { Route as AdminAiPromptManagerRouteImport } from './routes/_admin.ai-prompt-manager'
-import { Route as AdminSmartMatchGuidesRouteImport } from './routes/_admin.smart-match-guides'
+import { Route as AdminAiContentStudioRouteImport } from './routes/_admin.ai-content-studio'
 import { Route as AdminAiKnowledgeRouteImport } from './routes/_admin.ai-knowledge'
 import { Route as AdminAiDiagnosticsRouteImport } from './routes/_admin.ai-diagnostics'
 import { Route as AdminAdminUsersRouteImport } from './routes/_admin.admin-users'
@@ -54,9 +54,9 @@ const AdminSiteContentRoute = AdminSiteContentRouteImport.update({
   path: '/site-content',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminSmartMatchGuidesRoute = AdminSmartMatchGuidesRouteImport.update({
-  id: '/smart-match-guides',
-  path: '/smart-match-guides',
+const AdminAiContentStudioRoute = AdminAiContentStudioRouteImport.update({
+  id: '/ai-content-studio',
+  path: '/ai-content-studio',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminPromptHistoryRoute = AdminPromptHistoryRouteImport.update({
@@ -147,7 +147,7 @@ export interface FileRoutesByFullPath {
   '/guide-images': typeof AdminGuideImagesRoute
   '/help-cards': typeof AdminHelpCardsRoute
   '/prompt-history': typeof AdminPromptHistoryRoute
-  '/smart-match-guides': typeof AdminSmartMatchGuidesRoute
+  '/ai-content-studio': typeof AdminAiContentStudioRoute
   '/site-content': typeof AdminSiteContentRoute
   '/theme-settings': typeof AdminThemeSettingsRoute
 }
@@ -168,7 +168,7 @@ export interface FileRoutesByTo {
   '/guide-images': typeof AdminGuideImagesRoute
   '/help-cards': typeof AdminHelpCardsRoute
   '/prompt-history': typeof AdminPromptHistoryRoute
-  '/smart-match-guides': typeof AdminSmartMatchGuidesRoute
+  '/ai-content-studio': typeof AdminAiContentStudioRoute
   '/site-content': typeof AdminSiteContentRoute
   '/theme-settings': typeof AdminThemeSettingsRoute
 }
@@ -191,7 +191,7 @@ export interface FileRoutesById {
   '/_admin/guide-images': typeof AdminGuideImagesRoute
   '/_admin/help-cards': typeof AdminHelpCardsRoute
   '/_admin/prompt-history': typeof AdminPromptHistoryRoute
-  '/_admin/smart-match-guides': typeof AdminSmartMatchGuidesRoute
+  '/_admin/ai-content-studio': typeof AdminAiContentStudioRoute
   '/_admin/site-content': typeof AdminSiteContentRoute
   '/_admin/theme-settings': typeof AdminThemeSettingsRoute
 }
@@ -214,7 +214,7 @@ export interface FileRouteTypes {
     | '/guide-images'
     | '/help-cards'
     | '/prompt-history'
-    | '/smart-match-guides'
+    | '/ai-content-studio'
     | '/site-content'
     | '/theme-settings'
   fileRoutesByTo: FileRoutesByTo
@@ -235,7 +235,7 @@ export interface FileRouteTypes {
     | '/guide-images'
     | '/help-cards'
     | '/prompt-history'
-    | '/smart-match-guides'
+    | '/ai-content-studio'
     | '/site-content'
     | '/theme-settings'
   id:
@@ -257,7 +257,7 @@ export interface FileRouteTypes {
     | '/_admin/guide-images'
     | '/_admin/help-cards'
     | '/_admin/prompt-history'
-    | '/_admin/smart-match-guides'
+    | '/_admin/ai-content-studio'
     | '/_admin/site-content'
     | '/_admin/theme-settings'
   fileRoutesById: FileRoutesById
@@ -305,11 +305,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSiteContentRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/_admin/smart-match-guides': {
-      id: '/_admin/smart-match-guides'
-      path: '/smart-match-guides'
-      fullPath: '/smart-match-guides'
-      preLoaderRoute: typeof AdminSmartMatchGuidesRouteImport
+    '/_admin/ai-content-studio': {
+      id: '/_admin/ai-content-studio'
+      path: '/ai-content-studio'
+      fullPath: '/ai-content-studio'
+      preLoaderRoute: typeof AdminAiContentStudioRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/prompt-history': {
@@ -428,7 +428,7 @@ interface AdminRouteChildren {
   AdminGuideImagesRoute: typeof AdminGuideImagesRoute
   AdminHelpCardsRoute: typeof AdminHelpCardsRoute
   AdminPromptHistoryRoute: typeof AdminPromptHistoryRoute
-  AdminSmartMatchGuidesRoute: typeof AdminSmartMatchGuidesRoute
+  AdminAiContentStudioRoute: typeof AdminAiContentStudioRoute
   AdminSiteContentRoute: typeof AdminSiteContentRoute
   AdminThemeSettingsRoute: typeof AdminThemeSettingsRoute
 }
@@ -448,7 +448,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminGuideImagesRoute: AdminGuideImagesRoute,
   AdminHelpCardsRoute: AdminHelpCardsRoute,
   AdminPromptHistoryRoute: AdminPromptHistoryRoute,
-  AdminSmartMatchGuidesRoute: AdminSmartMatchGuidesRoute,
+  AdminAiContentStudioRoute: AdminAiContentStudioRoute,
   AdminSiteContentRoute: AdminSiteContentRoute,
   AdminThemeSettingsRoute: AdminThemeSettingsRoute,
 }

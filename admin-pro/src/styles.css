@@ -68,10 +68,10 @@ body {
   color: #fff;
 }
 .bdg-brand-mark {
-  width: 32px; height: 32px; border-radius: 8px;
+  min-width: 38px; height: 32px; padding: 0 5px; border-radius: 8px;
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: 700;
+  color: #fff; font-weight: 700; font-size: 11px;
 }
 .bdg-brand-title { font-weight: 600; font-size: 14px; line-height: 1.15; }
 .bdg-brand-sub { font-size: 11px; color: var(--text-muted); }
@@ -108,6 +108,49 @@ body {
 }
 .bdg-card .ant-card-head-title { color: #fff !important; font-weight: 600; }
 .bdg-card .ant-card-body { color: var(--text-primary); }
+
+.bdg-rich-editor {
+  border: 1px solid var(--border-dim);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+.bdg-rich-editor-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding: 8px;
+  border-bottom: 1px solid #d8dfeb;
+  background: #f7f9fc;
+}
+.bdg-rich-editor-content {
+  min-height: 420px;
+  padding: 18px 22px;
+  color: #17233b;
+  background: #fff;
+  outline: none;
+  line-height: 1.65;
+}
+.bdg-rich-editor-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 16px 0;
+  border-radius: 8px;
+}
+.bdg-rich-editor-content table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+.bdg-rich-editor-content td,
+.bdg-rich-editor-content th { border: 1px solid #ccd5e3; padding: 8px; vertical-align: top; }
+.bdg-rich-editor-content th { background: #eef3fa; }
+.bdg-rich-editor-content a { color: #2563eb; text-decoration: underline; }
+.bdg-rich-editor-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  border-radius: 0;
+  overflow: auto;
+}
+.bdg-rich-editor-fullscreen .bdg-rich-editor-content { min-height: calc(100vh - 58px); }
 
 .bdg-stat .ant-statistic-title { color: var(--text-muted) !important; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
 .bdg-stat .ant-statistic-content { color: #fff !important; font-size: 28px; font-weight: 600; }

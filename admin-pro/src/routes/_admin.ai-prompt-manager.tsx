@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Row, Col, Card, Tag, Button, Space, Drawer, Form, Input, InputNumber, Switch, message, Popconfirm, Skeleton, Alert } from "antd";
-import { EditOutlined, CopyOutlined, ReloadOutlined, HistoryOutlined, PlusOutlined } from "@ant-design/icons";
+import { EditOutlined, CopyOutlined, ReloadOutlined, HistoryOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/_admin/ai-prompt-manager")({
@@ -19,8 +19,7 @@ const DEFAULT_SECTIONS = [
   "Safety Rules",
   "Escalation Rules",
   "Image / Receipt Rules",
-  "Smart Guide Rules",
-  "Fallback Reply Rules",
+  "Visual Content Policy",
   "Forbidden Actions",
 ];
 
@@ -111,13 +110,27 @@ function PromptManagerPage() {
     message.info(`Edit and save "${s.name}" to reset its content.`);
   };
 
+  const remove = async (s: any) => {
+    if (!s.id || String(s.id).startsWith("new-")) {
+      setSections((all) => all.filter((item) => item.id !== s.id));
+      return;
+    }
+    try {
+      await api.remove("ai-prompts", s.id);
+      setSections((all) => all.filter((item) => item.id !== s.id));
+      message.success("Prompt section deleted");
+    } catch (e: any) {
+      message.error(e?.message || "Failed to delete prompt section");
+    }
+  };
+
   if (loading) return <Skeleton active paragraph={{ rows: 8 }} />;
 
   return (
     <>
       <div className="bdg-filters" style={{ marginBottom: 12 }}>
         <div style={{ flex: 1, color: "#8ea0bd" }}>
-          Manage the exact AI behavior sections used by DeepSeek and local safe fallback.
+          Manage the global AI behavior used by DeepSeek. These rules are always primary; AI Content may add one high-confidence context item.
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>New section</Button>
         <Button onClick={load}>Refresh</Button>
@@ -154,6 +167,9 @@ function PromptManagerPage() {
                   <Button size="small" icon={<ReloadOutlined />}>Reset</Button>
                 </Popconfirm>
                 <Button size="small" icon={<HistoryOutlined />} href="/prompt-history">History</Button>
+                <Popconfirm title="Delete this prompt section?" description="This permanently removes it from the active AI prompt." onConfirm={() => remove(s)}>
+                  <Button size="small" danger icon={<DeleteOutlined />}>Delete</Button>
+                </Popconfirm>
               </Space>
             </Card>
           </Col>

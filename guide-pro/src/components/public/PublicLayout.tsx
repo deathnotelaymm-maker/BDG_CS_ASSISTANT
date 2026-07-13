@@ -42,10 +42,10 @@ function PublicHeader() {
       <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between gap-2 px-4">
         <Link to="/" className="flex min-w-0 items-center gap-2">
           <span
-            className="grid h-8 w-8 place-items-center rounded-lg font-display text-sm font-bold text-[color:var(--bdg-navy-deep)]"
+            className="grid h-8 min-w-11 place-items-center rounded-lg px-1.5 font-display text-[11px] font-bold text-[color:var(--bdg-navy-deep)]"
             style={{ background: "var(--gradient-gold)" }}
           >
-            B
+            BDG
           </span>
           <div className="flex min-w-0 flex-col leading-tight">
             <span className="truncate font-display text-sm font-semibold">BDG Help Center</span>

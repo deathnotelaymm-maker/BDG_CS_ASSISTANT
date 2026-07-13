@@ -51,6 +51,7 @@ function DashboardPage() {
     { icon: <QuestionCircleOutlined />, title: "Total FAQ", value: data.totalFAQ },
     { icon: <AppstoreOutlined />, title: "Total Categories", value: data.totalCategories },
     { icon: <RobotOutlined />, title: "AI Prompt Sections", value: data.aiPromptSections },
+    { icon: <ThunderboltOutlined />, title: "AI Content Items", value: data.aiContentItems },
     { icon: <MessageOutlined />, title: "Chat Sessions", value: data.chatSessions },
     { icon: <ThunderboltOutlined />, title: "DeepSeek Status", value: "Operational", tone: "ok" },
     { icon: <DatabaseOutlined />, title: "Database Status", value: "Operational", tone: "ok" },
