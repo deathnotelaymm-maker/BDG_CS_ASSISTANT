@@ -25,7 +25,7 @@ try{
   npm run check:backend;Assert-Native 'Backend syntax check';npm run test:regression;Assert-Native 'Regression tests'
   if(-not $SkipGitPush){
     $origin=git remote get-url origin 2>$null;Assert-Native 'Git origin lookup';if($origin -notmatch 'github\.com'){throw "Git origin is not GitHub: $origin"}
-    git diff --check;Assert-Native 'Git whitespace check';git add --all;Assert-Native 'Git staging';$pending=git diff --cached --name-only
+    $env:GIT_PAGER='cat';$env:PAGER='cat';git --no-pager diff --check;Assert-Native 'Git whitespace check';git add --all;Assert-Native 'Git staging';$pending=git --no-pager diff --cached --name-only
     if($pending){git commit -m 'v0.10.0 AI Knowledge Orchestrator and Multilingual Visual Guide Studio';Assert-Native 'Git commit'}else{Write-Host 'No new files to commit.' -ForegroundColor Yellow}
     git push origin $GitBranch;Assert-Native 'GitHub push';Write-Host 'GitHub push complete. Waiting for Render migration and deployment.' -ForegroundColor Cyan
   }

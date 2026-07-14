@@ -149,6 +149,11 @@ expect("English and Hindi visual knowledge are editable", aiContentStudio.includ
 expect("Guide uses the visual knowledge editor", guideStudio.includes("Multilingual Visual Guide Studio") && guideStudio.includes("RichKnowledgeEditor"));
 expect("Reusable action buttons are configurable", actionButtons.includes("Buttons Configuration") && core.includes("/admin/action-buttons"));
 expect("Site Content uses durable deletion", core.includes("site_content_tombstones") && siteContent.includes("durable deletion"));
+expect(
+  "Site Content bootstrap uses consistent PostgreSQL parameter types",
+  core.includes("$1::varchar(100)") &&
+    core.includes("block_key=$1::varchar(100)"),
+);
 expect("Unified version history is visible and restorable", promptHistory.includes("restoreContentVersion") && promptHistory.includes("restorePromptVersion"));
 
 for (const check of checks)
