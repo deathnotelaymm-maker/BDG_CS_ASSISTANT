@@ -120,7 +120,7 @@ function ChatLogsPage() {
                         : "warning"
                   }
                 >
-                  {row.provider_status}
+                  {row.provider_status === "success" ? "AI Success" : row.provider_status === "fallback" ? "Local Fallback" : row.provider_status === "error" ? "Provider Error" : row.provider_status}
                 </Tag>
                 <Typography.Text type="secondary">{row.created_at}</Typography.Text>
               </Space>
@@ -144,6 +144,19 @@ function ChatLogsPage() {
                     message={row.error_type}
                     description={row.error_detail || undefined}
                   />
+                )}
+                {!!row.decision && Object.keys(row.decision).length > 0 && (
+                  <div style={{ background:"var(--navy-700)", border:"1px solid var(--border-dim)", borderRadius:6, padding:12 }}>
+                    <Typography.Text strong>AI routing decision</Typography.Text>
+                    <div style={{ marginTop:8 }}>
+                      <Tag color="blue">{row.decision.decision || "unknown"}</Tag>
+                      <Tag>Language: {row.decision.language || row.language || "—"}</Tag>
+                      <Tag>Intent: {row.user_intent || row.intent_id || "—"}</Tag>
+                      <Tag>Confidence: {row.confidence == null ? "—" : `${row.confidence}%`}</Tag>
+                    </div>
+                    {row.desired_outcome && <Typography.Paragraph style={{marginTop:8,marginBottom:0}}><b>Desired outcome:</b> {row.desired_outcome}</Typography.Paragraph>}
+                    {row.decision.reason && <Typography.Paragraph style={{marginTop:4,marginBottom:0}}><b>Reason:</b> {row.decision.reason}</Typography.Paragraph>}
+                  </div>
                 )}
                 <Typography.Text type="secondary">
                   Session: {row.session_id || "—"} · Model: {row.model || "local"} · Intent:{" "}

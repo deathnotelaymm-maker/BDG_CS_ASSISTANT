@@ -29,7 +29,7 @@ import { api } from "@/lib/api";
 export type DataPageProps<T extends { id: number | string; status?: string }> = {
   resource: string;
   columns: ColumnsType<T>;
-  editableFields?: { name: string; label: string; type?: "text" | "textarea" | "select"; options?: string[] }[];
+  editableFields?: { name: string; label: string; type?: "text" | "textarea" | "select" | "number"; options?: string[]; required?: boolean; rows?: number; help?: string }[];
   createLabel?: string;
   statusFilterKey?: string;
   enableDuplicateCleanup?: boolean;
@@ -235,8 +235,8 @@ export default function DataPage<T extends { id: number | string; status?: strin
       >
         <Form layout="vertical" form={form}>
           {editableFields.map((f) => (
-            <Form.Item key={f.name} label={f.label} name={f.name} rules={[{ required: true, message: `${f.label} required` }]}>
-              {f.type === "textarea" ? <Input.TextArea rows={4} /> : f.type === "select" ? <Select options={(f.options || []).map((o) => ({ value: o, label: o }))} /> : <Input />}
+            <Form.Item key={f.name} label={f.label} name={f.name} extra={f.help} rules={f.required === false ? [] : [{ required: true, message: `${f.label} required` }]}>
+              {f.type === "textarea" ? <Input.TextArea rows={f.rows || 4} /> : f.type === "select" ? <Select options={(f.options || []).map((o) => ({ value: o, label: o }))} /> : f.type === "number" ? <Input type="number" /> : <Input />}
             </Form.Item>
           ))}
         </Form>

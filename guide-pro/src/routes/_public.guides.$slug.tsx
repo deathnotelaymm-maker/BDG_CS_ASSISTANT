@@ -6,6 +6,7 @@ import type { GuideBlock } from "@/mock/data";
 import { Button } from "@/components/ui/button";
 import { ServiceErrorPanel } from "@/components/public/ServiceErrorPanel";
 import { Badge } from "@/components/ui/badge";
+import { GuideImageLightbox, openGuideImage } from "@/components/public/GuideImageLightbox";
 
 export const Route = createFileRoute("/_public/guides/$slug")({
   head: ({ params }) => ({
@@ -93,7 +94,7 @@ function GuideDetail() {
       <header className="overflow-hidden rounded-[2rem] border border-border bg-card shadow-[var(--shadow-card)]">
         {guide.cover && (
           <div className="aspect-[16/7] w-full overflow-hidden bg-muted">
-            <img src={guide.cover} alt={guide.title} className="h-full w-full object-cover" />
+            <button type="button" className="h-full w-full cursor-zoom-in" onClick={()=>openGuideImage(guide.cover,guide.title)}><img src={guide.cover} alt={guide.title} className="h-full w-full object-cover" /></button>
           </div>
         )}
         <div className="space-y-4 p-5 md:p-7">
@@ -168,6 +169,7 @@ function GuideDetail() {
           </div>
         </section>
       )}
+      <GuideImageLightbox />
     </article>
   );
 }
@@ -197,7 +199,7 @@ function RichNode({ node }: { node:any }): any {
   if (node.type === "orderedList") return <ol className="list-decimal space-y-2 pl-6">{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</ol>;
   if (node.type === "listItem") return <li className="leading-7">{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</li>;
   if (node.type === "blockquote") return <blockquote className="rounded-2xl border-l-4 border-[color:var(--bdg-gold)] bg-muted p-4">{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</blockquote>;
-  if (node.type === "image" && safeUrl(node.attrs?.src)) return <figure className="overflow-hidden rounded-2xl border border-border bg-muted"><img src={safeUrl(node.attrs.src)} alt={String(node.attrs?.alt || "")} className="w-full object-contain" loading="lazy"/></figure>;
+  if (node.type === "image" && safeUrl(node.attrs?.src)) return <figure className="overflow-hidden rounded-2xl border border-border bg-muted"><button type="button" className="block w-full cursor-zoom-in" onClick={()=>openGuideImage(safeUrl(node.attrs.src),String(node.attrs?.alt || "Guide image"))}><img src={safeUrl(node.attrs.src)} alt={String(node.attrs?.alt || "")} className="w-full object-contain" loading="lazy"/></button></figure>;
   if (node.type === "horizontalRule") return <hr className="border-border"/>;
   if (node.type === "table") return <div className="overflow-x-auto"><table className="w-full border-collapse">{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</table></div>;
   if (node.type === "tableRow") return <tr>{children.map((child:any,index:number)=><RichNode key={index} node={child}/>)}</tr>;
@@ -217,7 +219,7 @@ function BlockView({ block }: { block: GuideBlock }) {
     case "image":
       return (
         <figure className="overflow-hidden rounded-2xl border border-border bg-muted shadow-sm">
-          <img src={block.url} alt={block.alt ?? ""} className="w-full object-contain" />
+          <button type="button" className="block w-full cursor-zoom-in" onClick={()=>openGuideImage(block.url,block.alt || "Guide image")}><img src={block.url} alt={block.alt ?? ""} className="w-full object-contain" /></button>
           {block.caption && <figcaption className="border-t border-border bg-card p-2 text-center text-xs text-muted-foreground">{block.caption}</figcaption>}
         </figure>
       );
@@ -233,7 +235,7 @@ function BlockView({ block }: { block: GuideBlock }) {
             </span>
             <p className="pt-1 text-[15px] leading-7 text-foreground/90 md:text-base">{block.text}</p>
           </div>
-          {block.image && <img src={block.image} alt="" className="mt-4 w-full rounded-xl border border-border" />}
+          {block.image && <button type="button" className="mt-4 block w-full cursor-zoom-in" onClick={()=>openGuideImage(block.image || "","Guide step image")}><img src={block.image} alt="" className="w-full rounded-xl border border-border" /></button>}
         </div>
       );
     case "note":

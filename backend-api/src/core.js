@@ -5,7 +5,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '0.10.0-ai-knowledge-orchestrator-multilingual-visual-guide-studio';
+const VERSION = '0.10.1-mobile-image-viewer-ai-observability-faq-control';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -70,7 +70,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['ai-only-semantic-routing','two-stage-ai-orchestration','typo-and-multilingual-understanding','approved-visual-knowledge','english-and-hindi-visual-editors','example-answer-style-control','structured-rich-response-v2','safe-image-and-button-references','visual-guide-studio','action-button-configuration','durable-site-content-delete','unified-content-versions','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory','admin-2fa','single-session-login','owner-permissions'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['mobile-image-viewer','ai-observability','faq-answer-control','confidence-normalization','non-blocking-chat-logging','custom-admin-chat-favicons','ai-only-semantic-routing','two-stage-ai-orchestration','typo-and-multilingual-understanding','approved-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-button-configuration','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -1578,9 +1578,22 @@ async function finishChatTurn(env, session, settings, adminTest, message, reply,
   if (!adminTest) {
     const responseBlocks = normalizeResponseBlocks(logMeta.response_blocks);
     const finalBlocks = responseBlocks.length ? responseBlocks : responseBlocksFromText(reply);
-    await q(env, 'INSERT INTO chat_logs(session_id,customer_message,assistant_reply,matched_sources,matched_images,uploaded_images,used_deepseek,model,provider_status,error_type,error_detail,latency_ms,request_id,intent_id,confidence,attachment_decision,response_blocks_json,response_format,resolution_state,decision_json,user_intent,desired_outcome) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)', [session.session_id,message,reply,logMeta.sources || '',logMeta.images || '',joinUrls(uploaded),!!logMeta.usedDeepseek,logMeta.model || 'conversation-state-local',logMeta.provider_status || (logMeta.usedDeepseek ? 'success' : 'fallback'),logMeta.error_type || '',logMeta.error_detail || '',Number(logMeta.latency_ms || 0),logMeta.request_id || '',logMeta.intent_id || '',logMeta.confidence == null ? null : Number(logMeta.confidence),logMeta.attachment_decision || 'none',JSON.stringify(finalBlocks),'structured-v2',logMeta.resolution_state || 'open',JSON.stringify(logMeta.decision || {}),logMeta.user_intent || '',logMeta.desired_outcome || '']);
+    const confidence = normalizeConfidencePercent(logMeta.confidence);
+    try {
+      await q(env, 'INSERT INTO chat_logs(session_id,customer_message,assistant_reply,matched_sources,matched_images,uploaded_images,used_deepseek,model,provider_status,error_type,error_detail,latency_ms,request_id,intent_id,confidence,attachment_decision,response_blocks_json,response_format,resolution_state,decision_json,user_intent,desired_outcome) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)', [session.session_id,message,reply,logMeta.sources || '',logMeta.images || '',joinUrls(uploaded),!!logMeta.usedDeepseek,logMeta.model || 'conversation-state-local',logMeta.provider_status || (logMeta.usedDeepseek ? 'success' : 'fallback'),logMeta.error_type || '',logMeta.error_detail || '',Number(logMeta.latency_ms || 0),logMeta.request_id || '',logMeta.intent_id || '',confidence,logMeta.attachment_decision || 'none',JSON.stringify(finalBlocks),'structured-v2',logMeta.resolution_state || 'open',JSON.stringify(logMeta.decision || {}),logMeta.user_intent || '',logMeta.desired_outcome || '']);
+    } catch (err) {
+      console.error(JSON.stringify({ level:'error', event:'chat_log_write_failed', request_id:logMeta.request_id || '', code:err?.code || '', message:err?.message || String(err) }));
+    }
   }
   return memorySummary;
+}
+
+function normalizeConfidencePercent(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const percent = parsed >= 0 && parsed <= 1 ? parsed * 100 : parsed;
+  return Math.max(0, Math.min(100, Math.round(percent)));
 }
 
 async function updateMemory(env, session, userMessage, assistantReply, uploadedImages, maxMessages = 12) { await q(env, 'INSERT INTO chat_memory_messages(session_id, role, content, image_urls) VALUES($1,$2,$3,$4),($1,$5,$6,$7)', [session.session_id, 'user', userMessage, joinUrls(uploadedImages), 'assistant', assistantReply, '']); await q(env, 'UPDATE chat_sessions SET message_count=message_count+1, updated_at=NOW() WHERE session_id=$1', [session.session_id]); const recent = (await q(env, 'SELECT * FROM chat_memory_messages WHERE session_id=$1 ORDER BY id DESC LIMIT $2', [session.session_id, Math.max(4, maxMessages)])).rows.reverse(); const summary = 'Recent session memory:\n' + recent.map(m => `${m.role}: ${firstSentences(m.content, 160)}${splitUrls(m.image_urls).length ? ' [image uploaded]' : ''}`).join('\n'); await q(env, 'UPDATE chat_sessions SET memory_summary=$2, updated_at=NOW() WHERE session_id=$1', [session.session_id, summary]); return summary; }
@@ -1839,7 +1852,23 @@ async function adminFoundationDiagnostics(env) {
   return { ok: checks.every(x => x.ok), version: VERSION, owner_email: String(env.ADMIN_EMAIL || OWNER_EMAIL).trim().toLowerCase(), checks, timestamp: new Date().toISOString() };
 }
 
-async function aiDiagnostics(env) { const settings = await getAiSettings(env); const counts = {}; for (const [key, table] of Object.entries({ categories:'categories', guides:'guides', faqs:'faqs', knowledge:'knowledge_items', prompts:'ai_prompt_sections', prompt_versions:'ai_prompt_versions', ai_content:'ai_content_items', action_buttons:'action_buttons', content_versions:'content_versions', sessions:'chat_sessions', logs:'chat_logs', unmatched:'unmatched_questions', content_blocks:'site_content_blocks', content_tombstones:'site_content_tombstones', popular_help:'popular_help_cards', nav:'navigation_items', audit:'admin_audit_logs' })) { try { counts[key] = Number((await q(env, `SELECT COUNT(*)::int AS count FROM ${table}`)).rows[0]?.count || 0); } catch (err) { counts[key] = `error: ${err.message}`; } } return { ok:true,version:VERSION,routing_engine:'ai-knowledge-orchestrator-v2',backend_keyword_scoring:false,two_stage_ai:true,images_are_routing_input:false,guide_attachments:'removed',deepseek_key_present:!!env.DEEPSEEK_API_KEY,deepseek_api_base:settings?.api_base || env.DEEPSEEK_API_BASE || 'https://api.deepseek.com',model:settings?.model || env.DEEPSEEK_MODEL || 'deepseek-chat',ai_enabled_in_db:!!settings?.enabled,require_approved_context:!!settings?.require_approved_context,memory_enabled:!!settings?.memory_enabled,counts }; }
+async function aiDiagnostics(env) {
+  const settings = await getAiSettings(env);
+  const counts = {};
+  for (const [key, table] of Object.entries({ categories:'categories', guides:'guides', faqs:'faqs', knowledge:'knowledge_items', prompts:'ai_prompt_sections', prompt_versions:'ai_prompt_versions', ai_content:'ai_content_items', action_buttons:'action_buttons', content_versions:'content_versions', sessions:'chat_sessions', logs:'chat_logs', unmatched:'unmatched_questions', content_blocks:'site_content_blocks', content_tombstones:'site_content_tombstones', popular_help:'popular_help_cards', nav:'navigation_items', audit:'admin_audit_logs' })) {
+    try { counts[key] = Number((await q(env, `SELECT COUNT(*)::int AS count FROM ${table}`)).rows[0]?.count || 0); }
+    catch (err) { counts[key] = `error: ${err.message}`; }
+  }
+  let recent_errors = [];
+  let provider_summary = [];
+  try {
+    recent_errors = (await q(env, `SELECT id,request_id,customer_message,provider_status,error_type,error_detail,intent_id,confidence,latency_ms,created_at FROM chat_logs WHERE provider_status IN ('error','fallback') OR COALESCE(error_type,'') <> '' ORDER BY created_at DESC LIMIT 25`)).rows.map(row => ({ ...row, confidence:row.confidence == null ? null : Number(row.confidence), latency_ms:Number(row.latency_ms || 0), created_at:String(row.created_at) }));
+    provider_summary = (await q(env, `SELECT COALESCE(provider_status,'unknown') AS status,COUNT(*)::int AS count FROM chat_logs WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY COALESCE(provider_status,'unknown') ORDER BY count DESC`)).rows;
+  } catch (err) {
+    recent_errors = [{ error_type:'diagnostics_query_failed', error_detail:err?.message || String(err) }];
+  }
+  return { ok:true,version:VERSION,routing_engine:'ai-knowledge-orchestrator-v2',backend_keyword_scoring:false,two_stage_ai:true,images_are_routing_input:false,guide_attachments:'removed',deepseek_key_present:!!env.DEEPSEEK_API_KEY,deepseek_api_base:settings?.api_base || env.DEEPSEEK_API_BASE || 'https://api.deepseek.com',model:settings?.model || env.DEEPSEEK_MODEL || 'deepseek-chat',ai_enabled_in_db:!!settings?.enabled,require_approved_context:!!settings?.require_approved_context,memory_enabled:!!settings?.memory_enabled,counts,recent_errors,provider_summary };
+}
 async function listSessions(env) { const { rows } = await q(env, 'SELECT * FROM chat_sessions ORDER BY id DESC LIMIT 100'); return rows.map(x => ({ id: x.id, session_id: x.session_id, memory_summary: x.memory_summary, message_count: x.message_count, created_at: String(x.created_at), updated_at: String(x.updated_at) })); }
 async function clearSession(env, sessionId) { await q(env, 'UPDATE chat_sessions SET memory_summary=$2, message_count=0, updated_at=NOW() WHERE session_id=$1', [sessionId, '']); await q(env, 'DELETE FROM chat_memory_messages WHERE session_id=$1', [sessionId]); return { ok: true }; }
 

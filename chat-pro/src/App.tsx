@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { fetchChatContent, sendChatMessage, type ChatContent, type ResponseBlock } from "@/lib/api";
 import { CHAT_LANGUAGE_OPTIONS, getChatConfig, type PublicLanguage } from "@/lib/chat-config";
+import { ImageLightbox } from "@/components/ImageLightbox";
 
 type Role = "user" | "assistant";
 
@@ -37,6 +38,7 @@ function cleanDisplayText(text: string) {
 }
 
 export default function App() {
+  const [preview, setPreview] = useState<{ src:string; alt:string } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [content, setContent] = useState<ChatContent | null>(null);
@@ -216,7 +218,7 @@ export default function App() {
           </div>
 
           {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} onRetry={() => m.retryOf && send(m.retryOf)} onPrompt={send} />
+            <MessageBubble key={m.id} message={m} onRetry={() => m.retryOf && send(m.retryOf)} onPrompt={send} onPreview={(src,alt)=>setPreview({src,alt})} />
           ))}
           {isProcessing && <TypingIndicator />}
         </div>
@@ -263,11 +265,12 @@ export default function App() {
           </div>
         </form>
       </div>
+      {preview && <ImageLightbox src={preview.src} alt={preview.alt} onClose={()=>setPreview(null)} />}
     </div>
   );
 }
 
-function MessageBubble({ message, onRetry, onPrompt }: { message: Message; onRetry: () => void; onPrompt: (text:string) => void }) {
+function MessageBubble({ message, onRetry, onPrompt, onPreview }: { message: Message; onRetry: () => void; onPrompt: (text:string) => void; onPreview:(src:string,alt:string)=>void }) {
   const isUser = message.role === "user";
   return (
     <div className={`flex msg-in ${isUser ? "justify-end" : "justify-start"}`}>
@@ -275,17 +278,16 @@ function MessageBubble({ message, onRetry, onPrompt }: { message: Message; onRet
         className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser ? "bg-bubble-user text-bubble-user-foreground rounded-br-sm" : "bg-bubble-ai text-bubble-ai-foreground rounded-bl-sm border border-border"}`}
       >
         {message.blocks && message.blocks.length > 0 ? (
-          <StructuredResponse blocks={message.blocks} onPrompt={onPrompt} />
+          <StructuredResponse blocks={message.blocks} onPrompt={onPrompt} onPreview={onPreview} />
         ) : (
           <div>{message.content}</div>
         )}
         {message.images && message.images.length > 0 && (
           <div className="mt-3 grid gap-2">
             {message.images.map((src, index) => (
-              <a
-                href={src}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={()=>onPreview(src,"AI support visual")}
                 key={src + index}
                 className="block overflow-hidden rounded-xl border border-border bg-surface-elevated/50"
               >
@@ -295,7 +297,7 @@ function MessageBubble({ message, onRetry, onPrompt }: { message: Message; onRet
                   className="w-full max-h-80 object-contain bg-black/15"
                   loading="lazy"
                 />
-              </a>
+              </button>
             ))}
           </div>
         )}
@@ -320,7 +322,7 @@ function RichText({ segments, fallback }: { segments?: any[]; fallback:string })
   if (!segments?.length) return <>{fallback}</>;
   return <>{segments.map((segment,index)=><span key={index} className={`${segment.marks?.bold ? "font-bold" : ""} ${segment.marks?.italic ? "italic" : ""} ${segment.marks?.underline ? "underline" : ""} ${textColors[segment.marks?.color || "default"] || ""} ${highlights[segment.marks?.highlight || "default"] || ""}`}>{segment.text}</span>)}</>;
 }
-function StructuredResponse({ blocks, onPrompt }: { blocks: ResponseBlock[]; onPrompt:(text:string)=>void }) {
+function StructuredResponse({ blocks, onPrompt, onPreview }: { blocks: ResponseBlock[]; onPrompt:(text:string)=>void; onPreview:(src:string,alt:string)=>void }) {
   return (
     <div className="space-y-3 whitespace-normal">
       {blocks.map((block, index) => {
@@ -389,7 +391,7 @@ function StructuredResponse({ blocks, onPrompt }: { blocks: ResponseBlock[]; onP
           );
         }
         if (block.type === "image") {
-          return <figure key={key} className="overflow-hidden rounded-xl border border-border bg-black/10"><a href={block.url} target="_blank" rel="noreferrer"><img src={block.url} alt={block.alt || "Support visual"} className="w-full max-h-96 object-contain" loading="lazy" /></a>{block.caption && <figcaption className="border-t border-border px-3 py-2 text-xs text-muted-foreground">{block.caption}</figcaption>}</figure>;
+          return <figure key={key} className="overflow-hidden rounded-xl border border-border bg-black/10"><button type="button" className="block w-full cursor-zoom-in" onClick={()=>onPreview(block.url,block.alt || "Support visual")}><img src={block.url} alt={block.alt || "Support visual"} className="w-full max-h-96 object-contain" loading="lazy" /></button>{block.caption && <figcaption className="border-t border-border px-3 py-2 text-xs text-muted-foreground">{block.caption}</figcaption>}</figure>;
         }
         if (block.type === "link" || block.type === "button") {
           const isPrompt = block.action_type === "chat_prompt" || block.url.startsWith("prompt:");

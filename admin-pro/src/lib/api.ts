@@ -353,8 +353,10 @@ function diagnosticsOut(d: any) {
     promptCount: d.promptCount ?? d.counts?.prompts ?? 0,
     faqCount: d.faqCount ?? d.counts?.faqs ?? 0,
     guideCount: d.guideCount ?? d.counts?.guides ?? 0,
-    lastApiError: d.lastApiError || "None reported by Worker diagnostics",
+    lastApiError: d.lastApiError || (d.recent_errors?.[0]?.error_detail ?? "No recent AI error recorded"),
     responseTimeMs: d.responseTimeMs ?? 0,
+    recentErrors: d.recentErrors ?? d.recent_errors ?? [],
+    providerSummary: d.providerSummary ?? d.provider_summary ?? [],
   };
 }
 

@@ -1,0 +1,18 @@
+{
+  "version": "0.10.1-mobile-image-viewer-ai-observability-faq-control",
+  "release_name": "Mobile Image Viewer + AI Observability & FAQ Control",
+  "baseline": "0.10.0-ai-knowledge-orchestrator-multilingual-visual-guide-studio",
+  "backend": "Render Node 22 + Neon PostgreSQL",
+  "frontends": ["Cloudflare Pages Admin", "Cloudflare Pages Chat", "Cloudflare Pages Guide"],
+  "favicons": {
+    "admin": "backend.png",
+    "chat": "headset.png"
+  },
+  "tests": {
+    "regression": "41/41 passed",
+    "structured_response": "4/4 passed",
+    "r2_upload": "4/4 passed",
+    "frontend_builds": "3/3 passed"
+  },
+  "production_deployed": false
+}

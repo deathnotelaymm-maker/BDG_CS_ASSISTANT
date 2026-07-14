@@ -31,9 +31,14 @@ const aiContentStudio = read("admin-pro/src/routes/_admin.ai-content-studio.tsx"
 const promptManager = read("admin-pro/src/routes/_admin.ai-prompt-manager.tsx");
 const categoryAdmin = read("admin-pro/src/routes/_admin.categories.tsx");
 const chatApp = read("chat-pro/src/App.tsx");
+const chatLightbox = read("chat-pro/src/components/ImageLightbox.tsx");
+const guideLightbox = read("guide-pro/src/components/public/GuideImageLightbox.tsx");
+const faqAdmin = read("admin-pro/src/routes/_admin.faq.tsx");
+const diagnosticsAdmin = read("admin-pro/src/routes/_admin.ai-diagnostics.tsx");
 const guideApi = read("guide-pro/src/lib/api.ts");
 const server = read("backend-api/src/server.js");
-const deployScript = read("DEPLOY-V0.10.0-PRODUCTION-WINDOWS.ps1");
+const deployScript = read("DEPLOY-V0.10.1-PRODUCTION-WINDOWS.ps1");
+const verifyScript = read("VERIFY-V0.10.1-WINDOWS.ps1");
 
 expect(
   "Site Content uses block_key as editable id",
@@ -159,7 +164,23 @@ expect(
   "Windows deployment avoids the reserved Host variable",
   deployScript.includes("$ApiHost=") && !deployScript.includes("$host="),
 );
+expect(
+  "Live verifier follows dynamically imported JavaScript chunks",
+  verifyScript.includes("System.Collections.Queue") &&
+    verifyScript.includes("Get-LiveJavaScript") &&
+    verifyScript.includes("JavaScript chunks checked"),
+);
+expect(
+  "Cloudflare Direct Upload targets production without branch guessing",
+  deployScript.includes("pages deploy '.\\dist' --project-name $Project --skip-caching") &&
+    !deployScript.includes("--project-name $Project --branch $Branch"),
+);
 expect("Unified version history is visible and restorable", promptHistory.includes("restoreContentVersion") && promptHistory.includes("restorePromptVersion"));
+expect("Decimal AI confidence is normalized to integer percent", core.includes("normalizeConfidencePercent") && core.includes("parsed * 100") && core.includes("Math.round(percent)"));
+expect("Chat logging cannot destroy a successful AI response", core.includes("event:'chat_log_write_failed'") && core.includes("try {\n      await q(env, 'INSERT INTO chat_logs"));
+expect("Admin FAQ exposes the persisted answer", faqAdmin.includes('name: "answer"') && faqAdmin.includes("FAQ answer") && faqAdmin.includes("keywords"));
+expect("Chat and Guide provide mobile image viewers", chatLightbox.includes('role="dialog"') && guideLightbox.includes('role="dialog"') && chatApp.includes("onPreview"));
+expect("AI Diagnostics exposes recent failures and request IDs", core.includes("recent_errors") && diagnosticsAdmin.includes("Recent AI Errors & Fallbacks") && diagnosticsAdmin.includes("Request ID"));
 
 for (const check of checks)
   console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);

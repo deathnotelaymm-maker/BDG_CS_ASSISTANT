@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import api, { uploadToR2 } from '../src/core.js';
 import { createR2Adapter } from '../src/r2-adapter.js';
 
-const version = '0.10.0-ai-knowledge-orchestrator-multilingual-visual-guide-studio';
+const version = '0.10.1-mobile-image-viewer-ai-observability-faq-control';
 const env = {
   R2_ACCOUNT_ID: 'test-account',
   R2_ACCESS_KEY_ID: 'test-access-key',

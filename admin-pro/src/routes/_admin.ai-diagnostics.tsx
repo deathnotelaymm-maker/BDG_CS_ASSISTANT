@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Row, Col, Card, Tag, Input, Button, Space, Skeleton, Statistic, Alert, Table } from "antd";
+import { Row, Col, Card, Tag, Input, Button, Space, Skeleton, Statistic, Alert, Table, Typography } from "antd";
 import { CheckCircleFilled, CloseCircleFilled, SendOutlined, ReloadOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
 
@@ -42,7 +42,7 @@ function DiagnosticsPage() {
             <Col xs={12}><Statistic title="FAQ count" value={d.faqCount} /></Col>
             <Col xs={12}><Statistic title="Guide count" value={d.guideCount} /></Col>
             <Col xs={12}><Statistic title="Response time" value={d.responseTimeMs} suffix="ms" /></Col>
-            <Col xs={24}><Alert type="success" showIcon message="Last API error" description={d.lastApiError} /></Col>
+            <Col xs={24}><Alert type={d.recentErrors?.length ? "warning" : "success"} showIcon message="Latest AI diagnostic" description={d.lastApiError} /></Col>
           </Row>
         </Card>
       </Col>
@@ -54,6 +54,20 @@ function DiagnosticsPage() {
             <Button type="primary" icon={<SendOutlined />} onClick={runTest} loading={loading}>Send test</Button>
             {reply && <div style={{ background: "var(--navy-700)", border: "1px solid var(--border-dim)", borderRadius: 6, padding: 12, color: "#c5d0e4" }}><div style={{ color: "#8ea0bd", fontSize: 11, marginBottom: 6 }}>REPLY · {reply.latencyMs} ms</div>{reply.reply}</div>}
           </Space>
+        </Card>
+      </Col>
+
+      <Col xs={24}>
+        <Card className="bdg-card" title="Recent AI Errors & Fallbacks" size="small">
+          <Table rowKey={(r:any)=>r.id || r.request_id || r.error_type} className="bdg-table" size="small" dataSource={d.recentErrors || []} pagination={{pageSize:10}} columns={[
+            {title:"Time",dataIndex:"created_at",width:190},
+            {title:"Result",render:(_:any,r:any)=><Tag color={r.provider_status === "error" ? "error" : "warning"}>{r.provider_status || r.error_type || "warning"}</Tag>},
+            {title:"Member asked",dataIndex:"customer_message",ellipsis:true},
+            {title:"Intent",dataIndex:"intent_id",render:(v:string)=>v || "—"},
+            {title:"Confidence",dataIndex:"confidence",render:(v:number)=>v == null ? "—" : `${v}%`},
+            {title:"Error",render:(_:any,r:any)=><Typography.Text copyable={{text:r.error_detail || r.error_type || ""}}>{r.error_type || r.error_detail || "—"}</Typography.Text>},
+            {title:"Request ID",dataIndex:"request_id",ellipsis:true,render:(v:string)=><Typography.Text copyable>{v || "—"}</Typography.Text>},
+          ]}/>
         </Card>
       </Col>
 
