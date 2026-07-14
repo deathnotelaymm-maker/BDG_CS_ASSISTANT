@@ -5,7 +5,7 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '0.10.0-ai-knowledge-orchestrator-multilingual-visual-guide-studio';
+const API_VERSION = '0.10.1-mobile-image-viewer-ai-observability-faq-control';
 const API_FEATURES = ['ai-knowledge-orchestrator-v2','backend-keyword-scoring-disabled','multilingual-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-buttons','durable-site-content-delete','unified-content-versions','r2-s3-api'];
 validateRuntimeEnv(env);
 env.GUIDE_IMAGES = createR2Adapter(env);
