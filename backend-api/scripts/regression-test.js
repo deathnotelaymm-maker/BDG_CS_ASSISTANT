@@ -33,6 +33,7 @@ const categoryAdmin = read("admin-pro/src/routes/_admin.categories.tsx");
 const chatApp = read("chat-pro/src/App.tsx");
 const guideApi = read("guide-pro/src/lib/api.ts");
 const server = read("backend-api/src/server.js");
+const deployScript = read("DEPLOY-V0.10.0-PRODUCTION-WINDOWS.ps1");
 
 expect(
   "Site Content uses block_key as editable id",
@@ -153,6 +154,10 @@ expect(
   "Site Content bootstrap uses consistent PostgreSQL parameter types",
   core.includes("$1::varchar(100)") &&
     core.includes("block_key=$1::varchar(100)"),
+);
+expect(
+  "Windows deployment avoids the reserved Host variable",
+  deployScript.includes("$ApiHost=") && !deployScript.includes("$host="),
 );
 expect("Unified version history is visible and restorable", promptHistory.includes("restoreContentVersion") && promptHistory.includes("restorePromptVersion"));
 

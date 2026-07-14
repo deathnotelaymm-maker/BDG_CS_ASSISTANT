@@ -14,7 +14,7 @@ function Build-Deploy([string]$Folder,[string]$Project,[string]$Branch,[hashtabl
     npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/;Assert-Native "$Folder npm ci"
     npm run build;Assert-Native "$Folder build"
     $old=Get-ChildItem '.\dist' -Recurse -File|Select-String -SimpleMatch 'bdg-ai-help-api.bdgservice.workers.dev';if($old){throw "$Folder contains retired Worker URL."}
-    $host=([Uri]$ApiBaseUrl).Host;$found=Get-ChildItem '.\dist' -Recurse -File|Select-String -SimpleMatch $host|Select-Object -First 1;if(-not $found){throw "$Folder build does not contain $host."}
+    $ApiHost=([Uri]$ApiBaseUrl).Host;$found=Get-ChildItem '.\dist' -Recurse -File|Select-String -SimpleMatch $ApiHost|Select-Object -First 1;if(-not $found){throw "$Folder build does not contain $ApiHost."}
     npx --yes wrangler@4.107.0 pages deploy '.\dist' --project-name $Project --branch $Branch --skip-caching --commit-message 'v0.10.0 AI Knowledge Orchestrator and Visual Guide Studio' --commit-dirty=true;Assert-Native "$Project deploy"
     npx --yes wrangler@4.107.0 pages deployment list --project-name $Project --environment production;Assert-Native "$Project production check"
   }finally{foreach($key in $Vars.Keys){Remove-Item "Env:$key" -ErrorAction SilentlyContinue};Pop-Location}
