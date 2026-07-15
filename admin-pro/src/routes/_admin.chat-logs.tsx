@@ -153,6 +153,8 @@ function ChatLogsPage() {
                       <Tag>Language: {row.decision.language || row.language || "—"}</Tag>
                       <Tag>Intent: {row.user_intent || row.intent_id || "—"}</Tag>
                       <Tag>Confidence: {row.confidence == null ? "—" : `${row.confidence}%`}</Tag>
+                      <Tag color="purple">Platform: {row.platform_key || "default"}</Tag>
+                      {row.import_batch_id ? <Tag color="cyan">Import batch: {row.import_batch_id}</Tag> : null}
                     </div>
                     {row.desired_outcome && <Typography.Paragraph style={{marginTop:8,marginBottom:0}}><b>Desired outcome:</b> {row.desired_outcome}</Typography.Paragraph>}
                     {row.decision.reason && <Typography.Paragraph style={{marginTop:4,marginBottom:0}}><b>Reason:</b> {row.decision.reason}</Typography.Paragraph>}

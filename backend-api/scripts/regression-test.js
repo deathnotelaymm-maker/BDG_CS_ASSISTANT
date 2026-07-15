@@ -22,6 +22,7 @@ const migration090 = read(
   "backend-api/migrations/004_v0.9.0_prompt_first_ai_content_studio.sql",
 );
 const migration010 = read("backend-api/migrations/005_v0.10.0_ai_knowledge_orchestrator_visual_guide_studio.sql");
+const migration011 = read("backend-api/migrations/006_v0.11.0_advanced_ai_knowledge_import_multi_platform_router.sql");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
 const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
@@ -35,6 +36,8 @@ const chatLightbox = read("chat-pro/src/components/ImageLightbox.tsx");
 const guideLightbox = read("guide-pro/src/components/public/GuideImageLightbox.tsx");
 const faqAdmin = read("admin-pro/src/routes/_admin.faq.tsx");
 const diagnosticsAdmin = read("admin-pro/src/routes/_admin.ai-diagnostics.tsx");
+const importAdmin = read("admin-pro/src/routes/_admin.ai-knowledge-import.tsx");
+const knowledgeImportModule = read("backend-api/src/knowledge-import.js");
 const guideApi = read("guide-pro/src/lib/api.ts");
 const server = read("backend-api/src/server.js");
 const deployScript = read("DEPLOY-V0.10.1-PRODUCTION-WINDOWS.ps1");
@@ -181,6 +184,11 @@ expect("Chat logging cannot destroy a successful AI response", core.includes("ev
 expect("Admin FAQ exposes the persisted answer", faqAdmin.includes('name: "answer"') && faqAdmin.includes("FAQ answer") && faqAdmin.includes("keywords"));
 expect("Chat and Guide provide mobile image viewers", chatLightbox.includes('role="dialog"') && guideLightbox.includes('role="dialog"') && chatApp.includes("onPreview"));
 expect("AI Diagnostics exposes recent failures and request IDs", core.includes("recent_errors") && diagnosticsAdmin.includes("Recent AI Errors & Fallbacks") && diagnosticsAdmin.includes("Request ID"));
+expect("v0.11.0 import migration is idempotent", migration011.includes("IF NOT EXISTS") && migration011.includes("knowledge_import_batches"));
+expect("Excel imports are previewed as drafts", core.includes("previewKnowledgeImport") && core.includes("createKnowledgeImportDrafts") && knowledgeImportModule.includes("status: 'draft'"));
+expect("Multi-platform ticket actions are capability guarded", core.includes("support_platforms") && core.includes("buttonAllowedForPlatform") && core.includes("support_mode"));
+expect("Admin exposes the import review studio", importAdmin.includes("Create AI Content drafts") && importAdmin.includes("Target support platform") && adminLayout.includes("AI Knowledge Import"));
+expect("Chat and diagnostics persist platform routing context", core.includes("platform_key") && chatLogs.includes("Platform:") && diagnosticsAdmin.includes("Knowledge imports"));
 
 for (const check of checks)
   console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);

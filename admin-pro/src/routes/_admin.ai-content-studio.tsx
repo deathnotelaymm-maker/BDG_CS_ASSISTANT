@@ -48,8 +48,10 @@ function AiContentStudioPage() {
   const [richHtmlHi, setRichHtmlHi] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [actionButtons, setActionButtons] = useState<any[]>([]);
+  const [platforms, setPlatforms] = useState<any[]>([]);
   const [testMessage, setTestMessage] = useState("hello");
   const [testLanguage, setTestLanguage] = useState("en");
+  const [testPlatform, setTestPlatform] = useState("default");
   const [testResult, setTestResult] = useState<any | null>(null);
   const [testing, setTesting] = useState(false);
   const [form] = Form.useForm();
@@ -57,9 +59,10 @@ function AiContentStudioPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [items, buttons] = await Promise.all([api.list("ai-content"), api.list("action-buttons")]);
+      const [items, buttons, platformRows] = await Promise.all([api.list("ai-content"), api.list("action-buttons"), api.listSupportPlatforms()]);
       setRows(items as any[]);
       setActionButtons(buttons as any[]);
+      setPlatforms(platformRows as any[]);
     } catch (error: any) {
       message.error(error?.message || "Failed to load AI Content");
     } finally {
@@ -80,6 +83,8 @@ function AiContentStudioPage() {
       image_delivery: "after_answer",
       version_label: "v1",
       approval_status: "draft",
+      platform_scope: "all",
+      route_policy: "answer_only",
     };
     setEditing(current);
     setRichJson(current.rich_json || blankDocument);
@@ -87,7 +92,7 @@ function AiContentStudioPage() {
     setRichJsonHi(current.rich_json_hi || blankDocument);
     setRichHtmlHi(current.rich_html_hi || "");
     setImages(Array.isArray(current.image_urls) ? current.image_urls : []);
-    form.setFieldsValue(current);
+    form.setFieldsValue({ ...current, platform_scope: Array.isArray(current.platform_scope) ? current.platform_scope : String(current.platform_scope || "all").split(/[\s,|\n]+/).filter(Boolean) });
   };
 
   const closeEditor = () => {
@@ -144,7 +149,7 @@ function AiContentStudioPage() {
     if (!testMessage.trim()) return;
     setTesting(true);
     try {
-      setTestResult(await api.testAiContent(testMessage.trim(), testLanguage));
+      setTestResult(await api.testAiContent(testMessage.trim(), testLanguage, testPlatform));
     } catch (error: any) {
       message.error(error?.message || "Test failed");
     } finally {
@@ -161,6 +166,7 @@ function AiContentStudioPage() {
     { title: "Locale", dataIndex: "locale", width: 90, render: (value: string) => <Tag>{String(value || "en").toUpperCase()}</Tag> },
     { title: "Status", dataIndex: "status", width: 110, render: (value: string) => <Tag color={value === "published" ? "green" : value === "archived" ? "red" : "gold"}>{value}</Tag> },
     { title: "Approval", dataIndex: "approval_status", width: 110, render: (value: string) => <Tag color={value === "approved" ? "green" : "gold"}>{value || "draft"}</Tag> },
+    { title: "Platform", dataIndex: "platform_scope", width: 120, render: (value: string) => <Tag color="blue">{value || "all"}</Tag> },
     { title: "Images", dataIndex: "image_urls", width: 80, render: (value: string[]) => Array.isArray(value) ? value.length : 0 },
     { title: "Updated", dataIndex: "updated_at", width: 190, render: (value: string) => value ? new Date(value).toLocaleString() : "—" },
     {
@@ -188,12 +194,14 @@ function AiContentStudioPage() {
       <Card className="bdg-card" size="small" title="Routing safety test" style={{ marginBottom: 12 }}>
         <Space.Compact style={{ width: "100%" }}>
           <Select value={testLanguage} onChange={setTestLanguage} options={[{ value:"en",label:"English" },{ value:"hi",label:"Hindi / Indian" }]} style={{ width:150 }} />
+          <Select value={testPlatform} onChange={setTestPlatform} options={platforms.filter((platform) => platform.status === "active").map((platform) => ({ value:platform.platform_key,label:platform.name }))} style={{ width:190 }} />
           <Input value={testMessage} onChange={(event) => setTestMessage(event.target.value)} onPressEnter={runTest} placeholder="Try: hello, deposit not received, account number" />
           <Button icon={<ExperimentOutlined />} type="primary" loading={testing} onClick={runTest}>Test</Button>
         </Space.Compact>
         {testResult && <div style={{ marginTop: 10 }}>
           <Tag color={testResult.ok ? "blue" : "red"}>Decision: {testResult.decision?.decision || "provider error"}</Tag>
           {testResult.selected_content && <Tag color="green">Selected: {testResult.selected_content.title}</Tag>}
+          {testResult.platform && <Tag color="purple">Platform: {testResult.platform.name || testResult.platform.platform_key} · {testResult.platform.support_mode}</Tag>}
           {typeof testResult.decision?.confidence === "number" && <Tag>AI confidence: {testResult.decision.confidence}%</Tag>}
           {testResult.decision?.user_intent && <div style={{ marginTop:8, color:"#8ea0bd" }}>Understood: {testResult.decision.user_intent} → {testResult.decision.desired_outcome}</div>}
           {testResult.provider_error && <Alert style={{ marginTop:8 }} type="error" showIcon message={testResult.provider_error} />}
@@ -229,6 +237,11 @@ function AiContentStudioPage() {
                   <Col xs={12} md={6}><Form.Item name="priority" label="Catalog order"><InputNumber min={1} max={999} style={{ width: "100%" }} /></Form.Item></Col>
                   <Col xs={12} md={6}><Form.Item name="approval_status" label="Knowledge approval"><Select options={[{value:"draft",label:"Draft"},{value:"approved",label:"Approved"},{value:"archived",label:"Archived"}]} /></Form.Item></Col>
                 </Row>
+                <Row gutter={12}>
+                  <Col xs={24} md={12}><Form.Item name="platform_scope" label="Available on support platforms"><Select mode="multiple" optionFilterProp="label" options={[{ value:"all", label:"All active platforms" }, ...platforms.filter((platform) => platform.status === "active").map((platform) => ({ value:platform.platform_key,label:`${platform.name} (${platform.support_mode})` }))]} /></Form.Item></Col>
+                  <Col xs={24} md={12}><Form.Item name="route_policy" label="Action policy"><Select options={[{ value:"answer_only",label:"Answer only" },{ value:"action_optional",label:"Optional approved action" },{ value:"ticket_optional",label:"Ticket action when platform supports it" },{ value:"ticket_required",label:"Ticket action only when supported" },{ value:"human_escalation",label:"Escalate to configured support" }]} /></Form.Item></Col>
+                </Row>
+                {editing?.import_batch_id && <Alert showIcon type="info" message={`Imported draft · batch ${editing.import_batch_id}`} description={`Source: ${editing.source_sheet || "workbook"}${editing.source_row ? ` row ${editing.source_row}` : ""}. Ticket and image references are review notes; connect only approved buttons and uploaded images.`} style={{ marginBottom:12 }} />}
                 <Row gutter={12}>
                   <Col xs={24} md={12}><Form.Item name="positive_examples" label="Positive examples — should match"><Input.TextArea rows={5} placeholder={"My deposit has not arrived\nMoney was deducted but balance was not added"} /></Form.Item></Col>
                   <Col xs={24} md={12}><Form.Item name="negative_examples" label="Negative examples — must not match"><Input.TextArea rows={5} placeholder={"How do I deposit?\nWithdrawal not received\nHello"} /></Form.Item></Col>

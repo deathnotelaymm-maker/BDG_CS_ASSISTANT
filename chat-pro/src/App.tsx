@@ -10,7 +10,7 @@ import {
   Sparkles,
   XCircle,
 } from "lucide-react";
-import { fetchChatContent, sendChatMessage, type ChatContent, type ResponseBlock } from "@/lib/api";
+import { fetchChatContent, getPlatformKey, sendChatMessage, type ChatContent, type ResponseBlock } from "@/lib/api";
 import { CHAT_LANGUAGE_OPTIONS, getChatConfig, type PublicLanguage } from "@/lib/chat-config";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
@@ -56,6 +56,7 @@ export default function App() {
   const quickQuestions = (content?.quick_replies || []).length
     ? (content?.quick_replies || []).slice(0, 5).map((q) => q.query || q.text)
     : chatConfig.quickQuestions;
+  const platformKey = getPlatformKey(content?.default_platform_key || "default");
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [waitHint, setWaitHint] = useState(false);
@@ -95,7 +96,7 @@ export default function App() {
       setIsProcessing(true);
 
       try {
-        const res = await sendChatMessage(trimmed, language);
+        const res = await sendChatMessage(trimmed, language, platformKey);
         setMessages((m) => [
           ...m,
           {
@@ -122,7 +123,7 @@ export default function App() {
         setTimeout(() => inputRef.current?.focus(), 30);
       }
     },
-    [isProcessing, language, chatConfig.fallbackMessage],
+    [isProcessing, language, platformKey, chatConfig.fallbackMessage],
   );
 
   const handleSubmit = (e: React.FormEvent) => {

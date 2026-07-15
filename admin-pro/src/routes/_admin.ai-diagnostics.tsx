@@ -41,6 +41,8 @@ function DiagnosticsPage() {
             <Col xs={12}><Statistic title="Prompt count" value={d.promptCount} /></Col>
             <Col xs={12}><Statistic title="FAQ count" value={d.faqCount} /></Col>
             <Col xs={12}><Statistic title="Guide count" value={d.guideCount} /></Col>
+            <Col xs={12}><Statistic title="Knowledge imports" value={d.counts?.knowledge_import_batches || 0} /></Col>
+            <Col xs={12}><Statistic title="Support platforms" value={d.counts?.support_platforms || 0} /></Col>
             <Col xs={12}><Statistic title="Response time" value={d.responseTimeMs} suffix="ms" /></Col>
             <Col xs={24}><Alert type={d.recentErrors?.length ? "warning" : "success"} showIcon message="Latest AI diagnostic" description={d.lastApiError} /></Col>
           </Row>
@@ -64,6 +66,8 @@ function DiagnosticsPage() {
             {title:"Result",render:(_:any,r:any)=><Tag color={r.provider_status === "error" ? "error" : "warning"}>{r.provider_status || r.error_type || "warning"}</Tag>},
             {title:"Member asked",dataIndex:"customer_message",ellipsis:true},
             {title:"Intent",dataIndex:"intent_id",render:(v:string)=>v || "—"},
+            {title:"Platform",dataIndex:"platform_key",render:(v:string)=>v || "default"},
+            {title:"Import",dataIndex:"import_batch_id",render:(v:number)=>v || "—"},
             {title:"Confidence",dataIndex:"confidence",render:(v:number)=>v == null ? "—" : `${v}%`},
             {title:"Error",render:(_:any,r:any)=><Typography.Text copyable={{text:r.error_detail || r.error_type || ""}}>{r.error_type || r.error_detail || "—"}</Typography.Text>},
             {title:"Request ID",dataIndex:"request_id",ellipsis:true,render:(v:string)=><Typography.Text copyable>{v || "—"}</Typography.Text>},

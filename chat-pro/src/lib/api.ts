@@ -23,6 +23,8 @@ export interface ChatContent {
   >;
   quick_replies?: { text: string; query?: string }[];
   support_enabled?: boolean;
+  default_platform_key?: string;
+  platforms?: { platform_key: string; name: string; support_mode: "none" | "tickets" | "hybrid" }[];
 }
 
 export interface ChatSource {
@@ -57,6 +59,7 @@ export interface ChatRequest {
   session_id: string;
   image_urls: string[];
   language?: "en" | "hi";
+  platform_key?: string;
 }
 
 const SESSION_KEY = "bdg_chat_session_id";
@@ -71,9 +74,16 @@ export function getSessionId(): string {
   return id;
 }
 
+export function getPlatformKey(defaultKey = "default"): string {
+  if (typeof window === "undefined") return defaultKey;
+  const fromQuery = new URLSearchParams(window.location.search).get("platform");
+  return String(fromQuery || defaultKey).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || defaultKey;
+}
+
 export async function sendChatMessage(
   message: string,
   language: "en" | "hi" = "en",
+  platform_key = getPlatformKey(),
   signal?: AbortSignal,
 ): Promise<ChatResponse> {
   const body: ChatRequest = {
@@ -81,6 +91,7 @@ export async function sendChatMessage(
     session_id: getSessionId(),
     image_urls: [],
     language,
+    platform_key,
   };
 
   if (!API_BASE)

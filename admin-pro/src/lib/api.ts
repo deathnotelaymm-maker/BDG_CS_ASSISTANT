@@ -314,6 +314,8 @@ function normalizeForCreate(resource: string, data: any) {
       button_ids: Array.isArray(data.button_ids) ? data.button_ids : String(data.button_ids || "").split(/\r?\n|,/).map((x) => Number(x.trim())).filter(Boolean),
       approval_status: data.approval_status || (data.status === "published" ? "approved" : "draft"),
       version_label: data.version_label || "v1",
+      platform_scope: data.platform_scope || "all",
+      route_policy: data.route_policy || "answer_only",
     };
   }
   if (resource === "action-buttons") {
@@ -331,6 +333,9 @@ function normalizeForCreate(resource: string, data: any) {
       allowed_hosts: data.allowed_hosts || "",
       status: data.status || "active",
       sort_order: Number(data.sort_order || 100),
+      platform_scope: data.platform_scope || "all",
+      capability: data.capability || "general",
+      ticket_type: data.ticket_type || "",
     };
   }
   return data;
@@ -579,12 +584,12 @@ export const api = {
     return payload as { url: string; filename?: string; content_type?: string; size_bytes?: number };
   },
 
-  testAiContent: async (message: string, language = "en") => {
+  testAiContent: async (message: string, language = "en", platform_key = "default") => {
     if (MOCK_MODE)
       return delay({ ok: true, selected_content: null, candidates: [], greeting_bypass: false });
     return request("/admin/ai-content/test", {
       method: "POST",
-      body: JSON.stringify({ message, language }),
+      body: JSON.stringify({ message, language, platform_key }),
     });
   },
 
@@ -614,6 +619,46 @@ export const api = {
       method: "POST",
       body: JSON.stringify({}),
     });
+  },
+
+  listSupportPlatforms: async () => {
+    if (MOCK_MODE) return delay([{ id: 1, platform_key: "default", name: "Default Help Center", support_mode: "none", status: "active" }]);
+    return request("/admin/support-platforms");
+  },
+
+  previewKnowledgeImport: async (file: File, platform_key: string) => {
+    if (MOCK_MODE) return delay({ id: Date.now(), filename: file.name, platform_key, status: "review", total_rows: 1, valid_rows: 1, error_rows: 0, preview_rows: [] });
+    if (!API_BASE_URL) throw new Error("Admin API is not configured. Set VITE_API_BASE_URL during the Cloudflare Pages build.");
+    const token = getToken();
+    const body = new FormData();
+    body.append("file", file);
+    body.append("platform_key", platform_key);
+    const res = await fetch(`${API_BASE_URL}/admin/knowledge-imports/preview`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body });
+    const text = await res.text();
+    let payload: any = null;
+    try { payload = text ? JSON.parse(text) : null; } catch { payload = text; }
+    if (!res.ok) throw new Error(`Import preview failed: ${payload?.error || payload?.message || res.statusText}`);
+    return payload;
+  },
+
+  listKnowledgeImports: async () => {
+    if (MOCK_MODE) return delay([]);
+    return request("/admin/knowledge-imports");
+  },
+
+  getKnowledgeImport: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ id, preview_rows: [] });
+    return request(`/admin/knowledge-imports/${id}`);
+  },
+
+  createKnowledgeImportDrafts: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, created: 0, updated: 0, conflicts: 0 });
+    return request(`/admin/knowledge-imports/${id}/create-drafts`, { method: "POST", body: JSON.stringify({}) });
+  },
+
+  rollbackKnowledgeImport: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, archived_drafts: 0 });
+    return request(`/admin/knowledge-imports/${id}/rollback`, { method: "POST", body: JSON.stringify({}) });
   },
 
   generateGuideLayout: async (data: { raw_text: string; language?: string; template?: string }) => {

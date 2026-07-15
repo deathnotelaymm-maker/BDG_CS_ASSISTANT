@@ -56,7 +56,8 @@ export function getPublicLanguage(): PublicLanguage {
 function withLanguage(path: string) {
   const lang = getPublicLanguage();
   const sep = path.includes("?") ? "&" : "?";
-  return `${path}${sep}language=${encodeURIComponent(lang)}`;
+  const platform = typeof window === "undefined" ? "default" : new URLSearchParams(window.location.search).get("platform") || "default";
+  return `${path}${sep}language=${encodeURIComponent(lang)}&platform=${encodeURIComponent(platform)}`;
 }
 
 export const auth = {

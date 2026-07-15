@@ -29,6 +29,7 @@ import {
   LogoutOutlined,
   DownOutlined,
   LinkOutlined,
+  CloudUploadOutlined,
 } from "@ant-design/icons";
 import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-router";
 import { getCurrentUser, logout } from "@/lib/api";
@@ -79,6 +80,13 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     to: "/ai-content-studio",
     label: "AI Prompt & Image",
     icon: <BulbOutlined />,
+    group: "AI",
+  },
+  {
+    key: "/ai-knowledge-import",
+    to: "/ai-knowledge-import",
+    label: "AI Knowledge Import",
+    icon: <CloudUploadOutlined />,
     group: "AI",
   },
   {
@@ -156,6 +164,7 @@ const ZH: Record<string, string> = {
   FAQ: "常见问题",
   "AI Prompt Manager": "AI 提示词管理",
   "AI Prompt & Image": "AI 提示与图片",
+  "AI Knowledge Import": "AI 知识导入",
   "Prompt Version History": "提示词版本历史",
   "Buttons Configuration": "按钮配置",
   "AI Diagnostics": "AI 诊断",

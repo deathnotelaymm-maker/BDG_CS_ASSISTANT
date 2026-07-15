@@ -26,6 +26,7 @@ import { Route as AdminCategoriesRouteImport } from './routes/_admin.categories'
 import { Route as AdminAuditLogsRouteImport } from './routes/_admin.audit-logs'
 import { Route as AdminAiPromptManagerRouteImport } from './routes/_admin.ai-prompt-manager'
 import { Route as AdminAiContentStudioRouteImport } from './routes/_admin.ai-content-studio'
+import { Route as AdminAiKnowledgeImportRouteImport } from './routes/_admin.ai-knowledge-import'
 import { Route as AdminAiKnowledgeRouteImport } from './routes/_admin.ai-knowledge'
 import { Route as AdminAiDiagnosticsRouteImport } from './routes/_admin.ai-diagnostics'
 import { Route as AdminAdminUsersRouteImport } from './routes/_admin.admin-users'
@@ -58,6 +59,11 @@ const AdminSiteContentRoute = AdminSiteContentRouteImport.update({
 const AdminAiContentStudioRoute = AdminAiContentStudioRouteImport.update({
   id: '/ai-content-studio',
   path: '/ai-content-studio',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAiKnowledgeImportRoute = AdminAiKnowledgeImportRouteImport.update({
+  id: '/ai-knowledge-import',
+  path: '/ai-knowledge-import',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminPromptHistoryRoute = AdminPromptHistoryRouteImport.update({
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/action-buttons': typeof AdminActionButtonsRoute
   '/ai-diagnostics': typeof AdminAiDiagnosticsRoute
   '/ai-knowledge': typeof AdminAiKnowledgeRoute
+  '/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
   '/ai-prompt-manager': typeof AdminAiPromptManagerRoute
   '/audit-logs': typeof AdminAuditLogsRoute
   '/categories': typeof AdminCategoriesRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/action-buttons': typeof AdminActionButtonsRoute
   '/ai-diagnostics': typeof AdminAiDiagnosticsRoute
   '/ai-knowledge': typeof AdminAiKnowledgeRoute
+  '/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
   '/ai-prompt-manager': typeof AdminAiPromptManagerRoute
   '/audit-logs': typeof AdminAuditLogsRoute
   '/categories': typeof AdminCategoriesRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/_admin/action-buttons': typeof AdminActionButtonsRoute
   '/_admin/ai-diagnostics': typeof AdminAiDiagnosticsRoute
   '/_admin/ai-knowledge': typeof AdminAiKnowledgeRoute
+  '/_admin/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
   '/_admin/ai-prompt-manager': typeof AdminAiPromptManagerRoute
   '/_admin/audit-logs': typeof AdminAuditLogsRoute
   '/_admin/categories': typeof AdminCategoriesRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/action-buttons'
     | '/ai-diagnostics'
     | '/ai-knowledge'
+    | '/ai-knowledge-import'
     | '/ai-prompt-manager'
     | '/audit-logs'
     | '/categories'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/action-buttons'
     | '/ai-diagnostics'
     | '/ai-knowledge'
+    | '/ai-knowledge-import'
     | '/ai-prompt-manager'
     | '/audit-logs'
     | '/categories'
@@ -258,6 +269,7 @@ export interface FileRouteTypes {
     | '/_admin/action-buttons'
     | '/_admin/ai-diagnostics'
     | '/_admin/ai-knowledge'
+    | '/_admin/ai-knowledge-import'
     | '/_admin/ai-prompt-manager'
     | '/_admin/audit-logs'
     | '/_admin/categories'
@@ -408,6 +420,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiKnowledgeRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/ai-knowledge-import': {
+      id: '/_admin/ai-knowledge-import'
+      path: '/ai-knowledge-import'
+      fullPath: '/ai-knowledge-import'
+      preLoaderRoute: typeof AdminAiKnowledgeImportRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/ai-diagnostics': {
       id: '/_admin/ai-diagnostics'
       path: '/ai-diagnostics'
@@ -437,6 +456,7 @@ interface AdminRouteChildren {
   AdminAdminUsersRoute: typeof AdminAdminUsersRoute
   AdminAiDiagnosticsRoute: typeof AdminAiDiagnosticsRoute
   AdminAiKnowledgeRoute: typeof AdminAiKnowledgeRoute
+  AdminAiKnowledgeImportRoute: typeof AdminAiKnowledgeImportRoute
   AdminAiPromptManagerRoute: typeof AdminAiPromptManagerRoute
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
@@ -458,6 +478,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAdminUsersRoute: AdminAdminUsersRoute,
   AdminAiDiagnosticsRoute: AdminAiDiagnosticsRoute,
   AdminAiKnowledgeRoute: AdminAiKnowledgeRoute,
+  AdminAiKnowledgeImportRoute: AdminAiKnowledgeImportRoute,
   AdminAiPromptManagerRoute: AdminAiPromptManagerRoute,
   AdminAuditLogsRoute: AdminAuditLogsRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,

@@ -1,8 +1,15 @@
-# v0.10.0 — AI Knowledge Orchestrator + Multilingual Visual Guide Studio
+# v0.11.0 — Advanced AI Knowledge Import + Multi-Platform Support Router
 
-This release adds AI-only semantic knowledge selection, multilingual visual knowledge and Guide editing, rich Chat output, reusable action buttons, durable Site Content deletion, and unified version history. See `RELEASE_NOTES_V0.10.0.md` and `DEPLOYMENT_CHECKLIST_V0.10.0.md` first.
+This release turns **AI Prompt & Image** into a safer advanced knowledge workflow:
 
-It preserves the v0.9.0 Prompt-First AI Content Studio and fixes Render-to-R2 image uploads by buffering each validated image and attaching an exact S3 `ContentLength`. It also adds request-aware upload diagnostics to Render logs and the Admin error message.
+- Import `.xlsx` workbooks into a review batch instead of changing live AI immediately.
+- Create editable **AI Content drafts** from approved spreadsheet rows.
+- Use the existing Prompt & Image studio to review answers, examples, rich visual knowledge, and buttons before publishing.
+- Create support-platform profiles for apps with **no tickets**, **tickets**, or a **hybrid** support flow.
+- Limit ticket buttons to platforms that actually have tickets; normal support buttons work everywhere you permit them.
+- Send `?platform=your-platform-key` in Chat or Guide URLs to select the correct platform behaviour.
+
+See [V0.11.0_IMPORT_QUICKSTART.md](V0.11.0_IMPORT_QUICKSTART.md) for the safe import sequence and [RELEASE_NOTES_V0.11.0.md](RELEASE_NOTES_V0.11.0.md) for the full change list.
 
 ## Active stack
 - Cloudflare Pages: Guide Pro, Chat Pro, Admin Pro
@@ -15,25 +22,14 @@ It preserves the v0.9.0 Prompt-First AI Content Studio and fixes Render-to-R2 im
 
 The infrastructure remains Render + Neon + Cloudflare Pages + R2 + DeepSeek.
 
-## Essential commands
-```powershell
-$env:DATABASE_URL = "YOUR_NEON_POOLED_URL"
-$env:MIGRATION_DATABASE_URL = "YOUR_NEON_DIRECT_URL"
-.\BACKUP-NEON-V0.7.0A-WINDOWS.ps1
-.\VERIFY-NEON-CONNECTIONS-V0.7.0A-WINDOWS.ps1
-```
+## Easy release workflow
 
-Apply and validate locally:
-```powershell
-& "C:\path\to\APPLY-PATCH-V0.9.0A-WINDOWS.ps1" -ProjectRoot "C:\path\to\project" -PatchZip "C:\path\to\v0.9.0a-patch.zip"
-```
+Use the v0.11.0 release installer once. It is a double-click Windows installer—no PowerShell commands. It safely backs up changed files, installs the patch, and runs local checks.
 
-Publish only when ready:
-```powershell
-& "C:\path\to\project\DEPLOY-V0.9.0A-PRODUCTION-WINDOWS.ps1" -ProjectRoot "C:\path\to\project"
-```
+After it succeeds:
 
-## Package roles
-- Full ZIP: complete source and recommended deployment source.
-- Patch ZIP: overlay for the deployed v0.9.0 source.
-- Docs ZIP: deployment, environment, rollback, test, and PowerShell documentation.
+1. Open the project in GitHub Desktop.
+2. Commit the displayed changes to `main`.
+3. Click **Push origin**.
+
+Render then deploys the API automatically. The included GitHub Actions workflow waits for the matching Render version and publishes Guide, Chat, and Admin to Cloudflare Pages.
