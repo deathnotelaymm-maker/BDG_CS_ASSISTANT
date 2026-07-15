@@ -186,6 +186,11 @@ expect("Chat and Guide provide mobile image viewers", chatLightbox.includes('rol
 expect("AI Diagnostics exposes recent failures and request IDs", core.includes("recent_errors") && diagnosticsAdmin.includes("Recent AI Errors & Fallbacks") && diagnosticsAdmin.includes("Request ID"));
 expect("v0.11.0 import migration is idempotent", migration011.includes("IF NOT EXISTS") && migration011.includes("knowledge_import_batches"));
 expect("Excel imports are previewed as drafts", core.includes("previewKnowledgeImport") && core.includes("createKnowledgeImportDrafts") && knowledgeImportModule.includes("status: 'draft'"));
+expect(
+  "Knowledge import previews return their supplied preview rows",
+  /function knowledgeImportOut\(batch, previewRows = \[\]\)[\s\S]*preview_rows:previewRows/.test(core) &&
+    !/preview_rows\s*}/.test(core.match(/function knowledgeImportOut\(batch, previewRows = \[\]\)[\s\S]*?\n}/)?.[0] || ""),
+);
 expect("Multi-platform ticket actions are capability guarded", core.includes("support_platforms") && core.includes("buttonAllowedForPlatform") && core.includes("support_mode"));
 expect("Admin exposes the import review studio", importAdmin.includes("Create AI Content drafts") && importAdmin.includes("Target support platform") && adminLayout.includes("AI Knowledge Import"));
 expect("Chat and diagnostics persist platform routing context", core.includes("platform_key") && chatLogs.includes("Platform:") && diagnosticsAdmin.includes("Knowledge imports"));
