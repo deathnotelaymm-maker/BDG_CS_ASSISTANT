@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-render-backend",
-  "version": "0.11.0",
+  "version": "0.11.0-c.0",
   "private": true,
   "type": "module",
   "description": "Production Render backend using the existing Neon PostgreSQL database for BDG Guide Pro, Chat Pro, and Admin Pro.",
@@ -13,7 +13,7 @@
     "migrate": "node src/migrate.js",
     "check": "node --check src/server.js && node --check src/core.js && node --check src/r2-adapter.js && node --check src/env.js",
     "smoke": "node scripts/smoke-test.js",
-    "test:regression": "node scripts/regression-test.js && node scripts/structured-response-test.js && node scripts/upload-regression-test.js && node scripts/knowledge-import-regression-test.js",
+    "test:regression": "node scripts/regression-test.js && node scripts/structured-response-test.js && node scripts/upload-regression-test.js && node scripts/knowledge-import-regression-test.js && node scripts/knowledge-import-preview-return-regression-test.js",
     "test:upload": "node scripts/upload-regression-test.js",
     "test:structured": "node scripts/structured-response-test.js",
     "test:knowledge-import": "node scripts/knowledge-import-regression-test.js"

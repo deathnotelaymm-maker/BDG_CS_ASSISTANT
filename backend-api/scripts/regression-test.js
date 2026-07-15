@@ -189,6 +189,10 @@ expect("Excel imports are previewed as drafts", core.includes("previewKnowledgeI
 expect("Multi-platform ticket actions are capability guarded", core.includes("support_platforms") && core.includes("buttonAllowedForPlatform") && core.includes("support_mode"));
 expect("Admin exposes the import review studio", importAdmin.includes("Create AI Content drafts") && importAdmin.includes("Target support platform") && adminLayout.includes("AI Knowledge Import"));
 expect("Chat and diagnostics persist platform routing context", core.includes("platform_key") && chatLogs.includes("Platform:") && diagnosticsAdmin.includes("Knowledge imports"));
+expect(
+  "Knowledge import previews return supplied preview rows",
+  /function knowledgeImportOut\(batch, previewRows = \[\]\)[\s\S]*preview_rows:previewRows/.test(core),
+);
 
 for (const check of checks)
   console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
