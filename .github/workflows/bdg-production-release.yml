@@ -1,0 +1,106 @@
+name: BDG Production Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - backend-api/**
+      - admin-pro/**
+      - chat-pro/**
+      - guide-pro/**
+      - package.json
+      - package-lock.json
+      - .github/workflows/bdg-production-release.yml
+      - scripts/ci/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bdg-production-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish BDG production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BDG_API_BASE_URL: https://bdg-ai-help-api-render.onrender.com
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    steps:
+      - name: Get the release source
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend-api/package-lock.json
+            guide-pro/package-lock.json
+            chat-pro/package-lock.json
+            admin-pro/package-lock.json
+
+      - name: Check Cloudflare release secrets
+        run: |
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "::error::Missing GitHub secret CLOUDFLARE_ACCOUNT_ID. Open the setup guide and add it before running a release."; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing GitHub secret CLOUDFLARE_API_TOKEN. Open the setup guide and add it before running a release."; exit 1; }
+
+      - name: Read and validate the API release version
+        id: api_version
+        run: |
+          VERSION="$(node scripts/ci/read-api-version.mjs)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Deploying version: $VERSION"
+
+      - name: Check backend source
+        run: |
+          npm --prefix backend-api ci --omit=dev --no-audit --no-fund --registry=https://registry.npmjs.org/
+          npm --prefix backend-api run check
+
+      - name: Wait for the matching Render release
+        run: node scripts/ci/wait-for-render.mjs "${{ steps.api_version.outputs.version }}"
+
+      - name: Build and publish Guide production
+        run: |
+          npm --prefix guide-pro ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+          VITE_API_BASE="$BDG_API_BASE_URL" VITE_USE_MOCK=false npm --prefix guide-pro run build
+          node scripts/ci/write-release-marker.mjs guide guide-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
+          node scripts/ci/verify-static-release.mjs guide guide-pro/dist
+          npx --yes wrangler@4.107.0 pages deploy guide-pro/dist --project-name bdg-guide-pages --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
+
+      - name: Build and publish Chat production
+        run: |
+          npm --prefix chat-pro ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+          VITE_BDG_API_BASE="$BDG_API_BASE_URL" VITE_API_BASE="$BDG_API_BASE_URL" npm --prefix chat-pro run build
+          node scripts/ci/write-release-marker.mjs chat chat-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
+          node scripts/ci/verify-static-release.mjs chat chat-pro/dist
+          npx --yes wrangler@4.107.0 pages deploy chat-pro/dist --project-name bdg-chat-pages --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
+
+      - name: Build and publish Admin production
+        run: |
+          npm --prefix admin-pro ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+          VITE_API_BASE_URL="$BDG_API_BASE_URL" VITE_MOCK_MODE=false npm --prefix admin-pro run build
+          node scripts/ci/write-release-marker.mjs admin admin-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
+          node scripts/ci/verify-static-release.mjs admin admin-pro/dist
+          npx --yes wrangler@4.107.0 pages deploy admin-pro/dist --project-name bdg-admin-pages --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
+
+      - name: Confirm the live Pages releases
+        run: node scripts/ci/verify-live-pages.mjs "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
+
+      - name: Release summary
+        run: |
+          {
+            echo "## BDG production release complete"
+            echo
+            echo "- API version: \`${{ steps.api_version.outputs.version }}\`"
+            echo "- Guide: https://bdg-guide-pages.pages.dev"
+            echo "- Chat: https://bdg-chat-pages.pages.dev"
+            echo "- Admin: https://bdg-admin-pages.pages.dev"
+          } >> "$GITHUB_STEP_SUMMARY"
