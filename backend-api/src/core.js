@@ -6,7 +6,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '0.11.0b-knowledge-import-preview-return-hotfix';
+const VERSION = '0.11.0-advanced-ai-knowledge-import-multi-platform-support-router';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -1045,7 +1045,7 @@ function knowledgeImportRowOut(row) {
 function knowledgeImportOut(batch, previewRows = []) {
   let summary = {};
   try { summary = JSON.parse(batch.summary_json || '{}'); } catch (_) {}
-  return { id:Number(batch.id),filename:batch.filename,platform_key:batch.platform_key || 'default',status:batch.status || 'review',sheet_count:Number(batch.sheet_count || 0),total_rows:Number(batch.total_rows || 0),valid_rows:Number(batch.valid_rows || 0),error_rows:Number(batch.error_rows || 0),summary,created_by:batch.created_by || '',created_at:batch.created_at ? String(batch.created_at) : '',drafted_at:batch.drafted_at ? String(batch.drafted_at) : '',rolled_back_at:batch.rolled_back_at ? String(batch.rolled_back_at) : '',preview_rows:previewRows };
+  return { id:Number(batch.id),filename:batch.filename,platform_key:batch.platform_key || 'default',status:batch.status || 'review',sheet_count:Number(batch.sheet_count || 0),total_rows:Number(batch.total_rows || 0),valid_rows:Number(batch.valid_rows || 0),error_rows:Number(batch.error_rows || 0),summary,created_by:batch.created_by || '',created_at:batch.created_at ? String(batch.created_at) : '',drafted_at:batch.drafted_at ? String(batch.drafted_at) : '',rolled_back_at:batch.rolled_back_at ? String(batch.rolled_back_at) : '',preview_rows };
 }
 async function previewKnowledgeImport(env, request, admin) {
   const form = await request.formData();
