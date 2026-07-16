@@ -6,7 +6,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.0.1-automatic-platform-access-links';
+const VERSION = '1.0.2-platform-route-migration-order-fix';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -462,7 +462,6 @@ async function createTables(env) {
   await q(env, `CREATE INDEX IF NOT EXISTS idx_knowledge_import_rows_batch ON knowledge_import_rows(batch_id, id)`);
   await q(env, `CREATE INDEX IF NOT EXISTS idx_content_versions_entity ON content_versions(entity_type, entity_id, version_number DESC)`);
   await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_platforms_tenant ON saas_platforms(tenant_id,status,platform_key)`);
-  await q(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_platforms_public_route ON saas_platforms(public_route_key) WHERE public_route_key IS NOT NULL`);
   await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_domains_host ON saas_platform_domains(hostname) WHERE archived_at IS NULL`);
   await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_tenant_memberships_admin ON saas_tenant_memberships(admin_user_id,tenant_id)`);
   await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_platform_memberships_admin ON saas_platform_memberships(admin_user_id,platform_id)`);

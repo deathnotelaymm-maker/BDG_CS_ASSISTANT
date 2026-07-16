@@ -234,6 +234,12 @@ expect(
     core.includes("platform-access") &&
     core.includes("ensurePlatformAccessRoutes"),
 );
+const routeColumnAlter = core.indexOf("ALTER TABLE saas_platforms ADD COLUMN IF NOT EXISTS public_route_key");
+const routeIndexCreate = core.indexOf("CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_platforms_public_route");
+expect(
+  "The platform route column is added before its index is created",
+  routeColumnAlter >= 0 && routeIndexCreate > routeColumnAlter,
+);
 expect(
   "Generated platform routes resolve in Chat and the three Pages applications",
   chatApi.includes("platformReferenceFromLocation") &&
