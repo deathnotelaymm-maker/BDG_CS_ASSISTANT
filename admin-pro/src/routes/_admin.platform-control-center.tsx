@@ -26,6 +26,7 @@ import {
 import {
   ApiOutlined,
   CloudOutlined,
+  CopyOutlined,
   DeleteOutlined,
   GlobalOutlined,
   LinkOutlined,
@@ -57,6 +58,8 @@ type Platform = {
   tenant_name?: string;
   parent_platform_id?: number | null;
   platform_key: string;
+  public_route_key?: string;
+  access_links?: { route_key: string; chat: string; guide: string; admin: string };
   name: string;
   description?: string;
   support_mode?: string;
@@ -142,15 +145,15 @@ function PlatformControlCenter() {
     const values = await platformForm.validateFields();
     const tenantId = values.tenant_id;
     delete values.tenant_id;
-    await api.createTenantPlatform(tenantId, values);
-    message.success("Platform created with its full feature set.");
-    setPlatformOpen(false); platformForm.resetFields(); load();
+    const created = await api.createTenantPlatform(tenantId, values) as PlatformDetail;
+    message.success("Platform created. Its Chat, Guide, and Admin links are ready.");
+    setPlatformOpen(false); platformForm.resetFields(); setSelected(created); load();
   };
   const createDomain = async () => {
     if (!selected) return;
     const values = await domainForm.validateFields();
     await api.createPlatformDomain(selected.id, values);
-    message.success("Domain planning record saved. Configure DNS before marking it verified.");
+    message.success("Optional custom-domain plan saved. Cloudflare will verify it later.");
     setDomainOpen(false); domainForm.resetFields(); refreshSelected();
   };
   const createMember = async () => {
@@ -165,7 +168,7 @@ function PlatformControlCenter() {
     <div className="bdg-filters" style={{ alignItems: "flex-start" }}>
       <div style={{ flex: 1 }}>
         <h2 style={{ margin: 0 }}>Platform Control Center</h2>
-        <div style={{ color: "#8ea0bd", marginTop: 6 }}>Create a client company first, then create isolated child platforms for its AI Chat, Guide, Admin, team, domains, and knowledge.</div>
+        <div style={{ color: "#8ea0bd", marginTop: 6 }}>Create a client company, then generate its Chat, Guide, and Admin links automatically. Custom domains are optional later.</div>
       </div>
       <Space>
         <Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>
@@ -173,7 +176,7 @@ function PlatformControlCenter() {
       </Space>
     </div>
 
-    <Alert type="info" showIcon icon={<CloudOutlined />} message="Tenant data is separated by the server" description={control?.domain_note || "Each platform has its own data boundary. Domain records stay planned until DNS and Cloudflare verification are complete."} style={{ marginBottom: 16 }} />
+    <Alert type="info" showIcon icon={<CloudOutlined />} message="Generated platform access links" description={control?.domain_note || "Each platform receives Chat, Guide, and Admin routes immediately. A custom domain is optional and must be verified by Cloudflare."} style={{ marginBottom: 16 }} />
     <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
       <Col xs={24} md={8}><Card><Statistic title="Client companies" value={control?.tenants.length || 0} prefix={<TeamOutlined />} /></Card></Col>
       <Col xs={24} md={8}><Card><Statistic title="Child platforms" value={control?.platforms.length || 0} prefix={<ApiOutlined />} /></Card></Col>
@@ -202,7 +205,7 @@ function PlatformControlCenter() {
       <Form form={platformForm} layout="vertical">
         <Form.Item name="tenant_id" label="Client company" rules={[{ required: true }]}><Select options={(control?.tenants || []).filter((tenant) => tenant.status === "active").map((tenant) => ({ value: tenant.id, label: `${tenant.name} (${tenant.tenant_key})` }))} /></Form.Item>
         <Form.Item name="name" label="Platform name" rules={[{ required: true }]}><Input placeholder="Example: Acme India Support" /></Form.Item>
-        <Form.Item name="platform_key" label="Platform key" rules={[{ required: true, pattern: /^[a-z0-9_-]+$/, message: "Use lowercase letters, numbers, - or _ only" }]}><Input placeholder="india-support" /></Form.Item>
+        <Alert type="info" showIcon message="Access links are generated automatically" description="The platform key and a secure route ID are created from this platform name. You will copy the Chat, Guide, and Admin links after saving." style={{ marginBottom: 12 }} />
         <Form.Item name="parent_platform_id" label="Parent platform (optional)"><Select allowClear options={(control?.platforms || []).map((platform) => ({ value: platform.id, label: `${platform.tenant_name || ""} · ${platform.name}` }))} /></Form.Item>
         <Form.Item name="owner_email" label="Child-platform owner email" rules={[{ required: true, type: "email" }]}><Input placeholder="client-owner@example.com" /></Form.Item>
         <Form.Item name="support_mode" label="Support process"><Select options={[{ value: "none", label: "No ticket system" }, { value: "tickets", label: "Ticket system" }, { value: "hybrid", label: "Hybrid support" }]} /></Form.Item>
@@ -216,17 +219,22 @@ function PlatformControlCenter() {
         <Descriptions bordered size="small" column={1} items={[
           { key: "tenant", label: "Client company", children: `${selected.tenant_name} · ${selected.tenant_key}` },
           { key: "key", label: "Platform key", children: selected.platform_key },
+          { key: "access", label: "Generated route ID", children: selected.public_route_key || "Generating…" },
           { key: "route", label: "Existing support route", children: selected.legacy_support_platform_key || "Assigned when published" },
           { key: "mode", label: "Support process", children: <Tag color="blue">{selected.support_mode}</Tag> },
           { key: "state", label: "State", children: <Tag color={statusColor(selected.status)}>{selected.status}</Tag> },
         ]} />
         <Divider />
         <Tabs items={[
-          { key: "domains", label: `Domains (${selected.domains.length})`, children: <>
+          { key: "access-links", label: "Platform access links", children: <>
+            <Alert type="success" showIcon message="Ready to share immediately" description="These generated URLs use your existing BDG Pages sites. They are not custom DNS domains." style={{ marginBottom: 16 }} />
+            {([['AI Chat', selected.access_links?.chat], ['Guide / tutorial', selected.access_links?.guide], ['Admin backend', selected.access_links?.admin]] as const).map(([label, url]) => <Form.Item key={label} label={label}><Space.Compact style={{ width: '100%' }}><Input readOnly value={url || 'Generating platform access link…'} /><Button icon={<CopyOutlined />} disabled={!url} onClick={async () => { try { await navigator.clipboard.writeText(url || ''); message.success(`${label} link copied`); } catch { message.error('Could not copy the link'); } }}>Copy</Button><Button disabled={!url} href={url || undefined} target="_blank">Open</Button></Space.Compact></Form.Item>)}
+          </> },
+          { key: "domains", label: `Optional custom domains (${selected.domains.length})`, children: <>
             <Space style={{ marginBottom: 12 }}><Button type="primary" icon={<PlusOutlined />} onClick={() => { domainForm.resetFields(); domainForm.setFieldsValue({ provisioning_status: "planned", site_kind: "chat" }); setDomainOpen(true); }}>Add domain</Button></Space>
             <Table rowKey="id" size="small" pagination={false} dataSource={selected.domains} columns={[
               { title: "Type", dataIndex: "site_kind", render: (value) => <Tag color="blue">{value}</Tag> },
-              { title: "Hostname", dataIndex: "hostname", render: (value, row) => <a href={row.public_url} target="_blank" rel="noreferrer">{value}</a> },
+              { title: "Hostname", dataIndex: "hostname", render: (value, row) => row.provisioning_status === 'verified' ? <a href={row.public_url} target="_blank" rel="noreferrer">{value}</a> : value },
               { title: "DNS / status", dataIndex: "provisioning_status", render: (value) => <Tag color={statusColor(value)}>{value}</Tag> },
               { title: "", width: 48, render: (_, row) => <Popconfirm title="Remove this domain plan?" onConfirm={() => api.deletePlatformDomain(row.id).then(() => { message.success("Domain removed"); refreshSelected(); })}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm> },
             ]} />
@@ -250,12 +258,12 @@ function PlatformControlCenter() {
       </>}
     </Drawer>
 
-    <Drawer title={`Add domain · ${selected?.name || "platform"}`} width={520} open={domainOpen} onClose={() => setDomainOpen(false)} extra={<Space><Button onClick={() => setDomainOpen(false)}>Cancel</Button><Button type="primary" onClick={createDomain}>Save domain</Button></Space>}>
-      <Alert type="info" showIcon message="This does not change DNS automatically" description="Add the customer domain plan here. Configure the custom hostname and DNS in Cloudflare, then return to mark it verified." style={{ marginBottom: 16 }} />
+    <Drawer title={`Optional custom domain · ${selected?.name || "platform"}`} width={520} open={domainOpen} onClose={() => setDomainOpen(false)} extra={<Space><Button onClick={() => setDomainOpen(false)}>Cancel</Button><Button type="primary" onClick={createDomain}>Save domain plan</Button></Space>}>
+      <Alert type="info" showIcon message="Use generated links until your branded domain is ready" description="This only stores the domain plan. Configure the hostname and DNS in Cloudflare. The platform cannot mark a domain Verified by itself." style={{ marginBottom: 16 }} />
       <Form form={domainForm} layout="vertical">
         <Form.Item name="site_kind" label="Website" rules={[{ required: true }]}><Select options={[{ value: "chat", label: "AI Chat" }, { value: "guide", label: "Guide / Tutorial" }, { value: "admin", label: "Admin Backend" }]} /></Form.Item>
-        <Form.Item name="hostname" label="Hostname" rules={[{ required: true }]}><Input prefix={<LinkOutlined />} placeholder="chat.client-domain.com" /></Form.Item>
-        <Form.Item name="provisioning_status" label="Status"><Select options={[{ value: "planned", label: "Planned" }, { value: "pending_dns", label: "DNS pending" }, { value: "verified", label: "Verified" }, { value: "disabled", label: "Disabled" }]} /></Form.Item>
+        <Form.Item name="hostname" label="Hostname" rules={[{ required: true }]}><Input prefix={<LinkOutlined />} placeholder="chat-client.javo.com" /></Form.Item>
+        <Form.Item name="provisioning_status" label="Status"><Select options={[{ value: "planned", label: "Planned" }, { value: "pending_dns", label: "DNS pending" }, { value: "disabled", label: "Disabled" }]} /></Form.Item>
         <Form.Item name="verification_note" label="DNS / verification note"><Input.TextArea rows={4} placeholder="Example: CNAME added; wait for Cloudflare custom hostname verification." /></Form.Item>
       </Form>
     </Drawer>

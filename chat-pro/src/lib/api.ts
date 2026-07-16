@@ -64,19 +64,27 @@ export interface ChatRequest {
 
 const SESSION_KEY = "bdg_chat_session_id";
 
-export function getSessionId(): string {
+function platformReferenceFromLocation(): string {
+  if (typeof window === "undefined") return "";
+  const fromQuery = new URLSearchParams(window.location.search).get("platform");
+  if (fromQuery) return fromQuery;
+  return window.location.pathname.match(/^\/p\/([a-z0-9-]+)(?:\/|$)/i)?.[1] || "";
+}
+
+export function getSessionId(platformKey = getPlatformKey()): string {
   if (typeof window === "undefined") return "ssr";
-  let id = window.localStorage.getItem(SESSION_KEY);
+  const key = `${SESSION_KEY}:${platformKey}`;
+  let id = window.localStorage.getItem(key);
   if (!id) {
     id = "guest_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
-    window.localStorage.setItem(SESSION_KEY, id);
+    window.localStorage.setItem(key, id);
   }
   return id;
 }
 
 export function getPlatformKey(defaultKey = "default"): string {
   if (typeof window === "undefined") return defaultKey;
-  const fromQuery = new URLSearchParams(window.location.search).get("platform");
+  const fromQuery = platformReferenceFromLocation();
   return String(fromQuery || defaultKey).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || defaultKey;
 }
 
@@ -88,7 +96,7 @@ export async function sendChatMessage(
 ): Promise<ChatResponse> {
   const body: ChatRequest = {
     message,
-    session_id: getSessionId(),
+    session_id: getSessionId(platform_key),
     image_urls: [],
     language,
     platform_key,
@@ -114,14 +122,14 @@ export async function sendChatMessage(
   return (await res.json()) as ChatResponse;
 }
 
-export async function fetchChatContent(signal?: AbortSignal): Promise<ChatContent> {
+export async function fetchChatContent(platformKey = getPlatformKey(), signal?: AbortSignal): Promise<ChatContent> {
   if (!API_BASE)
     throw new Error(
       "Chat API is not configured. Set VITE_BDG_API_BASE during the Cloudflare Pages build.",
     );
   const timeoutSignal = AbortSignal.timeout(15000);
   const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
-  const res = await fetch(`${API_BASE}/chat/content`, {
+  const res = await fetch(`${API_BASE}/chat/content?platform=${encodeURIComponent(platformKey)}`, {
     signal: combinedSignal,
     cache: "no-store",
   });

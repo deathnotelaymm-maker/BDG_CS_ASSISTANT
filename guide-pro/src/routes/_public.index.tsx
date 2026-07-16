@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Search, ArrowRight, Sparkles, ChevronRight, LifeBuoy } from "lucide-react";
-import { api, getPublicLanguage } from "@/lib/api";
+import { api, getPublicBasePath, getPublicLanguage } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,7 +71,7 @@ function Home() {
             className="mt-6 flex items-center gap-2 rounded-2xl bg-white p-1.5 shadow-lg"
             onSubmit={(e) => {
               e.preventDefault();
-              if (q.trim()) window.location.href = `/guides?q=${encodeURIComponent(q.trim())}`;
+              if (q.trim()) window.location.href = `${getPublicBasePath()}/guides?q=${encodeURIComponent(q.trim())}`;
             }}
           >
             <div className="flex flex-1 items-center gap-2 pl-3">

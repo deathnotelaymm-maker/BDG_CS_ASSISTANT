@@ -65,11 +65,11 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchChatContent(controller.signal)
+    fetchChatContent(platformKey, controller.signal)
       .then(setContent)
       .catch(() => null);
     return () => controller.abort();
-  }, []);
+  }, [platformKey]);
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current;

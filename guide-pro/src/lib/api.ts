@@ -53,10 +53,21 @@ export function getPublicLanguage(): PublicLanguage {
   if (typeof window === "undefined") return "en";
   return (window.localStorage.getItem("bdg_public_language") as PublicLanguage) || "en";
 }
+export function getPublicPlatformKey(): string {
+  if (typeof window === "undefined") return "default";
+  const fromQuery = new URLSearchParams(window.location.search).get("platform");
+  const fromPath = window.location.pathname.match(/^\/p\/([a-z0-9-]+)(?:\/|$)/i)?.[1];
+  return String(fromQuery || fromPath || "default").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-") || "default";
+}
+export function getPublicBasePath(): string {
+  if (typeof window === "undefined") return "";
+  const routeKey = window.location.pathname.match(/^\/p\/([a-z0-9-]+)(?:\/|$)/i)?.[1];
+  return routeKey ? `/p/${routeKey}` : "";
+}
 function withLanguage(path: string) {
   const lang = getPublicLanguage();
   const sep = path.includes("?") ? "&" : "?";
-  const platform = typeof window === "undefined" ? "default" : new URLSearchParams(window.location.search).get("platform") || "default";
+  const platform = getPublicPlatformKey();
   return `${path}${sep}language=${encodeURIComponent(lang)}&platform=${encodeURIComponent(platform)}`;
 }
 
@@ -385,6 +396,7 @@ export const api = {
     if (params?.category) usp.set("category", params.category);
     if (params?.q) usp.set("q", params.q);
     usp.set("language", getPublicLanguage());
+    usp.set("platform", getPublicPlatformKey());
     const query = "?" + usp.toString();
     const rows = await publicSafe<any[]>("/guides" + query, () => emptyGuides);
     return rows.map(normalizeGuide);

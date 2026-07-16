@@ -24,6 +24,7 @@ const migration090 = read(
 const migration010 = read("backend-api/migrations/005_v0.10.0_ai_knowledge_orchestrator_visual_guide_studio.sql");
 const migration011 = read("backend-api/migrations/006_v0.11.0_advanced_ai_knowledge_import_multi_platform_router.sql");
 const migration100 = read("backend-api/migrations/007_v1.0.0_tenant_core_platform_control_center.sql");
+const migration101 = read("backend-api/migrations/008_v1.0.1_automatic_platform_access_links.sql");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
 const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
@@ -39,6 +40,8 @@ const faqAdmin = read("admin-pro/src/routes/_admin.faq.tsx");
 const diagnosticsAdmin = read("admin-pro/src/routes/_admin.ai-diagnostics.tsx");
 const importAdmin = read("admin-pro/src/routes/_admin.ai-knowledge-import.tsx");
 const platformControlCenter = read("admin-pro/src/routes/_admin.platform-control-center.tsx");
+const adminRouter = read("admin-pro/src/router.tsx");
+const chatApi = read("chat-pro/src/lib/api.ts");
 const knowledgeImportModule = read("backend-api/src/knowledge-import.js");
 const guideApi = read("guide-pro/src/lib/api.ts");
 const server = read("backend-api/src/server.js");
@@ -176,9 +179,9 @@ expect(
     verifyScript.includes("JavaScript chunks checked"),
 );
 expect(
-  "GitHub release workflow explicitly deploys Pages main production branch",
+  "GitHub release workflow deploys main and verifies the public Pages production URLs",
   read(".github/workflows/bdg-production-release.yml").includes("--branch main") &&
-    read("scripts/ci/verify-live-pages.mjs").includes("https://main.bdg-chat-pages.pages.dev"),
+    read("scripts/ci/verify-live-pages.mjs").includes("https://bdg-chat-pages.pages.dev"),
 );
 expect("Unified version history is visible and restorable", promptHistory.includes("restoreContentVersion") && promptHistory.includes("restorePromptVersion"));
 expect("Decimal AI confidence is normalized to integer percent", core.includes("normalizeConfidencePercent") && core.includes("parsed * 100") && core.includes("Math.round(percent)"));
@@ -221,6 +224,29 @@ expect(
     platformControlCenter.includes("Add domain") &&
     platformControlCenter.includes("Add platform member") &&
     platformControlCenter.includes("updatePlatformFeature"),
+);
+expect(
+  "Automatic platform access links use an immutable generated route key",
+  migration101.includes("public_route_key") &&
+    migration101.includes("v1.0.1_automatic_platform_access_links") &&
+    core.includes("platformAccessLinks") &&
+    core.includes("reservePublicRouteKey") &&
+    core.includes("platform-access") &&
+    core.includes("ensurePlatformAccessRoutes"),
+);
+expect(
+  "Generated platform routes resolve in Chat and the three Pages applications",
+  chatApi.includes("platformReferenceFromLocation") &&
+    chatApi.includes("/chat/content?platform=") &&
+    guideApi.includes("getPublicBasePath") &&
+    adminRouter.includes("adminPlatformBasepath") &&
+    read("admin-pro/public/_redirects").includes("/index.html"),
+);
+expect(
+  "Custom domains cannot be self-verified in the admin workflow",
+  core.includes("Do not mark a domain verified manually") &&
+    platformControlCenter.includes("Optional custom domain") &&
+    !platformControlCenter.includes('{ value: "verified", label: "Verified" }'),
 );
 
 for (const check of checks)
