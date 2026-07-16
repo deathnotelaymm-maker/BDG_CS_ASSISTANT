@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
   Layout,
   Menu,
@@ -7,6 +7,7 @@ import {
   Space,
   Breadcrumb,
   Select,
+  Tag,
   ConfigProvider,
   theme,
 } from "antd";
@@ -33,7 +34,7 @@ import {
   ApartmentOutlined,
 } from "@ant-design/icons";
 import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-router";
-import { getCurrentUser, logout } from "@/lib/api";
+import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
 
@@ -205,10 +206,10 @@ function tr(v?: string) {
   return langNow() === "zh" ? ZH[v] || v : v;
 }
 
-function buildMenu(userRole?: string): MenuProps["items"] {
+function buildMenu(userRole?: string, canManagePlatform = false): MenuProps["items"] {
   const groups = new Map<string, typeof NAV>();
   for (const item of NAV) {
-    if (item.key === "/admin-users" && userRole !== "owner") continue;
+    if (item.key === "/admin-users" && userRole !== "owner" && !(getActiveAdminPlatformRoute() && canManagePlatform)) continue;
     const g = item.group || "";
     if (!groups.has(g)) groups.set(g, []);
     groups.get(g)!.push(item);
@@ -240,11 +241,19 @@ export default function AdminLayout({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [adminLang, setAdminLang] = useState(langNow());
+  const [platformContext, setPlatformContext] = useState<any>(null);
   const user = getCurrentUser();
   const location = useLocation();
   const navigate = useNavigate();
   const matches = useMatches();
   const current = NAV.find((n) => location.pathname.startsWith(n.key));
+
+  useEffect(() => {
+    if (!getActiveAdminPlatformRoute()) { setPlatformContext(null); return; }
+    let alive = true;
+    api.getPlatformContext().then((value) => { if (alive) setPlatformContext(value); }).catch(() => { if (alive) setPlatformContext(null); });
+    return () => { alive = false; };
+  }, [location.pathname]);
 
   const crumbTitle = title ?? current?.label ?? "Dashboard";
 
@@ -302,7 +311,7 @@ export default function AdminLayout({
           <Menu
             mode="inline"
             selectedKeys={current ? [current.key] : []}
-            items={buildMenu(user?.role)}
+            items={buildMenu(user?.role, platformContext?.access?.can_manage_platform === true)}
             key={adminLang}
             style={{ paddingBottom: 24 }}
           />
@@ -310,7 +319,13 @@ export default function AdminLayout({
 
         <Layout>
           <Header className="bdg-header">
-            <div />
+            <div>
+              {platformContext?.platform && (
+                <Tag color="blue" style={{ margin: 0 }}>
+                  Platform: {platformContext.platform.platform_name} · {platformContext.access?.role || "viewer"}
+                </Tag>
+              )}
+            </div>
             <Space size={12}>
               <Select
                 value={adminLang}

@@ -25,6 +25,7 @@ const migration010 = read("backend-api/migrations/005_v0.10.0_ai_knowledge_orche
 const migration011 = read("backend-api/migrations/006_v0.11.0_advanced_ai_knowledge_import_multi_platform_router.sql");
 const migration100 = read("backend-api/migrations/007_v1.0.0_tenant_core_platform_control_center.sql");
 const migration101 = read("backend-api/migrations/008_v1.0.1_automatic_platform_access_links.sql");
+const migration110 = read("backend-api/migrations/009_v1.1.0_tenant_data_isolation_platform_scoped_admin.sql");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
 const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
@@ -253,6 +254,41 @@ expect(
   core.includes("Do not mark a domain verified manually") &&
     platformControlCenter.includes("Optional custom domain") &&
     !platformControlCenter.includes('{ value: "verified", label: "Verified" }'),
+);
+expect(
+  "v1.1.0 makes natural content keys platform-scoped",
+  migration110.includes("idx_categories_platform_slug") &&
+    migration110.includes("idx_ai_content_platform_intent") &&
+    core.includes("ensureTenantDataIsolation") &&
+    core.includes("v1.1.0_tenant_data_isolation_platform_scoped_admin"),
+);
+expect(
+  "Platform-scoped Admin sends a route context header and validates membership",
+  adminApi.includes("X-BDG-Platform-Route") &&
+    core.includes("resolveAdminPlatformScope") &&
+    core.includes("saas_platform_memberships") &&
+    core.includes("/admin/platform-context"),
+);
+expect(
+  "Tenant-scoped records include chat, content, audit, and imports",
+  core.includes("INSERT INTO chat_logs") &&
+    core.includes("tenant_id,platform_id") &&
+    core.includes("idx_chat_logs_tenant_platform") &&
+    core.includes("idx_import_batches_tenant_platform") &&
+    core.includes("admin_audit_logs"),
+);
+expect(
+  "Platform Admin Users are isolated to the active child platform",
+  core.includes("/admin/platform-admin-users") &&
+    core.includes("listCurrentPlatformAdmins") &&
+    core.includes("createCurrentPlatformAdmin") &&
+    adminApi.includes("platform-admin-users"),
+);
+expect(
+  "New platforms receive isolated presentation defaults but no shared knowledge",
+  core.includes("provisionPlatformWorkspace") &&
+    core.includes("guides, FAQ answers, AI content and") &&
+    core.includes("await provisionPlatformWorkspace(env, row)"),
 );
 
 for (const check of checks)

@@ -39,6 +39,20 @@ export function getCurrentUser() {
   }
 }
 
+// A platform URL is the security context, not merely a visual route. Every
+// scoped admin request carries this route key so the API can enforce the
+// tenant/platform boundary on the server.
+export function getActiveAdminPlatformRoute() {
+  if (typeof window === "undefined") return "";
+  const match = window.location.pathname.match(/(?:^|\/)p\/([a-z0-9-]+)\/admin(?:\/|$)/i);
+  return match?.[1] || "";
+}
+
+function platformHeaders() {
+  const route = getActiveAdminPlatformRoute();
+  return route ? { "X-BDG-Platform-Route": route } : {};
+}
+
 async function request<T>(path: string, init?: RequestInit, auth = true): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -46,6 +60,7 @@ async function request<T>(path: string, init?: RequestInit, auth = true): Promis
     ...((init?.headers as Record<string, string>) || {}),
   };
   if (auth && token) headers.Authorization = `Bearer ${token}`;
+  if (path.startsWith("/admin/")) Object.assign(headers, platformHeaders());
 
   if (!API_BASE_URL)
     throw new Error(
@@ -342,7 +357,9 @@ function normalizeForCreate(resource: string, data: any) {
 }
 
 function pathFor(resource: string, id?: string | number) {
-  const base = resourcePath[resource] || `/admin/${resource}`;
+  const base = resource === "admin-users" && getActiveAdminPlatformRoute()
+    ? "/admin/platform-admin-users"
+    : (resourcePath[resource] || `/admin/${resource}`);
   if (resource === "site-content" && id)
     return `/admin/site-content/blocks/${encodeURIComponent(String(id))}`;
   if (id) return `${base}/${id}`;
@@ -441,6 +458,17 @@ export const api = {
 
   create: async (resource: string, data: any) => {
     if (MOCK_MODE) return delay({ ...data, id: Date.now() });
+    if (resource === "admin-users" && getActiveAdminPlatformRoute()) {
+      return request(pathFor(resource), {
+        method: "POST",
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          role: data.role || "viewer",
+          temporary_password: data.temporary_password || data.password || data.new_password,
+        }),
+      });
+    }
     if (resource === "site-content")
       return request(pathFor(resource, data.block_key || data.key), {
         method: "PUT",
@@ -493,7 +521,8 @@ export const api = {
 
   changeAdminPassword: async (id: string | number, password: string) => {
     if (MOCK_MODE) return delay({ ok: true });
-    return request(`/admin/admin-users/${id}/password`, {
+    const base = getActiveAdminPlatformRoute() ? "/admin/platform-admin-users" : "/admin/admin-users";
+    return request(`${base}/${id}/password`, {
       method: "POST",
       body: JSON.stringify({ password }),
     });
@@ -502,6 +531,11 @@ export const api = {
   getMe: async () => {
     if (MOCK_MODE) return delay({ ok: true, user: getCurrentUser() });
     return request("/admin/me");
+  },
+
+  getPlatformContext: async () => {
+    if (MOCK_MODE) return delay({ ok: true, platform: null, access: { role: "operator", can_write: true } });
+    return request("/admin/platform-context");
   },
 
   // v1.0 SaaS tenant core. The Control Center is intentionally explicit: it
@@ -565,7 +599,8 @@ export const api = {
         primary_color: "#3b82f6",
         favicon_url: "",
       });
-    return request("/settings", undefined, false);
+    const route = getActiveAdminPlatformRoute();
+    return request(`/settings${route ? `?platform=${encodeURIComponent(route)}` : ""}`, undefined, false);
   },
 
   updateSettings: async (data: any) => {
@@ -585,7 +620,7 @@ export const api = {
     fd.append("file", file);
     const res = await fetch(`${API_BASE_URL}/admin/uploads`, {
       method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...platformHeaders() },
       body: fd,
     });
     const text = await res.text();
@@ -654,7 +689,7 @@ export const api = {
     const body = new FormData();
     body.append("file", file);
     body.append("platform_key", platform_key);
-    const res = await fetch(`${API_BASE_URL}/admin/knowledge-imports/preview`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body });
+    const res = await fetch(`${API_BASE_URL}/admin/knowledge-imports/preview`, { method: "POST", headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...platformHeaders() }, body });
     const text = await res.text();
     let payload: any = null;
     try { payload = text ? JSON.parse(text) : null; } catch { payload = text; }

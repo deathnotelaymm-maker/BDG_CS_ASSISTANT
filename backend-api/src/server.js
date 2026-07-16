@@ -5,8 +5,8 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.0.2-platform-route-migration-order-fix';
-const API_FEATURES = ['tenant-core','platform-control-center','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','multi-platform-support-router','ticket-capability-guard','ai-knowledge-orchestrator-v3','backend-keyword-scoring-disabled','multilingual-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-buttons','durable-site-content-delete','unified-content-versions','r2-s3-api'];
+const API_VERSION = '1.1.0-tenant-data-isolation-platform-scoped-admin';
+const API_FEATURES = ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','platform-context-header','platform-admin-users','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','multi-platform-support-router','ticket-capability-guard','ai-knowledge-orchestrator-v3','backend-keyword-scoring-disabled','multilingual-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-buttons','durable-site-content-delete','unified-content-versions','r2-s3-api'];
 validateRuntimeEnv(env);
 env.GUIDE_IMAGES = createR2Adapter(env);
 
