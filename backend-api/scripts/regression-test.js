@@ -23,6 +23,7 @@ const migration090 = read(
 );
 const migration010 = read("backend-api/migrations/005_v0.10.0_ai_knowledge_orchestrator_visual_guide_studio.sql");
 const migration011 = read("backend-api/migrations/006_v0.11.0_advanced_ai_knowledge_import_multi_platform_router.sql");
+const migration100 = read("backend-api/migrations/007_v1.0.0_tenant_core_platform_control_center.sql");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
 const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
@@ -37,6 +38,7 @@ const guideLightbox = read("guide-pro/src/components/public/GuideImageLightbox.t
 const faqAdmin = read("admin-pro/src/routes/_admin.faq.tsx");
 const diagnosticsAdmin = read("admin-pro/src/routes/_admin.ai-diagnostics.tsx");
 const importAdmin = read("admin-pro/src/routes/_admin.ai-knowledge-import.tsx");
+const platformControlCenter = read("admin-pro/src/routes/_admin.platform-control-center.tsx");
 const knowledgeImportModule = read("backend-api/src/knowledge-import.js");
 const guideApi = read("guide-pro/src/lib/api.ts");
 const server = read("backend-api/src/server.js");
@@ -174,9 +176,9 @@ expect(
     verifyScript.includes("JavaScript chunks checked"),
 );
 expect(
-  "Cloudflare Direct Upload targets production without branch guessing",
-  deployScript.includes("pages deploy '.\\dist' --project-name $Project --skip-caching") &&
-    !deployScript.includes("--project-name $Project --branch $Branch"),
+  "GitHub release workflow explicitly deploys Pages main production branch",
+  read(".github/workflows/bdg-production-release.yml").includes("--branch main") &&
+    read("scripts/ci/verify-live-pages.mjs").includes("https://main.bdg-chat-pages.pages.dev"),
 );
 expect("Unified version history is visible and restorable", promptHistory.includes("restoreContentVersion") && promptHistory.includes("restorePromptVersion"));
 expect("Decimal AI confidence is normalized to integer percent", core.includes("normalizeConfidencePercent") && core.includes("parsed * 100") && core.includes("Math.round(percent)"));
@@ -192,6 +194,33 @@ expect("Chat and diagnostics persist platform routing context", core.includes("p
 expect(
   "Knowledge import previews return supplied preview rows",
   /function knowledgeImportOut\(batch, previewRows = \[\]\)[\s\S]*preview_rows:previewRows/.test(core),
+);
+expect(
+  "v1.0 tenant core migration is additive and idempotent",
+  migration100.includes("CREATE TABLE IF NOT EXISTS saas_tenants") &&
+    migration100.includes("saas_platform_domains") &&
+    migration100.includes("ON CONFLICT(migration_key) DO NOTHING"),
+);
+expect(
+  "Tenant platform APIs enforce server-side role boundaries",
+  core.includes("assertTenantManager") &&
+    core.includes("assertPlatformManager") &&
+    core.includes("/admin/tenant-control-center") &&
+    core.includes("saas_platform_memberships"),
+);
+expect(
+  "Existing BDG content is adopted by the protected legacy tenant",
+  core.includes("bdg-operations") &&
+    core.includes("bdg-help-center") &&
+    core.includes("legacy_support_platform_key"),
+);
+expect(
+  "Control Center manages tenants, platforms, domains, features, and members",
+  platformControlCenter.includes("Platform Control Center") &&
+    platformControlCenter.includes("New client company") &&
+    platformControlCenter.includes("Add domain") &&
+    platformControlCenter.includes("Add platform member") &&
+    platformControlCenter.includes("updatePlatformFeature"),
 );
 
 for (const check of checks)

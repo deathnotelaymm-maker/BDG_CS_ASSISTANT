@@ -30,6 +30,7 @@ import {
   DownOutlined,
   LinkOutlined,
   CloudUploadOutlined,
+  ApartmentOutlined,
 } from "@ant-design/icons";
 import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-router";
 import { getCurrentUser, logout } from "@/lib/api";
@@ -43,6 +44,13 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     label: "Dashboard",
     icon: <DashboardOutlined />,
     group: "OVERVIEW",
+  },
+  {
+    key: "/platform-control-center",
+    to: "/platform-control-center",
+    label: "Platform Control Center",
+    icon: <ApartmentOutlined />,
+    group: "PLATFORM",
   },
 
   {
@@ -174,6 +182,8 @@ const ZH: Record<string, string> = {
   "Theme Settings": "主题设置",
   "Audit Logs": "审计日志",
   "Admin Users": "管理员账号",
+  "Platform Control Center": "平台控制中心",
+  PLATFORM: "平台",
   OVERVIEW: "概览",
   CONTENT: "内容",
   AI: "AI",

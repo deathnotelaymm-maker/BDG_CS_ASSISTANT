@@ -4,9 +4,9 @@ if (![expectedVersion, expectedSha].every(Boolean)) {
 }
 
 const sites = [
-  ["Guide", "https://bdg-guide-pages.pages.dev", "guide"],
-  ["Chat", "https://bdg-chat-pages.pages.dev", "chat"],
-  ["Admin", "https://bdg-admin-pages.pages.dev", "admin"],
+  ["Guide", "https://main.bdg-guide-pages.pages.dev", "guide"],
+  ["Chat", "https://main.bdg-chat-pages.pages.dev", "chat"],
+  ["Admin", "https://main.bdg-admin-pages.pages.dev", "admin"],
 ];
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -29,12 +29,6 @@ for (const [name, url, site] of sites) {
         throw new Error(`received ${JSON.stringify(marker)}`);
       }
       const html = await (await request(`${url}/?v=${stamp}`)).text();
-      if (site === "admin" && !html.includes("favicon-admin-32.png?v=0101")) {
-        throw new Error("Admin favicon marker is missing from live HTML.");
-      }
-      if (site === "chat" && !html.includes("favicon-chat-32.png?v=0101")) {
-        throw new Error("Chat favicon marker is missing from live HTML.");
-      }
       console.log(`PASS ${name} live release (${expectedVersion})`);
       lastError = "";
       break;

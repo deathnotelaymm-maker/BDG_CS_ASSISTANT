@@ -6,7 +6,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '0.11.0c-knowledge-import-preview-return-production-restore';
+const VERSION = '1.0.0-tenant-core-platform-control-center';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -71,7 +71,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['advanced-knowledge-import','xlsx-draft-review','multi-platform-support-router','ticket-capability-guard','ai-only-semantic-routing','two-stage-ai-orchestration','typo-and-multilingual-understanding','approved-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -100,6 +100,27 @@ async function route(request, env, url) {
   if (method === 'POST' && path === '/admin/me/2fa/enable') return json(await enableOwn2fa(env, admin, await readJson(request)), 200, env);
   if (method === 'POST' && path === '/admin/me/2fa/disable') return json(await disableOwn2fa(env, admin, await readJson(request)), 200, env);
   if (method === 'GET' && path === '/admin/sessions') return json(await listAdminSessions(env, admin), 200, env);
+
+  // v1.0 SaaS tenant core. These endpoints are intentionally separate from the
+  // old `support_platforms` table, which only controls ticket-routing behavior.
+  if (method === 'GET' && path === '/admin/tenant-control-center') return json(await getTenantControlCenter(env, admin), 200, env);
+  if (method === 'GET' && path === '/admin/tenants') return json(await listTenantsForAdmin(env, admin), 200, env);
+  if (method === 'POST' && path === '/admin/tenants') return json(await createTenant(env, admin, await readJson(request)), 201, env);
+  if (method === 'PUT' && /^\/admin\/tenants\/\d+$/.test(path)) return json(await updateTenant(env, admin, idFromPath(path), await readJson(request)), 200, env);
+  if (method === 'DELETE' && /^\/admin\/tenants\/\d+$/.test(path)) return json(await archiveTenant(env, admin, idFromPath(path)), 200, env);
+  if (method === 'GET' && /^\/admin\/tenants\/\d+\/platforms$/.test(path)) return json(await listPlatformsForTenant(env, admin, idFromParts(path, 3)), 200, env);
+  if (method === 'POST' && /^\/admin\/tenants\/\d+\/platforms$/.test(path)) return json(await createTenantPlatform(env, admin, idFromParts(path, 3), await readJson(request)), 201, env);
+  if (method === 'GET' && /^\/admin\/platforms\/\d+$/.test(path)) return json(await getTenantPlatform(env, admin, idFromPath(path)), 200, env);
+  if (method === 'PUT' && /^\/admin\/platforms\/\d+$/.test(path)) return json(await updateTenantPlatform(env, admin, idFromPath(path), await readJson(request)), 200, env);
+  if (method === 'DELETE' && /^\/admin\/platforms\/\d+$/.test(path)) return json(await archiveTenantPlatform(env, admin, idFromPath(path)), 200, env);
+  if (method === 'GET' && /^\/admin\/platforms\/\d+\/domains$/.test(path)) return json(await listPlatformDomains(env, admin, idFromParts(path, 3)), 200, env);
+  if (method === 'POST' && /^\/admin\/platforms\/\d+\/domains$/.test(path)) return json(await createPlatformDomain(env, admin, idFromParts(path, 3), await readJson(request)), 201, env);
+  if (method === 'PUT' && /^\/admin\/platform-domains\/\d+$/.test(path)) return json(await updatePlatformDomain(env, admin, idFromPath(path), await readJson(request)), 200, env);
+  if (method === 'DELETE' && /^\/admin\/platform-domains\/\d+$/.test(path)) return json(await deletePlatformDomain(env, admin, idFromPath(path)), 200, env);
+  if (method === 'GET' && /^\/admin\/platforms\/\d+\/members$/.test(path)) return json(await listPlatformMembers(env, admin, idFromParts(path, 3)), 200, env);
+  if (method === 'POST' && /^\/admin\/platforms\/\d+\/members$/.test(path)) return json(await createPlatformMember(env, admin, idFromParts(path, 3), await readJson(request)), 201, env);
+  if (method === 'DELETE' && /^\/admin\/platform-memberships\/\d+$/.test(path)) return json(await removePlatformMember(env, admin, idFromPath(path)), 200, env);
+  if (method === 'PUT' && /^\/admin\/platforms\/\d+\/features\/[a-z0-9_-]+$/.test(path)) return json(await updatePlatformFeature(env, admin, idFromParts(path, 3), decodeURIComponent(path.split('/').pop()), await readJson(request)), 200, env);
 
   // Admin settings / theme
   if (method === 'PUT' && path === '/admin/settings') return json(await updateTheme(env, await readJson(request)), 200, env);
@@ -383,6 +404,7 @@ async function ensureBootstrap(env) {
   await ensureAdminAuthReady(env);
   await createTables(env);
   await seedDefaults(env);
+  await ensureTenantCore(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -418,6 +440,12 @@ async function createTables(env) {
     `CREATE TABLE IF NOT EXISTS ai_prompt_versions (id SERIAL PRIMARY KEY,prompt_id INTEGER,section_key VARCHAR(80),title VARCHAR(180),content TEXT,enabled BOOLEAN,priority INTEGER,change_note TEXT,created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS admin_audit_logs (id SERIAL PRIMARY KEY,actor_email VARCHAR(255),action VARCHAR(120) NOT NULL,entity_type VARCHAR(120),entity_id VARCHAR(120),details TEXT,created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS admin_sessions (id SERIAL PRIMARY KEY,admin_email VARCHAR(255),session_version INTEGER DEFAULT 0,user_agent TEXT,ip TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),last_seen_at TIMESTAMPTZ DEFAULT NOW(),revoked_at TIMESTAMPTZ)`,
+    `CREATE TABLE IF NOT EXISTS saas_tenants (id SERIAL PRIMARY KEY,tenant_key VARCHAR(100) UNIQUE NOT NULL,name VARCHAR(180) NOT NULL,contact_email VARCHAR(255),plan_code VARCHAR(60) DEFAULT 'starter',status VARCHAR(30) DEFAULT 'active',default_locale VARCHAR(20) DEFAULT 'en',notes TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),archived_at TIMESTAMPTZ)`,
+    `CREATE TABLE IF NOT EXISTS saas_platforms (id SERIAL PRIMARY KEY,tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE RESTRICT,parent_platform_id INTEGER REFERENCES saas_platforms(id) ON DELETE SET NULL,platform_key VARCHAR(100) NOT NULL,name VARCHAR(180) NOT NULL,description TEXT,default_locale VARCHAR(20) DEFAULT 'en',support_mode VARCHAR(30) DEFAULT 'none',legacy_support_platform_key VARCHAR(100),status VARCHAR(30) DEFAULT 'active',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),archived_at TIMESTAMPTZ,UNIQUE(tenant_id,platform_key))`,
+    `CREATE TABLE IF NOT EXISTS saas_platform_domains (id SERIAL PRIMARY KEY,platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,site_kind VARCHAR(20) NOT NULL,hostname VARCHAR(253) NOT NULL,provisioning_status VARCHAR(30) DEFAULT 'planned',verification_note TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),verified_at TIMESTAMPTZ,archived_at TIMESTAMPTZ,UNIQUE(hostname),UNIQUE(platform_id,site_kind))`,
+    `CREATE TABLE IF NOT EXISTS saas_tenant_memberships (id SERIAL PRIMARY KEY,tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE CASCADE,admin_user_id INTEGER NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,role VARCHAR(40) NOT NULL DEFAULT 'tenant_owner',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(tenant_id,admin_user_id))`,
+    `CREATE TABLE IF NOT EXISTS saas_platform_memberships (id SERIAL PRIMARY KEY,platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,admin_user_id INTEGER NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,role VARCHAR(40) NOT NULL DEFAULT 'platform_owner',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(platform_id,admin_user_id))`,
+    `CREATE TABLE IF NOT EXISTS saas_platform_features (platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,feature_key VARCHAR(80) NOT NULL,enabled BOOLEAN DEFAULT TRUE,configuration_json TEXT DEFAULT '{}',updated_at TIMESTAMPTZ DEFAULT NOW(),PRIMARY KEY(platform_id,feature_key))`,
     `CREATE TABLE IF NOT EXISTS system_migrations (migration_key VARCHAR(120) PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT NOW(), notes TEXT)`
   ];
   for (const s of statements) await q(env, s);
@@ -432,6 +460,10 @@ async function createTables(env) {
   await q(env, `CREATE INDEX IF NOT EXISTS idx_knowledge_import_batches_created ON knowledge_import_batches(created_at DESC)`);
   await q(env, `CREATE INDEX IF NOT EXISTS idx_knowledge_import_rows_batch ON knowledge_import_rows(batch_id, id)`);
   await q(env, `CREATE INDEX IF NOT EXISTS idx_content_versions_entity ON content_versions(entity_type, entity_id, version_number DESC)`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_platforms_tenant ON saas_platforms(tenant_id,status,platform_key)`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_domains_host ON saas_platform_domains(hostname) WHERE archived_at IS NULL`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_tenant_memberships_admin ON saas_tenant_memberships(admin_user_id,tenant_id)`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_platform_memberships_admin ON saas_platform_memberships(admin_user_id,platform_id)`);
   // v0.6.2c recovery: older deployments may already have admin_users with fewer columns.
   // CREATE TABLE IF NOT EXISTS does not upgrade existing tables, so add every owner/admin column safely.
   await q(env, `ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS name VARCHAR(160) DEFAULT 'Owner'`);
@@ -452,6 +484,13 @@ async function createTables(env) {
   await q(env, `ALTER TABLE faqs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
   await q(env, `ALTER TABLE chat_quick_replies ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
   await q(env, `ALTER TABLE unmatched_questions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+  // Additive tenant/platform references prepare existing content for safe
+  // isolation. v1.0 backfills the current BDG data into the legacy platform;
+  // later releases apply these scope predicates to every content read/write.
+  for (const table of ['categories','guides','faqs','knowledge_items','theme_settings','ai_prompt_sections','ai_model_settings','chat_sessions','chat_memory_messages','chat_logs','site_content_blocks','action_buttons','popular_help_cards','navigation_items','guide_home_sections','chat_quick_replies','unmatched_questions','incorrect_match_reports','knowledge_versions','ai_prompt_versions','content_versions','knowledge_import_batches','ai_content_items']) {
+    await q(env, `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS tenant_id INTEGER`);
+    await q(env, `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS platform_id INTEGER`);
+  }
   await ensureOwnerAdmin(env);
   await q(env, `INSERT INTO system_migrations(migration_key, notes) VALUES('v0.6.6_admin_foundation_owner_lacus', 'Owner/account/admin foundation migration applied') ON CONFLICT(migration_key) DO NOTHING`);
   await q(env, `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS favicon_url TEXT`);
@@ -527,6 +566,7 @@ async function createTables(env) {
   await q(env, `UPDATE ai_content_items SET approval_status='approved' WHERE status='published' AND COALESCE(approval_status,'draft')='draft' AND NOT EXISTS (SELECT 1 FROM system_migrations WHERE migration_key='v0.10.0_ai_knowledge_orchestrator_visual_guide_studio')`);
   await q(env, `INSERT INTO system_migrations(migration_key, notes) VALUES('v0.10.0_ai_knowledge_orchestrator_visual_guide_studio', 'AI-only semantic routing, multilingual visual knowledge, action buttons, durable Site Content deletion, and unified versions') ON CONFLICT(migration_key) DO NOTHING`);
   await q(env, `INSERT INTO system_migrations(migration_key, notes) VALUES('v0.11.0_advanced_ai_knowledge_import_multi_platform_router', 'Draft-only Excel knowledge imports, platform profiles, ticket capability guards, and import audit history') ON CONFLICT(migration_key) DO NOTHING`);
+  await q(env, `INSERT INTO system_migrations(migration_key, notes) VALUES('v1.0.0_tenant_core_platform_control_center', 'SaaS tenants, child platforms, domain registry, feature entitlements, memberships, and legacy content ownership backfill') ON CONFLICT(migration_key) DO NOTHING`);
   await q(env, `INSERT INTO system_migrations(migration_key, notes) VALUES('v0.8.0_structured_rich_responses_precision_guide_delivery', 'Structured response blocks, explicit resolution state, live Guide content, and customer-first Chat Logs') ON CONFLICT(migration_key) DO NOTHING`);
   await q(env, `INSERT INTO system_migrations(migration_key, notes) VALUES('v0.7.1_admin_stability_reliable_ai_fallback', 'Chat diagnostics, stable content/theme contracts, and reliable AI fallback') ON CONFLICT(migration_key) DO NOTHING`);
 }
@@ -1034,6 +1074,338 @@ async function archiveSupportPlatform(env, id) {
   await q(env, `UPDATE support_platforms SET status='archived',deleted_at=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
   await audit(env, 'delete', 'support_platforms', id, `Support platform archived: ${current.name}`);
   return { ok:true, id };
+}
+
+// ---------------------------------------------------------------------------
+// v1.0 SaaS Tenant Core
+// ---------------------------------------------------------------------------
+// `support_platforms` above is retained for the existing ticket/no-ticket
+// router. The records below are the real commercial tenancy boundary: a
+// client company (tenant) owns one or more branded help platforms.
+const TENANT_ROLES = new Set(['tenant_owner', 'tenant_admin', 'billing_viewer']);
+const PLATFORM_ROLES = new Set(['platform_owner', 'platform_admin', 'content_manager', 'ai_manager', 'support_analyst', 'viewer']);
+const PLATFORM_FEATURES = [
+  ['guide', 'Guide and tutorial studio'],
+  ['manual_icons', 'Manual custom topic icons'],
+  ['ai_prompt_manager', 'AI Prompt Manager'],
+  ['ai_content_studio', 'AI Prompt & Image studio'],
+  ['ai_knowledge_import', 'AI Knowledge Import'],
+  ['chat', 'AI customer-service chat'],
+  ['buttons', 'Action button configuration'],
+  ['diagnostics', 'AI diagnostics and chat logs'],
+];
+
+function isPlatformOperator(admin) { return admin?.role === 'owner'; }
+function normalizeTenantKey(value, fallback = '') { return normalizePlatformKey(value, fallback); }
+function normalizeSaasStatus(value, fallback = 'active') {
+  const status = String(value || '').toLowerCase();
+  return ['active', 'inactive', 'archived'].includes(status) ? status : fallback;
+}
+function normalizeLocale(value, fallback = 'en') {
+  const locale = String(value || '').trim().toLowerCase();
+  return ['en', 'hi', 'all'].includes(locale) ? locale : fallback;
+}
+function normalizeTenantPayload(p = {}) {
+  const name = String(p.name || '').trim().slice(0, 180);
+  if (!name) bad('Client company name is required');
+  const tenant_key = normalizeTenantKey(p.tenant_key || name);
+  if (!tenant_key || tenant_key === 'all' || tenant_key === 'default') bad('Choose a unique tenant key');
+  return {
+    name,
+    tenant_key,
+    contact_email: String(p.contact_email || '').trim().toLowerCase().slice(0, 255),
+    plan_code: String(p.plan_code || 'starter').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').slice(0, 60) || 'starter',
+    status: normalizeSaasStatus(p.status),
+    default_locale: normalizeLocale(p.default_locale),
+    notes: String(p.notes || '').trim().slice(0, 4000),
+  };
+}
+function normalizeTenantPlatformPayload(p = {}) {
+  const name = String(p.name || '').trim().slice(0, 180);
+  if (!name) bad('Platform name is required');
+  const platform_key = normalizePlatformKey(p.platform_key || name);
+  if (!platform_key || platform_key === 'all' || platform_key === 'default') bad('Choose a unique platform key');
+  const support_mode = ['none', 'tickets', 'hybrid'].includes(String(p.support_mode || '').toLowerCase()) ? String(p.support_mode).toLowerCase() : 'none';
+  return {
+    name,
+    platform_key,
+    description: String(p.description || '').trim().slice(0, 4000),
+    default_locale: normalizeLocale(p.default_locale),
+    support_mode,
+    status: normalizeSaasStatus(p.status),
+    parent_platform_id: Number.isInteger(Number(p.parent_platform_id)) && Number(p.parent_platform_id) > 0 ? Number(p.parent_platform_id) : null,
+    owner_email: String(p.owner_email || '').trim().toLowerCase().slice(0, 255),
+  };
+}
+function normalizeHostname(value) {
+  const hostname = String(value || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/\.$/, '');
+  if (!hostname || hostname.length > 253 || !/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(hostname)) {
+    bad('Enter a valid domain name without https:// or a path');
+  }
+  return hostname;
+}
+function normalizePlatformDomainPayload(p = {}) {
+  const site_kind = String(p.site_kind || '').trim().toLowerCase();
+  if (!['chat', 'guide', 'admin'].includes(site_kind)) bad('Domain type must be chat, guide, or admin');
+  const provisioning_status = ['planned', 'pending_dns', 'verified', 'disabled'].includes(String(p.provisioning_status || '').toLowerCase()) ? String(p.provisioning_status).toLowerCase() : 'planned';
+  return {
+    site_kind,
+    hostname: normalizeHostname(p.hostname),
+    provisioning_status,
+    verification_note: String(p.verification_note || '').trim().slice(0, 4000),
+  };
+}
+function tenantOut(row) {
+  return {
+    id: Number(row.id), tenant_key: row.tenant_key, name: row.name,
+    contact_email: row.contact_email || '', plan_code: row.plan_code || 'starter',
+    status: row.status || 'active', default_locale: row.default_locale || 'en', notes: row.notes || '',
+    platform_count: Number(row.platform_count || 0), created_at: row.created_at ? String(row.created_at) : '',
+    updated_at: row.updated_at ? String(row.updated_at) : '', archived_at: row.archived_at ? String(row.archived_at) : '',
+  };
+}
+function tenantPlatformOut(row) {
+  return {
+    id: Number(row.id), tenant_id: Number(row.tenant_id), tenant_key: row.tenant_key || '', tenant_name: row.tenant_name || '',
+    parent_platform_id: row.parent_platform_id == null ? null : Number(row.parent_platform_id),
+    platform_key: row.platform_key, name: row.name, description: row.description || '',
+    default_locale: row.default_locale || 'en', support_mode: row.support_mode || 'none',
+    legacy_support_platform_key: row.legacy_support_platform_key || '', status: row.status || 'active',
+    created_at: row.created_at ? String(row.created_at) : '', updated_at: row.updated_at ? String(row.updated_at) : '',
+    archived_at: row.archived_at ? String(row.archived_at) : '',
+  };
+}
+function platformDomainOut(row) {
+  return { id: Number(row.id), platform_id: Number(row.platform_id), site_kind: row.site_kind, hostname: row.hostname, public_url: `https://${row.hostname}`, provisioning_status: row.provisioning_status || 'planned', verification_note: row.verification_note || '', created_at: row.created_at ? String(row.created_at) : '', updated_at: row.updated_at ? String(row.updated_at) : '', verified_at: row.verified_at ? String(row.verified_at) : '' };
+}
+function platformMemberOut(row) {
+  return { id: Number(row.id), platform_id: Number(row.platform_id), admin_user_id: Number(row.admin_user_id), name: row.name || '', email: row.email || '', role: row.role || 'viewer', is_active: row.is_active !== false, created_at: row.created_at ? String(row.created_at) : '' };
+}
+function platformFeatureOut(row) {
+  let configuration = {};
+  try { configuration = JSON.parse(row.configuration_json || '{}'); } catch (_) {}
+  return { platform_id: Number(row.platform_id), feature_key: row.feature_key, label: PLATFORM_FEATURES.find(([key]) => key === row.feature_key)?.[1] || row.feature_key, enabled: row.enabled !== false, configuration, updated_at: row.updated_at ? String(row.updated_at) : '' };
+}
+async function assertTenantManager(env, admin, tenantId) {
+  if (isPlatformOperator(admin)) return;
+  const row = (await q(env, `SELECT role FROM saas_tenant_memberships tm JOIN admin_users u ON u.id=tm.admin_user_id WHERE tm.tenant_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [tenantId, admin.email])).rows[0];
+  if (!row || !['tenant_owner', 'tenant_admin'].includes(String(row.role))) bad('Tenant owner permission required', 403);
+}
+async function assertPlatformManager(env, admin, platformId) {
+  if (isPlatformOperator(admin)) return;
+  const tenant = (await q(env, `SELECT t.id FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id WHERE p.id=$1 AND p.archived_at IS NULL LIMIT 1`, [platformId])).rows[0];
+  if (!tenant) bad('Platform not found', 404);
+  const tenantMember = (await q(env, `SELECT role FROM saas_tenant_memberships tm JOIN admin_users u ON u.id=tm.admin_user_id WHERE tm.tenant_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [tenant.id, admin.email])).rows[0];
+  if (tenantMember && ['tenant_owner', 'tenant_admin'].includes(String(tenantMember.role))) return;
+  const platformMember = (await q(env, `SELECT role FROM saas_platform_memberships pm JOIN admin_users u ON u.id=pm.admin_user_id WHERE pm.platform_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [platformId, admin.email])).rows[0];
+  if (!platformMember || !['platform_owner', 'platform_admin'].includes(String(platformMember.role))) bad('Platform owner permission required', 403);
+}
+async function insertDefaultPlatformFeatures(env, platformId) {
+  for (const [feature_key] of PLATFORM_FEATURES) {
+    await q(env, `INSERT INTO saas_platform_features(platform_id,feature_key,enabled,configuration_json) VALUES($1,$2,TRUE,'{}') ON CONFLICT(platform_id,feature_key) DO NOTHING`, [platformId, feature_key]);
+  }
+}
+async function ensureTenantCore(env) {
+  const owner = (await q(env, `SELECT * FROM admin_users WHERE role='owner' AND is_active=TRUE ORDER BY id ASC LIMIT 1`)).rows[0];
+  if (!owner) return;
+  const tenant = (await q(env, `INSERT INTO saas_tenants(tenant_key,name,plan_code,status,default_locale,notes) VALUES('bdg-operations','BDG Operations','operator','active','en','Legacy BDG Help Center data was safely adopted into this tenant during the v1.0 migration.') ON CONFLICT(tenant_key) DO UPDATE SET updated_at=NOW() RETURNING *`)).rows[0];
+  const support = await getSupportPlatform(env, 'default');
+  const platform = (await q(env, `INSERT INTO saas_platforms(tenant_id,platform_key,name,description,default_locale,support_mode,legacy_support_platform_key,status) VALUES($1,'bdg-help-center',$2,'Existing BDG Help Center platform migrated without deleting its content.','en',$3,'default','active') ON CONFLICT(tenant_id,platform_key) DO UPDATE SET updated_at=NOW() RETURNING *`, [tenant.id, support.name || 'BDG Help Center', support.support_mode || 'none'])).rows[0];
+  await q(env, `INSERT INTO saas_tenant_memberships(tenant_id,admin_user_id,role) VALUES($1,$2,'tenant_owner') ON CONFLICT(tenant_id,admin_user_id) DO NOTHING`, [tenant.id, owner.id]);
+  await q(env, `INSERT INTO saas_platform_memberships(platform_id,admin_user_id,role) VALUES($1,$2,'platform_owner') ON CONFLICT(platform_id,admin_user_id) DO NOTHING`, [platform.id, owner.id]);
+  await insertDefaultPlatformFeatures(env, platform.id);
+  for (const table of ['categories','guides','faqs','knowledge_items','theme_settings','ai_prompt_sections','ai_model_settings','chat_sessions','chat_memory_messages','chat_logs','site_content_blocks','action_buttons','popular_help_cards','navigation_items','guide_home_sections','chat_quick_replies','unmatched_questions','incorrect_match_reports','knowledge_versions','ai_prompt_versions','content_versions','knowledge_import_batches','ai_content_items']) {
+    await q(env, `UPDATE ${table} SET tenant_id=$1,platform_id=$2 WHERE platform_id IS NULL`, [tenant.id, platform.id]);
+  }
+}
+async function listTenantsForAdmin(env, admin) {
+  const values = [];
+  let where = `t.archived_at IS NULL`;
+  if (!isPlatformOperator(admin)) {
+    values.push(admin.email);
+    where += ` AND EXISTS (SELECT 1 FROM saas_tenant_memberships tm JOIN admin_users u ON u.id=tm.admin_user_id WHERE tm.tenant_id=t.id AND lower(u.email)=lower($1))`;
+  }
+  const { rows } = await q(env, `SELECT t.*, COUNT(p.id) FILTER (WHERE p.archived_at IS NULL) AS platform_count FROM saas_tenants t LEFT JOIN saas_platforms p ON p.tenant_id=t.id WHERE ${where} GROUP BY t.id ORDER BY t.name ASC,t.id ASC`, values);
+  return rows.map(tenantOut);
+}
+async function listPlatformsForTenant(env, admin, tenantId) {
+  await assertTenantManager(env, admin, tenantId);
+  const { rows } = await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id WHERE p.tenant_id=$1 AND p.archived_at IS NULL ORDER BY p.parent_platform_id NULLS FIRST,p.name ASC,p.id ASC`, [tenantId]);
+  return rows.map(tenantPlatformOut);
+}
+async function getTenantControlCenter(env, admin) {
+  const tenants = await listTenantsForAdmin(env, admin);
+  const tenantIds = tenants.map((tenant) => tenant.id);
+  const platforms = tenantIds.length ? (await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id WHERE p.tenant_id=ANY($1::int[]) AND p.archived_at IS NULL ORDER BY t.name,p.parent_platform_id NULLS FIRST,p.name`, [tenantIds])).rows.map(tenantPlatformOut) : [];
+  return { ok: true, version: VERSION, operator: isPlatformOperator(admin), current_user: { email: admin.email, role: admin.role }, tenants, platforms, platform_feature_catalog: PLATFORM_FEATURES.map(([feature_key, label]) => ({ feature_key, label })), domain_note: 'Domains are planning records until DNS and Cloudflare custom-hostname verification are complete. No public URL is claimed live before verification.' };
+}
+async function createTenant(env, admin, payload) {
+  if (!isPlatformOperator(admin)) bad('Platform Operator permission required', 403);
+  const tenant = normalizeTenantPayload(payload);
+  let row;
+  try { row = (await q(env, `INSERT INTO saas_tenants(tenant_key,name,contact_email,plan_code,status,default_locale,notes) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [tenant.tenant_key,tenant.name,tenant.contact_email,tenant.plan_code,tenant.status,tenant.default_locale,tenant.notes])).rows[0]; }
+  catch (error) { if (error?.code === '23505') bad('That tenant key already exists. Choose a different stable key.'); throw error; }
+  await q(env, `INSERT INTO saas_tenant_memberships(tenant_id,admin_user_id,role) SELECT $1,id,'tenant_owner' FROM admin_users WHERE lower(email)=lower($2) ON CONFLICT(tenant_id,admin_user_id) DO NOTHING`, [row.id, admin.email]);
+  await audit(env, 'create', 'saas_tenants', row.id, `Tenant created: ${tenant.name}`);
+  return tenantOut(row);
+}
+async function updateTenant(env, admin, id, payload) {
+  await assertTenantManager(env, admin, id);
+  const current = (await q(env, `SELECT * FROM saas_tenants WHERE id=$1 AND archived_at IS NULL`, [id])).rows[0];
+  if (!current) bad('Tenant not found', 404);
+  const tenant = normalizeTenantPayload({ ...current, ...payload, tenant_key: current.tenant_key });
+  const row = (await q(env, `UPDATE saas_tenants SET name=$1,contact_email=$2,plan_code=$3,status=$4,default_locale=$5,notes=$6,updated_at=NOW() WHERE id=$7 RETURNING *`, [tenant.name,tenant.contact_email,tenant.plan_code,tenant.status,tenant.default_locale,tenant.notes,id])).rows[0];
+  await audit(env, 'update', 'saas_tenants', id, `Tenant updated: ${tenant.name}`);
+  return tenantOut(row);
+}
+async function archiveTenant(env, admin, id) {
+  if (!isPlatformOperator(admin)) bad('Platform Operator permission required', 403);
+  const tenant = (await q(env, `SELECT * FROM saas_tenants WHERE id=$1 AND archived_at IS NULL`, [id])).rows[0];
+  if (!tenant) bad('Tenant not found', 404);
+  if (tenant.tenant_key === 'bdg-operations') bad('The protected legacy BDG tenant cannot be archived');
+  await q(env, `UPDATE saas_tenants SET status='archived',archived_at=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
+  await q(env, `UPDATE saas_platforms SET status='archived',archived_at=NOW(),updated_at=NOW() WHERE tenant_id=$1 AND archived_at IS NULL`, [id]);
+  await audit(env, 'archive', 'saas_tenants', id, `Tenant archived: ${tenant.name}`);
+  return { ok: true, id };
+}
+async function createTenantPlatform(env, admin, tenantId, payload) {
+  await assertTenantManager(env, admin, tenantId);
+  const tenant = (await q(env, `SELECT * FROM saas_tenants WHERE id=$1 AND archived_at IS NULL AND status='active'`, [tenantId])).rows[0];
+  if (!tenant) bad('Active tenant not found', 404);
+  const platform = normalizeTenantPlatformPayload(payload);
+  if (platform.parent_platform_id) {
+    const parent = (await q(env, `SELECT id FROM saas_platforms WHERE id=$1 AND tenant_id=$2 AND archived_at IS NULL`, [platform.parent_platform_id, tenantId])).rows[0];
+    if (!parent) bad('Parent platform must belong to the same tenant');
+  }
+  const routingKey = `${tenant.tenant_key}-${platform.platform_key}`.slice(0, 100);
+  await q(env, `INSERT INTO support_platforms(platform_key,name,support_mode,status,default_locale) VALUES($1,$2,$3,'active',$4) ON CONFLICT(platform_key) DO UPDATE SET name=EXCLUDED.name,support_mode=EXCLUDED.support_mode,default_locale=EXCLUDED.default_locale,updated_at=NOW()`, [routingKey,platform.name,platform.support_mode,platform.default_locale]);
+  let row;
+  try { row = (await q(env, `INSERT INTO saas_platforms(tenant_id,parent_platform_id,platform_key,name,description,default_locale,support_mode,legacy_support_platform_key,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, [tenantId,platform.parent_platform_id,platform.platform_key,platform.name,platform.description,platform.default_locale,platform.support_mode,routingKey,platform.status])).rows[0]; }
+  catch (error) { if (error?.code === '23505') bad('That platform key already exists within this client company.'); throw error; }
+  const ownerEmail = platform.owner_email || admin.email;
+  const owner = (await q(env, `SELECT * FROM admin_users WHERE lower(email)=lower($1) AND is_active=TRUE LIMIT 1`, [ownerEmail])).rows[0];
+  if (!owner) bad('Create the child-platform owner in Admin Users before assigning this platform');
+  await q(env, `INSERT INTO saas_platform_memberships(platform_id,admin_user_id,role) VALUES($1,$2,'platform_owner') ON CONFLICT(platform_id,admin_user_id) DO UPDATE SET role='platform_owner',updated_at=NOW()`, [row.id, owner.id]);
+  await q(env, `INSERT INTO saas_tenant_memberships(tenant_id,admin_user_id,role) VALUES($1,$2,'tenant_admin') ON CONFLICT(tenant_id,admin_user_id) DO NOTHING`, [tenantId, owner.id]);
+  await insertDefaultPlatformFeatures(env, row.id);
+  await audit(env, 'create', 'saas_platforms', row.id, `Platform created: ${platform.name} for tenant ${tenant.name}`);
+  return await getTenantPlatform(env, admin, row.id);
+}
+async function getTenantPlatform(env, admin, id) {
+  await assertPlatformManager(env, admin, id);
+  const row = (await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id WHERE p.id=$1 AND p.archived_at IS NULL`, [id])).rows[0];
+  if (!row) bad('Platform not found', 404);
+  const [domains, members, features] = await Promise.all([
+    q(env, `SELECT * FROM saas_platform_domains WHERE platform_id=$1 AND archived_at IS NULL ORDER BY site_kind`, [id]),
+    q(env, `SELECT pm.*,u.name,u.email,u.is_active FROM saas_platform_memberships pm JOIN admin_users u ON u.id=pm.admin_user_id WHERE pm.platform_id=$1 ORDER BY CASE WHEN pm.role='platform_owner' THEN 0 ELSE 1 END,u.email`, [id]),
+    q(env, `SELECT * FROM saas_platform_features WHERE platform_id=$1 ORDER BY feature_key`, [id]),
+  ]);
+  return { ...tenantPlatformOut(row), domains: domains.rows.map(platformDomainOut), members: members.rows.map(platformMemberOut), features: features.rows.map(platformFeatureOut) };
+}
+async function updateTenantPlatform(env, admin, id, payload) {
+  await assertPlatformManager(env, admin, id);
+  const current = (await q(env, `SELECT * FROM saas_platforms WHERE id=$1 AND archived_at IS NULL`, [id])).rows[0];
+  if (!current) bad('Platform not found', 404);
+  const platform = normalizeTenantPlatformPayload({ ...current, ...payload, platform_key: current.platform_key });
+  if (platform.parent_platform_id === id) bad('A platform cannot be its own parent');
+  if (platform.parent_platform_id) {
+    const parent = (await q(env, `SELECT id FROM saas_platforms WHERE id=$1 AND tenant_id=$2 AND archived_at IS NULL`, [platform.parent_platform_id,current.tenant_id])).rows[0];
+    if (!parent) bad('Parent platform must belong to the same tenant');
+  }
+  await q(env, `UPDATE saas_platforms SET parent_platform_id=$1,name=$2,description=$3,default_locale=$4,support_mode=$5,status=$6,updated_at=NOW() WHERE id=$7`, [platform.parent_platform_id,platform.name,platform.description,platform.default_locale,platform.support_mode,platform.status,id]);
+  if (current.legacy_support_platform_key) await q(env, `UPDATE support_platforms SET name=$1,support_mode=$2,default_locale=$3,updated_at=NOW() WHERE platform_key=$4`, [platform.name,platform.support_mode,platform.default_locale,current.legacy_support_platform_key]);
+  await audit(env, 'update', 'saas_platforms', id, `Platform updated: ${platform.name}`);
+  return await getTenantPlatform(env, admin, id);
+}
+async function archiveTenantPlatform(env, admin, id) {
+  await assertPlatformManager(env, admin, id);
+  const platform = (await q(env, `SELECT p.*,t.tenant_key FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id WHERE p.id=$1 AND p.archived_at IS NULL`, [id])).rows[0];
+  if (!platform) bad('Platform not found', 404);
+  if (platform.legacy_support_platform_key === 'default') bad('The protected legacy BDG platform cannot be archived');
+  await q(env, `UPDATE saas_platforms SET status='archived',archived_at=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
+  await q(env, `UPDATE saas_platform_domains SET provisioning_status='disabled',archived_at=NOW(),updated_at=NOW() WHERE platform_id=$1 AND archived_at IS NULL`, [id]);
+  await audit(env, 'archive', 'saas_platforms', id, `Platform archived: ${platform.name}`);
+  return { ok:true, id };
+}
+async function listPlatformDomains(env, admin, platformId) {
+  await assertPlatformManager(env, admin, platformId);
+  const { rows } = await q(env, `SELECT * FROM saas_platform_domains WHERE platform_id=$1 AND archived_at IS NULL ORDER BY site_kind`, [platformId]);
+  return rows.map(platformDomainOut);
+}
+async function createPlatformDomain(env, admin, platformId, payload) {
+  await assertPlatformManager(env, admin, platformId);
+  const platform = (await q(env, `SELECT id FROM saas_platforms WHERE id=$1 AND archived_at IS NULL`, [platformId])).rows[0];
+  if (!platform) bad('Platform not found', 404);
+  const domain = normalizePlatformDomainPayload(payload);
+  let row;
+  try { row = (await q(env, `INSERT INTO saas_platform_domains(platform_id,site_kind,hostname,provisioning_status,verification_note,verified_at) VALUES($1,$2,$3,$4,$5,CASE WHEN $4='verified' THEN NOW() ELSE NULL END) RETURNING *`, [platformId,domain.site_kind,domain.hostname,domain.provisioning_status,domain.verification_note])).rows[0]; }
+  catch (error) { if (error?.code === '23505') bad('This hostname or domain type is already assigned to another platform.'); throw error; }
+  await audit(env, 'create', 'saas_platform_domains', row.id, `Platform domain planned: ${domain.hostname}`);
+  return platformDomainOut(row);
+}
+async function updatePlatformDomain(env, admin, id, payload) {
+  const current = (await q(env, `SELECT * FROM saas_platform_domains WHERE id=$1 AND archived_at IS NULL`, [id])).rows[0];
+  if (!current) bad('Platform domain not found', 404);
+  await assertPlatformManager(env, admin, current.platform_id);
+  const domain = normalizePlatformDomainPayload({ ...current, ...payload, site_kind: current.site_kind });
+  let row;
+  try { row = (await q(env, `UPDATE saas_platform_domains SET hostname=$1,provisioning_status=$2,verification_note=$3,verified_at=CASE WHEN $2='verified' THEN COALESCE(verified_at,NOW()) ELSE NULL END,updated_at=NOW() WHERE id=$4 RETURNING *`, [domain.hostname,domain.provisioning_status,domain.verification_note,id])).rows[0]; }
+  catch (error) { if (error?.code === '23505') bad('This hostname is already assigned to another platform.'); throw error; }
+  await audit(env, 'update', 'saas_platform_domains', id, `Platform domain updated: ${domain.hostname}`);
+  return platformDomainOut(row);
+}
+async function deletePlatformDomain(env, admin, id) {
+  const current = (await q(env, `SELECT * FROM saas_platform_domains WHERE id=$1 AND archived_at IS NULL`, [id])).rows[0];
+  if (!current) return { ok:true, id };
+  await assertPlatformManager(env, admin, current.platform_id);
+  await q(env, `UPDATE saas_platform_domains SET provisioning_status='disabled',archived_at=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
+  await audit(env, 'archive', 'saas_platform_domains', id, `Platform domain archived: ${current.hostname}`);
+  return { ok:true, id };
+}
+async function listPlatformMembers(env, admin, platformId) {
+  await assertPlatformManager(env, admin, platformId);
+  const { rows } = await q(env, `SELECT pm.*,u.name,u.email,u.is_active FROM saas_platform_memberships pm JOIN admin_users u ON u.id=pm.admin_user_id WHERE pm.platform_id=$1 ORDER BY CASE WHEN pm.role='platform_owner' THEN 0 ELSE 1 END,u.email`, [platformId]);
+  return rows.map(platformMemberOut);
+}
+async function createPlatformMember(env, admin, platformId, payload = {}) {
+  await assertPlatformManager(env, admin, platformId);
+  const email = String(payload.email || '').trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) bad('A valid admin email is required');
+  const role = PLATFORM_ROLES.has(String(payload.role || '').toLowerCase()) ? String(payload.role).toLowerCase() : 'viewer';
+  let user = (await q(env, `SELECT * FROM admin_users WHERE lower(email)=lower($1) LIMIT 1`, [email])).rows[0];
+  if (!user) {
+    const temporaryPassword = String(payload.temporary_password || '');
+    if (temporaryPassword.length < 12) bad('A temporary password of at least 12 characters is required for a new child-platform admin');
+    user = (await q(env, `INSERT INTO admin_users(name,email,password_hash,role,is_active) VALUES($1,$2,$3,'admin',TRUE) RETURNING *`, [String(payload.name || email.split('@')[0]).slice(0,160),email,await hashPassword(temporaryPassword)])).rows[0];
+  }
+  const row = (await q(env, `INSERT INTO saas_platform_memberships(platform_id,admin_user_id,role) VALUES($1,$2,$3) ON CONFLICT(platform_id,admin_user_id) DO UPDATE SET role=EXCLUDED.role,updated_at=NOW() RETURNING *`, [platformId,user.id,role])).rows[0];
+  const platform = (await q(env, `SELECT tenant_id FROM saas_platforms WHERE id=$1`, [platformId])).rows[0];
+  await q(env, `INSERT INTO saas_tenant_memberships(tenant_id,admin_user_id,role) VALUES($1,$2,'tenant_admin') ON CONFLICT(tenant_id,admin_user_id) DO NOTHING`, [platform.tenant_id,user.id]);
+  await audit(env, 'assign', 'saas_platform_memberships', row.id, `Platform member ${email} assigned as ${role}`);
+  return platformMemberOut({ ...row, name:user.name, email:user.email, is_active:user.is_active });
+}
+async function removePlatformMember(env, admin, id) {
+  const membership = (await q(env, `SELECT * FROM saas_platform_memberships WHERE id=$1`, [id])).rows[0];
+  if (!membership) return { ok:true, id };
+  await assertPlatformManager(env, admin, membership.platform_id);
+  if (membership.role === 'platform_owner') {
+    const count = (await q(env, `SELECT COUNT(*)::int AS count FROM saas_platform_memberships WHERE platform_id=$1 AND role='platform_owner'`, [membership.platform_id])).rows[0];
+    if (Number(count?.count || 0) <= 1) bad('Assign another platform owner before removing the current owner');
+  }
+  await q(env, `DELETE FROM saas_platform_memberships WHERE id=$1`, [id]);
+  await audit(env, 'remove', 'saas_platform_memberships', id, 'Platform member removed');
+  return { ok:true, id };
+}
+async function updatePlatformFeature(env, admin, platformId, featureKey, payload = {}) {
+  await assertPlatformManager(env, admin, platformId);
+  const key = String(featureKey || '').trim();
+  if (!PLATFORM_FEATURES.some(([feature_key]) => feature_key === key)) bad('Unknown platform feature');
+  const configuration_json = typeof payload.configuration === 'string' ? payload.configuration : JSON.stringify(payload.configuration || {});
+  let parsed;
+  try { parsed = JSON.parse(configuration_json || '{}'); } catch (_) { bad('Feature configuration must be valid JSON'); }
+  const row = (await q(env, `INSERT INTO saas_platform_features(platform_id,feature_key,enabled,configuration_json,updated_at) VALUES($1,$2,$3,$4,NOW()) ON CONFLICT(platform_id,feature_key) DO UPDATE SET enabled=EXCLUDED.enabled,configuration_json=EXCLUDED.configuration_json,updated_at=NOW() RETURNING *`, [platformId,key,payload.enabled !== false,JSON.stringify(parsed)])).rows[0];
+  await audit(env, 'update', 'saas_platform_features', `${platformId}:${key}`, `Platform feature updated: ${key}`);
+  return platformFeatureOut(row);
 }
 function knowledgeImportRowOut(row) {
   let mapped = {}; let raw = {}; let warnings = [];

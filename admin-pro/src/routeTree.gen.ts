@@ -31,6 +31,7 @@ import { Route as AdminAiKnowledgeRouteImport } from './routes/_admin.ai-knowled
 import { Route as AdminAiDiagnosticsRouteImport } from './routes/_admin.ai-diagnostics'
 import { Route as AdminAdminUsersRouteImport } from './routes/_admin.admin-users'
 import { Route as AdminActionButtonsRouteImport } from './routes/_admin.action-buttons'
+import { Route as AdminPlatformControlCenterRouteImport } from './routes/_admin.platform-control-center'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -141,12 +142,18 @@ const AdminActionButtonsRoute = AdminActionButtonsRouteImport.update({
   path: '/action-buttons',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPlatformControlCenterRoute = AdminPlatformControlCenterRouteImport.update({
+  id: '/platform-control-center',
+  path: '/platform-control-center',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/admin-users': typeof AdminAdminUsersRoute
   '/action-buttons': typeof AdminActionButtonsRoute
+  '/platform-control-center': typeof AdminPlatformControlCenterRoute
   '/ai-diagnostics': typeof AdminAiDiagnosticsRoute
   '/ai-knowledge': typeof AdminAiKnowledgeRoute
   '/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admin-users': typeof AdminAdminUsersRoute
   '/action-buttons': typeof AdminActionButtonsRoute
+  '/platform-control-center': typeof AdminPlatformControlCenterRoute
   '/ai-diagnostics': typeof AdminAiDiagnosticsRoute
   '/ai-knowledge': typeof AdminAiKnowledgeRoute
   '/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_admin/admin-users': typeof AdminAdminUsersRoute
   '/_admin/action-buttons': typeof AdminActionButtonsRoute
+  '/_admin/platform-control-center': typeof AdminPlatformControlCenterRoute
   '/_admin/ai-diagnostics': typeof AdminAiDiagnosticsRoute
   '/_admin/ai-knowledge': typeof AdminAiKnowledgeRoute
   '/_admin/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin-users'
     | '/action-buttons'
+    | '/platform-control-center'
     | '/ai-diagnostics'
     | '/ai-knowledge'
     | '/ai-knowledge-import'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin-users'
     | '/action-buttons'
+    | '/platform-control-center'
     | '/ai-diagnostics'
     | '/ai-knowledge'
     | '/ai-knowledge-import'
@@ -267,6 +278,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_admin/admin-users'
     | '/_admin/action-buttons'
+    | '/_admin/platform-control-center'
     | '/_admin/ai-diagnostics'
     | '/_admin/ai-knowledge'
     | '/_admin/ai-knowledge-import'
@@ -448,11 +460,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminActionButtonsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/platform-control-center': {
+      id: '/_admin/platform-control-center'
+      path: '/platform-control-center'
+      fullPath: '/platform-control-center'
+      preLoaderRoute: typeof AdminPlatformControlCenterRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
   AdminActionButtonsRoute: typeof AdminActionButtonsRoute
+  AdminPlatformControlCenterRoute: typeof AdminPlatformControlCenterRoute
   AdminAdminUsersRoute: typeof AdminAdminUsersRoute
   AdminAiDiagnosticsRoute: typeof AdminAiDiagnosticsRoute
   AdminAiKnowledgeRoute: typeof AdminAiKnowledgeRoute
@@ -475,6 +495,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminActionButtonsRoute: AdminActionButtonsRoute,
+  AdminPlatformControlCenterRoute: AdminPlatformControlCenterRoute,
   AdminAdminUsersRoute: AdminAdminUsersRoute,
   AdminAiDiagnosticsRoute: AdminAiDiagnosticsRoute,
   AdminAiKnowledgeRoute: AdminAiKnowledgeRoute,

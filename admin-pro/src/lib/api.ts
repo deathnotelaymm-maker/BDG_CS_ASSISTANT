@@ -504,6 +504,27 @@ export const api = {
     return request("/admin/me");
   },
 
+  // v1.0 SaaS tenant core. The Control Center is intentionally explicit: it
+  // never guesses a tenant from a browser query parameter.
+  getTenantControlCenter: async () => {
+    if (MOCK_MODE) return delay({ ok: true, operator: true, tenants: [], platforms: [], platform_feature_catalog: [] });
+    return request("/admin/tenant-control-center");
+  },
+  listTenantPlatforms: async (tenantId: string | number) => request(`/admin/tenants/${tenantId}/platforms`),
+  createTenant: async (data: any) => request("/admin/tenants", { method: "POST", body: JSON.stringify(data) }),
+  updateTenant: async (id: string | number, data: any) => request(`/admin/tenants/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  archiveTenant: async (id: string | number) => request(`/admin/tenants/${id}`, { method: "DELETE" }),
+  createTenantPlatform: async (tenantId: string | number, data: any) => request(`/admin/tenants/${tenantId}/platforms`, { method: "POST", body: JSON.stringify(data) }),
+  getTenantPlatform: async (platformId: string | number) => request(`/admin/platforms/${platformId}`),
+  updateTenantPlatform: async (platformId: string | number, data: any) => request(`/admin/platforms/${platformId}`, { method: "PUT", body: JSON.stringify(data) }),
+  archiveTenantPlatform: async (platformId: string | number) => request(`/admin/platforms/${platformId}`, { method: "DELETE" }),
+  createPlatformDomain: async (platformId: string | number, data: any) => request(`/admin/platforms/${platformId}/domains`, { method: "POST", body: JSON.stringify(data) }),
+  updatePlatformDomain: async (domainId: string | number, data: any) => request(`/admin/platform-domains/${domainId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deletePlatformDomain: async (domainId: string | number) => request(`/admin/platform-domains/${domainId}`, { method: "DELETE" }),
+  createPlatformMember: async (platformId: string | number, data: any) => request(`/admin/platforms/${platformId}/members`, { method: "POST", body: JSON.stringify(data) }),
+  removePlatformMember: async (membershipId: string | number) => request(`/admin/platform-memberships/${membershipId}`, { method: "DELETE" }),
+  updatePlatformFeature: async (platformId: string | number, featureKey: string, data: any) => request(`/admin/platforms/${platformId}/features/${encodeURIComponent(featureKey)}`, { method: "PUT", body: JSON.stringify(data) }),
+
   setup2FA: async () => {
     if (MOCK_MODE) return delay({ ok: true, secret: "MOCKSECRET", otpauth_url: "" });
     return request("/admin/me/2fa/setup", { method: "POST", body: JSON.stringify({}) });

@@ -76,7 +76,7 @@ jobs:
           VITE_API_BASE="$BDG_API_BASE_URL" VITE_USE_MOCK=false npm --prefix guide-pro run build
           node scripts/ci/write-release-marker.mjs guide guide-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
           node scripts/ci/verify-static-release.mjs guide guide-pro/dist
-          npx --yes wrangler@4.107.0 pages deploy guide-pro/dist --project-name bdg-guide-pages --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
+          npx --yes wrangler@4.107.0 pages deploy guide-pro/dist --project-name bdg-guide-pages --branch main --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
 
       - name: Build and publish Chat production
         run: |
@@ -84,7 +84,7 @@ jobs:
           VITE_BDG_API_BASE="$BDG_API_BASE_URL" VITE_API_BASE="$BDG_API_BASE_URL" npm --prefix chat-pro run build
           node scripts/ci/write-release-marker.mjs chat chat-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
           node scripts/ci/verify-static-release.mjs chat chat-pro/dist
-          npx --yes wrangler@4.107.0 pages deploy chat-pro/dist --project-name bdg-chat-pages --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
+          npx --yes wrangler@4.107.0 pages deploy chat-pro/dist --project-name bdg-chat-pages --branch main --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
 
       - name: Build and publish Admin production
         run: |
@@ -92,7 +92,7 @@ jobs:
           VITE_API_BASE_URL="$BDG_API_BASE_URL" VITE_MOCK_MODE=false npm --prefix admin-pro run build
           node scripts/ci/write-release-marker.mjs admin admin-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
           node scripts/ci/verify-static-release.mjs admin admin-pro/dist
-          npx --yes wrangler@4.107.0 pages deploy admin-pro/dist --project-name bdg-admin-pages --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
+          npx --yes wrangler@4.107.0 pages deploy admin-pro/dist --project-name bdg-admin-pages --branch main --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
 
       - name: Confirm the live Pages releases
         run: node scripts/ci/verify-live-pages.mjs "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
