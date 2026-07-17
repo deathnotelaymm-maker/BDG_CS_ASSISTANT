@@ -6,7 +6,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.2.0a2-scoped-backfill-conflict-repair';
+const VERSION = '1.2.0a4-safe-active-platform-bootstrap-repair';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -1426,7 +1426,15 @@ async function ensureTenantCore(env) {
   if (!owner) return;
   const tenant = (await q(env, `INSERT INTO saas_tenants(tenant_key,name,plan_code,status,default_locale,notes) VALUES('bdg-operations','BDG Operations','operator','active','en','Legacy BDG Help Center data was safely adopted into this tenant during the v1.0 migration.') ON CONFLICT(tenant_key) DO UPDATE SET updated_at=NOW() RETURNING *`)).rows[0];
   const support = (await q(env, `SELECT * FROM support_platforms WHERE platform_key='default' AND deleted_at IS NULL ORDER BY id ASC LIMIT 1`)).rows[0] || { name:'BDG Help Center', support_mode:'none' };
-  const platform = (await q(env, `INSERT INTO saas_platforms(tenant_id,platform_key,name,description,default_locale,support_mode,legacy_support_platform_key,status) VALUES($1,'bdg-help-center',$2,'Existing BDG Help Center platform migrated without deleting its content.','en',$3,'default','active') ON CONFLICT(tenant_id,platform_key) DO UPDATE SET updated_at=NOW() RETURNING *`, [tenant.id, support.name || 'BDG Help Center', support.support_mode || 'none'])).rows[0];
+  const activePlatforms = (await q(env, `SELECT * FROM saas_platforms WHERE tenant_id=$1 AND archived_at IS NULL AND COALESCE(status,'active')='active' ORDER BY (platform_key='bdg-help-center') DESC,id ASC`, [tenant.id])).rows;
+  // A previous run may have created multiple active rows before the guard was
+  // installed. Archive extras (never delete them) before the bootstrap tries
+  // to reuse or create the protected legacy platform.
+  const retainedPlatform = activePlatforms[0];
+  for (const duplicate of activePlatforms.slice(1)) {
+    await q(env, `UPDATE saas_platforms SET status='archived',archived_at=COALESCE(archived_at,NOW()),updated_at=NOW() WHERE id=$1`, [duplicate.id]);
+  }
+  const platform = retainedPlatform || (await q(env, `INSERT INTO saas_platforms(tenant_id,platform_key,name,description,default_locale,support_mode,legacy_support_platform_key,status) VALUES($1,'bdg-help-center',$2,'Existing BDG Help Center platform migrated without deleting its content.','en',$3,'default','active') ON CONFLICT(tenant_id,platform_key) DO UPDATE SET updated_at=NOW(),status='active',archived_at=NULL RETURNING *`, [tenant.id, support.name || 'BDG Help Center', support.support_mode || 'none'])).rows[0];
   await q(env, `INSERT INTO saas_tenant_memberships(tenant_id,admin_user_id,role) VALUES($1,$2,'tenant_owner') ON CONFLICT(tenant_id,admin_user_id) DO NOTHING`, [tenant.id, owner.id]);
   await q(env, `INSERT INTO saas_platform_memberships(platform_id,admin_user_id,role) VALUES($1,$2,'platform_owner') ON CONFLICT(platform_id,admin_user_id) DO NOTHING`, [platform.id, owner.id]);
   await insertDefaultPlatformFeatures(env, platform.id);
@@ -1508,6 +1516,7 @@ async function ensureTenantBrandStudio(env) {
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.2.0_tenant_brand_studio_one_platform_guard','Tenant-scoped brand studio fields and a database-enforced one-active-platform-per-client guard.') ON CONFLICT(migration_key) DO NOTHING`,
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.2.0a_safe_bootstrap_deduplication_repair','Deterministic cleanup of duplicate unscoped seed rows before tenant/platform backfill.') ON CONFLICT(migration_key) DO NOTHING`,
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.2.0a2_scoped_backfill_conflict_repair','Removes unscoped rows that conflict with content already scoped to the protected legacy platform.') ON CONFLICT(migration_key) DO NOTHING`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.2.0a4_safe_active_platform_bootstrap_repair','Archives pre-existing duplicate active platform rows before idempotent tenant bootstrap; no content is deleted.') ON CONFLICT(migration_key) DO NOTHING`,
   ]) await q(env, statement);
 }
 async function listTenantsForAdmin(env, admin) {

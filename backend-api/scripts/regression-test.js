@@ -28,6 +28,7 @@ const migration101 = read("backend-api/migrations/008_v1.0.1_automatic_platform_
 const migration110 = read("backend-api/migrations/009_v1.1.0_tenant_data_isolation_platform_scoped_admin.sql");
 const migration120a = read("backend-api/migrations/011_v1.2.0a_safe_bootstrap_deduplication_repair.sql");
 const migration120a2 = read("backend-api/migrations/012_v1.2.0a2_scoped_backfill_conflict_repair.sql");
+const migration120a4 = read("backend-api/migrations/013_v1.2.0a4_safe_active_platform_bootstrap_repair.sql");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
 const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
@@ -303,6 +304,12 @@ expect(
   core.includes("deduplicateLegacyRows(env, platform.id)") &&
     core.includes("scoped.platform_id=$1") &&
     migration120a2.includes("v1.2.0a2_scoped_backfill_conflict_repair"),
+);
+expect(
+  "v1.2.0a4 archives duplicate active platforms before bootstrap",
+  core.includes("activePlatforms.slice(1)") &&
+    core.includes("status='archived',archived_at=COALESCE") &&
+    migration120a4.includes("v1.2.0a4_safe_active_platform_bootstrap_repair"),
 );
 
 for (const check of checks)
