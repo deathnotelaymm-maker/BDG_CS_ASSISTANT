@@ -6,7 +6,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.1.0-tenant-data-isolation-platform-scoped-admin';
+const VERSION = '1.2.0-tenant-brand-studio-one-platform-guard';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -71,7 +71,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','platform-context-header','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','platform-context-header','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -113,6 +113,8 @@ async function route(request, env, url) {
   if (method === 'GET' && /^\/admin\/tenants\/\d+\/platforms$/.test(path)) return json(await listPlatformsForTenant(env, admin, idFromParts(path, 3)), 200, env);
   if (method === 'POST' && /^\/admin\/tenants\/\d+\/platforms$/.test(path)) return json(await createTenantPlatform(env, admin, idFromParts(path, 3), await readJson(request)), 201, env);
   if (method === 'GET' && /^\/admin\/platforms\/\d+$/.test(path)) return json(await getTenantPlatform(env, admin, idFromPath(path)), 200, env);
+  if (method === 'GET' && /^\/admin\/platforms\/\d+\/brand$/.test(path)) return json(await getPlatformBrand(env, admin, idFromParts(path, 3)), 200, env);
+  if (method === 'PUT' && /^\/admin\/platforms\/\d+\/brand$/.test(path)) return json(await updatePlatformBrand(env, admin, idFromParts(path, 3), await readJson(request)), 200, env);
   if (method === 'PUT' && /^\/admin\/platforms\/\d+$/.test(path)) return json(await updateTenantPlatform(env, admin, idFromPath(path), await readJson(request)), 200, env);
   if (method === 'DELETE' && /^\/admin\/platforms\/\d+$/.test(path)) return json(await archiveTenantPlatform(env, admin, idFromPath(path)), 200, env);
   if (method === 'GET' && /^\/admin\/platforms\/\d+\/domains$/.test(path)) return json(await listPlatformDomains(env, admin, idFromParts(path, 3)), 200, env);
@@ -423,6 +425,7 @@ async function ensureBootstrap(env) {
   await seedDefaults(env);
   await ensureTenantCore(env);
   await ensureTenantDataIsolation(env);
+  await ensureTenantBrandStudio(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -828,6 +831,16 @@ async function getTheme(env, scope = null) {
     favicon_url: row.favicon_url || '',
     chat_icon_url: row.chat_icon_url || '',
     guide_logo_url: row.guide_logo_url || '',
+    brand_name: row.brand_name || row.app_name || appName(env),
+    brand_tagline: row.brand_tagline || 'Official Support',
+    admin_logo_url: row.admin_logo_url || row.guide_logo_url || '',
+    admin_favicon_url: row.admin_favicon_url || row.favicon_url || '',
+    guide_favicon_url: row.guide_favicon_url || row.favicon_url || '',
+    chat_favicon_url: row.chat_favicon_url || row.favicon_url || '',
+    accent_color: row.accent_color || row.primary_color || '#3b82f6',
+    surface_color: row.surface_color || '#0f172a',
+    font_family: row.font_family || 'Inter',
+    button_style: row.button_style || 'rounded',
     chat_header_title: row.chat_header_title || 'BDG AI Support',
     chat_online_text: row.chat_online_text || 'Online assistant',
     show_chat_support_button: row.show_chat_support_button === true,
@@ -866,6 +879,17 @@ async function updateTheme(env, p = {}, scope = null) {
       ? `INSERT INTO theme_settings(app_name,logo_text,banner_title,banner_subtitle,support_link,primary_color,favicon_url,chat_icon_url,guide_logo_url,chat_header_title,chat_online_text,show_chat_support_button,show_guide_support_button,chat_welcome_title,chat_welcome_subtitle,chat_input_placeholder,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`
       : `INSERT INTO theme_settings(app_name,logo_text,banner_title,banner_subtitle,support_link,primary_color,favicon_url,chat_icon_url,guide_logo_url,chat_header_title,chat_online_text,show_chat_support_button,show_guide_support_button,chat_welcome_title,chat_welcome_subtitle,chat_input_placeholder) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`, scope ? [...values, scope.tenant_id, scope.platform_id] : values);
   }
+  const brandValues = [
+    p.brand_name ?? current.brand_name, p.brand_tagline ?? current.brand_tagline,
+    p.admin_logo_url ?? current.admin_logo_url, p.admin_favicon_url ?? current.admin_favicon_url,
+    p.guide_favicon_url ?? current.guide_favicon_url, p.chat_favicon_url ?? current.chat_favicon_url,
+    p.accent_color ?? current.accent_color, p.surface_color ?? current.surface_color,
+    p.font_family ?? current.font_family, p.button_style ?? current.button_style,
+  ];
+  await q(env, scope
+    ? `UPDATE theme_settings SET brand_name=$1,brand_tagline=$2,admin_logo_url=$3,admin_favicon_url=$4,guide_favicon_url=$5,chat_favicon_url=$6,accent_color=$7,surface_color=$8,font_family=$9,button_style=$10,updated_at=NOW() WHERE tenant_id=$11 AND platform_id=$12`
+    : `UPDATE theme_settings SET brand_name=$1,brand_tagline=$2,admin_logo_url=$3,admin_favicon_url=$4,guide_favicon_url=$5,chat_favicon_url=$6,accent_color=$7,surface_color=$8,font_family=$9,button_style=$10,updated_at=NOW() WHERE id=(SELECT id FROM theme_settings ORDER BY id ASC LIMIT 1)`,
+    scope ? [...brandValues, scope.tenant_id, scope.platform_id] : brandValues);
   await audit(env,'update','theme_settings','1','Theme settings updated',scope);
   return getTheme(env, scope);
 }
@@ -1447,6 +1471,25 @@ async function ensureTenantDataIsolation(env) {
   for (const statement of indexes) await q(env, statement);
   await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.1.0_tenant_data_isolation_platform_scoped_admin','Platform-scoped data reads and writes, scope-aware admin API context, per-platform natural keys, and legacy preservation.') ON CONFLICT(migration_key) DO NOTHING`);
 }
+async function ensureTenantBrandStudio(env) {
+  for (const statement of [
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS brand_name VARCHAR(160)`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS brand_tagline VARCHAR(255)`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS admin_logo_url TEXT`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS admin_favicon_url TEXT`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS guide_favicon_url TEXT`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_favicon_url TEXT`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS accent_color VARCHAR(40)`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS surface_color VARCHAR(40)`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS font_family VARCHAR(120)`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS button_style VARCHAR(40)`,
+    `ALTER TABLE saas_tenants ADD COLUMN IF NOT EXISTS platform_limit INTEGER NOT NULL DEFAULT 1`,
+    `CREATE OR REPLACE FUNCTION enforce_one_active_platform_per_tenant() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.archived_at IS NULL AND COALESCE(NEW.status,'active')='active' AND EXISTS (SELECT 1 FROM saas_platforms p WHERE p.tenant_id=NEW.tenant_id AND p.id<>COALESCE(NEW.id,0) AND p.archived_at IS NULL AND COALESCE(p.status,'active')='active') THEN RAISE EXCEPTION 'Each client company can have only one active platform' USING ERRCODE='23514'; END IF; RETURN NEW; END; $$`,
+    `DROP TRIGGER IF EXISTS trg_one_active_platform_per_tenant ON saas_platforms`,
+    `CREATE TRIGGER trg_one_active_platform_per_tenant BEFORE INSERT OR UPDATE OF tenant_id,status,archived_at ON saas_platforms FOR EACH ROW EXECUTE FUNCTION enforce_one_active_platform_per_tenant()`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.2.0_tenant_brand_studio_one_platform_guard','Tenant-scoped brand studio fields and a database-enforced one-active-platform-per-client guard.') ON CONFLICT(migration_key) DO NOTHING`,
+  ]) await q(env, statement);
+}
 async function listTenantsForAdmin(env, admin) {
   const values = [];
   let where = `t.archived_at IS NULL`;
@@ -1510,6 +1553,8 @@ async function createTenantPlatform(env, admin, tenantId, payload) {
   await assertTenantManager(env, admin, tenantId);
   const tenant = (await q(env, `SELECT * FROM saas_tenants WHERE id=$1 AND archived_at IS NULL AND status='active'`, [tenantId])).rows[0];
   if (!tenant) bad('Active tenant not found', 404);
+  const activeCount = Number((await q(env, `SELECT COUNT(*)::int AS count FROM saas_platforms WHERE tenant_id=$1 AND archived_at IS NULL AND status='active'`, [tenantId])).rows[0]?.count || 0);
+  if (activeCount >= Number(tenant.platform_limit || 1)) bad('Each client company can have only one active platform. Archive the existing platform before creating another.', 409, 'ONE_PLATFORM_PER_TENANT');
   const platform = normalizeTenantPlatformPayload(payload);
   platform.platform_key = await reserveTenantPlatformKey(env, tenantId, platform.platform_key);
   if (platform.parent_platform_id) {
@@ -1541,6 +1586,25 @@ async function getTenantPlatform(env, admin, id) {
     q(env, `SELECT * FROM saas_platform_features WHERE platform_id=$1 ORDER BY feature_key`, [id]),
   ]);
   return { ...tenantPlatformOut(row), domains: domains.rows.map(platformDomainOut), members: members.rows.map(platformMemberOut), features: features.rows.map(platformFeatureOut) };
+}
+async function getPlatformBrand(env, admin, id) {
+  await assertPlatformManager(env, admin, id);
+  const row = (await q(env, `SELECT p.tenant_id,p.id,p.name,p.public_route_key,t.tenant_key,t.name AS tenant_name FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id WHERE p.id=$1 AND p.archived_at IS NULL`, [id])).rows[0];
+  if (!row) bad('Platform not found', 404);
+  return { ok: true, version: VERSION, platform: tenantPlatformOut(row), brand: await getTheme(env, { tenant_id: row.tenant_id, platform_id: row.id }) };
+}
+async function updatePlatformBrand(env, admin, id, payload = {}) {
+  await assertPlatformManager(env, admin, id);
+  const row = (await q(env, `SELECT tenant_id,id FROM saas_platforms WHERE id=$1 AND archived_at IS NULL`, [id])).rows[0];
+  if (!row) bad('Platform not found', 404);
+  const scope = { tenant_id: row.tenant_id, platform_id: row.id };
+  const clean = {};
+  for (const key of ['brand_name','brand_tagline','admin_logo_url','admin_favicon_url','guide_logo_url','guide_favicon_url','chat_icon_url','chat_favicon_url','accent_color','surface_color','font_family','button_style']) {
+    if (payload[key] !== undefined) clean[key] = String(payload[key] || '').trim().slice(0, 2000);
+  }
+  const brand = await updateTheme(env, clean, scope);
+  await audit(env, 'update', 'platform_brand', id, `Brand studio updated for platform ${id}`, scope);
+  return { ok: true, version: VERSION, brand };
 }
 async function getPublicPlatformAccess(env, routeKey) {
   const key = normalizePublicRouteKey(routeKey);

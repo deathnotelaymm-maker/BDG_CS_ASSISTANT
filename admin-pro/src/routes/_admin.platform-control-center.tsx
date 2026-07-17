@@ -72,6 +72,7 @@ type PlatformDetail = Platform & {
   members: Array<{ id: number; name: string; email: string; role: string; is_active: boolean }>;
   features: Array<{ feature_key: string; label: string; enabled: boolean }>;
 };
+type Brand = Record<string, string>;
 type Control = { operator: boolean; tenants: Tenant[]; platforms: Platform[]; platform_feature_catalog: Array<{ feature_key: string; label: string }>; domain_note?: string };
 
 const statusColor = (value?: string) => value === "active" || value === "verified" ? "green" : value === "pending_dns" ? "gold" : "default";
@@ -85,10 +86,12 @@ function PlatformControlCenter() {
   const [platformOpen, setPlatformOpen] = useState(false);
   const [domainOpen, setDomainOpen] = useState(false);
   const [memberOpen, setMemberOpen] = useState(false);
+  const [brand, setBrand] = useState<Brand | null>(null);
   const [tenantForm] = Form.useForm();
   const [platformForm] = Form.useForm();
   const [domainForm] = Form.useForm();
   const [memberForm] = Form.useForm();
+  const [brandForm] = Form.useForm();
 
   const load = async () => {
     setLoading(true);
@@ -103,7 +106,7 @@ function PlatformControlCenter() {
   };
   const openPlatform = async (row: Platform) => {
     setDetailLoading(true);
-    try { setSelected(await api.getTenantPlatform(row.id) as PlatformDetail); }
+    try { const detail = await api.getTenantPlatform(row.id) as PlatformDetail; setSelected(detail); const result = await api.getPlatformBrand(row.id) as any; setBrand(result.brand || {}); brandForm.setFieldsValue(result.brand || {}); }
     catch (error: any) { message.error(error?.message || "Could not load platform details"); }
     finally { setDetailLoading(false); }
   };
@@ -130,7 +133,7 @@ function PlatformControlCenter() {
     { title: "Contact", dataIndex: "contact_email", render: (value) => value || "—" },
     { title: "Status", dataIndex: "status", render: (value) => <Tag color={statusColor(value)}>{value || "active"}</Tag> },
     { title: "", width: 160, render: (_, tenant) => <Space>
-      <Button size="small" icon={<PlusOutlined />} onClick={() => { platformForm.resetFields(); platformForm.setFieldsValue({ tenant_id: tenant.id, default_locale: tenant.default_locale || "en", support_mode: "none", status: "active" }); setPlatformOpen(true); }}>Platform</Button>
+      <Tooltip title={Number(tenant.platform_count || 0) >= 1 ? "One active platform is allowed per client company" : "Create the platform for this client company"}><Button size="small" disabled={Number(tenant.platform_count || 0) >= 1} icon={<PlusOutlined />} onClick={() => { platformForm.resetFields(); platformForm.setFieldsValue({ tenant_id: tenant.id, default_locale: tenant.default_locale || "en", support_mode: "none", status: "active" }); setPlatformOpen(true); }}>Platform</Button></Tooltip>
       {control?.operator && tenant.tenant_key !== "bdg-operations" && <Popconfirm title="Archive this client company and its platforms?" description="Its data is retained but no longer active." onConfirm={() => api.archiveTenant(tenant.id).then(() => { message.success("Client company archived"); load(); })}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>}
     </Space> },
   ];
@@ -182,10 +185,10 @@ function PlatformControlCenter() {
       <Col xs={24} md={8}><Card><Statistic title="Child platforms" value={control?.platforms.length || 0} prefix={<ApiOutlined />} /></Card></Col>
       <Col xs={24} md={8}><Card><Statistic title="Included modules" value={control?.platform_feature_catalog.length || 0} prefix={<GlobalOutlined />} /></Card></Col>
     </Row>
-    <Card title="Client companies" extra={<Tooltip title="A client company is the paying tenant. It can own multiple branded child platforms."><GlobalOutlined /></Tooltip>} style={{ marginBottom: 16 }}>
+    <Card title="Client companies" extra={<Tooltip title="Each client company is limited to one active platform."><GlobalOutlined /></Tooltip>} style={{ marginBottom: 16 }}>
       <Table rowKey="id" size="middle" columns={tenantColumns} dataSource={control?.tenants || []} pagination={{ pageSize: 10 }} locale={{ emptyText: "No client company is available to your account." }} />
     </Card>
-    <Card title="Child platforms" extra={<Button icon={<PlusOutlined />} onClick={() => { platformForm.resetFields(); platformForm.setFieldsValue({ default_locale: "en", support_mode: "none", status: "active" }); setPlatformOpen(true); }}>New platform</Button>}>
+    <Card title="Child platforms" extra={<Button icon={<PlusOutlined />} disabled={(control?.tenants || []).every((tenant) => Number(tenant.platform_count || 0) >= 1)} onClick={() => { platformForm.resetFields(); platformForm.setFieldsValue({ default_locale: "en", support_mode: "none", status: "active" }); setPlatformOpen(true); }}>New platform</Button>}>
       <Table rowKey="id" size="middle" columns={platformColumns} dataSource={control?.platforms || []} pagination={{ pageSize: 20 }} locale={{ emptyText: "Create a platform under a client company to begin." }} />
     </Card>
 
@@ -248,6 +251,7 @@ function PlatformControlCenter() {
               { title: "", width: 48, render: (_, row) => row.role === "platform_owner" ? null : <Popconfirm title="Remove this member from the platform?" onConfirm={() => api.removePlatformMember(row.id).then(() => { message.success("Platform member removed"); refreshSelected(); })}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm> },
             ]} />
           </> },
+          { key: "brand", label: "Brand Studio", children: <Form form={brandForm} layout="vertical" onFinish={async (values) => { try { const result = await api.updatePlatformBrand(selected.id, values) as any; setBrand(result.brand || values); brandForm.setFieldsValue(result.brand || values); message.success("Platform branding saved"); } catch (error: any) { message.error(error?.message || "Brand update failed"); } }}><Alert type="info" showIcon message="Platform-owned branding" description="These values are used by the Guide, Chat, and Admin surfaces for this platform. Empty fields inherit the platform defaults." style={{ marginBottom: 16 }} /><Row gutter={12}><Col span={12}><Form.Item name="brand_name" label="Brand name"><Input /></Form.Item></Col><Col span={12}><Form.Item name="brand_tagline" label="Tagline"><Input /></Form.Item></Col><Col span={12}><Form.Item name="admin_logo_url" label="Admin logo URL"><Input placeholder="https://.../logo.png" /></Form.Item></Col><Col span={12}><Form.Item name="admin_favicon_url" label="Admin favicon URL"><Input placeholder="https://.../favicon.png" /></Form.Item></Col><Col span={12}><Form.Item name="guide_logo_url" label="Guide logo URL"><Input placeholder="https://.../logo.png" /></Form.Item></Col><Col span={12}><Form.Item name="guide_favicon_url" label="Guide favicon URL"><Input placeholder="https://.../favicon.png" /></Form.Item></Col><Col span={12}><Form.Item name="chat_icon_url" label="Chat icon URL"><Input placeholder="https://.../icon.png" /></Form.Item></Col><Col span={12}><Form.Item name="chat_favicon_url" label="Chat favicon URL"><Input placeholder="https://.../favicon.png" /></Form.Item></Col><Col span={8}><Form.Item name="accent_color" label="Accent color"><Input placeholder="#3b82f6" /></Form.Item></Col><Col span={8}><Form.Item name="surface_color" label="Surface color"><Input placeholder="#0f172a" /></Form.Item></Col><Col span={8}><Form.Item name="button_style" label="Button style"><Select options={[{value:"rounded",label:"Rounded"},{value:"pill",label:"Pill"},{value:"square",label:"Square"}]} /></Form.Item></Col></Row><Button type="primary" htmlType="submit">Save brand settings</Button></Form> },
           { key: "features", label: `Features (${selected.features.length})`, children: <Table rowKey="feature_key" size="small" pagination={false} dataSource={selected.features} columns={[
             { title: "Module", dataIndex: "label" },
             { title: "Key", dataIndex: "feature_key", render: (value) => <code>{value}</code> },
