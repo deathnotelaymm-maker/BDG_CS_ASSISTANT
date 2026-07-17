@@ -26,6 +26,7 @@ const migration011 = read("backend-api/migrations/006_v0.11.0_advanced_ai_knowle
 const migration100 = read("backend-api/migrations/007_v1.0.0_tenant_core_platform_control_center.sql");
 const migration101 = read("backend-api/migrations/008_v1.0.1_automatic_platform_access_links.sql");
 const migration110 = read("backend-api/migrations/009_v1.1.0_tenant_data_isolation_platform_scoped_admin.sql");
+const migration120a = read("backend-api/migrations/011_v1.2.0a_safe_bootstrap_deduplication_repair.sql");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
 const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
@@ -289,6 +290,12 @@ expect(
   core.includes("provisionPlatformWorkspace") &&
     core.includes("guides, FAQ answers, AI content and") &&
     core.includes("await provisionPlatformWorkspace(env, row)"),
+);
+expect(
+  "v1.2.0a deduplicates legacy rows before tenant backfill",
+  core.includes("deduplicateLegacyRows(env)") &&
+    core.includes("ROW_NUMBER() OVER (PARTITION BY") &&
+    migration120a.includes("v1.2.0a_safe_bootstrap_deduplication_repair"),
 );
 
 for (const check of checks)

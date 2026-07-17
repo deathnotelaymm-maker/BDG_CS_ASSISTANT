@@ -6,7 +6,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.2.0-tenant-brand-studio-one-platform-guard';
+const VERSION = '1.2.0a-safe-bootstrap-deduplication-repair';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -71,7 +71,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','platform-context-header','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','platform-context-header','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -1431,8 +1431,24 @@ async function ensureTenantCore(env) {
   await q(env, `INSERT INTO saas_platform_memberships(platform_id,admin_user_id,role) VALUES($1,$2,'platform_owner') ON CONFLICT(platform_id,admin_user_id) DO NOTHING`, [platform.id, owner.id]);
   await insertDefaultPlatformFeatures(env, platform.id);
   await ensurePlatformAccessRoutes(env);
+  await deduplicateLegacyRows(env);
   for (const table of ['categories','guides','faqs','knowledge_items','theme_settings','ai_prompt_sections','ai_model_settings','chat_sessions','chat_memory_messages','chat_logs','site_content_blocks','action_buttons','popular_help_cards','navigation_items','guide_home_sections','chat_quick_replies','unmatched_questions','incorrect_match_reports','knowledge_versions','ai_prompt_versions','content_versions','knowledge_import_batches','ai_content_items','admin_audit_logs']) {
     await q(env, `UPDATE ${table} SET tenant_id=$1,platform_id=$2 WHERE platform_id IS NULL`, [tenant.id, platform.id]);
+  }
+}
+async function deduplicateLegacyRows(env) {
+  // v1.0/v1.1 databases may contain repeated global seed rows. Before those
+  // rows receive the legacy tenant/platform IDs, keep the newest row for each
+  // natural key so the v1.1 per-platform unique indexes cannot reject boot.
+  const keys = [
+    ['categories','name'], ['categories','slug'], ['guides','slug'],
+    ['ai_content_items','intent_key'], ['ai_prompt_sections','section_key'],
+    ['site_content_blocks','block_key'], ['action_buttons','button_key'],
+    ['navigation_items','nav_key'], ['guide_home_sections','section_key'],
+  ];
+  await q(env, `DELETE FROM theme_settings WHERE platform_id IS NULL AND id NOT IN (SELECT id FROM theme_settings WHERE platform_id IS NULL ORDER BY id DESC LIMIT 1)`);
+  for (const [table, key] of keys) {
+    await q(env, `DELETE FROM ${table} WHERE id IN (SELECT id FROM (SELECT id,ROW_NUMBER() OVER (PARTITION BY ${key} ORDER BY id DESC) AS duplicate_rank FROM ${table} WHERE platform_id IS NULL AND ${key} IS NOT NULL) ranked WHERE duplicate_rank > 1)`);
   }
 }
 async function ensureTenantDataIsolation(env) {
