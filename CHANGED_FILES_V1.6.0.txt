@@ -1,0 +1,40 @@
+v1.6.0 — Tenant Experience Studio + Resilient Knowledge Import
+
+Backend
+- backend-api/src/core.js
+- backend-api/src/knowledge-import.js
+- backend-api/src/server.js
+- backend-api/migrations/018_v1.6.0_tenant_experience_studio_resilient_knowledge_import.sql
+- backend-api/package.json and package-lock.json
+
+Admin
+- admin-pro/src/lib/api.ts
+- admin-pro/src/components/AdminLayout.tsx
+- admin-pro/src/routes/_admin.ai-knowledge-import.tsx
+- admin-pro/src/routes/_admin.theme-settings.tsx
+- admin-pro/package.json and package-lock.json
+
+Chat
+- chat-pro/src/App.tsx
+- chat-pro/src/lib/api.ts
+- chat-pro/src/lib/chat-config.ts
+- chat-pro/src/styles.css
+- chat-pro/package.json and package-lock.json
+
+Guide
+- guide-pro/src/components/public/PublicLayout.tsx
+- guide-pro/src/lib/api.ts
+- guide-pro/src/mock/data.ts
+- guide-pro/src/routes/_public.index.tsx
+- guide-pro/package.json and package-lock.json
+
+Verification and release notes
+- backend-api/scripts/knowledge-import-regression-test.js
+- backend-api/scripts/operations-connector-regression-test.js
+- backend-api/scripts/tenant-platform-experience-regression-test.js
+- backend-api/scripts/upload-regression-test.js
+- backend-api/scripts/regression-test.js
+- backend-api/scripts/v1.6.0-regression-test.js
+- README.md
+- RELEASE_NOTES_V1.6.0.md
+- TEST_RESULT_V1.6.0.md

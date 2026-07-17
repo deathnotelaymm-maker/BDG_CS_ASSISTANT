@@ -50,7 +50,11 @@ function Home() {
     <div className="space-y-10">
       <section
         className="relative overflow-hidden rounded-3xl p-6 pt-8 text-white shadow-[var(--shadow-card)] md:p-10"
-        style={{ background: "var(--gradient-hero)" }}
+        style={{
+          backgroundImage: c?.heroBackgroundUrl || undefined,
+          background: c?.heroBackgroundUrl ? `linear-gradient(${c.heroOverlayColor || "#081525cc"},${c.heroOverlayColor || "#081525cc"}), url(${c.heroBackgroundUrl}) center/cover` : "var(--gradient-hero)",
+          borderRadius: "var(--radius-3xl)",
+        }}
       >
         <div
           className="absolute -right-16 -top-16 h-56 w-56 rounded-full opacity-25 blur-3xl"

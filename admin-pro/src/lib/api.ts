@@ -709,6 +709,28 @@ export const api = {
     return request("/admin/knowledge-imports");
   },
 
+  getKnowledgeImportStatus: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ id, progress_percent: 100, current_stage: "complete", processed_rows: 0 });
+    return request(`/admin/knowledge-imports/${id}/status`);
+  },
+
+  downloadKnowledgeImportTemplate: async () => {
+    if (MOCK_MODE || !API_BASE_URL) return;
+    const token = getToken();
+    const res = await fetch(`${API_BASE_URL}/admin/knowledge-imports/template`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...platformHeaders() },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) throw new Error(`Template download failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "AI_Knowledge_Import_Template.xlsx";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
+
   getKnowledgeImport: async (id: string | number) => {
     if (MOCK_MODE) return delay({ id, preview_rows: [] });
     return request(`/admin/knowledge-imports/${id}`);

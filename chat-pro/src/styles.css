@@ -157,6 +157,11 @@
   to { opacity: 1; letter-spacing: 0.012em; }
 }
 
+@keyframes bdg-announcement-marquee {
+  from { transform: translateX(100%); }
+  to { transform: translateX(-100%); }
+}
+
 @utility chat-start-slide {
   animation: bdg-start-slide 280ms ease-out both;
 }
@@ -174,6 +179,11 @@
 }
 
 .chat-start-fade { animation: bdg-fade-in 220ms ease-out both; }
+.chat-announcement-window { overflow: hidden; white-space: nowrap; }
+.chat-announcement-track { display: inline-block; min-width: 100%; animation: bdg-announcement-marquee 14s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .chat-announcement-track { animation: none; white-space: normal; }
+}
 .chat-background-image { background-image: var(--background-image); background-size: cover; background-position: center; }
 .chat-background-image::before { content: ""; position: absolute; inset: 0; background: color-mix(in oklab, var(--background) 88%, transparent); pointer-events: none; }
 .chat-background-image > * { position: relative; }

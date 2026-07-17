@@ -7,6 +7,11 @@ const HEADER_ALIASES = {
   question: ['question', 'questions', 'customer question', 'user question', 'query', 'issue'],
   answer: ['how to reply', 'how to reply answer', 'answer', 'reply', 'response', 'guidance', 'how to answer'],
   photo_ref: ['photo', 'picture', 'image', 'image key', 'photo picture', 'screenshot'],
+  image_url: ['image url', 'photo url', 'picture url'],
+  image_role: ['image role', 'photo role', 'visual role'],
+  image_alt: ['image alt', 'alt text', 'image description'],
+  image_caption: ['image caption', 'caption'],
+  image_placement: ['image placement', 'image position', 'placement'],
   ticket_label: ['corresponding ticket', 'ticket', 'ticket name', 'ticket type'],
   title: ['title', 'topic', 'knowledge title'],
   positive_examples: ['positive examples', 'positive example', 'match examples'],
@@ -20,6 +25,12 @@ function clean(value) {
   return String(value ?? '').replace(/\r/g, '').trim();
 }
 
+function normalizeImportLocale(value) {
+  const raw = clean(value).replace(/_/g, '-');
+  if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/i.test(raw)) return 'en';
+  return raw.split('-').map((part, index) => index === 0 ? part.toLowerCase() : (part.length === 2 || part.length === 3 ? part.toUpperCase() : part)).join('-');
+}
+
 export function normalizeWorkbookHeader(value) {
   return clean(value).toLowerCase().replace(/[()\[\]{}]/g, ' ').replace(/[\/_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -27,7 +38,10 @@ export function normalizeWorkbookHeader(value) {
 function aliasFor(header) {
   const normalized = normalizeWorkbookHeader(header);
   for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
-    if (aliases.some((alias) => normalized === alias || normalized.includes(alias))) return field;
+    if (aliases.some((alias) => normalized === alias)) return field;
+  }
+  for (const [field, aliases] of Object.entries(HEADER_ALIASES)) {
+    if (aliases.some((alias) => normalized.includes(alias))) return field;
   }
   return '';
 }
@@ -75,12 +89,15 @@ function valueAt(row, column) {
 function rowOut({ row, headers, sheetName, rowNumber }) {
   const question = valueAt(row, headers.question);
   const answer = valueAt(row, headers.answer);
-  const localeValue = valueAt(row, headers.locale).toLowerCase();
-  const locale = ['en', 'hi', 'all'].includes(localeValue) ? localeValue : 'en';
+  const locale = normalizeImportLocale(valueAt(row, headers.locale));
   const title = valueAt(row, headers.title) || sheetName;
   const sourceKey = `${safeSlug(sheetName)}-${stableHash(`${sheetName}|${question}|${locale}`)}`;
   const warnings = [];
-  const photoRef = valueAt(row, headers.photo_ref);
+  const photoRef = valueAt(row, headers.image_url) || valueAt(row, headers.photo_ref);
+  const imageRole = valueAt(row, headers.image_role) || (photoRef ? 'reference' : '');
+  const imageAlt = valueAt(row, headers.image_alt);
+  const imageCaption = valueAt(row, headers.image_caption);
+  const imagePlacement = valueAt(row, headers.image_placement) || 'after_answer';
   const ticketLabel = valueAt(row, headers.ticket_label);
   if (photoRef) warnings.push('Image reference kept for review. Upload the image in the visual editor after the draft is created.');
   if (ticketLabel) warnings.push('Ticket label kept for review. Bind it to an approved button only for a platform that supports tickets.');
@@ -102,6 +119,11 @@ function rowOut({ row, headers, sheetName, rowNumber }) {
       negative_examples: valueAt(row, headers.negative_examples),
       instruction: valueAt(row, headers.instruction),
       image_ref: photoRef,
+      image_url: photoRef,
+      image_role: imageRole,
+      image_alt: imageAlt,
+      image_caption: imageCaption,
+      image_placement: imagePlacement,
       ticket_label: ticketLabel,
       locale,
       platform_key: safeSlug(valueAt(row, headers.platform_key), ''),
@@ -156,7 +178,7 @@ export function importedRowToAiContentDraft(mapped = {}, platformKey = 'default'
   return {
     title: clean(mapped.title) || 'Imported knowledge',
     intent_key: clean(mapped.intent_key),
-    locale: ['en', 'hi', 'all'].includes(clean(mapped.locale)) ? clean(mapped.locale) : 'en',
+    locale: normalizeImportLocale(mapped.locale),
     status: 'draft',
     priority: 100,
     confidence_threshold: 86,
@@ -174,7 +196,7 @@ export function importedRowToAiContentDraft(mapped = {}, platformKey = 'default'
     rich_html: '',
     rich_json_hi: '',
     rich_html_hi: '',
-    image_urls: [],
+    image_urls: clean(mapped.image_url || mapped.image_ref) ? [clean(mapped.image_url || mapped.image_ref)] : [],
     image_delivery: 'after_answer',
     button_ids: [],
     approval_status: 'draft',
@@ -189,4 +211,3 @@ export function importedRowToAiContentDraft(mapped = {}, platformKey = 'default'
     source_image_ref: clean(mapped.image_ref),
   };
 }
-

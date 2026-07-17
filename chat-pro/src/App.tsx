@@ -10,8 +10,8 @@ import {
   Sparkles,
   XCircle,
 } from "lucide-react";
-import { fetchChatContent, getPlatformKey, sendChatMessage, type ChatContent, type ResponseBlock } from "@/lib/api";
-import { CHAT_LANGUAGE_OPTIONS, getChatConfig, type PublicLanguage } from "@/lib/chat-config";
+import { ChatApiError, fetchChatContent, getPlatformKey, sendChatMessage, type ChatContent, type ResponseBlock } from "@/lib/api";
+import { CHAT_LANGUAGE_OPTIONS, getChatConfig, normalizeChatLocale, type PublicLanguage } from "@/lib/chat-config";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
 type Role = "user" | "assistant";
@@ -24,6 +24,7 @@ interface Message {
   blocks?: ResponseBlock[];
   error?: boolean;
   retryOf?: string;
+  errorInfo?: string;
 }
 
 function uid() {
@@ -72,8 +73,9 @@ export default function App() {
     return (window.localStorage.getItem("bdg_chat_language") as PublicLanguage) || "en";
   });
   const platformKey = getPlatformKey();
-  const chatConfig = getChatConfig(language, platformKey);
-  const dynamicTexts = content?.texts?.[language] || {};
+  const effectiveLanguage = normalizeChatLocale(language, normalizeChatLocale(content?.default_locale, "en"));
+  const chatConfig = getChatConfig(effectiveLanguage, platformKey);
+  const dynamicTexts = content?.texts?.[effectiveLanguage] || content?.texts?.[effectiveLanguage.split("-")[0]] || {};
   const startModule = content?.start_module;
   const languageOptions = content?.languages?.length ? content.languages : CHAT_LANGUAGE_OPTIONS;
   const startEnabled = Boolean(content && startModule?.enabled !== false);
@@ -83,9 +85,10 @@ export default function App() {
   const welcomeTitle = dynamicTexts.welcome_title || chatConfig.welcomeTitle;
   const welcomeText = dynamicTexts.welcome || chatConfig.welcomeText;
   const iconUrl = content?.branding?.chat_icon_url || "";
-  const quickQuestions = (content?.quick_replies || []).length
-    ? (content?.quick_replies || []).slice(0, 5).map((q) => q.query || q.text)
+  const quickQuestions = content
+    ? (content.quick_replies || []).slice(0, 5).map((q) => q.query || q.text)
     : chatConfig.quickQuestions;
+  const actionButtons = content?.action_buttons || [];
   const layout = safePreset(startModule?.layout || content?.settings?.chat_layout, SAFE_LAYOUTS, "standard");
   const bubbleStyle = safePreset(startModule?.bubble_style || content?.settings?.chat_bubble_style, SAFE_BUBBLES, "soft");
   const inputStyle = safePreset(startModule?.input_style || content?.settings?.chat_input_style, SAFE_INPUTS, "rounded");
@@ -159,7 +162,7 @@ export default function App() {
       setIsProcessing(true);
 
       try {
-        const res = await sendChatMessage(trimmed, language, platformKey);
+        const res = await sendChatMessage(trimmed, effectiveLanguage, platformKey);
         setMessages((m) => [
           ...m,
           {
@@ -170,7 +173,10 @@ export default function App() {
             images: res.content_images || [],
           },
         ]);
-      } catch {
+      } catch (error) {
+        const errorInfo = error instanceof ChatApiError
+          ? `${error.message}${error.requestId ? ` · Request ${error.requestId}` : ""}`
+          : "The support service did not return a usable response.";
         setMessages((m) => [
           ...m,
           {
@@ -179,6 +185,7 @@ export default function App() {
             content: chatConfig.fallbackMessage,
             error: true,
             retryOf: trimmed,
+            errorInfo,
           },
         ]);
       } finally {
@@ -186,7 +193,7 @@ export default function App() {
         setTimeout(() => inputRef.current?.focus(), 30);
       }
     },
-    [isProcessing, language, platformKey, chatConfig.fallbackMessage],
+    [isProcessing, effectiveLanguage, platformKey, chatConfig.fallbackMessage],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -256,6 +263,7 @@ export default function App() {
               module={startModule}
               iconUrl={iconUrl}
               quickQuestions={quickQuestions}
+              actionButtons={actionButtons}
               onStart={() => {
                 setStarted(true);
                 setTimeout(() => inputRef.current?.focus(), 30);
@@ -280,19 +288,6 @@ export default function App() {
                 </div>
               </section>
 
-              <div className="flex flex-wrap gap-2 pb-1">
-                {quickQuestions.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    disabled={isProcessing}
-                    onClick={() => send(q)}
-                    className="text-xs px-3 py-1.5 rounded-full border border-border bg-surface hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
             </>
           )}
 
@@ -315,6 +310,21 @@ export default function App() {
             <div className="text-[11px] text-brand/90 px-2 pb-1 flex items-center gap-1.5">
               <span className="typing-dot" />
               {chatConfig.replyingLabel}
+            </div>
+          )}
+          {quickQuestions.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2" aria-label="Quick replies">
+              {quickQuestions.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => send(q)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-border bg-surface hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
             </div>
           )}
           <div className="flex items-end gap-2">
@@ -353,12 +363,14 @@ function ChatStartModule({
   module,
   iconUrl,
   quickQuestions,
+  actionButtons,
   onStart,
   onPrompt,
 }: {
   module?: ChatContent["start_module"];
   iconUrl: string;
   quickQuestions: string[];
+  actionButtons: NonNullable<ChatContent["action_buttons"]>;
   onStart: () => void;
   onPrompt: (text: string) => void;
 }) {
@@ -367,8 +379,8 @@ function ChatStartModule({
   return (
     <section className={`chat-start-module chat-start-${animation} rounded-3xl border border-border bg-gradient-to-br from-surface-elevated to-surface p-5 msg-in`}>
       {module?.announcement ? (
-        <div className="mb-3 rounded-xl border border-sky-400/30 bg-sky-400/10 px-3 py-2 text-xs text-sky-100">
-          {module.announcement}
+        <div className="chat-announcement-window mb-3 rounded-xl border border-sky-400/30 bg-sky-400/10 px-3 py-2 text-xs text-sky-100">
+          <span className="chat-announcement-track">{module.announcement}</span>
         </div>
       ) : null}
       {module?.maintenance_banner ? (
@@ -399,6 +411,15 @@ function ChatStartModule({
               {question}
             </button>
           ))}
+        </div>
+      ) : null}
+      {actionButtons.length > 0 ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {actionButtons.slice(0, 6).map((button) => {
+            const prompt = button.action_type === "chat_prompt" || button.url.startsWith("prompt:");
+            if (prompt) return <button key={button.id} type="button" onClick={() => onPrompt(button.url.replace(/^prompt:/i, "").trim() || button.label)} className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-left text-xs hover:bg-accent"><span className="flex-1">{button.label}{button.subtitle ? <span className="block opacity-70">{button.subtitle}</span> : null}</span></button>;
+            return <a key={button.id} href={button.url} target={button.target === "new_window" ? "_blank" : undefined} rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-left text-xs hover:bg-accent">{button.icon_url ? <img src={button.icon_url} alt="" className="h-6 w-6 rounded object-contain" /> : null}<span className="flex-1">{button.label}{button.subtitle ? <span className="block opacity-70">{button.subtitle}</span> : null}</span><ExternalLink className="h-3.5 w-3.5" /></a>;
+          })}
         </div>
       ) : null}
       {module?.responsible_notice ? (
@@ -463,6 +484,7 @@ function MessageBubble({ message, onRetry, onPrompt, onPreview }: { message: Mes
         )}
         {message.error && (
           <div className="mt-3">
+            {message.errorInfo && <div className="mb-2 text-[11px] text-red-200/80">{message.errorInfo}</div>}
             <button
               onClick={onRetry}
               className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:bg-brand-glow transition-colors"

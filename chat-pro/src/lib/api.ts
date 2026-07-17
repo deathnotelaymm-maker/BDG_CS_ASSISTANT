@@ -46,6 +46,9 @@ export interface ChatContent {
     }
   >;
   quick_replies?: { text: string; query?: string }[];
+  action_buttons?: { id: number; label: string; subtitle?: string; url: string; icon_url?: string; target?: string; action_type?: string }[];
+  languages?: { code: string; label: string }[];
+  default_locale?: string;
   support_enabled?: boolean;
   default_platform_key?: string;
   platforms?: { platform_key: string; name: string; support_mode: "none" | "tickets" | "hybrid" }[];
@@ -76,6 +79,25 @@ export interface ChatResponse {
   response_format?: "structured-v1" | "structured-v2" | string;
   response_blocks?: ResponseBlock[];
   resolution_state?: "open" | "confirmed_by_user" | string;
+  request_id?: string;
+  error?: string;
+  code?: string;
+  retry_after_ms?: number;
+}
+
+export class ChatApiError extends Error {
+  status: number;
+  code: string;
+  requestId: string;
+  retryAfterMs?: number;
+  constructor(message: string, details: { status: number; code?: string; requestId?: string; retryAfterMs?: number }) {
+    super(message);
+    this.name = "ChatApiError";
+    this.status = details.status;
+    this.code = details.code || "CHAT_REQUEST_FAILED";
+    this.requestId = details.requestId || "";
+    this.retryAfterMs = details.retryAfterMs;
+  }
 }
 
 export interface ChatRequest {
@@ -140,7 +162,13 @@ export async function sendChatMessage(
   });
 
   if (!res.ok) {
-    throw new Error(`Chat API error: ${res.status}`);
+    const payload = await res.json().catch(() => ({} as any));
+    throw new ChatApiError(payload?.error || `Chat API error: ${res.status}`, {
+      status: res.status,
+      code: payload?.code,
+      requestId: payload?.request_id || res.headers.get("x-request-id") || "",
+      retryAfterMs: Number(payload?.retry_after_ms || 0) || undefined,
+    });
   }
 
   return (await res.json()) as ChatResponse;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import api, { uploadToR2 } from '../src/core.js';
 import { createR2Adapter } from '../src/r2-adapter.js';
 
-const version = '1.5.0-tenant-platform-experience-owner-controls';
+const version = '1.6.0-tenant-experience-studio-resilient-knowledge-import';
 const env = {
   R2_ACCOUNT_ID: 'test-account',
   R2_ACCESS_KEY_ID: 'test-access-key',

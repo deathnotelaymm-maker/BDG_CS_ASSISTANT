@@ -11,6 +11,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  Progress,
   Row,
   Select,
   Space,
@@ -20,7 +21,7 @@ import {
   Upload,
   message,
 } from "antd";
-import { CloudUploadOutlined, DeleteOutlined, EditOutlined, EyeOutlined, FileExcelOutlined, ReloadOutlined, RollbackOutlined } from "@ant-design/icons";
+import { CloudUploadOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EyeOutlined, FileExcelOutlined, ReloadOutlined, RollbackOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/_admin/ai-knowledge-import")({ component: AiKnowledgeImportPage });
@@ -39,6 +40,7 @@ function AiKnowledgeImportPage() {
   const [platformKey, setPlatformKey] = useState("default");
   const [loading, setLoading] = useState(true);
   const [previewing, setPreviewing] = useState(false);
+  const [importProgress, setImportProgress] = useState({ percent: 0, stage: "" });
   const [selected, setSelected] = useState<any | null>(null);
   const [platformEditor, setPlatformEditor] = useState<any | null>(null);
   const [form] = Form.useForm();
@@ -71,15 +73,18 @@ function AiKnowledgeImportPage() {
       return Upload.LIST_IGNORE;
     }
     setPreviewing(true);
+    setImportProgress({ percent: 12, stage: "Uploading workbook…" });
     try {
       const batch = await api.previewKnowledgeImport(file, platformKey);
+      setImportProgress({ percent: 72, stage: "Validating rows and image roles…" });
       message.success(`Preview created: ${batch.valid_rows} valid row(s), ${batch.error_rows} issue(s)`);
       await load();
       await openBatch(batch.id);
+      setImportProgress({ percent: 100, stage: "Review ready" });
     } catch (error: any) {
       message.error(error?.message || "Workbook preview failed");
     } finally {
-      setPreviewing(false);
+      setTimeout(() => setPreviewing(false), 250);
     }
     return Upload.LIST_IGNORE;
   };
@@ -136,7 +141,7 @@ function AiKnowledgeImportPage() {
     />
     <Row gutter={[12, 12]}>
       <Col xs={24} xl={15}>
-        <Card className="bdg-card" title="1. Import an Excel knowledge workbook" extra={<Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>}>
+        <Card className="bdg-card" title="1. Import an Excel knowledge workbook" extra={<Space><Button icon={<DownloadOutlined />} onClick={() => api.downloadKnowledgeImportTemplate().catch((error: any) => message.error(error?.message || "Template download failed"))}>Example template</Button><Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button></Space>}>
           <Space direction="vertical" size={14} style={{ width:"100%" }}>
             <div>
               <Typography.Text strong>Target support platform</Typography.Text>
@@ -145,7 +150,7 @@ function AiKnowledgeImportPage() {
             <Dragger accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" maxCount={1} beforeUpload={chooseFile} showUploadList={false} disabled={previewing}>
               <p className="ant-upload-drag-icon"><FileExcelOutlined /></p>
               <p className="ant-upload-text">Drop your .xlsx file here or click to select it</p>
-              <p className="ant-upload-hint">Recognized columns: Question, How to reply / Answer, Photo / Picture, Corresponding Ticket. Extra columns such as Positive examples, Negative examples, AI instruction, Locale, and Platform are also accepted.</p>
+              <p className="ant-upload-hint">Recognized columns: Question, Answer, Positive/Negative examples, AI instruction, Image URL, Image role, Image alt/caption/placement, Ticket, Locale, and Platform.</p>
             </Dragger>
             <Alert showIcon type="warning" message="Photos and ticket labels are review notes" description="The importer does not fetch unknown image URLs or create tickets automatically. Upload images in the visual editor, and bind a ticket label to an approved Button only where the selected platform supports tickets." />
           </Space>
@@ -166,7 +171,7 @@ function AiKnowledgeImportPage() {
       <Table rowKey="id" loading={loading} dataSource={batches} pagination={{ pageSize:10 }} columns={[
         { title:"Workbook", render:(_:any,row:any)=><div><b>{row.filename}</b><div style={{color:"#8ea0bd",fontSize:12}}>{row.platform_key} · {row.created_at}</div></div> },
         { title:"Rows", render:(_:any,row:any)=><Space><Tag color="green">{row.valid_rows} valid</Tag>{row.error_rows ? <Tag color="red">{row.error_rows} issue(s)</Tag> : null}</Space> },
-        { title:"State", dataIndex:"status", render:(value:string)=><Tag color={statusColor(value)}>{value}</Tag> },
+        { title:"State", render:(_:any,row:any)=><Space direction="vertical" size={2}><Tag color={statusColor(row.status)}>{row.status}</Tag>{row.current_stage && row.current_stage !== "complete" ? <Progress percent={Number(row.progress_percent || 0)} size="small" status="active" /> : null}</Space> },
         { title:"Actions", width:180, render:(_:any,row:any)=><Button size="small" icon={<EyeOutlined />} onClick={()=>openBatch(row.id)}>Review</Button> },
       ] as any} />
     </Card>
@@ -178,6 +183,7 @@ function AiKnowledgeImportPage() {
           { key:"state",label:"State",children:<Tag color={statusColor(selected.status)}>{selected.status}</Tag> },
           { key:"valid",label:"Valid rows",children:selected.valid_rows },
           { key:"errors",label:"Issues",children:selected.error_rows },
+          { key:"progress",label:"Import progress",children:<Space><Progress percent={Number(selected.progress_percent || 100)} size="small" />{selected.current_stage}</Space> },
         ]} />
         {selected.summary?.sheet_errors?.length ? <Alert type="warning" showIcon style={{marginTop:12}} message="Sheets with missing columns" description={selected.summary.sheet_errors.map((issue:any)=>`${issue.sheet_name}: ${issue.error}`).join(" · ")} /> : null}
         <Alert type="info" showIcon style={{marginTop:12}} message="What happens next" description="Create AI Content drafts does not enable AI answers. It gives you editable drafts. Open each one in AI Prompt & Image, add optional visual knowledge and approved buttons, then approve and publish it." />
@@ -185,7 +191,7 @@ function AiKnowledgeImportPage() {
           { title:"Sheet / row", width:120, render:(_:any,row:any)=><div>{row.sheet_name}<div style={{color:"#8ea0bd"}}>row {row.row_number}</div></div> },
           { title:"Question", width:240, render:(_:any,row:any)=><Typography.Paragraph ellipsis={{ rows:3, tooltip:row.mapped?.question }}>{row.mapped?.question || "—"}</Typography.Paragraph> },
           { title:"Approved answer", width:330, render:(_:any,row:any)=><Typography.Paragraph ellipsis={{ rows:4, tooltip:row.mapped?.answer }}>{row.mapped?.answer || "—"}</Typography.Paragraph> },
-          { title:"Ticket / image notes", width:180, render:(_:any,row:any)=><Space direction="vertical" size={2}>{row.mapped?.ticket_label ? <Tag color="gold">Ticket: {row.mapped.ticket_label}</Tag> : null}{row.mapped?.image_ref ? <Tag color="blue">Image: {row.mapped.image_ref}</Tag> : null}{(row.warnings || []).map((warning:string)=><Typography.Text key={warning} type="secondary" style={{fontSize:11}}>{warning}</Typography.Text>)}</Space> },
+          { title:"Ticket / image notes", width:220, render:(_:any,row:any)=><Space direction="vertical" size={2}>{row.mapped?.ticket_label ? <Tag color="gold">Ticket: {row.mapped.ticket_label}</Tag> : null}{row.mapped?.image_ref ? <Tag color="blue">Image: {row.mapped.image_ref}</Tag> : null}{row.mapped?.image_role ? <Tag color="cyan">Role: {row.mapped.image_role}</Tag> : null}{row.mapped?.image_placement ? <Typography.Text type="secondary" style={{fontSize:11}}>Placement: {row.mapped.image_placement}</Typography.Text> : null}{(row.warnings || []).map((warning:string)=><Typography.Text key={warning} type="secondary" style={{fontSize:11}}>{warning}</Typography.Text>)}</Space> },
           { title:"Validation", width:150, render:(_:any,row:any)=><Space direction="vertical" size={2}><Tag color={statusColor(row.status)}>{row.status}</Tag>{row.validation_error ? <Typography.Text type="danger" style={{fontSize:11}}>{row.validation_error}</Typography.Text> : null}</Space> },
         ] as any} />
       </>}
@@ -201,6 +207,13 @@ function AiKnowledgeImportPage() {
         <Form.Item name="default_locale" label="Default language" rules={[{required:true}]}><Input placeholder="en-US, th, my-MM" /></Form.Item>
         <Form.Item name="supported_languages" label="Supported languages" extra="Comma-separated BCP-47 codes"><Input placeholder="en-US, th, my-MM" /></Form.Item>
       </Form>
+    </Modal>
+    <Modal open={previewing} closable={false} footer={null} centered title="Preparing knowledge preview">
+      <Space direction="vertical" style={{ width: "100%" }} size={12}>
+        <Progress percent={importProgress.percent} status="active" />
+        <Typography.Text>{importProgress.stage || "Reading workbook…"}</Typography.Text>
+        <Typography.Text type="secondary">Images are recorded with their role and placement for review. Nothing is published automatically.</Typography.Text>
+      </Space>
     </Modal>
   </>;
 }

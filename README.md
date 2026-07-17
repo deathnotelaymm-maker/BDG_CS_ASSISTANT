@@ -1,3 +1,45 @@
+# v1.6.0 — Tenant Experience Studio + Resilient Knowledge Import
+
+This release adds tenant-scoped experience controls and makes workbook imports
+observable and recoverable instead of silently failing.
+
+The patch includes:
+
+- Guide theme controls for background, hero treatment, fonts, surface/text
+  colors, card radius, and content width, with a live admin preview;
+- tenant-owned Chat quick replies and action buttons rendered above the
+  composer and on the tenant start screen, with no global button fallback;
+- structured Chat API errors that preserve the request ID and safe retry
+  guidance in the customer UI;
+- a downloadable `.xlsx` knowledge template with an Image Roles sheet;
+- image URL, role, alt text, caption, and placement columns for imported
+  knowledge rows;
+- visible import progress, stages, row counts, and request-aware diagnostics;
+- a repair path that marks a batch as `error` with `last_error` when row
+  persistence fails, so operators can retry without guessing.
+
+The API release marker is
+`1.6.0-tenant-experience-studio-resilient-knowledge-import`.
+
+See [RELEASE_NOTES_V1.6.0.md](RELEASE_NOTES_V1.6.0.md) and
+[TEST_RESULT_V1.6.0.md](TEST_RESULT_V1.6.0.md) for the implementation and
+verification details.
+
+## Short-path Windows install
+
+Extract the supplied short-path `BDG-v160` package in Downloads and
+double-click `INSTALL-V160-TENANT-EXPERIENCE.cmd`. It copies only into:
+
+`%USERPROFILE%\\Documents\\cloud-projects\\BDG_CS_ASSISTANT`
+
+The installer does not run PowerShell, npm, Git, Render, or Cloudflare and does
+not commit or push anything. When it reports success, open that repository in
+GitHub Desktop, review the Changes tab, commit, and choose **Push origin**.
+
+Render and the production Pages workflow run only after that manual push.
+
+---
+
 # v1.5.0 — Tenant Platform Experience + Owner Controls
 
 This release makes each tenant’s platform independently manageable and removes

@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Home, BookOpen, MessageSquare, Languages } from "lucide-react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { api, PUBLIC_LANGUAGES, getPlatformCacheKey, getPublicLanguage, type PublicLanguage } from "@/lib/api";
 import { useState } from "react";
@@ -33,6 +33,13 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   });
   const platformName = theme?.brand_name || theme?.app_name || (platformKey === "default" ? "BDG Help Center" : platformKey);
   const platformTagline = theme?.brand_tagline || (platformKey === "default" ? "Official Support" : `${platformName} Support`);
+  const guideStyle = {
+    ...(theme?.guide_background_url ? { backgroundImage: `url(${theme.guide_background_url})`, backgroundSize: "cover", backgroundAttachment: "fixed" } : {}),
+    ...(theme?.guide_font_family && /^[A-Za-z0-9 ,'-]{1,120}$/.test(theme.guide_font_family) ? { fontFamily: theme.guide_font_family } : {}),
+    ...(theme?.guide_text_color ? { color: theme.guide_text_color } : {}),
+    ...(theme?.guide_surface_color ? { ["--card" as string]: theme.guide_surface_color } : {}),
+    ...(theme?.guide_card_radius ? { ["--radius" as string]: `${Math.max(8, Math.min(32, theme.guide_card_radius))}px` } : {}),
+  } as CSSProperties;
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -54,9 +61,9 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   }, [platformKey, platformName, theme?.guide_favicon_url]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
+    <div className="min-h-screen bg-background text-foreground font-sans" style={guideStyle}>
       <PublicHeader platformKey={platformKey} platformName={platformName} platformTagline={platformTagline} logoUrl={theme?.guide_logo_url || ""} languages={platformLanguages || PUBLIC_LANGUAGES} />
-      <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 md:max-w-4xl md:pb-16">
+      <main className="mx-auto w-full px-4 pb-28 pt-4 md:pb-16" style={{ maxWidth: `${Math.max(720, Math.min(1400, Number(theme?.guide_content_width || 960)))}px` }}>
         {children}
       </main>
       <BottomNav />

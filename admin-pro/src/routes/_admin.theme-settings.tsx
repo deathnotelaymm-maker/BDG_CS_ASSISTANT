@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/_admin/theme-settings")({ component: ThemeSettingsPage });
 
-const VERSION = "v1.5.0";
+const VERSION = "v1.6.0";
 
 function ThemeSettingsPage() {
   const [form] = Form.useForm();
@@ -55,6 +55,14 @@ function ThemeSettingsPage() {
           chat_bubble_style: settings.chat_bubble_style || "soft",
           chat_input_style: settings.chat_input_style || "rounded",
           chat_background_url: settings.chat_background_url || "",
+          guide_background_url: settings.guide_background_url || "",
+          guide_hero_background_url: settings.guide_hero_background_url || "",
+          guide_hero_overlay_color: settings.guide_hero_overlay_color || "#081525cc",
+          guide_font_family: settings.guide_font_family || "system",
+          guide_surface_color: settings.guide_surface_color || "",
+          guide_text_color: settings.guide_text_color || "",
+          guide_card_radius: settings.guide_card_radius || 16,
+          guide_content_width: settings.guide_content_width || 960,
         });
       })
       .catch((e: any) => setLoadError(e?.message || "Theme settings could not be loaded"));
@@ -64,7 +72,7 @@ function ThemeSettingsPage() {
     try {
       setSaving(true);
       const values = await form.validateFields();
-      for (const key of ["primary_color", "chat_start_text_color", "chat_start_accent_color"]) {
+      for (const key of ["primary_color", "chat_start_text_color", "chat_start_accent_color", "guide_hero_overlay_color", "guide_surface_color", "guide_text_color"]) {
         if (values[key]?.toHexString) values[key] = values[key].toHexString();
       }
       const saved: any = await api.updateSettings(values);
@@ -95,6 +103,16 @@ function ThemeSettingsPage() {
       {get("chat_start_responsible_notice") && <div style={{ marginTop: 12, fontSize: 12, opacity: .8 }}>{get("chat_start_responsible_notice")}</div>}
       <Button type="primary" style={{ marginTop: 18, background: get("chat_start_accent_color", "#f7c948"), color: "#111827", border: 0 }}>{get("chat_start_button_label", "Start chat")}</Button>
       <div style={{ marginTop: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>{(get("chat_start_button_ids", []) || []).map((id: number) => { const button = buttons.find((item) => Number(item.id) === Number(id)); return button ? <Button key={id} size="small">{button.label || button.title || "Quick action"}</Button> : null; })}</div>
+    </div>;
+  }}</Form.Item>;
+  const guidePreview = <Form.Item noStyle shouldUpdate>{() => {
+    const get = (key: string, fallback = "") => form.getFieldValue(key) || fallback;
+    const background = get("guide_hero_background_url");
+    return <div style={{ minHeight: 310, borderRadius: Number(get("guide_card_radius", "16")), color: get("guide_text_color", "#ffffff"), background: background ? `linear-gradient(${get("guide_hero_overlay_color", "#081525cc")},${get("guide_hero_overlay_color", "#081525cc")}),url(${background}) center/cover` : "#081525", fontFamily: get("guide_font_family", "system"), padding: 24 }}>
+      <Tag color="gold">Guide theme preview</Tag>
+      <h3 style={{ color: "inherit", marginTop: 18, fontSize: 24 }}>{get("banner_title", "Help Center")}</h3>
+      <p style={{ color: "inherit", opacity: .8 }}>{get("banner_subtitle", "Search guides and support information.")}</p>
+      <div style={{ marginTop: 24, padding: 16, borderRadius: Number(get("guide_card_radius", "16")), background: get("guide_surface_color", "#ffffff18") }}>A platform-scoped guide card</div>
     </div>;
   }}</Form.Item>;
 
@@ -138,10 +156,18 @@ function ThemeSettingsPage() {
             <Row gutter={12}><Col span={12}><Form.Item label="Message text color" name="chat_start_text_color"><ColorPicker showText format="hex" /></Form.Item></Col><Col span={12}><Form.Item label="Accent / button color" name="chat_start_accent_color"><ColorPicker showText format="hex" /></Form.Item></Col></Row>
             <Form.Item label="Custom ticket / quick-action buttons" name="chat_start_button_ids" extra="Only buttons configured for this platform appear in the preview"><Select mode="multiple" options={buttons.map((button) => ({ value: Number(button.id), label: button.label || button.title || `Button ${button.id}` }))} placeholder="Choose platform buttons" /></Form.Item>
           </> },
+          { key: "guide", label: "Guide Theme", children: <>
+            <Alert type="info" showIcon message="Platform-scoped Guide Theme" description="These values apply only to the current platform route. Empty logo or image fields remain neutral; they never inherit another tenant’s assets." style={{ marginBottom: 16 }} />
+            <Form.Item label="Guide page background" name="guide_background_url">{uploadInput("guide_background_url", "Guide background", "https://.../guide-background.jpg")}</Form.Item>
+            <Form.Item label="Hero card background" name="guide_hero_background_url">{uploadInput("guide_hero_background_url", "Guide hero image", "https://.../hero.jpg")}</Form.Item>
+            <Row gutter={12}><Col span={12}><Form.Item label="Hero overlay color" name="guide_hero_overlay_color"><ColorPicker showText format="hex" /></Form.Item></Col><Col span={12}><Form.Item label="Guide surface color" name="guide_surface_color"><ColorPicker showText format="hex" /></Form.Item></Col></Row>
+            <Row gutter={12}><Col span={12}><Form.Item label="Guide text color" name="guide_text_color"><ColorPicker showText format="hex" /></Form.Item></Col><Col span={12}><Form.Item label="Font family" name="guide_font_family"><Select options={[{ value: "system", label: "System UI" }, { value: "Inter", label: "Inter" }, { value: "Roboto", label: "Roboto" }, { value: "Segoe UI", label: "Segoe UI" }]} /></Form.Item></Col></Row>
+            <Row gutter={12}><Col span={12}><Form.Item label="Card radius (px)" name="guide_card_radius"><Input type="number" min={8} max={32} /></Form.Item></Col><Col span={12}><Form.Item label="Content width (px)" name="guide_content_width"><Input type="number" min={720} max={1400} /></Form.Item></Col></Row>
+          </> },
         ]} />
         <Space><Button type="primary" loading={saving} onClick={save}>Save changes</Button><Upload showUploadList={false} beforeUpload={(file) => uploadToField(file, "favicon_url", "Favicon")}><Button icon={<UploadOutlined />}>Upload favicon</Button></Upload></Space>
       </Form>
     </Card></Col>
-    <Col xs={24} lg={8}><Card className="bdg-card" title="Live chat start preview" size="small">{startPreview}</Card></Col>
+    <Col xs={24} lg={8}><Card className="bdg-card" title="Live experience preview" size="small"><Tabs items={[{ key: "chat", label: "Chat", children: startPreview }, { key: "guide", label: "Guide", children: guidePreview }]} /></Card></Col>
   </Row>;
 }

@@ -93,6 +93,14 @@ export interface PublicTheme {
   surface_color?: string;
   support_link?: string;
   support_enabled?: boolean;
+  guide_background_url?: string;
+  guide_hero_background_url?: string;
+  guide_hero_overlay_color?: string;
+  guide_font_family?: string;
+  guide_surface_color?: string;
+  guide_text_color?: string;
+  guide_card_radius?: number;
+  guide_content_width?: number;
 }
 function platformLabel(key = getPublicPlatformKey()): string {
   if (!key || key === "default") return "BDG Help Center";
@@ -227,16 +235,20 @@ function normalizeSiteContent(raw: any): mock.SiteContent {
 
   // If the API already returns the Guide Pro shape, only merge missing nested values.
   if (raw.heroTitle || raw.heroSubtitle || raw.searchPlaceholder) {
+    const guideTheme = raw.guide_theme || {};
     return {
       ...defaults,
       ...raw,
       buttons: { ...defaultButtons, ...(raw.buttons || {}) },
+      heroBackgroundUrl: text(raw.heroBackgroundUrl || guideTheme.hero_background_url, ""),
+      heroOverlayColor: text(raw.heroOverlayColor || guideTheme.hero_overlay_color, "#081525cc"),
     };
   }
 
   // Worker v0.5 returns { settings, content, blocks, popular_help, navigation }.
   const c = raw.content || {};
   const settings = raw.settings || {};
+  const guideTheme = raw.guide_theme || settings;
   return {
     ...defaults,
     heroEyebrow: text(c.hero_eyebrow, defaults.heroEyebrow),
@@ -263,6 +275,8 @@ function normalizeSiteContent(raw: any): mock.SiteContent {
       readGuide: text(c.read_guide_text, defaultButtons.readGuide),
       viewAll: text(c.view_all_text, defaultButtons.viewAll),
     },
+    heroBackgroundUrl: text(guideTheme.hero_background_url, ""),
+    heroOverlayColor: text(guideTheme.hero_overlay_color, "#081525cc"),
   };
 }
 

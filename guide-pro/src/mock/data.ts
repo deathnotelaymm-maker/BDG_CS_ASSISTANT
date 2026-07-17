@@ -26,6 +26,8 @@ export type SiteContent = {
     readGuide: string;
     viewAll: string;
   };
+  heroBackgroundUrl?: string;
+  heroOverlayColor?: string;
 };
 
 export type Category = {

@@ -4,6 +4,12 @@ export const CHAT_LANGUAGE_OPTIONS: { code: PublicLanguage; label: string }[] = 
   { code: "en", label: "English" },
 ];
 
+export function normalizeChatLocale(value: string | undefined, fallback = "en"): PublicLanguage {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw || raw === "all" || raw === "*") return fallback;
+  return raw.replace(/_/g, "-");
+}
+
 function platformLabel(platformKey = "default") {
   if (!platformKey || platformKey === "default") return "BDG";
   return platformKey
@@ -59,7 +65,7 @@ const texts = {
 } as const;
 
 export function getChatConfig(language: string, platformKey = "default") {
-  const lang: PublicLanguage = String(language || "en");
+  const lang: PublicLanguage = normalizeChatLocale(language);
   const isDefault = platformKey === "default";
   const name = platformLabel(platformKey);
   const base = isDefault

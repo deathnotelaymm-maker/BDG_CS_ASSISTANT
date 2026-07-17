@@ -378,7 +378,7 @@ expect(
 );
 expect(
   "Chat fallback copy is platform-specific and has no inherited quick replies",
-  chatApp.includes("getChatConfig(language, platformKey)") &&
+  chatApp.includes("getChatConfig(effectiveLanguage, platformKey)") &&
     chatConfig.includes("quickQuestions: []") &&
     chatConfig.includes("platformLabel"),
 );
@@ -396,8 +396,8 @@ expect(
 );
 expect(
   "Health and API errors expose the same release version",
-  core.includes("1.5.0-tenant-platform-experience-owner-controls") &&
-    server.includes("1.5.0-tenant-platform-experience-owner-controls"),
+  core.includes("1.6.0-tenant-experience-studio-resilient-knowledge-import") &&
+    server.includes("1.6.0-tenant-experience-studio-resilient-knowledge-import"),
 );
 expect(
   "Operations Connector Gateway is platform-scoped and allowlisted",

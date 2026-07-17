@@ -1,12 +1,13 @@
 import pg from 'pg';
 import { promisify } from 'node:util';
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import * as XLSX from 'xlsx';
 import { importedRowToAiContentDraft, parseKnowledgeWorkbook } from './knowledge-import.js';
 const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.5.0-tenant-platform-experience-owner-controls';
+const VERSION = '1.6.0-tenant-experience-studio-resilient-knowledge-import';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -75,7 +76,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -183,8 +184,10 @@ async function route(request, env, url) {
   if (method === 'POST' && path === '/admin/support-platforms') { requireOwner(admin); return json(await createSupportPlatform(env, await readJson(request)), 200, env); }
   if (method === 'PUT' && /^\/admin\/support-platforms\/\d+$/.test(path)) { const id = idFromPath(path); await assertScopedSupportPlatform(env, admin, id, scope); return json(await updateSupportPlatform(env, id, await readJson(request)), 200, env); }
   if (method === 'DELETE' && /^\/admin\/support-platforms\/\d+$/.test(path)) { const id = idFromPath(path); await assertScopedSupportPlatform(env, admin, id, scope); return json(await archiveSupportPlatform(env, id), 200, env); }
+  if (method === 'GET' && path === '/admin/knowledge-imports/template') return knowledgeImportTemplateResponse(env);
   if (method === 'GET' && path === '/admin/knowledge-imports') return json(await listKnowledgeImports(env, scope), 200, env);
   if (method === 'GET' && /^\/admin\/knowledge-imports\/\d+$/.test(path)) return json(await getKnowledgeImport(env, idFromPath(path), scope), 200, env);
+  if (method === 'GET' && /^\/admin\/knowledge-imports\/\d+\/status$/.test(path)) return json(await getKnowledgeImportStatus(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'POST' && path === '/admin/knowledge-imports/preview') return json(await previewKnowledgeImport(env, request, admin, scope), 200, env);
   if (method === 'POST' && /^\/admin\/knowledge-imports\/\d+\/create-drafts$/.test(path)) return json(await createKnowledgeImportDrafts(env, idFromParts(path, 3), admin, scope), 200, env);
   if (method === 'POST' && /^\/admin\/knowledge-imports\/\d+\/rollback$/.test(path)) return json(await rollbackKnowledgeImport(env, idFromParts(path, 3), admin, scope), 200, env);
@@ -445,6 +448,7 @@ async function ensureBootstrap(env) {
   await ensurePlatformContextNoFallback(env);
   await ensureOperationsConnectorGateway(env);
   await ensureTenantPermissionsBrandChatStudio(env);
+  await ensureTenantExperienceStudio(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -912,6 +916,14 @@ async function getTheme(env, scope = null) {
     chat_start_button_ids: numericIds(row.chat_start_button_ids || ''),
     chat_start_text_color: row.chat_start_text_color || '#ffffff',
     chat_start_accent_color: row.chat_start_accent_color || row.primary_color || '#f7c948',
+    guide_background_url: row.guide_background_url || '',
+    guide_hero_background_url: row.guide_hero_background_url || '',
+    guide_hero_overlay_color: row.guide_hero_overlay_color || '',
+    guide_font_family: row.guide_font_family || 'system',
+    guide_surface_color: row.guide_surface_color || '',
+    guide_text_color: row.guide_text_color || '',
+    guide_card_radius: Math.max(8, Math.min(32, Number(row.guide_card_radius || 16))),
+    guide_content_width: Math.max(720, Math.min(1400, Number(row.guide_content_width || 960))),
     updated_at: row.updated_at ? String(row.updated_at) : ''
   };
 }
@@ -976,6 +988,20 @@ async function updateTheme(env, p = {}, scope = null) {
     ? `UPDATE theme_settings SET chat_start_enabled=$1,chat_start_title=$2,chat_start_body=$3,chat_start_image_url=$4,chat_start_animation=$5,chat_start_button_label=$6,chat_start_announcement=$7,chat_start_maintenance_banner=$8,chat_layout=$9,chat_bubble_style=$10,chat_input_style=$11,chat_background_url=$12,chat_start_button_ids=$13,chat_start_text_color=$14,chat_start_accent_color=$15,chat_start_responsible_notice=$16,updated_at=NOW() WHERE tenant_id=$17 AND platform_id=$18`
     : `UPDATE theme_settings SET chat_start_enabled=$1,chat_start_title=$2,chat_start_body=$3,chat_start_image_url=$4,chat_start_animation=$5,chat_start_button_label=$6,chat_start_announcement=$7,chat_start_maintenance_banner=$8,chat_layout=$9,chat_bubble_style=$10,chat_input_style=$11,chat_background_url=$12,chat_start_button_ids=$13,chat_start_text_color=$14,chat_start_accent_color=$15,chat_start_responsible_notice=$16,updated_at=NOW() WHERE id=(SELECT id FROM theme_settings ORDER BY id ASC LIMIT 1)`,
     scope ? [experienceValues[0],experienceValues[1],experienceValues[2],experienceValues[3],experienceValues[4],experienceValues[5],experienceValues[6],experienceValues[7],experienceValues[9],experienceValues[10],experienceValues[11],experienceValues[12],experienceValues[13],experienceValues[14],experienceValues[15],experienceValues[8],scope.tenant_id,scope.platform_id] : [experienceValues[0],experienceValues[1],experienceValues[2],experienceValues[3],experienceValues[4],experienceValues[5],experienceValues[6],experienceValues[7],experienceValues[9],experienceValues[10],experienceValues[11],experienceValues[12],experienceValues[13],experienceValues[14],experienceValues[15],experienceValues[8]]);
+  const guideValues = [
+    String(p.guide_background_url ?? current.guide_background_url ?? '').slice(0, 2000),
+    String(p.guide_hero_background_url ?? current.guide_hero_background_url ?? '').slice(0, 2000),
+    String(p.guide_hero_overlay_color ?? current.guide_hero_overlay_color ?? '').slice(0, 40),
+    String(p.guide_font_family ?? current.guide_font_family ?? 'system').slice(0, 120),
+    String(p.guide_surface_color ?? current.guide_surface_color ?? '').slice(0, 40),
+    String(p.guide_text_color ?? current.guide_text_color ?? '').slice(0, 40),
+    Math.max(8, Math.min(32, Number(p.guide_card_radius ?? current.guide_card_radius ?? 16))),
+    Math.max(720, Math.min(1400, Number(p.guide_content_width ?? current.guide_content_width ?? 960))),
+  ];
+  await q(env, scope
+    ? `UPDATE theme_settings SET guide_background_url=$1,guide_hero_background_url=$2,guide_hero_overlay_color=$3,guide_font_family=$4,guide_surface_color=$5,guide_text_color=$6,guide_card_radius=$7,guide_content_width=$8,updated_at=NOW() WHERE tenant_id=$9 AND platform_id=$10`
+    : `UPDATE theme_settings SET guide_background_url=$1,guide_hero_background_url=$2,guide_hero_overlay_color=$3,guide_font_family=$4,guide_surface_color=$5,guide_text_color=$6,guide_card_radius=$7,guide_content_width=$8,updated_at=NOW() WHERE id=(SELECT id FROM theme_settings ORDER BY id ASC LIMIT 1)`,
+    scope ? [...guideValues, scope.tenant_id, scope.platform_id] : guideValues);
   await audit(env,'update','theme_settings','1','Theme settings updated',scope);
   return getTheme(env, scope);
 }
@@ -1677,6 +1703,24 @@ async function ensureTenantPermissionsBrandChatStudio(env) {
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.5.0_tenant_platform_experience_owner_controls','Qualified membership permissions, platform-owner team controls, arbitrary tenant locales, upload-ready brand fields, and previewable chat experience controls.') ON CONFLICT(migration_key) DO NOTHING`,
   ]) await q(env, statement);
 }
+async function ensureTenantExperienceStudio(env) {
+  for (const statement of [
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS guide_background_url TEXT DEFAULT ''`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS guide_hero_background_url TEXT DEFAULT ''`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS guide_hero_overlay_color VARCHAR(40) DEFAULT ''`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS guide_font_family VARCHAR(120) DEFAULT 'system'`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS guide_surface_color VARCHAR(40) DEFAULT ''`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS guide_text_color VARCHAR(40) DEFAULT ''`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS guide_card_radius INTEGER DEFAULT 16`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS guide_content_width INTEGER DEFAULT 960`,
+    `ALTER TABLE knowledge_import_batches ADD COLUMN IF NOT EXISTS progress_percent INTEGER DEFAULT 100`,
+    `ALTER TABLE knowledge_import_batches ADD COLUMN IF NOT EXISTS current_stage VARCHAR(40) DEFAULT 'complete'`,
+    `ALTER TABLE knowledge_import_batches ADD COLUMN IF NOT EXISTS processed_rows INTEGER DEFAULT 0`,
+    `ALTER TABLE knowledge_import_batches ADD COLUMN IF NOT EXISTS last_error TEXT DEFAULT ''`,
+    `ALTER TABLE knowledge_import_batches ADD COLUMN IF NOT EXISTS request_id VARCHAR(120) DEFAULT ''`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.6.0_tenant_experience_studio_resilient_knowledge_import','Tenant-scoped Guide theme tokens, visible knowledge import progress, resilient import diagnostics, image-role columns, and downloadable workbook template.') ON CONFLICT(migration_key) DO NOTHING`,
+  ]) await q(env, statement);
+}
 
 function connectorUrl(value, label = 'Connector URL') {
   const text = String(value || '').trim();
@@ -2131,7 +2175,31 @@ function knowledgeImportRowOut(row) {
 function knowledgeImportOut(batch, previewRows = []) {
   let summary = {};
   try { summary = JSON.parse(batch.summary_json || '{}'); } catch (_) {}
-  return { id:Number(batch.id),filename:batch.filename,platform_key:batch.platform_key || 'default',status:batch.status || 'review',sheet_count:Number(batch.sheet_count || 0),total_rows:Number(batch.total_rows || 0),valid_rows:Number(batch.valid_rows || 0),error_rows:Number(batch.error_rows || 0),summary,created_by:batch.created_by || '',created_at:batch.created_at ? String(batch.created_at) : '',drafted_at:batch.drafted_at ? String(batch.drafted_at) : '',rolled_back_at:batch.rolled_back_at ? String(batch.rolled_back_at) : '',preview_rows:previewRows };
+  return { id:Number(batch.id),filename:batch.filename,platform_key:batch.platform_key || 'default',status:batch.status || 'review',progress_percent:Math.max(0, Math.min(100, Number(batch.progress_percent ?? 100))),current_stage:batch.current_stage || 'complete',processed_rows:Number(batch.processed_rows || 0),sheet_count:Number(batch.sheet_count || 0),total_rows:Number(batch.total_rows || 0),valid_rows:Number(batch.valid_rows || 0),error_rows:Number(batch.error_rows || 0),last_error:batch.last_error || '',request_id:batch.request_id || '',summary,created_by:batch.created_by || '',created_at:batch.created_at ? String(batch.created_at) : '',drafted_at:batch.drafted_at ? String(batch.drafted_at) : '',rolled_back_at:batch.rolled_back_at ? String(batch.rolled_back_at) : '',preview_rows:previewRows };
+}
+function knowledgeImportTemplateResponse(env) {
+  const wb = XLSX.utils.book_new();
+  const rows = [
+    ['Question','How to reply / Answer','Positive examples','Negative examples','AI instruction','Locale','Platform','Image URL','Image role','Image alt','Image caption','Image placement','Corresponding Ticket','Intent key'],
+    ['My deposit has not arrived','Explain the approved processing steps and the safe escalation route.','deposit not received\nrecharge pending','How do I deposit?\nwithdrawal not received','Use short steps. Never promise a balance adjustment.','en-US','your-platform','https://example.com/deposit.png','step','Deposit history screen','Where to find the pending deposit','after_answer','deposit-not-received','deposit-not-received'],
+  ];
+  const sheet = XLSX.utils.aoa_to_sheet(rows);
+  sheet['!cols'] = rows[0].map((header) => ({ wch: Math.max(14, Math.min(36, header.length + 4)) }));
+  XLSX.utils.book_append_sheet(wb, sheet, 'AI Knowledge');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Image role','Meaning'],
+    ['hero','Shown near the top of the answer'],
+    ['step','Supports one visual step'],
+    ['warning','Clarifies a risk or exclusion'],
+    ['reference','Optional supporting screenshot'],
+  ]), 'Image Roles');
+  const body = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  return corsResponse(body, 200, env, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="AI_Knowledge_Import_Template.xlsx"', 'Cache-Control': 'no-store' });
+}
+async function getKnowledgeImportStatus(env, id, scope) {
+  const batch = (await q(env, `SELECT * FROM knowledge_import_batches WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`, [id,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!batch) bad('Knowledge import not found', 404);
+  return knowledgeImportOut(batch);
 }
 async function previewKnowledgeImport(env, request, admin, scope) {
   const form = await request.formData();
@@ -2146,11 +2214,21 @@ async function previewKnowledgeImport(env, request, admin, scope) {
   catch (err) { bad(`Workbook could not be read: ${err?.message || 'invalid Excel file'}`); }
   const mappedRows = parsed.rows.map((row) => ({ ...row, mapped:{ ...row.mapped, platform_key:platform.platform_key } }));
   const summary = { sheet_errors:parsed.sheet_errors, truncated:parsed.truncated, import_rule:'Creates AI Content drafts only. No imported row is used by live AI until you review, approve, and publish it.' };
-  const { rows } = await q(env, `INSERT INTO knowledge_import_batches(filename,platform_key,status,sheet_count,total_rows,valid_rows,error_rows,summary_json,created_by,tenant_id,platform_id) VALUES($1,$2,'review',$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`, [filename,platform.platform_key,parsed.sheet_count,parsed.total_rows,parsed.valid_rows,parsed.error_rows,JSON.stringify(summary),admin?.email || 'admin',scope.tenant_id,scope.platform_id]);
+  const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
+  const { rows } = await q(env, `INSERT INTO knowledge_import_batches(filename,platform_key,status,current_stage,progress_percent,processed_rows,sheet_count,total_rows,valid_rows,error_rows,summary_json,created_by,request_id,tenant_id,platform_id) VALUES($1,$2,'review','persisting',75,0,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [filename,platform.platform_key,parsed.sheet_count,parsed.total_rows,parsed.valid_rows,parsed.error_rows,JSON.stringify(summary),admin?.email || 'admin',requestId,scope.tenant_id,scope.platform_id]);
   const batch = rows[0];
-  for (const row of mappedRows) {
-    await q(env, `INSERT INTO knowledge_import_rows(batch_id,sheet_name,row_number,source_key,raw_json,mapped_json,validation_error,warnings_json,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [batch.id,row.sheet_name,row.row_number,row.source_key,JSON.stringify(row.raw),JSON.stringify(row.mapped),row.validation_error || '',JSON.stringify(row.warnings || []),row.status]);
+  try {
+    for (const row of mappedRows) {
+      await q(env, `INSERT INTO knowledge_import_rows(batch_id,sheet_name,row_number,source_key,raw_json,mapped_json,validation_error,warnings_json,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [batch.id,row.sheet_name,row.row_number,row.source_key,JSON.stringify(row.raw),JSON.stringify(row.mapped),row.validation_error || '',JSON.stringify(row.warnings || []),row.status]);
+    }
+  } catch (error) {
+    const diagnostic = String(error?.message || 'Could not persist workbook rows').slice(0, 500);
+    await q(env, `UPDATE knowledge_import_batches SET status='error',current_stage='error',progress_percent=100,last_error=$1 WHERE id=$2 AND tenant_id=$3 AND platform_id=$4`, [diagnostic,batch.id,scope.tenant_id,scope.platform_id]);
+    console.error(JSON.stringify({ level:'error', event:'knowledge_import_failed', request_id:requestId, batch_id:Number(batch.id), message:diagnostic }));
+    throw error;
   }
+  await q(env, `UPDATE knowledge_import_batches SET current_stage='complete',progress_percent=100,processed_rows=$1 WHERE id=$2 AND tenant_id=$3 AND platform_id=$4`, [mappedRows.length,batch.id,scope.tenant_id,scope.platform_id]);
+  batch.current_stage = 'complete'; batch.progress_percent = 100; batch.processed_rows = mappedRows.length; batch.request_id = requestId;
   await audit(env, 'preview_import', 'knowledge_import_batches', batch.id, `Workbook preview: ${filename}; valid=${parsed.valid_rows}; errors=${parsed.error_rows}`, scope);
   return knowledgeImportOut(batch, mappedRows.slice(0, 100));
 }
@@ -2246,8 +2324,8 @@ async function testAiContent(env, p = {}) {
     provider_error: result.ok ? null : result.provider?.error || 'AI judge unavailable',
   };
 }
-async function getGuideContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const settings = await getTheme(env, scope); const blocks = await listContentBlocks(env, scope); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; const languages = scopeLanguages(scope); return { settings, platform_key: platform.platform_key, platform_reference: scope.public_route_key || platform.platform_key, content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false, scope), home_sections: (await listHomeSections(env, false, scope)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false, scope), public_languages: languages, admin_languages: languages }; }
-async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = theme.brand_name || scope.platform_name || (platform.name || 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; const languages = scopeLanguages(scope); const texts = Object.fromEntries(languages.map(({ code }) => [code, { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }])); return { settings: theme, start_module: chatExperienceOut(theme, supportName), platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages, platforms, default_platform_key:platform.platform_key, quick_replies, support_enabled: theme.show_chat_support_button === true, texts }; }
+async function getGuideContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const settings = await getTheme(env, scope); const blocks = await listContentBlocks(env, scope); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; const languages = scopeLanguages(scope); return { settings, guide_theme: { background_url: settings.guide_background_url, hero_background_url: settings.guide_hero_background_url, hero_overlay_color: settings.guide_hero_overlay_color, font_family: settings.guide_font_family, surface_color: settings.guide_surface_color, text_color: settings.guide_text_color, card_radius: settings.guide_card_radius, content_width: settings.guide_content_width }, platform_key: platform.platform_key, platform_reference: scope.public_route_key || platform.platform_key, content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false, scope), home_sections: (await listHomeSections(env, false, scope)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false, scope), action_buttons: await listActionButtons(env, false, languages[0]?.code || 'en', platform.platform_key, scope), public_languages: languages, admin_languages: languages }; }
+async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = theme.brand_name || scope.platform_name || (platform.name || 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; const languages = scopeLanguages(scope); const defaultLocale = String(scope.default_locale || languages[0]?.code || 'en').trim().toLowerCase(); const texts = Object.fromEntries(languages.map(({ code }) => [code, { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }])); return { settings: theme, start_module: chatExperienceOut(theme, supportName), platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages, default_locale: defaultLocale, platforms, default_platform_key:platform.platform_key, quick_replies, action_buttons: await listActionButtons(env, false, defaultLocale, platform.platform_key, scope), support_enabled: theme.show_chat_support_button === true, texts }; }
 async function getAdminSiteContent(env, scope) { return { settings: await getTheme(env, scope), blocks: await listContentBlocks(env, scope), popular_help: [], navigation: await listNavigation(env, true, scope), home_sections: await listHomeSections(env, true, scope), chat_quick_replies: await listQuickReplies(env, true, scope) }; }
 function scopedTombstoneKey(scope, key) { return `p${scope.platform_id}:${key}`; }
 async function updateContentBlock(env, key, p, scope) {
