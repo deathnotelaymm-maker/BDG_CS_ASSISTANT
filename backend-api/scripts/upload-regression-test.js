@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import api, { uploadToR2 } from '../src/core.js';
 import { createR2Adapter } from '../src/r2-adapter.js';
 
-const version = '1.2.1-platform-context-no-fallback-repair';
+const version = '1.3.0-chat-start-module-experience-studio';
 const env = {
   R2_ACCOUNT_ID: 'test-account',
   R2_ACCESS_KEY_ID: 'test-access-key',

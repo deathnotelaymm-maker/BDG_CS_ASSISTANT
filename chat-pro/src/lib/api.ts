@@ -10,6 +10,30 @@ export const API_BASE = (
 
 export interface ChatContent {
   branding?: { chat_icon_url?: string; favicon_url?: string; brand_name?: string; title?: string; online?: string };
+  settings?: {
+    accent_color?: string;
+    surface_color?: string;
+    font_family?: string;
+    chat_background_url?: string;
+    chat_layout?: "standard" | "compact" | "centered" | string;
+    chat_bubble_style?: "soft" | "sharp" | "minimal" | string;
+    chat_input_style?: "rounded" | "square" | "minimal" | string;
+  };
+  start_module?: {
+    enabled?: boolean;
+    title?: string;
+    body?: string;
+    image_url?: string;
+    animation?: "none" | "fade" | "slide" | "pulse" | "typing" | string;
+    button_label?: string;
+    announcement?: string;
+    maintenance_banner?: string;
+    responsible_notice?: string;
+    layout?: "standard" | "compact" | "centered" | string;
+    bubble_style?: "soft" | "sharp" | "minimal" | string;
+    input_style?: "rounded" | "square" | "minimal" | string;
+    background_url?: string;
+  };
   texts?: Record<
     string,
     {

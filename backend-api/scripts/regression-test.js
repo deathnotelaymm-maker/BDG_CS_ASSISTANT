@@ -30,6 +30,7 @@ const migration120a = read("backend-api/migrations/011_v1.2.0a_safe_bootstrap_de
 const migration120a2 = read("backend-api/migrations/012_v1.2.0a2_scoped_backfill_conflict_repair.sql");
 const migration120a4 = read("backend-api/migrations/013_v1.2.0a4_safe_active_platform_bootstrap_repair.sql");
 const migration121 = read("backend-api/migrations/014_v1.2.1_platform_context_no_fallback_repair.sql");
+const migration130 = read("backend-api/migrations/015_v1.3.0_chat_start_module_experience_studio.sql");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
 const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
@@ -260,6 +261,36 @@ expect(
     read("admin-pro/public/_redirects").includes("/index.html"),
 );
 expect(
+  "v1.3.0 chat experience migration is idempotent",
+  migration130.includes("ON CONFLICT (migration_key) DO NOTHING") &&
+    core.includes("ensureChatExperienceStudio") &&
+    core.includes("chat_start_enabled") &&
+    core.includes("chat_start_animation"),
+);
+expect(
+  "Chat Start Module is tenant-scoped and returned by public content",
+  core.includes("start_module: chatExperienceOut(theme, supportName)") &&
+    chatApi.includes("start_module") &&
+    chatApp.includes("ChatStartModule") &&
+    chatApp.includes("setStarted(true)") &&
+    chatApp.includes("StartCopy"),
+);
+expect(
+  "Chat experience uses safe presets instead of arbitrary scripts",
+  core.includes("CHAT_ANIMATION_PRESETS") &&
+    core.includes("CHAT_LAYOUT_MODES") &&
+    chatApp.includes("SAFE_ANIMATIONS") &&
+    chatApp.includes("safeVisualUrl") &&
+    chatApp.includes("safeFontFamily"),
+);
+expect(
+  "Admin Theme Settings exposes start module and layout controls",
+  theme.includes("Chat Start Module") &&
+    theme.includes("chat_start_image_url") &&
+    theme.includes("chat_layout") &&
+    theme.includes("chat_bubble_style"),
+);
+expect(
   "Custom domains cannot be self-verified in the admin workflow",
   core.includes("Do not mark a domain verified manually") &&
     platformControlCenter.includes("Optional custom domain") &&
@@ -365,8 +396,8 @@ expect(
 );
 expect(
   "Health and API errors expose the same release version",
-  core.includes("1.2.1-platform-context-no-fallback-repair") &&
-    server.includes("1.2.1-platform-context-no-fallback-repair"),
+  core.includes("1.3.0-chat-start-module-experience-studio") &&
+    server.includes("1.3.0-chat-start-module-experience-studio"),
 );
 
 for (const check of checks)

@@ -6,9 +6,13 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.2.1-platform-context-no-fallback-repair';
+const VERSION = '1.3.0-chat-start-module-experience-studio';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
+const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
+const CHAT_LAYOUT_MODES = new Set(['standard', 'compact', 'centered']);
+const CHAT_BUBBLE_STYLES = new Set(['soft', 'sharp', 'minimal']);
+const CHAT_INPUT_STYLES = new Set(['rounded', 'square', 'minimal']);
 const OWNER_EMAIL = 'owner@example.invalid';
 const STOPWORDS = new Set(['the','a','an','and','or','to','of','in','on','for','with','is','are','am','i','you','we','they','how','what','why','can','do','does','did','please','my','me','your','sir','madam','boss','babe','want','need','help']);
 const SYNONYMS = {
@@ -71,7 +75,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -426,6 +430,7 @@ async function ensureBootstrap(env) {
   await ensureTenantCore(env);
   await ensureTenantDataIsolation(env);
   await ensureTenantBrandStudio(env);
+  await ensureChatExperienceStudio(env);
   await ensurePlatformContextNoFallback(env);
   bootstrapped = true;
 }
@@ -816,6 +821,31 @@ function normalizeAiContentPayload(p = {}) {
   };
 }
 
+function safeChatPreset(value, allowed, fallback) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return allowed.has(normalized) ? normalized : fallback;
+}
+function safeThemeText(value, fallback, maxLength) {
+  const text = String(value ?? fallback);
+  return text.slice(0, maxLength);
+}
+function chatExperienceOut(row, supportName) {
+  return {
+    enabled: row.chat_start_enabled !== false,
+    title: safeThemeText(row.chat_start_title, `Welcome to ${supportName}`, 220),
+    body: safeThemeText(row.chat_start_body, `Get help from ${supportName}. Choose a quick topic or start a conversation.`, 4000),
+    image_url: safeThemeText(row.chat_start_image_url, '', 2000),
+    animation: safeChatPreset(row.chat_start_animation, CHAT_ANIMATION_PRESETS, 'fade'),
+    button_label: safeThemeText(row.chat_start_button_label, 'Start chat', 100),
+    announcement: safeThemeText(row.chat_start_announcement, '', 1000),
+    maintenance_banner: safeThemeText(row.chat_start_maintenance_banner, '', 1000),
+    responsible_notice: safeThemeText(row.chat_start_responsible_notice, '', 1000),
+    layout: safeChatPreset(row.chat_layout, CHAT_LAYOUT_MODES, 'standard'),
+    bubble_style: safeChatPreset(row.chat_bubble_style, CHAT_BUBBLE_STYLES, 'soft'),
+    input_style: safeChatPreset(row.chat_input_style, CHAT_INPUT_STYLES, 'rounded'),
+    background_url: safeThemeText(row.chat_background_url, '', 2000),
+  };
+}
 async function getTheme(env, scope = null) {
   const { rows } = await q(env, scope
     ? 'SELECT * FROM theme_settings WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id ASC LIMIT 1'
@@ -852,6 +882,19 @@ async function getTheme(env, scope = null) {
     chat_welcome_title: row.chat_welcome_title || `Welcome to ${scopedSupport}`,
     chat_welcome_subtitle: row.chat_welcome_subtitle || `Please describe your issue and ${scopedSupport} will guide you step by step.`,
     chat_input_placeholder: row.chat_input_placeholder || 'Type your message...',
+    chat_start_enabled: row.chat_start_enabled !== false,
+    chat_start_title: row.chat_start_title || `Welcome to ${scopedSupport}`,
+    chat_start_body: row.chat_start_body || `Get help from ${scopedSupport}. Choose a quick topic or start a conversation.`,
+    chat_start_image_url: row.chat_start_image_url || '',
+    chat_start_animation: safeChatPreset(row.chat_start_animation, CHAT_ANIMATION_PRESETS, 'fade'),
+    chat_start_button_label: row.chat_start_button_label || 'Start chat',
+    chat_start_announcement: row.chat_start_announcement || '',
+    chat_start_maintenance_banner: row.chat_start_maintenance_banner || '',
+    chat_start_responsible_notice: row.chat_start_responsible_notice || '',
+    chat_layout: safeChatPreset(row.chat_layout, CHAT_LAYOUT_MODES, 'standard'),
+    chat_bubble_style: safeChatPreset(row.chat_bubble_style, CHAT_BUBBLE_STYLES, 'soft'),
+    chat_input_style: safeChatPreset(row.chat_input_style, CHAT_INPUT_STYLES, 'rounded'),
+    chat_background_url: row.chat_background_url || '',
     updated_at: row.updated_at ? String(row.updated_at) : ''
   };
 }
@@ -894,6 +937,25 @@ async function updateTheme(env, p = {}, scope = null) {
     ? `UPDATE theme_settings SET brand_name=$1,brand_tagline=$2,admin_logo_url=$3,admin_favicon_url=$4,guide_favicon_url=$5,chat_favicon_url=$6,accent_color=$7,surface_color=$8,font_family=$9,button_style=$10,updated_at=NOW() WHERE tenant_id=$11 AND platform_id=$12`
     : `UPDATE theme_settings SET brand_name=$1,brand_tagline=$2,admin_logo_url=$3,admin_favicon_url=$4,guide_favicon_url=$5,chat_favicon_url=$6,accent_color=$7,surface_color=$8,font_family=$9,button_style=$10,updated_at=NOW() WHERE id=(SELECT id FROM theme_settings ORDER BY id ASC LIMIT 1)`,
     scope ? [...brandValues, scope.tenant_id, scope.platform_id] : brandValues);
+  const experienceValues = [
+    p.chat_start_enabled ?? current.chat_start_enabled,
+    p.chat_start_title ?? current.chat_start_title,
+    p.chat_start_body ?? current.chat_start_body,
+    p.chat_start_image_url ?? current.chat_start_image_url,
+    safeChatPreset(p.chat_start_animation ?? current.chat_start_animation, CHAT_ANIMATION_PRESETS, 'fade'),
+    p.chat_start_button_label ?? current.chat_start_button_label,
+    p.chat_start_announcement ?? current.chat_start_announcement,
+    p.chat_start_maintenance_banner ?? current.chat_start_maintenance_banner,
+    p.chat_start_responsible_notice ?? current.chat_start_responsible_notice,
+    safeChatPreset(p.chat_layout ?? current.chat_layout, CHAT_LAYOUT_MODES, 'standard'),
+    safeChatPreset(p.chat_bubble_style ?? current.chat_bubble_style, CHAT_BUBBLE_STYLES, 'soft'),
+    safeChatPreset(p.chat_input_style ?? current.chat_input_style, CHAT_INPUT_STYLES, 'rounded'),
+    p.chat_background_url ?? current.chat_background_url,
+  ];
+  await q(env, scope
+    ? `UPDATE theme_settings SET chat_start_enabled=$1,chat_start_title=$2,chat_start_body=$3,chat_start_image_url=$4,chat_start_animation=$5,chat_start_button_label=$6,chat_start_announcement=$7,chat_start_maintenance_banner=$8,chat_start_responsible_notice=$9,chat_layout=$10,chat_bubble_style=$11,chat_input_style=$12,chat_background_url=$13,updated_at=NOW() WHERE tenant_id=$14 AND platform_id=$15`
+    : `UPDATE theme_settings SET chat_start_enabled=$1,chat_start_title=$2,chat_start_body=$3,chat_start_image_url=$4,chat_start_animation=$5,chat_start_button_label=$6,chat_start_announcement=$7,chat_start_maintenance_banner=$8,chat_start_responsible_notice=$9,chat_layout=$10,chat_bubble_style=$11,chat_input_style=$12,chat_background_url=$13,updated_at=NOW() WHERE id=(SELECT id FROM theme_settings ORDER BY id ASC LIMIT 1)`,
+    scope ? [...experienceValues, scope.tenant_id, scope.platform_id] : experienceValues);
   await audit(env,'update','theme_settings','1','Theme settings updated',scope);
   return getTheme(env, scope);
 }
@@ -1514,6 +1576,24 @@ async function ensureTenantBrandStudio(env) {
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.2.0a4_safe_active_platform_bootstrap_repair','Archives pre-existing duplicate active platform rows before idempotent tenant bootstrap; no content is deleted.') ON CONFLICT(migration_key) DO NOTHING`,
   ]) await q(env, statement);
 }
+async function ensureChatExperienceStudio(env) {
+  for (const statement of [
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_enabled BOOLEAN DEFAULT TRUE`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_title VARCHAR(220)`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_body TEXT`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_image_url TEXT`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_animation VARCHAR(30) DEFAULT 'fade'`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_button_label VARCHAR(100) DEFAULT 'Start chat'`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_announcement TEXT`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_maintenance_banner TEXT`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_responsible_notice TEXT`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_layout VARCHAR(30) DEFAULT 'standard'`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_bubble_style VARCHAR(30) DEFAULT 'soft'`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_input_style VARCHAR(30) DEFAULT 'rounded'`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_background_url TEXT`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.3.0_chat_start_module_experience_studio','Tenant-scoped chat start module, safe animation presets, and configurable mobile chat layout.') ON CONFLICT(migration_key) DO NOTHING`,
+  ]) await q(env, statement);
+}
 async function ensurePlatformContextNoFallback(env) {
   const alreadyApplied = (await q(env, `SELECT 1 FROM system_migrations WHERE migration_key='v1.2.1_platform_context_no_fallback_repair' LIMIT 1`)).rows[0];
   if (alreadyApplied) return;
@@ -1962,7 +2042,7 @@ async function testAiContent(env, p = {}) {
   };
 }
 async function getGuideContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const settings = await getTheme(env, scope); const blocks = await listContentBlocks(env, scope); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; return { settings, platform_key: platform.platform_key, platform_reference: scope.public_route_key || platform.platform_key, content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false, scope), home_sections: (await listHomeSections(env, false, scope)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false, scope), public_languages: [{code:'en',label:'English'}, {code:'hi',label:'Hindi'}], admin_languages: [{code:'en',label:'English'}, {code:'zh',label:'中文'}] }; }
-async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = theme.brand_name || scope.platform_name || (platform.name || 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; return { settings: theme, platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }], platforms, default_platform_key:platform.platform_key, quick_replies, support_enabled: theme.show_chat_support_button === true, texts: { en: { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }, hi: { title: chatTitle, online: theme.chat_online_text || 'ऑनलाइन सहायक', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'अपना संदेश लिखें...', busy: 'कृपया वर्तमान उत्तर की प्रतीक्षा करें...' } } }; }
+async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = theme.brand_name || scope.platform_name || (platform.name || 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; return { settings: theme, start_module: chatExperienceOut(theme, supportName), platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }], platforms, default_platform_key:platform.platform_key, quick_replies, support_enabled: theme.show_chat_support_button === true, texts: { en: { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }, hi: { title: chatTitle, online: theme.chat_online_text || 'ऑनलाइन सहायक', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'अपना संदेश लिखें...', busy: 'कृपया वर्तमान उत्तर की प्रतीक्षा करें...' } } }; }
 async function getAdminSiteContent(env, scope) { return { settings: await getTheme(env, scope), blocks: await listContentBlocks(env, scope), popular_help: [], navigation: await listNavigation(env, true, scope), home_sections: await listHomeSections(env, true, scope), chat_quick_replies: await listQuickReplies(env, true, scope) }; }
 function scopedTombstoneKey(scope, key) { return `p${scope.platform_id}:${key}`; }
 async function updateContentBlock(env, key, p, scope) {

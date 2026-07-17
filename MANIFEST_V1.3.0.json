@@ -1,0 +1,21 @@
+{
+  "release": "1.3.0-chat-start-module-experience-studio",
+  "scope": "BDG_CS_ASSISTANT",
+  "deployment": "manual-after-review",
+  "installer": "INSTALL-V130.cmd",
+  "database_migration": "backend-api/migrations/015_v1.3.0_chat_start_module_experience_studio.sql",
+  "checks": {
+    "backend_regression": "76/76",
+    "structured_response": "4/4",
+    "upload_regression": "4/4",
+    "knowledge_import": "5/5",
+    "frontend_builds": ["guide", "chat", "admin"]
+  },
+  "features": [
+    "tenant-scoped-chat-start-module",
+    "safe-animation-presets",
+    "platform-chat-layout",
+    "mobile-quick-action-grid",
+    "experience-studio-admin-controls"
+  ]
+}

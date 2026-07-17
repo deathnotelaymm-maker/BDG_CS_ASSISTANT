@@ -14,6 +14,7 @@ import {
   Upload,
   Space,
   Tabs,
+  Select,
 } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
@@ -51,6 +52,19 @@ function ThemeSettingsPage() {
             settings.chat_welcome_subtitle ||
             "Please describe your issue and we will guide you step by step.",
           chat_input_placeholder: settings.chat_input_placeholder || "Type your message...",
+          chat_start_enabled: settings.chat_start_enabled !== false,
+          chat_start_title: settings.chat_start_title || "Welcome to Support",
+          chat_start_body: settings.chat_start_body || "Choose a quick topic or start a conversation.",
+          chat_start_image_url: settings.chat_start_image_url || "",
+          chat_start_animation: settings.chat_start_animation || "fade",
+          chat_start_button_label: settings.chat_start_button_label || "Start chat",
+          chat_start_announcement: settings.chat_start_announcement || "",
+          chat_start_maintenance_banner: settings.chat_start_maintenance_banner || "",
+          chat_start_responsible_notice: settings.chat_start_responsible_notice || "",
+          chat_layout: settings.chat_layout || "standard",
+          chat_bubble_style: settings.chat_bubble_style || "soft",
+          chat_input_style: settings.chat_input_style || "rounded",
+          chat_background_url: settings.chat_background_url || "",
         });
       })
       .catch((e: any) => setLoadError(e?.message || "Theme settings could not be loaded"));
@@ -213,6 +227,98 @@ function ThemeSettingsPage() {
                             </Upload>
                           }
                         />
+                      </Form.Item>
+                      <Alert
+                        type="info"
+                        showIcon
+                        message="Chat Start Module"
+                        description="This screen appears before the first message for this platform only. Use safe animation presets and keep customer-facing notices short."
+                        style={{ margin: "12px 0 16px" }}
+                      />
+                      <Form.Item
+                        label="Enable start screen"
+                        name="chat_start_enabled"
+                        valuePropName="checked"
+                      >
+                        <Switch />
+                      </Form.Item>
+                      <Form.Item label="Start screen title" name="chat_start_title">
+                        <Input placeholder="Welcome to Support" />
+                      </Form.Item>
+                      <Form.Item label="Start screen message" name="chat_start_body">
+                        <Input.TextArea rows={4} placeholder="Choose a quick topic or start a conversation." />
+                      </Form.Item>
+                      <Form.Item label="Start screen image URL" name="chat_start_image_url">
+                        <Input
+                          placeholder="https://.../welcome.png"
+                          addonAfter={
+                            <Upload
+                              showUploadList={false}
+                              beforeUpload={(f) => uploadToField(f, "chat_start_image_url", "Start image")}
+                            >
+                              <Button size="small" icon={<UploadOutlined />}>Upload</Button>
+                            </Upload>
+                          }
+                        />
+                      </Form.Item>
+                      <Row gutter={12}>
+                        <Col span={12}>
+                          <Form.Item label="Animation preset" name="chat_start_animation">
+                            <Select options={[
+                              { value: "none", label: "None" },
+                              { value: "fade", label: "Fade" },
+                              { value: "slide", label: "Slide" },
+                              { value: "pulse", label: "Pulse" },
+                              { value: "typing", label: "Typing" },
+                            ]} />
+                          </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                          <Form.Item label="Start button label" name="chat_start_button_label">
+                            <Input placeholder="Start chat" />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                      <Form.Item label="Announcement" name="chat_start_announcement">
+                        <Input.TextArea rows={2} placeholder="Optional announcement" />
+                      </Form.Item>
+                      <Form.Item label="Maintenance banner" name="chat_start_maintenance_banner">
+                        <Input.TextArea rows={2} placeholder="Optional maintenance notice" />
+                      </Form.Item>
+                      <Form.Item label="Responsible-support notice" name="chat_start_responsible_notice">
+                        <Input.TextArea rows={2} placeholder="Optional responsible-support notice" />
+                      </Form.Item>
+                      <Row gutter={12}>
+                        <Col span={8}>
+                          <Form.Item label="Layout" name="chat_layout">
+                            <Select options={[
+                              { value: "standard", label: "Standard" },
+                              { value: "compact", label: "Compact" },
+                              { value: "centered", label: "Centered" },
+                            ]} />
+                          </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                          <Form.Item label="Bubble style" name="chat_bubble_style">
+                            <Select options={[
+                              { value: "soft", label: "Soft" },
+                              { value: "sharp", label: "Sharp" },
+                              { value: "minimal", label: "Minimal" },
+                            ]} />
+                          </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                          <Form.Item label="Input style" name="chat_input_style">
+                            <Select options={[
+                              { value: "rounded", label: "Rounded" },
+                              { value: "square", label: "Square" },
+                              { value: "minimal", label: "Minimal" },
+                            ]} />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                      <Form.Item label="Chat background URL" name="chat_background_url">
+                        <Input placeholder="https://.../background.jpg" />
                       </Form.Item>
                     </>
                   ),

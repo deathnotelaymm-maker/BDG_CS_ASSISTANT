@@ -37,6 +37,31 @@ function cleanDisplayText(text: string) {
     .trim();
 }
 
+const SAFE_ANIMATIONS = new Set(["none", "fade", "slide", "pulse", "typing"]);
+const SAFE_LAYOUTS = new Set(["standard", "compact", "centered"]);
+const SAFE_BUBBLES = new Set(["soft", "sharp", "minimal"]);
+const SAFE_INPUTS = new Set(["rounded", "square", "minimal"]);
+
+function safePreset(value: string | undefined, allowed: Set<string>, fallback: string) {
+  const normalized = String(value || "").toLowerCase();
+  return allowed.has(normalized) ? normalized : fallback;
+}
+
+function safeVisualUrl(value: string | undefined) {
+  const url = String(value || "").trim();
+  return /^https:\/\//i.test(url) || /^\/uploads\//i.test(url) ? url : "";
+}
+
+function safeFontFamily(value: string | undefined) {
+  const allowed: Record<string, string> = {
+    inter: "Inter, ui-sans-serif, system-ui, sans-serif",
+    system: "ui-sans-serif, system-ui, sans-serif",
+    roboto: "Roboto, ui-sans-serif, system-ui, sans-serif",
+    segoe: '"Segoe UI", ui-sans-serif, system-ui, sans-serif',
+  };
+  return allowed[String(value || "inter").toLowerCase()] || allowed.inter;
+}
+
 export default function App() {
   const [preview, setPreview] = useState<{ src:string; alt:string } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -49,6 +74,9 @@ export default function App() {
   const platformKey = getPlatformKey();
   const chatConfig = getChatConfig(language, platformKey);
   const dynamicTexts = content?.texts?.[language] || {};
+  const startModule = content?.start_module;
+  const startEnabled = Boolean(content && startModule?.enabled !== false);
+  const [started, setStarted] = useState(false);
   const headerTitle = content?.branding?.title || dynamicTexts.title || chatConfig.chatTitle;
   const onlineText = content?.branding?.online || dynamicTexts.online || chatConfig.onlineLabel;
   const welcomeTitle = dynamicTexts.welcome_title || chatConfig.welcomeTitle;
@@ -57,6 +85,19 @@ export default function App() {
   const quickQuestions = (content?.quick_replies || []).length
     ? (content?.quick_replies || []).slice(0, 5).map((q) => q.query || q.text)
     : chatConfig.quickQuestions;
+  const layout = safePreset(startModule?.layout || content?.settings?.chat_layout, SAFE_LAYOUTS, "standard");
+  const bubbleStyle = safePreset(startModule?.bubble_style || content?.settings?.chat_bubble_style, SAFE_BUBBLES, "soft");
+  const inputStyle = safePreset(startModule?.input_style || content?.settings?.chat_input_style, SAFE_INPUTS, "rounded");
+  const animation = safePreset(startModule?.animation, SAFE_ANIMATIONS, "fade");
+  const backgroundUrl = safeVisualUrl(startModule?.background_url || content?.settings?.chat_background_url);
+  const themeStyle = {
+    "--brand": content?.settings?.accent_color || undefined,
+    "--primary": content?.settings?.accent_color || undefined,
+    "--ring": content?.settings?.accent_color || undefined,
+    "--surface": content?.settings?.surface_color || undefined,
+    "--background-image": backgroundUrl ? `url(${JSON.stringify(backgroundUrl)})` : undefined,
+    fontFamily: safeFontFamily(content?.settings?.font_family),
+  } as React.CSSProperties;
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [waitHint, setWaitHint] = useState(false);
@@ -110,6 +151,8 @@ export default function App() {
         return;
       }
 
+      setStarted(true);
+
       setMessages((m) => [...m, { id: uid(), role: "user", content: trimmed }]);
       setInput("");
       setIsProcessing(true);
@@ -158,8 +201,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full bg-background flex justify-center">
-      <div className="flex flex-col w-full max-w-[440px] min-h-[100dvh] relative">
+    <div className="min-h-[100dvh] w-full bg-background flex justify-center" style={themeStyle}>
+      <div className={`chat-layout-${layout} chat-bubbles-${bubbleStyle} chat-input-${inputStyle} flex flex-col w-full max-w-[440px] min-h-[100dvh] relative bg-background/95 ${backgroundUrl ? "chat-background-image" : ""}`}>
         <header className="sticky top-0 z-20 backdrop-blur-md bg-background/85 border-b border-border">
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -207,35 +250,50 @@ export default function App() {
         </header>
 
         <div ref={scrollRef} className="chat-scroll flex-1 overflow-y-auto px-4 py-4 space-y-3">
-          <section className="rounded-2xl bg-gradient-to-br from-surface-elevated to-surface border border-border p-4 msg-in">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-brand/15 text-brand grid place-items-center shrink-0 overflow-hidden">
-                {iconUrl ? (
-                  <img src={iconUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <Sparkles className="w-5 h-5" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-semibold text-sm">{welcomeTitle}</h2>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{welcomeText}</p>
-              </div>
-            </div>
-          </section>
+          {startEnabled && !started ? (
+            <ChatStartModule
+              module={startModule}
+              iconUrl={iconUrl}
+              quickQuestions={quickQuestions}
+              onStart={() => {
+                setStarted(true);
+                setTimeout(() => inputRef.current?.focus(), 30);
+              }}
+              onPrompt={send}
+            />
+          ) : (
+            <>
+              <section className="rounded-2xl bg-gradient-to-br from-surface-elevated to-surface border border-border p-4 msg-in">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-brand/15 text-brand grid place-items-center shrink-0 overflow-hidden">
+                    {iconUrl ? (
+                      <img src={iconUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Sparkles className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="font-semibold text-sm">{welcomeTitle}</h2>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{welcomeText}</p>
+                  </div>
+                </div>
+              </section>
 
-          <div className="flex flex-wrap gap-2 pb-1">
-            {quickQuestions.map((q) => (
-              <button
-                key={q}
-                type="button"
-                disabled={isProcessing}
-                onClick={() => send(q)}
-                className="text-xs px-3 py-1.5 rounded-full border border-border bg-surface hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
+              <div className="flex flex-wrap gap-2 pb-1">
+                {quickQuestions.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    disabled={isProcessing}
+                    onClick={() => send(q)}
+                    className="text-xs px-3 py-1.5 rounded-full border border-border bg-surface hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           {messages.map((m) => (
             <MessageBubble key={m.id} message={m} onRetry={() => m.retryOf && send(m.retryOf)} onPrompt={send} onPreview={(src,alt)=>setPreview({src,alt})} />
@@ -287,6 +345,87 @@ export default function App() {
       </div>
       {preview && <ImageLightbox src={preview.src} alt={preview.alt} onClose={()=>setPreview(null)} />}
     </div>
+  );
+}
+
+function ChatStartModule({
+  module,
+  iconUrl,
+  quickQuestions,
+  onStart,
+  onPrompt,
+}: {
+  module?: ChatContent["start_module"];
+  iconUrl: string;
+  quickQuestions: string[];
+  onStart: () => void;
+  onPrompt: (text: string) => void;
+}) {
+  const imageUrl = safeVisualUrl(module?.image_url);
+  const animation = safePreset(module?.animation, SAFE_ANIMATIONS, "fade");
+  return (
+    <section className={`chat-start-module chat-start-${animation} rounded-3xl border border-border bg-gradient-to-br from-surface-elevated to-surface p-5 msg-in`}>
+      {module?.announcement ? (
+        <div className="mb-3 rounded-xl border border-sky-400/30 bg-sky-400/10 px-3 py-2 text-xs text-sky-100">
+          {module.announcement}
+        </div>
+      ) : null}
+      {module?.maintenance_banner ? (
+        <div className="mb-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+          {module.maintenance_banner}
+        </div>
+      ) : null}
+      {imageUrl ? (
+        <img src={imageUrl} alt="" className="mb-4 max-h-48 w-full rounded-2xl object-cover border border-border" loading="eager" />
+      ) : (
+        <div className="mb-4 grid h-16 w-16 place-items-center overflow-hidden rounded-2xl bg-brand/15 text-brand">
+          {iconUrl ? <img src={iconUrl} alt="" className="h-full w-full object-cover" /> : <Sparkles className="h-7 w-7" />}
+        </div>
+      )}
+      <h2 className="text-lg font-semibold tracking-tight">{module?.title || "Welcome"}</h2>
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+        <StartCopy text={module?.body || "Choose a quick topic or start a conversation."} />
+      </p>
+      {quickQuestions.length > 0 ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {quickQuestions.map((question) => (
+            <button
+              key={question}
+              type="button"
+              onClick={() => onPrompt(question)}
+              className="rounded-xl border border-border bg-surface px-3 py-2 text-left text-xs transition-colors hover:bg-accent"
+            >
+              {question}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {module?.responsible_notice ? (
+        <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">{module.responsible_notice}</p>
+      ) : null}
+      <button
+        type="button"
+        onClick={onStart}
+        className="mt-5 w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand-glow"
+      >
+        {module?.button_label || "Start chat"}
+      </button>
+    </section>
+  );
+}
+
+function StartCopy({ text }: { text: string }) {
+  const parts = String(text).split(/(\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|==[^=]+==)/g);
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+        if (part.startsWith("__") && part.endsWith("__")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+        if (part.startsWith("*") && part.endsWith("*")) return <em key={index}>{part.slice(1, -1)}</em>;
+        if (part.startsWith("==") && part.endsWith("==")) return <mark key={index} className="rounded bg-brand/20 px-1 text-brand">{part.slice(2, -2)}</mark>;
+        return <span key={index}>{part}</span>;
+      })}
+    </>
   );
 }
 
