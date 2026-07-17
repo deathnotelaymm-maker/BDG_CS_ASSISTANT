@@ -396,8 +396,8 @@ expect(
 );
 expect(
   "Health and API errors expose the same release version",
-  core.includes("1.4.0-operations-connector-gateway") &&
-    server.includes("1.4.0-operations-connector-gateway"),
+  core.includes("1.5.0-tenant-platform-experience-owner-controls") &&
+    server.includes("1.5.0-tenant-platform-experience-owner-controls"),
 );
 expect(
   "Operations Connector Gateway is platform-scoped and allowlisted",

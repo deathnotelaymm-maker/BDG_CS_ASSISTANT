@@ -37,6 +37,7 @@ import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-rout
 import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
+const ADMIN_VERSION = "v1.5.0";
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
   {
@@ -298,12 +299,12 @@ export default function AdminLayout({
           trigger={null}
         >
           <div className="bdg-brand">
-            <div className="bdg-brand-mark">BDG</div>
+            <div className="bdg-brand-mark">AI</div>
             {!collapsed && (
               <div>
-                <div className="bdg-brand-title">BDG Help Center</div>
+                <div className="bdg-brand-title">Luke Admin Control</div>
                 <div className="bdg-brand-sub">
-                  {adminLang === "zh" ? "业务管理后台" : "Business Admin Console"}
+                  {adminLang === "zh" ? `业务管理后台 · ${ADMIN_VERSION}` : `Business Admin Console · ${ADMIN_VERSION}`}
                 </div>
               </div>
             )}

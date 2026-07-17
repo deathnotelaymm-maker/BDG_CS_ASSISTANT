@@ -1,0 +1,39 @@
+v1.5.0 — Tenant Platform Experience + Owner Controls
+
+Backend
+- backend-api/src/core.js
+- backend-api/src/server.js
+- backend-api/migrations/017_v1.5.0_tenant_platform_experience_owner_controls.sql
+- backend-api/scripts/tenant-platform-experience-regression-test.js
+- backend-api/scripts/regression-test.js
+- backend-api/scripts/operations-connector-regression-test.js
+- backend-api/scripts/upload-regression-test.js
+- backend-api/package.json
+- backend-api/package-lock.json
+
+Admin
+- admin-pro/src/components/AdminLayout.tsx
+- admin-pro/src/lib/api.ts
+- admin-pro/src/routes/_admin.admin-users.tsx
+- admin-pro/src/routes/_admin.ai-knowledge-import.tsx
+- admin-pro/src/routes/_admin.platform-control-center.tsx
+- admin-pro/src/routes/_admin.theme-settings.tsx
+- admin-pro/package.json
+- admin-pro/package-lock.json
+
+Public apps
+- guide-pro/src/components/public/PublicLayout.tsx
+- guide-pro/src/lib/api.ts
+- guide-pro/package.json
+- guide-pro/package-lock.json
+- chat-pro/src/App.tsx
+- chat-pro/src/lib/api.ts
+- chat-pro/src/lib/chat-config.ts
+- chat-pro/package.json
+- chat-pro/package-lock.json
+
+Release documentation
+- README.md
+- RELEASE_NOTES_V1.5.0.md
+- TEST_RESULT_V1.5.0.md
+- CHANGED_FILES_V1.5.0.txt

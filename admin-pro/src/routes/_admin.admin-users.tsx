@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Button, Drawer, Form, Input, Popconfirm, Select, Space, Table, Tag, message } from "antd";
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
-import { api } from "@/lib/api";
+import { api, getActiveAdminPlatformRoute } from "@/lib/api";
 
 export const Route = createFileRoute("/_admin/admin-users")({ component: AdminUsersPage });
 
@@ -30,7 +30,7 @@ function AdminUsersPage() {
   const create = () => {
     setEditing(null);
     form.resetFields();
-    form.setFieldsValue({ role: "admin", status: "active" });
+    form.setFieldsValue({ role: getActiveAdminPlatformRoute() ? "platform_admin" : "admin", status: "active" });
     setOpen(true);
   };
   const edit = (row: AdminUser) => {
@@ -89,7 +89,7 @@ function AdminUsersPage() {
         <Form.Item name="name" label="Name" rules={[{ required: true }]}><Input /></Form.Item>
         <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}><Input /></Form.Item>
         {!editing && <Form.Item name="password" label="Temporary password" rules={[{ required: true, min: 8 }]}><Input.Password /></Form.Item>}
-        <Form.Item name="role" label="Role"><Select options={[{ value: "admin", label: "Admin" }, { value: "owner", label: "Owner (protected, only first owner remains owner)" }]} /></Form.Item>
+        <Form.Item name="role" label="Role"><Select options={getActiveAdminPlatformRoute() ? ["platform_admin", "content_manager", "ai_manager", "support_analyst", "viewer"].map((value) => ({ value, label: value.replace(/_/g, " ") })) : [{ value: "admin", label: "Admin" }, { value: "owner", label: "Owner (protected, only first owner remains owner)" }]} /></Form.Item>
         <Form.Item name="status" label="Status"><Select options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} /></Form.Item>
       </Form>
     </Drawer>

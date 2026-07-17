@@ -1,8 +1,7 @@
-export type PublicLanguage = "en" | "hi";
+export type PublicLanguage = string;
 
 export const CHAT_LANGUAGE_OPTIONS: { code: PublicLanguage; label: string }[] = [
   { code: "en", label: "English" },
-  { code: "hi", label: "Hindi" },
 ];
 
 function platformLabel(platformKey = "default") {
@@ -60,7 +59,7 @@ const texts = {
 } as const;
 
 export function getChatConfig(language: string, platformKey = "default") {
-  const lang: PublicLanguage = language === "hi" ? "hi" : "en";
+  const lang: PublicLanguage = String(language || "en");
   const isDefault = platformKey === "default";
   const name = platformLabel(platformKey);
   const base = isDefault

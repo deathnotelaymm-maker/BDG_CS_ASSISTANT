@@ -10,6 +10,7 @@ import {
   Drawer,
   Form,
   Input,
+  Upload,
   Popconfirm,
   Row,
   Select,
@@ -33,6 +34,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
   TeamOutlined,
+  UploadOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { api } from "@/lib/api";
@@ -49,6 +51,7 @@ type Tenant = {
   plan_code?: string;
   status?: string;
   default_locale?: string;
+  supported_languages?: string[];
   platform_count?: number;
 };
 type Platform = {
@@ -64,6 +67,7 @@ type Platform = {
   description?: string;
   support_mode?: string;
   default_locale?: string;
+  supported_languages?: string[];
   legacy_support_platform_key?: string;
   status?: string;
 };
@@ -96,6 +100,7 @@ function PlatformControlCenter() {
   const [domainForm] = Form.useForm();
   const [memberForm] = Form.useForm();
   const [brandForm] = Form.useForm();
+  const [platformEditForm] = Form.useForm();
 
   const load = async () => {
     setLoading(true);
@@ -110,7 +115,7 @@ function PlatformControlCenter() {
   };
   const openPlatform = async (row: Platform) => {
     setDetailLoading(true);
-    try { const detail = await api.getTenantPlatform(row.id) as PlatformDetail; setSelected(detail); const [result, connectorResult] = await Promise.all([api.getPlatformBrand(row.id) as Promise<any>, api.getPlatformConnector(row.id) as Promise<any>]); setBrand(result.brand || {}); brandForm.setFieldsValue(result.brand || {}); setConnector(connectorResult as Connector); connectorForm.setFieldsValue({ ...(connectorResult || {}), allowed_actions: connectorResult?.allowed_actions || [] }); }
+    try { const detail = await api.getTenantPlatform(row.id) as PlatformDetail; setSelected(detail); platformEditForm.setFieldsValue({ ...detail, supported_languages: (detail.supported_languages || []).join(", ") }); const [result, connectorResult] = await Promise.all([api.getPlatformBrand(row.id) as Promise<any>, api.getPlatformConnector(row.id) as Promise<any>]); setBrand(result.brand || {}); brandForm.setFieldsValue(result.brand || {}); setConnector(connectorResult as Connector); connectorForm.setFieldsValue({ ...(connectorResult || {}), allowed_actions: connectorResult?.allowed_actions || [] }); }
     catch (error: any) { message.error(error?.message || "Could not load platform details"); }
     finally { setDetailLoading(false); }
   };
@@ -137,7 +142,7 @@ function PlatformControlCenter() {
     { title: "Contact", dataIndex: "contact_email", render: (value) => value || "—" },
     { title: "Status", dataIndex: "status", render: (value) => <Tag color={statusColor(value)}>{value || "active"}</Tag> },
     { title: "", width: 160, render: (_, tenant) => <Space>
-      <Tooltip title={Number(tenant.platform_count || 0) >= 1 ? "One active platform is allowed per client company" : "Create the platform for this client company"}><Button size="small" disabled={Number(tenant.platform_count || 0) >= 1} icon={<PlusOutlined />} onClick={() => { platformForm.resetFields(); platformForm.setFieldsValue({ tenant_id: tenant.id, default_locale: tenant.default_locale || "en", support_mode: "none", status: "active" }); setPlatformOpen(true); }}>Platform</Button></Tooltip>
+      <Tooltip title={Number(tenant.platform_count || 0) >= 1 ? "One active platform is allowed per client company" : "Create the platform for this client company"}><Button size="small" disabled={Number(tenant.platform_count || 0) >= 1} icon={<PlusOutlined />} onClick={() => { platformForm.resetFields(); platformForm.setFieldsValue({ tenant_id: tenant.id, default_locale: tenant.default_locale || "en-US", supported_languages: tenant.default_locale || "en-US", support_mode: "none", status: "active" }); setPlatformOpen(true); }}>Platform</Button></Tooltip>
       {control?.operator && tenant.tenant_key !== "bdg-operations" && <Popconfirm title="Archive this client company and its platforms?" description="Its data is retained but no longer active." onConfirm={() => api.archiveTenant(tenant.id).then(() => { message.success("Client company archived"); load(); })}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>}
     </Space> },
   ];
@@ -170,6 +175,24 @@ function PlatformControlCenter() {
     message.success("Platform member saved.");
     setMemberOpen(false); memberForm.resetFields(); refreshSelected();
   };
+  const savePlatformDetails = async () => {
+    if (!selected) return;
+    try {
+      const values = await platformEditForm.validateFields();
+      const languages = String(values.supported_languages || "").split(/[\s,]+/).map((value: string) => value.trim()).filter(Boolean);
+      const result = await api.updateTenantPlatform(selected.id, { ...values, supported_languages: languages });
+      setSelected(result as PlatformDetail);
+      platformEditForm.setFieldsValue({ ...(result as any), supported_languages: ((result as any).supported_languages || []).join(", ") });
+      await load();
+      message.success("Platform settings saved");
+    } catch (error: any) { message.error(error?.message || "Platform settings could not be saved"); }
+  };
+  const uploadBrandField = async (file: File, field: string, label: string) => {
+    try { const result = await api.upload(file); brandForm.setFieldValue(field, result.url); message.success(`${label} uploaded`); }
+    catch (error: any) { message.error(error?.message || `${label} upload failed`); }
+    return false;
+  };
+  const brandUrlField = (field: string, label: string, placeholder: string) => <Form.Item name={field} label={label}><Input placeholder={placeholder} addonAfter={<Upload showUploadList={false} beforeUpload={(file) => uploadBrandField(file, field, label)}><Button size="small" icon={<UploadOutlined />}>Upload</Button></Upload>} /></Form.Item>;
   const saveConnector = async () => {
     if (!selected) return;
     try { const values = await connectorForm.validateFields(); const result = await api.updatePlatformConnector(selected.id, values) as Connector; setConnector(result); connectorForm.setFieldsValue({ ...result, allowed_actions: result.allowed_actions || [] }); message.success("Operations connector settings saved"); } catch (error: any) { message.error(error?.message || "Connector settings could not be saved"); }
@@ -187,7 +210,7 @@ function PlatformControlCenter() {
       </div>
       <Space>
         <Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>
-        {control?.operator && <Button type="primary" icon={<PlusOutlined />} onClick={() => { tenantForm.resetFields(); tenantForm.setFieldsValue({ plan_code: "starter", default_locale: "en", status: "active" }); setTenantOpen(true); }}>New client company</Button>}
+        {control?.operator && <Button type="primary" icon={<PlusOutlined />} onClick={() => { tenantForm.resetFields(); tenantForm.setFieldsValue({ plan_code: "starter", default_locale: "en-US", supported_languages: "en-US", status: "active" }); setTenantOpen(true); }}>New client company</Button>}
       </Space>
     </div>
 
@@ -200,7 +223,7 @@ function PlatformControlCenter() {
     <Card title="Client companies" extra={<Tooltip title="Each client company is limited to one active platform."><GlobalOutlined /></Tooltip>} style={{ marginBottom: 16 }}>
       <Table rowKey="id" size="middle" columns={tenantColumns} dataSource={control?.tenants || []} pagination={{ pageSize: 10 }} locale={{ emptyText: "No client company is available to your account." }} />
     </Card>
-    <Card title="Child platforms" extra={<Button icon={<PlusOutlined />} disabled={(control?.tenants || []).every((tenant) => Number(tenant.platform_count || 0) >= 1)} onClick={() => { platformForm.resetFields(); platformForm.setFieldsValue({ default_locale: "en", support_mode: "none", status: "active" }); setPlatformOpen(true); }}>New platform</Button>}>
+    <Card title="Child platforms">
       <Table rowKey="id" size="middle" columns={platformColumns} dataSource={control?.platforms || []} pagination={{ pageSize: 20 }} locale={{ emptyText: "Create a platform under a client company to begin." }} />
     </Card>
 
@@ -210,7 +233,8 @@ function PlatformControlCenter() {
         <Form.Item name="tenant_key" label="Stable tenant key" rules={[{ required: true, pattern: /^[a-z0-9_-]+$/, message: "Use lowercase letters, numbers, - or _ only" }]}><Input placeholder="acme-entertainment" /></Form.Item>
         <Form.Item name="contact_email" label="Billing / owner email" rules={[{ type: "email" }]}><Input placeholder="owner@client.com" /></Form.Item>
         <Form.Item name="plan_code" label="Plan"><Select options={["starter", "business", "enterprise"].map((value) => ({ value, label: value }))} /></Form.Item>
-        <Form.Item name="default_locale" label="Default language"><Select options={[{ value: "en", label: "English" }, { value: "hi", label: "Hindi / Indian" }, { value: "all", label: "Multi-language" }]} /></Form.Item>
+        <Form.Item name="default_locale" label="Default language" rules={[{ required: true }]}><Input placeholder="en-US, th, my-MM" /></Form.Item>
+        <Form.Item name="supported_languages" label="Supported languages" extra="Use BCP-47 codes separated by commas, for example en-US, th, my-MM"><Input placeholder="en-US, th, my-MM" /></Form.Item>
         <Form.Item name="notes" label="Operator notes"><Input.TextArea rows={4} placeholder="Private operating notes for this client company" /></Form.Item>
       </Form>
     </Drawer>
@@ -224,7 +248,8 @@ function PlatformControlCenter() {
         <Form.Item name="parent_platform_id" label="Parent platform (optional)"><Select allowClear options={(control?.platforms || []).map((platform) => ({ value: platform.id, label: `${platform.tenant_name || ""} · ${platform.name}` }))} /></Form.Item>
         <Form.Item name="owner_email" label="Child-platform owner email" rules={[{ required: true, type: "email" }]}><Input placeholder="client-owner@example.com" /></Form.Item>
         <Form.Item name="support_mode" label="Support process"><Select options={[{ value: "none", label: "No ticket system" }, { value: "tickets", label: "Ticket system" }, { value: "hybrid", label: "Hybrid support" }]} /></Form.Item>
-        <Form.Item name="default_locale" label="Default language"><Select options={[{ value: "en", label: "English" }, { value: "hi", label: "Hindi / Indian" }, { value: "all", label: "Multi-language" }]} /></Form.Item>
+        <Form.Item name="default_locale" label="Default language" rules={[{ required: true }]}><Input placeholder="en-US, th, my-MM" /></Form.Item>
+        <Form.Item name="supported_languages" label="Supported languages" extra="Use BCP-47 codes separated by commas"><Input placeholder="en-US, th, my-MM" /></Form.Item>
         <Form.Item name="description" label="Internal description"><Input.TextArea rows={3} placeholder="Brand, audience, or operation notes" /></Form.Item>
       </Form>
     </Drawer>
@@ -241,6 +266,14 @@ function PlatformControlCenter() {
         ]} />
         <Divider />
         <Tabs items={[
+          { key: "platform-settings", label: "Platform settings", children: <Form form={platformEditForm} layout="vertical" onFinish={savePlatformDetails}>
+            <Alert type="info" showIcon message="Platform-owner settings" description="Child platform owners and platform admins can update this platform. The client company remains isolated and the one-platform guard stays active." style={{ marginBottom: 16 }} />
+            <Form.Item name="name" label="Platform name" rules={[{ required: true }]}><Input /></Form.Item>
+            <Form.Item name="description" label="Description"><Input.TextArea rows={3} /></Form.Item>
+            <Row gutter={12}><Col span={12}><Form.Item name="default_locale" label="Default language" rules={[{ required: true }]}><Input placeholder="en-US, th, my-MM" /></Form.Item></Col><Col span={12}><Form.Item name="supported_languages" label="Supported languages" extra="Comma-separated BCP-47 codes"><Input placeholder="en-US, th, my-MM" /></Form.Item></Col></Row>
+            <Row gutter={12}><Col span={12}><Form.Item name="support_mode" label="Support process"><Select options={[{ value: "none", label: "No ticket system" }, { value: "tickets", label: "Ticket system" }, { value: "hybrid", label: "Hybrid support" }]} /></Form.Item></Col><Col span={12}><Form.Item name="status" label="Status"><Select options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} /></Form.Item></Col></Row>
+            <Button type="primary" htmlType="submit">Save platform settings</Button>
+          </Form> },
           { key: "access-links", label: "Platform access links", children: <>
             <Alert type="success" showIcon message="Ready to share immediately" description="These generated URLs use your existing BDG Pages sites. They are not custom DNS domains." style={{ marginBottom: 16 }} />
             {([['AI Chat', selected.access_links?.chat], ['Guide / tutorial', selected.access_links?.guide], ['Admin backend', selected.access_links?.admin]] as const).map(([label, url]) => <Form.Item key={label} label={label}><Space.Compact style={{ width: '100%' }}><Input readOnly value={url || 'Generating platform access link…'} /><Button icon={<CopyOutlined />} disabled={!url} onClick={async () => { try { await navigator.clipboard.writeText(url || ''); message.success(`${label} link copied`); } catch { message.error('Could not copy the link'); } }}>Copy</Button><Button disabled={!url} href={url || undefined} target="_blank">Open</Button></Space.Compact></Form.Item>)}
@@ -263,7 +296,7 @@ function PlatformControlCenter() {
               { title: "", width: 48, render: (_, row) => row.role === "platform_owner" ? null : <Popconfirm title="Remove this member from the platform?" onConfirm={() => api.removePlatformMember(row.id).then(() => { message.success("Platform member removed"); refreshSelected(); })}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm> },
             ]} />
           </> },
-          { key: "brand", label: "Brand Studio", children: <Form form={brandForm} layout="vertical" onFinish={async (values) => { try { const result = await api.updatePlatformBrand(selected.id, values) as any; setBrand(result.brand || values); brandForm.setFieldsValue(result.brand || values); message.success("Platform branding saved"); } catch (error: any) { message.error(error?.message || "Brand update failed"); } }}><Alert type="info" showIcon message="Platform-owned branding" description="These values are used by the Guide, Chat, and Admin surfaces for this platform. Empty fields inherit the platform defaults." style={{ marginBottom: 16 }} /><Row gutter={12}><Col span={12}><Form.Item name="brand_name" label="Brand name"><Input /></Form.Item></Col><Col span={12}><Form.Item name="brand_tagline" label="Tagline"><Input /></Form.Item></Col><Col span={12}><Form.Item name="admin_logo_url" label="Admin logo URL"><Input placeholder="https://.../logo.png" /></Form.Item></Col><Col span={12}><Form.Item name="admin_favicon_url" label="Admin favicon URL"><Input placeholder="https://.../favicon.png" /></Form.Item></Col><Col span={12}><Form.Item name="guide_logo_url" label="Guide logo URL"><Input placeholder="https://.../logo.png" /></Form.Item></Col><Col span={12}><Form.Item name="guide_favicon_url" label="Guide favicon URL"><Input placeholder="https://.../favicon.png" /></Form.Item></Col><Col span={12}><Form.Item name="chat_icon_url" label="Chat icon URL"><Input placeholder="https://.../icon.png" /></Form.Item></Col><Col span={12}><Form.Item name="chat_favicon_url" label="Chat favicon URL"><Input placeholder="https://.../favicon.png" /></Form.Item></Col><Col span={8}><Form.Item name="accent_color" label="Accent color"><Input placeholder="#3b82f6" /></Form.Item></Col><Col span={8}><Form.Item name="surface_color" label="Surface color"><Input placeholder="#0f172a" /></Form.Item></Col><Col span={8}><Form.Item name="button_style" label="Button style"><Select options={[{value:"rounded",label:"Rounded"},{value:"pill",label:"Pill"},{value:"square",label:"Square"}]} /></Form.Item></Col></Row><Button type="primary" htmlType="submit">Save brand settings</Button></Form> },
+          { key: "brand", label: "Brand Studio", children: <Form form={brandForm} layout="vertical" onFinish={async (values) => { try { const result = await api.updatePlatformBrand(selected.id, values) as any; setBrand(result.brand || values); brandForm.setFieldsValue(result.brand || values); message.success("Platform branding saved"); } catch (error: any) { message.error(error?.message || "Brand update failed"); } }}><Alert type="info" showIcon message="Platform-owned branding" description="Each platform owns its own identity. Upload a local image or paste a hosted URL; blank fields show a neutral unconfigured state instead of BDG branding." style={{ marginBottom: 16 }} /><Row gutter={12}><Col span={12}><Form.Item name="brand_name" label="Brand name"><Input /></Form.Item></Col><Col span={12}><Form.Item name="brand_tagline" label="Tagline"><Input /></Form.Item></Col><Col span={12}>{brandUrlField("admin_logo_url", "Admin logo", "https://.../logo.png")}</Col><Col span={12}>{brandUrlField("admin_favicon_url", "Admin favicon", "https://.../favicon.png")}</Col><Col span={12}>{brandUrlField("guide_logo_url", "Guide logo", "https://.../logo.png")}</Col><Col span={12}>{brandUrlField("guide_favicon_url", "Guide favicon", "https://.../favicon.png")}</Col><Col span={12}>{brandUrlField("chat_icon_url", "Chat icon", "https://.../icon.png")}</Col><Col span={12}>{brandUrlField("chat_favicon_url", "Chat favicon", "https://.../favicon.png")}</Col><Col span={8}><Form.Item name="accent_color" label="Accent color"><Input placeholder="#3b82f6" /></Form.Item></Col><Col span={8}><Form.Item name="surface_color" label="Surface color"><Input placeholder="#0f172a" /></Form.Item></Col><Col span={8}><Form.Item name="button_style" label="Button style"><Select options={[{value:"rounded",label:"Rounded"},{value:"pill",label:"Pill"},{value:"square",label:"Square"}]} /></Form.Item></Col></Row><Button type="primary" htmlType="submit">Save brand settings</Button></Form> },
           { key: "connector", label: "Operations Connector", children: <>
             <Alert type="info" showIcon message="Backend-only platform checks" description="Connectors are optional. Secrets stay encrypted on the backend, only allowlisted actions can run, and every test is audited with a redacted request ID." style={{ marginBottom: 16 }} />
             <Form form={connectorForm} layout="vertical">

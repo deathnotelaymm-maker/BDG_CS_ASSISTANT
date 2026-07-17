@@ -82,7 +82,7 @@ export interface ChatRequest {
   message: string;
   session_id: string;
   image_urls: string[];
-  language?: "en" | "hi";
+  language?: string;
   platform_key?: string;
 }
 
@@ -114,7 +114,7 @@ export function getPlatformKey(defaultKey = "default"): string {
 
 export async function sendChatMessage(
   message: string,
-  language: "en" | "hi" = "en",
+  language: string = "en",
   platform_key = getPlatformKey(),
   signal?: AbortSignal,
 ): Promise<ChatResponse> {

@@ -20,7 +20,7 @@ import {
   Upload,
   message,
 } from "antd";
-import { CloudUploadOutlined, DeleteOutlined, EditOutlined, EyeOutlined, FileExcelOutlined, PlusOutlined, ReloadOutlined, RollbackOutlined } from "@ant-design/icons";
+import { CloudUploadOutlined, DeleteOutlined, EditOutlined, EyeOutlined, FileExcelOutlined, ReloadOutlined, RollbackOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/_admin/ai-knowledge-import")({ component: AiKnowledgeImportPage });
@@ -105,7 +105,7 @@ function AiKnowledgeImportPage() {
   };
 
   const openPlatform = (platform?: any) => {
-    const value = platform || { platform_key: "", name: "", support_mode: "none", status: "active", default_locale: "en", ticket_url: "", support_url: "" };
+    const value = platform || { platform_key: "", name: "", support_mode: "none", status: "active", default_locale: "en-US", supported_languages: "en-US", ticket_url: "", support_url: "" };
     setPlatformEditor(value);
     form.setFieldsValue(value);
   };
@@ -152,7 +152,7 @@ function AiKnowledgeImportPage() {
         </Card>
       </Col>
       <Col xs={24} xl={9}>
-        <Card className="bdg-card" title="Support platform profiles" extra={<Button icon={<PlusOutlined />} type="primary" onClick={() => openPlatform()}>New platform</Button>}>
+        <Card className="bdg-card" title="Support platform profiles">
           <Table size="small" loading={loading} rowKey="id" dataSource={platforms} pagination={false} columns={[
             { title:"Platform", render:(_:any,row:any)=><div><b>{row.name}</b><div style={{color:"#8ea0bd",fontSize:12}}>{row.platform_key}</div></div> },
             { title:"Mode", render:(_:any,row:any)=><Tag color={row.support_mode === "none" ? "default" : "blue"}>{row.support_mode}</Tag> },
@@ -198,9 +198,9 @@ function AiKnowledgeImportPage() {
         <Row gutter={12}><Col span={12}><Form.Item name="support_mode" label="Support mode"><Select options={[{value:"none",label:"No ticket system"},{value:"tickets",label:"Ticket system"},{value:"hybrid",label:"Ticket + normal support"}]} /></Form.Item></Col><Col span={12}><Form.Item name="status" label="Status"><Select options={[{value:"active",label:"Active"},{value:"inactive",label:"Inactive"}]} /></Form.Item></Col></Row>
         <Form.Item name="ticket_url" label="Ticket URL (optional)"><Input placeholder="https://app.example.com/tickets/new" /></Form.Item>
         <Form.Item name="support_url" label="Normal support URL (optional)"><Input placeholder="https://t.me/official_support" /></Form.Item>
-        <Form.Item name="default_locale" label="Default language"><Select options={[{value:"en",label:"English"},{value:"hi",label:"Hindi / Indian"},{value:"all",label:"All"}]} /></Form.Item>
+        <Form.Item name="default_locale" label="Default language" rules={[{required:true}]}><Input placeholder="en-US, th, my-MM" /></Form.Item>
+        <Form.Item name="supported_languages" label="Supported languages" extra="Comma-separated BCP-47 codes"><Input placeholder="en-US, th, my-MM" /></Form.Item>
       </Form>
     </Modal>
   </>;
 }
-

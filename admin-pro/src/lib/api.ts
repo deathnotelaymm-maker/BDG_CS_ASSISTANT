@@ -191,13 +191,14 @@ function normalizeResourcePayload(resource: string, payload: any): any[] {
 }
 
 function normalizeForCreate(resource: string, data: any) {
-  if (resource === "admin-users") {
-    return {
+    if (resource === "admin-users") {
+      return {
       name: data.name || "Admin",
       email: data.email,
       password: data.password || data.new_password || undefined,
-      role: String(data.role || "admin")
-        .toLowerCase()
+        role: String(data.role || "admin")
+          .replace(/^admin$/, getActiveAdminPlatformRoute() ? "platform_admin" : "admin")
+          .toLowerCase()
         .includes("owner")
         ? "admin"
         : String(data.role || "admin").toLowerCase(),

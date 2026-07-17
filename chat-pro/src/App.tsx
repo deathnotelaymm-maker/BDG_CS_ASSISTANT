@@ -75,6 +75,7 @@ export default function App() {
   const chatConfig = getChatConfig(language, platformKey);
   const dynamicTexts = content?.texts?.[language] || {};
   const startModule = content?.start_module;
+  const languageOptions = content?.languages?.length ? content.languages : CHAT_LANGUAGE_OPTIONS;
   const startEnabled = Boolean(content && startModule?.enabled !== false);
   const [started, setStarted] = useState(false);
   const headerTitle = content?.branding?.title || dynamicTexts.title || chatConfig.chatTitle;
@@ -239,7 +240,7 @@ export default function App() {
                 className="bg-transparent text-foreground outline-none"
                 aria-label={chatConfig.languageLabel}
               >
-                {CHAT_LANGUAGE_OPTIONS.map((l) => (
+                {languageOptions.map((l) => (
                   <option key={l.code} value={l.code}>
                     {l.label}
                   </option>

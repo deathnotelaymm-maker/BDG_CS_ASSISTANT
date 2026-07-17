@@ -26,6 +26,11 @@ export function PublicLayout({ children }: { children: ReactNode }) {
     staleTime: 0,
     refetchOnMount: "always",
   });
+  const { data: platformLanguages } = useQuery({
+    queryKey: ["platform-languages", platformKey],
+    queryFn: api.getPlatformLanguages,
+    staleTime: 30_000,
+  });
   const platformName = theme?.brand_name || theme?.app_name || (platformKey === "default" ? "BDG Help Center" : platformKey);
   const platformTagline = theme?.brand_tagline || (platformKey === "default" ? "Official Support" : `${platformName} Support`);
 
@@ -50,7 +55,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
-      <PublicHeader platformKey={platformKey} platformName={platformName} platformTagline={platformTagline} logoUrl={theme?.guide_logo_url || ""} />
+      <PublicHeader platformKey={platformKey} platformName={platformName} platformTagline={platformTagline} logoUrl={theme?.guide_logo_url || ""} languages={platformLanguages || PUBLIC_LANGUAGES} />
       <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 md:max-w-4xl md:pb-16">
         {children}
       </main>
@@ -59,7 +64,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function PublicHeader({ platformKey, platformName, platformTagline, logoUrl }: { platformKey: string; platformName: string; platformTagline: string; logoUrl: string }) {
+function PublicHeader({ platformKey, platformName, platformTagline, logoUrl, languages }: { platformKey: string; platformName: string; platformTagline: string; logoUrl: string; languages: { code: string; label: string }[] }) {
   const [language, setLanguage] = useState<PublicLanguage>(() => getPublicLanguage());
   const changeLanguage = (next: PublicLanguage) => {
     setLanguage(next);
@@ -99,7 +104,7 @@ function PublicHeader({ platformKey, platformName, platformTagline, logoUrl }: {
               className="bg-transparent text-foreground outline-none"
               aria-label="Language"
             >
-              {PUBLIC_LANGUAGES.map((l) => (
+              {languages.map((l) => (
                 <option key={l.code} value={l.code}>{l.label}</option>
               ))}
             </select>

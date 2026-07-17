@@ -6,7 +6,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.4.0-operations-connector-gateway';
+const VERSION = '1.5.0-tenant-platform-experience-owner-controls';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -181,8 +181,8 @@ async function route(request, env, url) {
   // Prompt-first AI Content Studio. Images are presentation output and never routing input.
   if (method === 'GET' && path === '/admin/support-platforms') return json(await listSupportPlatforms(env, true, scope), 200, env);
   if (method === 'POST' && path === '/admin/support-platforms') { requireOwner(admin); return json(await createSupportPlatform(env, await readJson(request)), 200, env); }
-  if (method === 'PUT' && /^\/admin\/support-platforms\/\d+$/.test(path)) { requireOwner(admin); return json(await updateSupportPlatform(env, idFromPath(path), await readJson(request)), 200, env); }
-  if (method === 'DELETE' && /^\/admin\/support-platforms\/\d+$/.test(path)) { requireOwner(admin); return json(await archiveSupportPlatform(env, idFromPath(path)), 200, env); }
+  if (method === 'PUT' && /^\/admin\/support-platforms\/\d+$/.test(path)) { const id = idFromPath(path); await assertScopedSupportPlatform(env, admin, id, scope); return json(await updateSupportPlatform(env, id, await readJson(request)), 200, env); }
+  if (method === 'DELETE' && /^\/admin\/support-platforms\/\d+$/.test(path)) { const id = idFromPath(path); await assertScopedSupportPlatform(env, admin, id, scope); return json(await archiveSupportPlatform(env, id), 200, env); }
   if (method === 'GET' && path === '/admin/knowledge-imports') return json(await listKnowledgeImports(env, scope), 200, env);
   if (method === 'GET' && /^\/admin\/knowledge-imports\/\d+$/.test(path)) return json(await getKnowledgeImport(env, idFromPath(path), scope), 200, env);
   if (method === 'POST' && path === '/admin/knowledge-imports/preview') return json(await previewKnowledgeImport(env, request, admin, scope), 200, env);
@@ -444,6 +444,7 @@ async function ensureBootstrap(env) {
   await ensureChatExperienceStudio(env);
   await ensurePlatformContextNoFallback(env);
   await ensureOperationsConnectorGateway(env);
+  await ensureTenantPermissionsBrandChatStudio(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -480,7 +481,7 @@ async function createTables(env) {
     `CREATE TABLE IF NOT EXISTS admin_audit_logs (id SERIAL PRIMARY KEY,actor_email VARCHAR(255),action VARCHAR(120) NOT NULL,entity_type VARCHAR(120),entity_id VARCHAR(120),details TEXT,created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS admin_sessions (id SERIAL PRIMARY KEY,admin_email VARCHAR(255),session_version INTEGER DEFAULT 0,user_agent TEXT,ip TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),last_seen_at TIMESTAMPTZ DEFAULT NOW(),revoked_at TIMESTAMPTZ)`,
     `CREATE TABLE IF NOT EXISTS saas_tenants (id SERIAL PRIMARY KEY,tenant_key VARCHAR(100) UNIQUE NOT NULL,name VARCHAR(180) NOT NULL,contact_email VARCHAR(255),plan_code VARCHAR(60) DEFAULT 'starter',status VARCHAR(30) DEFAULT 'active',default_locale VARCHAR(20) DEFAULT 'en',notes TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),archived_at TIMESTAMPTZ)`,
-    `CREATE TABLE IF NOT EXISTS saas_platforms (id SERIAL PRIMARY KEY,tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE RESTRICT,parent_platform_id INTEGER REFERENCES saas_platforms(id) ON DELETE SET NULL,platform_key VARCHAR(100) NOT NULL,public_route_key VARCHAR(140) UNIQUE,name VARCHAR(180) NOT NULL,description TEXT,default_locale VARCHAR(20) DEFAULT 'en',support_mode VARCHAR(30) DEFAULT 'none',legacy_support_platform_key VARCHAR(100),status VARCHAR(30) DEFAULT 'active',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),archived_at TIMESTAMPTZ,UNIQUE(tenant_id,platform_key))`,
+    `CREATE TABLE IF NOT EXISTS saas_platforms (id SERIAL PRIMARY KEY,tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE RESTRICT,parent_platform_id INTEGER REFERENCES saas_platforms(id) ON DELETE SET NULL,platform_key VARCHAR(100) NOT NULL,public_route_key VARCHAR(140) UNIQUE,name VARCHAR(180) NOT NULL,description TEXT,default_locale VARCHAR(20) DEFAULT 'en',supported_languages TEXT DEFAULT '[]',support_mode VARCHAR(30) DEFAULT 'none',legacy_support_platform_key VARCHAR(100),status VARCHAR(30) DEFAULT 'active',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),archived_at TIMESTAMPTZ,UNIQUE(tenant_id,platform_key))`,
     `CREATE TABLE IF NOT EXISTS saas_platform_domains (id SERIAL PRIMARY KEY,platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,site_kind VARCHAR(20) NOT NULL,hostname VARCHAR(253) NOT NULL,provisioning_status VARCHAR(30) DEFAULT 'planned',verification_note TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),verified_at TIMESTAMPTZ,archived_at TIMESTAMPTZ,UNIQUE(hostname),UNIQUE(platform_id,site_kind))`,
     `CREATE TABLE IF NOT EXISTS saas_tenant_memberships (id SERIAL PRIMARY KEY,tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE CASCADE,admin_user_id INTEGER NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,role VARCHAR(40) NOT NULL DEFAULT 'tenant_owner',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(tenant_id,admin_user_id))`,
     `CREATE TABLE IF NOT EXISTS saas_platform_memberships (id SERIAL PRIMARY KEY,platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,admin_user_id INTEGER NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,role VARCHAR(40) NOT NULL DEFAULT 'platform_owner',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(platform_id,admin_user_id))`,
@@ -524,6 +525,7 @@ async function createTables(env) {
   await q(env, `ALTER TABLE chat_quick_replies ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
   await q(env, `ALTER TABLE unmatched_questions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
   await q(env, `ALTER TABLE saas_platforms ADD COLUMN IF NOT EXISTS public_route_key VARCHAR(140)`);
+  await q(env, `ALTER TABLE saas_platforms ADD COLUMN IF NOT EXISTS supported_languages TEXT DEFAULT '[]'`);
   await q(env, `CREATE UNIQUE INDEX IF NOT EXISTS idx_saas_platforms_public_route ON saas_platforms(public_route_key) WHERE public_route_key IS NOT NULL`);
   // Additive tenant/platform references prepare existing content for safe
   // isolation. v1.0 backfills the current BDG data into the legacy platform;
@@ -868,8 +870,8 @@ async function getTheme(env, scope = null) {
   const scopedSupport = platformName ? `${platformName} Support` : 'BDG AI Support';
   return {
     id: row.id || 1,
-    app_name: row.app_name || scopedName || appName(env),
-    logo_text: row.logo_text || (platformName || 'BDG'),
+    app_name: scope ? ((row.app_name && row.app_name !== 'BDG Help Center') ? row.app_name : scopedName) : (row.app_name || scopedName || appName(env)),
+    logo_text: scope ? ((row.logo_text && row.logo_text !== 'BDG') ? row.logo_text : 'AI') : (row.logo_text || (platformName || 'BDG')),
     banner_title: row.banner_title || `${scopedName} Help Center`,
     banner_subtitle: row.banner_subtitle || `Search guides and support for ${scopedName}.`,
     support_link: row.support_link || env.SUPPORT_LINK || DEFAULT_SUPPORT,
@@ -877,7 +879,7 @@ async function getTheme(env, scope = null) {
     favicon_url: row.favicon_url || '',
     chat_icon_url: row.chat_icon_url || '',
     guide_logo_url: row.guide_logo_url || '',
-    brand_name: row.brand_name || row.app_name || scopedName || appName(env),
+    brand_name: scope ? ((row.brand_name && row.brand_name !== 'BDG Help Center') ? row.brand_name : scopedName) : (row.brand_name || row.app_name || scopedName || appName(env)),
     brand_tagline: row.brand_tagline || (platformName ? `${platformName} Support` : 'Official Support'),
     admin_logo_url: row.admin_logo_url || row.guide_logo_url || '',
     admin_favicon_url: row.admin_favicon_url || row.favicon_url || '',
@@ -907,6 +909,9 @@ async function getTheme(env, scope = null) {
     chat_bubble_style: safeChatPreset(row.chat_bubble_style, CHAT_BUBBLE_STYLES, 'soft'),
     chat_input_style: safeChatPreset(row.chat_input_style, CHAT_INPUT_STYLES, 'rounded'),
     chat_background_url: row.chat_background_url || '',
+    chat_start_button_ids: numericIds(row.chat_start_button_ids || ''),
+    chat_start_text_color: row.chat_start_text_color || '#ffffff',
+    chat_start_accent_color: row.chat_start_accent_color || row.primary_color || '#f7c948',
     updated_at: row.updated_at ? String(row.updated_at) : ''
   };
 }
@@ -963,11 +968,14 @@ async function updateTheme(env, p = {}, scope = null) {
     safeChatPreset(p.chat_bubble_style ?? current.chat_bubble_style, CHAT_BUBBLE_STYLES, 'soft'),
     safeChatPreset(p.chat_input_style ?? current.chat_input_style, CHAT_INPUT_STYLES, 'rounded'),
     p.chat_background_url ?? current.chat_background_url,
+    JSON.stringify(numericIds(p.chat_start_button_ids ?? current.chat_start_button_ids)),
+    p.chat_start_text_color ?? current.chat_start_text_color,
+    p.chat_start_accent_color ?? current.chat_start_accent_color,
   ];
   await q(env, scope
-    ? `UPDATE theme_settings SET chat_start_enabled=$1,chat_start_title=$2,chat_start_body=$3,chat_start_image_url=$4,chat_start_animation=$5,chat_start_button_label=$6,chat_start_announcement=$7,chat_start_maintenance_banner=$8,chat_start_responsible_notice=$9,chat_layout=$10,chat_bubble_style=$11,chat_input_style=$12,chat_background_url=$13,updated_at=NOW() WHERE tenant_id=$14 AND platform_id=$15`
-    : `UPDATE theme_settings SET chat_start_enabled=$1,chat_start_title=$2,chat_start_body=$3,chat_start_image_url=$4,chat_start_animation=$5,chat_start_button_label=$6,chat_start_announcement=$7,chat_start_maintenance_banner=$8,chat_start_responsible_notice=$9,chat_layout=$10,chat_bubble_style=$11,chat_input_style=$12,chat_background_url=$13,updated_at=NOW() WHERE id=(SELECT id FROM theme_settings ORDER BY id ASC LIMIT 1)`,
-    scope ? [...experienceValues, scope.tenant_id, scope.platform_id] : experienceValues);
+    ? `UPDATE theme_settings SET chat_start_enabled=$1,chat_start_title=$2,chat_start_body=$3,chat_start_image_url=$4,chat_start_animation=$5,chat_start_button_label=$6,chat_start_announcement=$7,chat_start_maintenance_banner=$8,chat_layout=$9,chat_bubble_style=$10,chat_input_style=$11,chat_background_url=$12,chat_start_button_ids=$13,chat_start_text_color=$14,chat_start_accent_color=$15,chat_start_responsible_notice=$16,updated_at=NOW() WHERE tenant_id=$17 AND platform_id=$18`
+    : `UPDATE theme_settings SET chat_start_enabled=$1,chat_start_title=$2,chat_start_body=$3,chat_start_image_url=$4,chat_start_animation=$5,chat_start_button_label=$6,chat_start_announcement=$7,chat_start_maintenance_banner=$8,chat_layout=$9,chat_bubble_style=$10,chat_input_style=$11,chat_background_url=$12,chat_start_button_ids=$13,chat_start_text_color=$14,chat_start_accent_color=$15,chat_start_responsible_notice=$16,updated_at=NOW() WHERE id=(SELECT id FROM theme_settings ORDER BY id ASC LIMIT 1)`,
+    scope ? [experienceValues[0],experienceValues[1],experienceValues[2],experienceValues[3],experienceValues[4],experienceValues[5],experienceValues[6],experienceValues[7],experienceValues[9],experienceValues[10],experienceValues[11],experienceValues[12],experienceValues[13],experienceValues[14],experienceValues[15],experienceValues[8],scope.tenant_id,scope.platform_id] : [experienceValues[0],experienceValues[1],experienceValues[2],experienceValues[3],experienceValues[4],experienceValues[5],experienceValues[6],experienceValues[7],experienceValues[9],experienceValues[10],experienceValues[11],experienceValues[12],experienceValues[13],experienceValues[14],experienceValues[15],experienceValues[8]]);
   await audit(env,'update','theme_settings','1','Theme settings updated',scope);
   return getTheme(env, scope);
 }
@@ -1154,7 +1162,7 @@ function normalizeSupportPlatformPayload(p = {}) {
     ticket_url: p.ticket_url ? normalizeActionUrl(p.ticket_url, 'url') : '',
     support_url: p.support_url ? normalizeActionUrl(p.support_url, 'url') : '',
     status: ['active','inactive','archived'].includes(String(p.status || '').toLowerCase()) ? String(p.status).toLowerCase() : 'active',
-    default_locale: ['en','hi','all'].includes(String(p.default_locale || '').toLowerCase()) ? String(p.default_locale).toLowerCase() : 'en',
+    default_locale: normalizeLocale(p.default_locale),
   };
 }
 async function listSupportPlatforms(env, admin = false, scope = null) {
@@ -1204,6 +1212,13 @@ async function archiveSupportPlatform(env, id) {
   await audit(env, 'delete', 'support_platforms', id, `Support platform archived: ${current.name}`);
   return { ok:true, id };
 }
+async function assertScopedSupportPlatform(env, admin, id, scope) {
+  if (isPlatformOperator(admin)) return;
+  if (!scope?.can_manage_platform) bad('Platform owner permission required', 403, 'PLATFORM_ADMIN_REQUIRED');
+  const row = (await q(env, `SELECT id,platform_key FROM support_platforms WHERE id=$1 AND deleted_at IS NULL LIMIT 1`, [id])).rows[0];
+  if (!row) bad('Support platform not found', 404);
+  if (String(row.platform_key) !== String(scope.legacy_support_platform_key)) bad('This support platform belongs to another client platform', 403, 'PLATFORM_ACCESS_DENIED');
+}
 
 // ---------------------------------------------------------------------------
 // v1.0 SaaS Tenant Core
@@ -1238,7 +1253,38 @@ function normalizeSaasStatus(value, fallback = 'active') {
 }
 function normalizeLocale(value, fallback = 'en') {
   const locale = String(value || '').trim().toLowerCase();
-  return ['en', 'hi', 'all'].includes(locale) ? locale : fallback;
+  // A tenant may use any BCP-47-like locale (for example th, my, zh-CN,
+  // pt-BR). The previous en/hi/all allow-list silently changed other
+  // platforms back to English, which made imported knowledge appear under
+  // the wrong language.
+  return /^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/.test(locale) ? locale : fallback;
+}
+function normalizeLocaleList(value, fallback = []) {
+  let values;
+  if (Array.isArray(value)) values = value;
+  else {
+    const text = String(value || '').trim();
+    if (text.startsWith('[')) {
+      try { values = JSON.parse(text); } catch { values = text.split(/[\s,]+/); }
+    } else values = text.split(/[\s,]+/);
+  }
+  if (!Array.isArray(values)) values = values == null ? [] : [values];
+  const locales = [...new Set(values.map((item) => normalizeLocale(item, '')).filter(Boolean))].slice(0, 32);
+  return locales.length ? locales : fallback;
+}
+function localeLabel(code) {
+  const locale = String(code || '').trim();
+  if (!locale) return '';
+  try {
+    const language = locale.split('-')[0];
+    return new Intl.DisplayNames(['en'], { type: 'language' }).of(language) || locale;
+  } catch (_) {
+    return locale;
+  }
+}
+function scopeLanguages(scope) {
+  const locales = normalizeLocaleList(scope?.supported_languages, [scope?.default_locale || 'en']);
+  return locales.map((code) => ({ code, label: localeLabel(code) || code }));
 }
 function normalizeTenantPayload(p = {}) {
   const name = String(p.name || '').trim().slice(0, 180);
@@ -1252,6 +1298,7 @@ function normalizeTenantPayload(p = {}) {
     plan_code: String(p.plan_code || 'starter').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').slice(0, 60) || 'starter',
     status: normalizeSaasStatus(p.status),
     default_locale: normalizeLocale(p.default_locale),
+    supported_languages: normalizeLocaleList(p.supported_languages ?? p.supported_locales, [normalizeLocale(p.default_locale)]),
     notes: String(p.notes || '').trim().slice(0, 4000),
   };
 }
@@ -1266,6 +1313,7 @@ function normalizeTenantPlatformPayload(p = {}) {
     platform_key,
     description: String(p.description || '').trim().slice(0, 4000),
     default_locale: normalizeLocale(p.default_locale),
+    supported_languages: normalizeLocaleList(p.supported_languages ?? p.supported_locales, [normalizeLocale(p.default_locale)]),
     support_mode,
     status: normalizeSaasStatus(p.status),
     parent_platform_id: Number.isInteger(Number(p.parent_platform_id)) && Number(p.parent_platform_id) > 0 ? Number(p.parent_platform_id) : null,
@@ -1350,7 +1398,7 @@ function tenantPlatformOut(row) {
     id: Number(row.id), tenant_id: Number(row.tenant_id), tenant_key: row.tenant_key || '', tenant_name: row.tenant_name || '',
     parent_platform_id: row.parent_platform_id == null ? null : Number(row.parent_platform_id),
     platform_key: row.platform_key, public_route_key: normalizePublicRouteKey(row.public_route_key), access_links: platformAccessLinks(row), name: row.name, description: row.description || '',
-    default_locale: row.default_locale || 'en', support_mode: row.support_mode || 'none',
+    default_locale: row.default_locale || 'en', supported_languages: normalizeLocaleList(row.supported_languages, [row.default_locale || 'en']), support_mode: row.support_mode || 'none',
     legacy_support_platform_key: row.legacy_support_platform_key || '', status: row.status || 'active',
     created_at: row.created_at ? String(row.created_at) : '', updated_at: row.updated_at ? String(row.updated_at) : '',
     archived_at: row.archived_at ? String(row.archived_at) : '',
@@ -1379,6 +1427,7 @@ function scopeOut(row, access = {}) {
     platform_name: row.name || 'Help Center',
     support_mode: row.support_mode || 'none',
     default_locale: row.default_locale || 'en',
+    supported_languages: normalizeLocaleList(row.supported_languages, [row.default_locale || 'en']),
     access_role: access.role || 'viewer',
     tenant_role: access.tenant_role || '',
     platform_role: access.platform_role || '',
@@ -1441,14 +1490,14 @@ async function resolveAdminPlatformScope(env, request, admin) {
   }
   const scope = await resolvePublicPlatformScope(env, requested);
   if (isPlatformOperator(admin)) return { ...scope, access_role:'operator', can_write:true, can_manage_platform:true, operator:true };
-  const tenantMembership = (await q(env, `SELECT tm.role FROM saas_tenant_memberships tm
+  const tenantMembership = (await q(env, `SELECT tm.role AS membership_role FROM saas_tenant_memberships tm
     JOIN admin_users u ON u.id=tm.admin_user_id
     WHERE tm.tenant_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [scope.tenant_id, admin.email])).rows[0];
-  const platformMembership = (await q(env, `SELECT pm.role FROM saas_platform_memberships pm
+  const platformMembership = (await q(env, `SELECT pm.role AS membership_role FROM saas_platform_memberships pm
     JOIN admin_users u ON u.id=pm.admin_user_id
     WHERE pm.platform_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [scope.platform_id, admin.email])).rows[0];
-  const tenantRole = String(tenantMembership?.role || '');
-  const platformRole = String(platformMembership?.role || '');
+  const tenantRole = String(tenantMembership?.membership_role || '');
+  const platformRole = String(platformMembership?.membership_role || '');
   if (!tenantRole && !platformRole) bad('You do not have access to this client platform', 403, 'PLATFORM_ACCESS_DENIED');
   const canManagePlatform = ['tenant_owner','tenant_admin'].includes(tenantRole) || ['platform_owner','platform_admin'].includes(platformRole);
   const canWrite = canManagePlatform || ['content_manager','ai_manager'].includes(platformRole);
@@ -1463,17 +1512,17 @@ function requirePlatformWrite(scope) {
 }
 async function assertTenantManager(env, admin, tenantId) {
   if (isPlatformOperator(admin)) return;
-  const row = (await q(env, `SELECT role FROM saas_tenant_memberships tm JOIN admin_users u ON u.id=tm.admin_user_id WHERE tm.tenant_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [tenantId, admin.email])).rows[0];
-  if (!row || !['tenant_owner', 'tenant_admin'].includes(String(row.role))) bad('Tenant owner permission required', 403);
+  const row = (await q(env, `SELECT tm.role AS membership_role FROM saas_tenant_memberships tm JOIN admin_users u ON u.id=tm.admin_user_id WHERE tm.tenant_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [tenantId, admin.email])).rows[0];
+  if (!row || !['tenant_owner', 'tenant_admin'].includes(String(row.membership_role))) bad('Tenant owner permission required', 403);
 }
 async function assertPlatformManager(env, admin, platformId) {
   if (isPlatformOperator(admin)) return;
   const tenant = (await q(env, `SELECT t.id FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id WHERE p.id=$1 AND p.archived_at IS NULL LIMIT 1`, [platformId])).rows[0];
   if (!tenant) bad('Platform not found', 404);
-  const tenantMember = (await q(env, `SELECT role FROM saas_tenant_memberships tm JOIN admin_users u ON u.id=tm.admin_user_id WHERE tm.tenant_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [tenant.id, admin.email])).rows[0];
-  if (tenantMember && ['tenant_owner', 'tenant_admin'].includes(String(tenantMember.role))) return;
-  const platformMember = (await q(env, `SELECT role FROM saas_platform_memberships pm JOIN admin_users u ON u.id=pm.admin_user_id WHERE pm.platform_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [platformId, admin.email])).rows[0];
-  if (!platformMember || !['platform_owner', 'platform_admin'].includes(String(platformMember.role))) bad('Platform owner permission required', 403);
+  const tenantMember = (await q(env, `SELECT tm.role AS membership_role FROM saas_tenant_memberships tm JOIN admin_users u ON u.id=tm.admin_user_id WHERE tm.tenant_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [tenant.id, admin.email])).rows[0];
+  if (tenantMember && ['tenant_owner', 'tenant_admin'].includes(String(tenantMember.membership_role))) return;
+  const platformMember = (await q(env, `SELECT pm.role AS membership_role FROM saas_platform_memberships pm JOIN admin_users u ON u.id=pm.admin_user_id WHERE pm.platform_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [platformId, admin.email])).rows[0];
+  if (!platformMember || !['platform_owner', 'platform_admin'].includes(String(platformMember.membership_role))) bad('Platform owner permission required', 403);
 }
 async function insertDefaultPlatformFeatures(env, platformId) {
   for (const [feature_key] of PLATFORM_FEATURES) {
@@ -1617,6 +1666,15 @@ async function ensureOperationsConnectorGateway(env) {
     `CREATE INDEX IF NOT EXISTS idx_platform_connectors_tenant_platform ON platform_connectors(tenant_id,platform_id)`,
     `CREATE INDEX IF NOT EXISTS idx_connector_audit_platform_created ON connector_audit_logs(platform_id,created_at DESC)`,
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.4.0_operations_connector_gateway','Platform-scoped allowlisted connector configuration, backend-only secrets, test connection, retries, timeouts, and redacted audit records.') ON CONFLICT(migration_key) DO NOTHING`,
+  ]) await q(env, statement);
+}
+async function ensureTenantPermissionsBrandChatStudio(env) {
+  for (const statement of [
+    `ALTER TABLE saas_platforms ADD COLUMN IF NOT EXISTS supported_languages TEXT DEFAULT '[]'`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_button_ids TEXT DEFAULT '[]'`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_text_color VARCHAR(40) DEFAULT '#ffffff'`,
+    `ALTER TABLE theme_settings ADD COLUMN IF NOT EXISTS chat_start_accent_color VARCHAR(40) DEFAULT '#f7c948'`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.5.0_tenant_platform_experience_owner_controls','Qualified membership permissions, platform-owner team controls, arbitrary tenant locales, upload-ready brand fields, and previewable chat experience controls.') ON CONFLICT(migration_key) DO NOTHING`,
   ]) await q(env, statement);
 }
 
@@ -1866,7 +1924,7 @@ async function createTenantPlatform(env, admin, tenantId, payload) {
   const publicRouteKey = await reservePublicRouteKey(env, platform.platform_key);
   await q(env, `INSERT INTO support_platforms(platform_key,name,support_mode,status,default_locale) VALUES($1,$2,$3,'active',$4) ON CONFLICT(platform_key) DO UPDATE SET name=EXCLUDED.name,support_mode=EXCLUDED.support_mode,default_locale=EXCLUDED.default_locale,updated_at=NOW()`, [routingKey,platform.name,platform.support_mode,platform.default_locale]);
   let row;
-  try { row = (await q(env, `INSERT INTO saas_platforms(tenant_id,parent_platform_id,platform_key,public_route_key,name,description,default_locale,support_mode,legacy_support_platform_key,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`, [tenantId,platform.parent_platform_id,platform.platform_key,publicRouteKey,platform.name,platform.description,platform.default_locale,platform.support_mode,routingKey,platform.status])).rows[0]; }
+  try { row = (await q(env, `INSERT INTO saas_platforms(tenant_id,parent_platform_id,platform_key,public_route_key,name,description,default_locale,supported_languages,support_mode,legacy_support_platform_key,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [tenantId,platform.parent_platform_id,platform.platform_key,publicRouteKey,platform.name,platform.description,platform.default_locale,JSON.stringify(platform.supported_languages),platform.support_mode,routingKey,platform.status])).rows[0]; }
   catch (error) { if (error?.code === '23505') bad('That platform key already exists within this client company.'); throw error; }
   const ownerEmail = platform.owner_email || admin.email;
   const owner = (await q(env, `SELECT * FROM admin_users WHERE lower(email)=lower($1) AND is_active=TRUE LIMIT 1`, [ownerEmail])).rows[0];
@@ -1925,7 +1983,7 @@ async function updateTenantPlatform(env, admin, id, payload) {
     const parent = (await q(env, `SELECT id FROM saas_platforms WHERE id=$1 AND tenant_id=$2 AND archived_at IS NULL`, [platform.parent_platform_id,current.tenant_id])).rows[0];
     if (!parent) bad('Parent platform must belong to the same tenant');
   }
-  await q(env, `UPDATE saas_platforms SET parent_platform_id=$1,name=$2,description=$3,default_locale=$4,support_mode=$5,status=$6,updated_at=NOW() WHERE id=$7`, [platform.parent_platform_id,platform.name,platform.description,platform.default_locale,platform.support_mode,platform.status,id]);
+  await q(env, `UPDATE saas_platforms SET parent_platform_id=$1,name=$2,description=$3,default_locale=$4,supported_languages=$5,support_mode=$6,status=$7,updated_at=NOW() WHERE id=$8`, [platform.parent_platform_id,platform.name,platform.description,platform.default_locale,JSON.stringify(platform.supported_languages),platform.support_mode,platform.status,id]);
   if (current.legacy_support_platform_key) await q(env, `UPDATE support_platforms SET name=$1,support_mode=$2,default_locale=$3,updated_at=NOW() WHERE platform_key=$4`, [platform.name,platform.support_mode,platform.default_locale,current.legacy_support_platform_key]);
   await audit(env, 'update', 'saas_platforms', id, `Platform updated: ${platform.name}`);
   return await getTenantPlatform(env, admin, id);
@@ -2188,8 +2246,8 @@ async function testAiContent(env, p = {}) {
     provider_error: result.ok ? null : result.provider?.error || 'AI judge unavailable',
   };
 }
-async function getGuideContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const settings = await getTheme(env, scope); const blocks = await listContentBlocks(env, scope); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; return { settings, platform_key: platform.platform_key, platform_reference: scope.public_route_key || platform.platform_key, content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false, scope), home_sections: (await listHomeSections(env, false, scope)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false, scope), public_languages: [{code:'en',label:'English'}, {code:'hi',label:'Hindi'}], admin_languages: [{code:'en',label:'English'}, {code:'zh',label:'中文'}] }; }
-async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = theme.brand_name || scope.platform_name || (platform.name || 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; return { settings: theme, start_module: chatExperienceOut(theme, supportName), platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }], platforms, default_platform_key:platform.platform_key, quick_replies, support_enabled: theme.show_chat_support_button === true, texts: { en: { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }, hi: { title: chatTitle, online: theme.chat_online_text || 'ऑनलाइन सहायक', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'अपना संदेश लिखें...', busy: 'कृपया वर्तमान उत्तर की प्रतीक्षा करें...' } } }; }
+async function getGuideContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const settings = await getTheme(env, scope); const blocks = await listContentBlocks(env, scope); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; const languages = scopeLanguages(scope); return { settings, platform_key: platform.platform_key, platform_reference: scope.public_route_key || platform.platform_key, content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false, scope), home_sections: (await listHomeSections(env, false, scope)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false, scope), public_languages: languages, admin_languages: languages }; }
+async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = theme.brand_name || scope.platform_name || (platform.name || 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; const languages = scopeLanguages(scope); const texts = Object.fromEntries(languages.map(({ code }) => [code, { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }])); return { settings: theme, start_module: chatExperienceOut(theme, supportName), platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages, platforms, default_platform_key:platform.platform_key, quick_replies, support_enabled: theme.show_chat_support_button === true, texts }; }
 async function getAdminSiteContent(env, scope) { return { settings: await getTheme(env, scope), blocks: await listContentBlocks(env, scope), popular_help: [], navigation: await listNavigation(env, true, scope), home_sections: await listHomeSections(env, true, scope), chat_quick_replies: await listQuickReplies(env, true, scope) }; }
 function scopedTombstoneKey(scope, key) { return `p${scope.platform_id}:${key}`; }
 async function updateContentBlock(env, key, p, scope) {

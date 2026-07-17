@@ -15,10 +15,9 @@ const USE_MOCK =
   (import.meta as any).env?.VITE_USE_MOCK === "1";
 
 const TOKEN_KEY = "bdg_admin_token";
-export type PublicLanguage = "en" | "hi";
+export type PublicLanguage = string;
 export const PUBLIC_LANGUAGES: { code: PublicLanguage; label: string }[] = [
   { code: "en", label: "English" },
-  { code: "hi", label: "Hindi" },
 ];
 
 // Public Guide must never show Lovable/demo fallback records in production.
@@ -427,6 +426,10 @@ async function getGuideContentRaw() {
 
 // ---------- Public endpoints ----------
 export const api = {
+  getPlatformLanguages: async () => {
+    const raw = await getGuideContentRaw();
+    return Array.isArray(raw?.public_languages) && raw.public_languages.length ? raw.public_languages : PUBLIC_LANGUAGES;
+  },
   getSettings: (): Promise<PublicTheme> =>
     publicSafe<PublicTheme>(withLanguage("/settings"), () => {
       const key = getPublicPlatformKey();
