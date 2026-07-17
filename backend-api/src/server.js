@@ -5,8 +5,8 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.2.0a4-safe-active-platform-bootstrap-repair';
-const API_FEATURES = ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','platform-context-header','platform-admin-users','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','multi-platform-support-router','ticket-capability-guard','ai-knowledge-orchestrator-v3','backend-keyword-scoring-disabled','multilingual-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-buttons','durable-site-content-delete','unified-content-versions','r2-s3-api'];
+const API_VERSION = '1.2.1-platform-context-no-fallback-repair';
+const API_FEATURES = ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','platform-context-header','platform-context-no-fallback','platform-admin-users','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','multi-platform-support-router','ticket-capability-guard','ai-knowledge-orchestrator-v3','backend-keyword-scoring-disabled','multilingual-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-buttons','durable-site-content-delete','unified-content-versions','r2-s3-api'];
 validateRuntimeEnv(env);
 env.GUIDE_IMAGES = createR2Adapter(env);
 
@@ -107,9 +107,12 @@ const server = http.createServer(async (req, res) => {
     headers['vary'] = 'Origin, Accept-Encoding';
     if (corsOrigin) headers['access-control-allow-origin'] = corsOrigin;
     else delete headers['access-control-allow-origin'];
-    if (req.method === 'GET' && (publicCachePaths.has(path) || path.startsWith('/guides/'))) {
+    // A platform query is part of the public resource identity. Do not let a
+    // shared edge cache serve another tenant's categories, guides, or FAQ.
+    const hasPlatformContext = url.searchParams.has('platform');
+    if (req.method === 'GET' && !hasPlatformContext && (publicCachePaths.has(path) || path.startsWith('/guides/'))) {
       headers['cache-control'] = 'public, max-age=60, stale-while-revalidate=600, stale-if-error=86400';
-    } else if (path.startsWith('/admin/') || path.startsWith('/auth/') || path === '/chat' || path === '/guide/content' || path === '/public/guide-content') {
+    } else if (hasPlatformContext || path.startsWith('/admin/') || path.startsWith('/auth/') || path === '/chat' || path === '/guide/content' || path === '/public/guide-content') {
       headers['cache-control'] = 'no-store';
     }
     const responseBody = req.method === 'HEAD' ? null : Buffer.from(await response.arrayBuffer());

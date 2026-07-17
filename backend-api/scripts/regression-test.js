@@ -29,6 +29,7 @@ const migration110 = read("backend-api/migrations/009_v1.1.0_tenant_data_isolati
 const migration120a = read("backend-api/migrations/011_v1.2.0a_safe_bootstrap_deduplication_repair.sql");
 const migration120a2 = read("backend-api/migrations/012_v1.2.0a2_scoped_backfill_conflict_repair.sql");
 const migration120a4 = read("backend-api/migrations/013_v1.2.0a4_safe_active_platform_bootstrap_repair.sql");
+const migration121 = read("backend-api/migrations/014_v1.2.1_platform_context_no_fallback_repair.sql");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
 const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
@@ -48,6 +49,12 @@ const adminRouter = read("admin-pro/src/router.tsx");
 const chatApi = read("chat-pro/src/lib/api.ts");
 const knowledgeImportModule = read("backend-api/src/knowledge-import.js");
 const guideApi = read("guide-pro/src/lib/api.ts");
+const guideLayout = read("guide-pro/src/components/public/PublicLayout.tsx");
+const guideIndex = read("guide-pro/src/routes/_public.index.tsx");
+const guideList = read("guide-pro/src/routes/_public.guides.tsx");
+const guideDetail = read("guide-pro/src/routes/_public.guides.$slug.tsx");
+const guideFaq = read("guide-pro/src/routes/_public.faq.tsx");
+const chatConfig = read("chat-pro/src/lib/chat-config.ts");
 const server = read("backend-api/src/server.js");
 const deployScript = read("DEPLOY-V0.10.1-PRODUCTION-WINDOWS.ps1");
 const verifyScript = read("VERIFY-V0.10.1-WINDOWS.ps1");
@@ -310,6 +317,56 @@ expect(
   core.includes("activePlatforms.slice(1)") &&
     core.includes("status='archived',archived_at=COALESCE") &&
     migration120a4.includes("v1.2.0a4_safe_active_platform_bootstrap_repair"),
+);
+expect(
+  "v1.2.1 repair migration is documented and idempotent",
+  migration121.includes("v1.2.1_platform_context_no_fallback_repair") &&
+    migration121.includes("ON CONFLICT (migration_key) DO NOTHING"),
+);
+expect(
+  "Public categories always carry platform context",
+  guideApi.includes('withLanguage("/categories")') &&
+    guideApi.includes("getPublicPlatformKey()"),
+);
+expect(
+  "Public query caches are platform-scoped",
+  [guideIndex, guideList, guideDetail, guideFaq].every((source) => source.includes("platformKey") && source.includes("queryKey")),
+);
+expect(
+  "Guide branding is platform-aware with a neutral missing-logo state",
+  guideLayout.includes("api.getSettings") &&
+    guideLayout.includes("Logo not configured") &&
+    guideLayout.includes("data-platform-favicon") &&
+    guideLayout.includes("data-platform-default-favicon"),
+);
+expect(
+  "Non-default Guide content uses neutral defaults",
+  guideApi.includes("neutralSiteContent") &&
+    guideApi.includes("siteContentDefaults") &&
+    guideApi.includes("getPublicPlatformKey() === \"default\""),
+);
+expect(
+  "Chat fallback copy is platform-specific and has no inherited quick replies",
+  chatApp.includes("getChatConfig(language, platformKey)") &&
+    chatConfig.includes("quickQuestions: []") &&
+    chatConfig.includes("platformLabel"),
+);
+expect(
+  "Backend repairs copied presentation rows without deleting owner edits",
+  core.includes("ensurePlatformContextNoFallback") &&
+    core.includes("exact legacy presentation copies") &&
+    core.includes("v1.2.1_platform_context_no_fallback_repair"),
+);
+expect(
+  "Platform-aware public responses bypass shared API caching",
+  server.includes("hasPlatformContext") &&
+    server.includes("headers['cache-control'] = 'no-store'") &&
+    server.includes("url.searchParams.has('platform')"),
+);
+expect(
+  "Health and API errors expose the same release version",
+  core.includes("1.2.1-platform-context-no-fallback-repair") &&
+    server.includes("1.2.1-platform-context-no-fallback-repair"),
 );
 
 for (const check of checks)

@@ -1,0 +1,14 @@
+{
+  "release": "1.2.1-platform-context-no-fallback-repair",
+  "scope": "BDG_CS_ASSISTANT",
+  "deployment": "manual-after-review",
+  "installer": "INSTALL-V121.cmd",
+  "database_migration": "backend-api/migrations/014_v1.2.1_platform_context_no_fallback_repair.sql",
+  "checks": {
+    "backend_regression": "72/72",
+    "structured_response": "4/4",
+    "upload_regression": "4/4",
+    "knowledge_import": "5/5",
+    "frontend_builds": ["guide", "chat", "admin"]
+  }
+}

@@ -46,7 +46,8 @@ export default function App() {
     if (typeof window === "undefined") return "en";
     return (window.localStorage.getItem("bdg_chat_language") as PublicLanguage) || "en";
   });
-  const chatConfig = getChatConfig(language);
+  const platformKey = getPlatformKey();
+  const chatConfig = getChatConfig(language, platformKey);
   const dynamicTexts = content?.texts?.[language] || {};
   const headerTitle = content?.branding?.title || dynamicTexts.title || chatConfig.chatTitle;
   const onlineText = content?.branding?.online || dynamicTexts.online || chatConfig.onlineLabel;
@@ -56,7 +57,6 @@ export default function App() {
   const quickQuestions = (content?.quick_replies || []).length
     ? (content?.quick_replies || []).slice(0, 5).map((q) => q.query || q.text)
     : chatConfig.quickQuestions;
-  const platformKey = getPlatformKey(content?.default_platform_key || "default");
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [waitHint, setWaitHint] = useState(false);
@@ -70,6 +70,25 @@ export default function App() {
       .catch(() => null);
     return () => controller.abort();
   }, [platformKey]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.title = `${headerTitle} — Chat`;
+    document.querySelectorAll('link[data-platform-default-favicon="true"]').forEach((link) => {
+      if (platformKey !== "default") link.remove();
+    });
+    const favicon = content?.branding?.favicon_url;
+    const existing = document.querySelector<HTMLLinkElement>('link[data-platform-favicon="true"]');
+    if (favicon) {
+      const link = existing || document.createElement("link");
+      link.rel = "icon";
+      link.setAttribute("data-platform-favicon", "true");
+      link.href = favicon;
+      if (!existing) document.head.appendChild(link);
+    } else if (existing) {
+      existing.remove();
+    }
+  }, [content?.branding?.favicon_url, headerTitle, platformKey]);
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -147,9 +166,9 @@ export default function App() {
               <div className="relative shrink-0">
                 <div className="w-10 h-10 rounded-full bg-brand text-brand-foreground grid place-items-center font-bold shadow-sm overflow-hidden">
                   {iconUrl ? (
-                    <img src={iconUrl} alt="BDG AI" className="h-full w-full object-cover" />
+                    <img src={iconUrl} alt={`${headerTitle} logo`} className="h-full w-full object-cover" />
                   ) : (
-                    <Sparkles className="w-5 h-5" />
+                    platformKey === "default" ? <Sparkles className="w-5 h-5" /> : <span className="text-xs font-bold">?</span>
                   )}
                 </div>
                 <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-background" />

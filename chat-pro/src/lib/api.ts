@@ -9,7 +9,7 @@ export const API_BASE = (
 ).replace(/\/$/, "");
 
 export interface ChatContent {
-  branding?: { chat_icon_url?: string; title?: string; online?: string };
+  branding?: { chat_icon_url?: string; favicon_url?: string; brand_name?: string; title?: string; online?: string };
   texts?: Record<
     string,
     {

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
 import { Loader2, Search } from "lucide-react";
-import { api, getPublicLanguage } from "@/lib/api";
+import { api, getPlatformCacheKey, getPublicLanguage } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card } from "@/components/ui/card";
@@ -15,7 +15,8 @@ export const Route = createFileRoute("/_public/faq")({
 });
 
 function FAQ() {
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["faqs"], queryFn: api.getFaqs });
+  const platformKey = getPlatformCacheKey();
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["faqs", platformKey], queryFn: api.getFaqs });
   const lang = getPublicLanguage();
   const [q, setQ] = useState("");
   const filtered = useMemo<Faq[]>(() => {

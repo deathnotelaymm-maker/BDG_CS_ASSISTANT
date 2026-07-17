@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Search, ArrowRight, Sparkles, ChevronRight, LifeBuoy } from "lucide-react";
-import { api, getPublicBasePath, getPublicLanguage } from "@/lib/api";
+import { api, getPlatformCacheKey, getPublicBasePath, getPublicLanguage } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,17 +29,18 @@ export const Route = createFileRoute("/_public/")({
 });
 
 function Home() {
+  const platformKey = getPlatformCacheKey();
   const content = useQuery({
-    queryKey: ["site-content"],
+    queryKey: ["site-content", platformKey],
     queryFn: api.getSiteContent,
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     refetchInterval: 30_000,
   });
-  const categories = useQuery({ queryKey: ["categories"], queryFn: api.getCategories });
-  const guides = useQuery({ queryKey: ["guides"], queryFn: () => api.getGuides() });
-  const faqs = useQuery({ queryKey: ["faqs"], queryFn: api.getFaqs });
+  const categories = useQuery({ queryKey: ["categories", platformKey], queryFn: api.getCategories });
+  const guides = useQuery({ queryKey: ["guides", platformKey], queryFn: () => api.getGuides() });
+  const faqs = useQuery({ queryKey: ["faqs", platformKey], queryFn: api.getFaqs });
   const [q, setQ] = useState("");
   const lang = getPublicLanguage();
 
@@ -58,13 +59,13 @@ function Home() {
         <div className="relative">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider">
             <Sparkles className="h-3 w-3" style={{ color: "var(--bdg-gold)" }} />
-            {c?.heroEyebrow ?? "BDG Official Help"}
+            {c?.heroEyebrow ?? (platformKey === "default" ? "BDG Official Help" : "Official support")}
           </span>
           <h1 className="mt-4 font-display text-3xl font-bold leading-tight md:text-5xl">
             {c?.heroTitle ?? "How can we help you today?"}
           </h1>
           <p className="mt-2 max-w-lg text-sm text-white/70 md:text-base">
-            {c?.heroSubtitle ?? "Guides, tutorials and answers for everything BDG."}
+            {c?.heroSubtitle ?? (platformKey === "default" ? "Guides, tutorials and answers for everything BDG." : "Browse approved guides, FAQs, and support information.")}
           </p>
 
           <form

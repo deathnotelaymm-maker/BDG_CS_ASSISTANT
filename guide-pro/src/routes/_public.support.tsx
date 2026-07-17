@@ -19,7 +19,7 @@ function Support() {
     <div className="space-y-6">
       <header>
         <h1 className="font-display text-2xl font-bold md:text-3xl">Contact support</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Our team is available 24/7 for BDG customers.</p>
+        <p className="mt-1 text-sm text-muted-foreground">The platform support team is available to help.</p>
       </header>
 
       <div className="grid gap-3 md:grid-cols-3">

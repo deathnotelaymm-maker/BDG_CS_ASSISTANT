@@ -6,7 +6,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.2.0a4-safe-active-platform-bootstrap-repair';
+const VERSION = '1.2.1-platform-context-no-fallback-repair';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const OWNER_EMAIL = 'owner@example.invalid';
@@ -71,7 +71,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','render-node','neon-postgresql','deepseek','smart-memory'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -426,6 +426,7 @@ async function ensureBootstrap(env) {
   await ensureTenantCore(env);
   await ensureTenantDataIsolation(env);
   await ensureTenantBrandStudio(env);
+  await ensurePlatformContextNoFallback(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -820,19 +821,22 @@ async function getTheme(env, scope = null) {
     ? 'SELECT * FROM theme_settings WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id ASC LIMIT 1'
     : 'SELECT * FROM theme_settings ORDER BY id ASC LIMIT 1', scope ? [scope.tenant_id, scope.platform_id] : []);
   const row = rows[0] || {};
+  const platformName = String(scope?.platform_name || '').trim();
+  const scopedName = platformName || (scope ? 'Platform' : 'BDG Help Center');
+  const scopedSupport = platformName ? `${platformName} Support` : 'BDG AI Support';
   return {
     id: row.id || 1,
-    app_name: row.app_name || appName(env),
-    logo_text: row.logo_text || 'BDG',
-    banner_title: row.banner_title || 'BDG Mobile Help Center',
-    banner_subtitle: row.banner_subtitle || 'Search FAQ and view official guide images.',
+    app_name: row.app_name || scopedName || appName(env),
+    logo_text: row.logo_text || (platformName || 'BDG'),
+    banner_title: row.banner_title || `${scopedName} Help Center`,
+    banner_subtitle: row.banner_subtitle || `Search guides and support for ${scopedName}.`,
     support_link: row.support_link || env.SUPPORT_LINK || DEFAULT_SUPPORT,
     primary_color: row.primary_color || '#f7c948',
     favicon_url: row.favicon_url || '',
     chat_icon_url: row.chat_icon_url || '',
     guide_logo_url: row.guide_logo_url || '',
-    brand_name: row.brand_name || row.app_name || appName(env),
-    brand_tagline: row.brand_tagline || 'Official Support',
+    brand_name: row.brand_name || row.app_name || scopedName || appName(env),
+    brand_tagline: row.brand_tagline || (platformName ? `${platformName} Support` : 'Official Support'),
     admin_logo_url: row.admin_logo_url || row.guide_logo_url || '',
     admin_favicon_url: row.admin_favicon_url || row.favicon_url || '',
     guide_favicon_url: row.guide_favicon_url || row.favicon_url || '',
@@ -841,12 +845,12 @@ async function getTheme(env, scope = null) {
     surface_color: row.surface_color || '#0f172a',
     font_family: row.font_family || 'Inter',
     button_style: row.button_style || 'rounded',
-    chat_header_title: row.chat_header_title || 'BDG AI Support',
+    chat_header_title: row.chat_header_title || scopedSupport,
     chat_online_text: row.chat_online_text || 'Online assistant',
     show_chat_support_button: row.show_chat_support_button === true,
     show_guide_support_button: row.show_guide_support_button === true,
-    chat_welcome_title: row.chat_welcome_title || 'Welcome to BDG AI Support',
-    chat_welcome_subtitle: row.chat_welcome_subtitle || 'Please describe your issue and we will guide you step by step.',
+    chat_welcome_title: row.chat_welcome_title || `Welcome to ${scopedSupport}`,
+    chat_welcome_subtitle: row.chat_welcome_subtitle || `Please describe your issue and ${scopedSupport} will guide you step by step.`,
     chat_input_placeholder: row.chat_input_placeholder || 'Type your message...',
     updated_at: row.updated_at ? String(row.updated_at) : ''
   };
@@ -1406,20 +1410,11 @@ async function provisionPlatformWorkspace(env, platform) {
   // live customer content with the protected legacy BDG platform. These are
   // neutral presentation defaults only; guides, FAQ answers, AI content and
   // chat records intentionally start empty for every platform.
-  const legacy = await legacyPlatformScope(env);
-  const values = [legacy.tenant_id, legacy.platform_id, platform.tenant_id, platform.id];
+  const name = String(platform.name || 'Platform').trim().slice(0, 160) || 'Platform';
+  const supportLink = DEFAULT_SUPPORT;
   await q(env, `INSERT INTO theme_settings(app_name,logo_text,banner_title,banner_subtitle,support_link,primary_color,favicon_url,chat_icon_url,guide_logo_url,chat_header_title,chat_online_text,show_chat_support_button,show_guide_support_button,chat_welcome_title,chat_welcome_subtitle,chat_input_placeholder,tenant_id,platform_id)
-    SELECT app_name,logo_text,banner_title,banner_subtitle,support_link,primary_color,favicon_url,chat_icon_url,guide_logo_url,chat_header_title,chat_online_text,show_chat_support_button,show_guide_support_button,chat_welcome_title,chat_welcome_subtitle,chat_input_placeholder,$3,$4
-    FROM theme_settings WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id ASC LIMIT 1
-    ON CONFLICT DO NOTHING`, values);
-  await q(env, `INSERT INTO site_content_blocks(block_key,label,value,input_type,sort_order,tenant_id,platform_id)
-    SELECT block_key,label,value,input_type,sort_order,$3,$4
-    FROM site_content_blocks WHERE tenant_id=$1 AND platform_id=$2
-    ON CONFLICT(platform_id,block_key) DO NOTHING`, values);
-  await q(env, `INSERT INTO guide_home_sections(section_key,title,enabled,sort_order,tenant_id,platform_id)
-    SELECT section_key,title,enabled,sort_order,$3,$4
-    FROM guide_home_sections WHERE tenant_id=$1 AND platform_id=$2
-    ON CONFLICT(platform_id,section_key) DO NOTHING`, values);
+    VALUES($1::varchar(160),$1::varchar(40),($1::text || ' Help Center'),('Search guides and support for ' || $1::text || '.'),$2::varchar(500),'#f7c948','','','',($1::text || ' Support'),'Online assistant',FALSE,FALSE,('Welcome to ' || $1::text || ' Support'),('Please describe your issue and ' || $1::text || ' Support will guide you step by step.'),'Type your message...',$3::integer,$4::integer)
+    ON CONFLICT DO NOTHING`, [name, supportLink, platform.tenant_id, platform.id]);
 }
 async function ensureTenantCore(env) {
   const owner = (await q(env, `SELECT * FROM admin_users WHERE role='owner' AND is_active=TRUE ORDER BY id ASC LIMIT 1`)).rows[0];
@@ -1518,6 +1513,56 @@ async function ensureTenantBrandStudio(env) {
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.2.0a2_scoped_backfill_conflict_repair','Removes unscoped rows that conflict with content already scoped to the protected legacy platform.') ON CONFLICT(migration_key) DO NOTHING`,
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.2.0a4_safe_active_platform_bootstrap_repair','Archives pre-existing duplicate active platform rows before idempotent tenant bootstrap; no content is deleted.') ON CONFLICT(migration_key) DO NOTHING`,
   ]) await q(env, statement);
+}
+async function ensurePlatformContextNoFallback(env) {
+  const alreadyApplied = (await q(env, `SELECT 1 FROM system_migrations WHERE migration_key='v1.2.1_platform_context_no_fallback_repair' LIMIT 1`)).rows[0];
+  if (alreadyApplied) return;
+  const legacy = await legacyPlatformScope(env);
+  const legacyTheme = (await q(env, `SELECT * FROM theme_settings WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id ASC LIMIT 1`, [legacy.tenant_id, legacy.platform_id])).rows[0] || {};
+  const platforms = (await q(env, `SELECT id,name FROM saas_platforms WHERE archived_at IS NULL AND status='active' AND legacy_support_platform_key <> 'default' ORDER BY id ASC`)).rows;
+  for (const platform of platforms) {
+    const name = String(platform.name || 'Platform').trim().slice(0, 160) || 'Platform';
+    const current = (await q(env, `SELECT * FROM theme_settings WHERE platform_id=$1 ORDER BY id ASC LIMIT 1`, [platform.id])).rows[0];
+    if (current) {
+      const values = [
+        name,
+        legacyTheme.app_name || 'BDG Help Center',
+        legacyTheme.logo_text || 'BDG',
+        legacyTheme.banner_title || 'BDG Mobile Help Center',
+        legacyTheme.banner_subtitle || 'Search FAQ and view official guide images.',
+        legacyTheme.chat_header_title || 'BDG AI Support',
+        legacyTheme.chat_welcome_title || 'Welcome to BDG AI Support',
+        legacyTheme.chat_welcome_subtitle || 'Please describe your issue and we will guide you step by step.',
+        platform.id,
+      ];
+      await q(env, `UPDATE theme_settings SET
+        app_name=CASE WHEN app_name=$2 THEN $1 ELSE app_name END,
+        logo_text=CASE WHEN logo_text=$3 THEN $1 ELSE logo_text END,
+        banner_title=CASE WHEN banner_title=$4 THEN ($1 || ' Help Center') ELSE banner_title END,
+        banner_subtitle=CASE WHEN banner_subtitle=$5 THEN ('Search guides and support for ' || $1 || '.') ELSE banner_subtitle END,
+        favicon_url=CASE WHEN COALESCE(favicon_url,'')=COALESCE((SELECT favicon_url FROM theme_settings WHERE tenant_id=$10 AND platform_id=$11),'') THEN '' ELSE favicon_url END,
+        chat_icon_url=CASE WHEN COALESCE(chat_icon_url,'')=COALESCE((SELECT chat_icon_url FROM theme_settings WHERE tenant_id=$10 AND platform_id=$11),'') THEN '' ELSE chat_icon_url END,
+        guide_logo_url=CASE WHEN COALESCE(guide_logo_url,'')=COALESCE((SELECT guide_logo_url FROM theme_settings WHERE tenant_id=$10 AND platform_id=$11),'') THEN '' ELSE guide_logo_url END,
+        chat_header_title=CASE WHEN chat_header_title=$6 THEN ($1 || ' Support') ELSE chat_header_title END,
+        chat_welcome_title=CASE WHEN chat_welcome_title=$7 THEN ('Welcome to ' || $1 || ' Support') ELSE chat_welcome_title END,
+        chat_welcome_subtitle=CASE WHEN chat_welcome_subtitle=$8 THEN ('Please describe your issue and ' || $1 || ' Support will guide you step by step.') ELSE chat_welcome_subtitle END,
+        brand_name=CASE WHEN COALESCE(brand_name,'') IN ('', 'BDG Help Center') THEN NULL ELSE brand_name END,
+        brand_tagline=CASE WHEN COALESCE(brand_tagline,'') IN ('', 'Official Support') THEN NULL ELSE brand_tagline END,
+        guide_favicon_url=CASE WHEN COALESCE(guide_favicon_url,'')='' THEN '' ELSE guide_favicon_url END,
+        chat_favicon_url=CASE WHEN COALESCE(chat_favicon_url,'')='' THEN '' ELSE chat_favicon_url END,
+        updated_at=NOW()
+        WHERE platform_id=$9`, [...values, legacy.tenant_id, legacy.platform_id]);
+    }
+    // Previous platform provisioning copied legacy Site Content and section
+    // rows. Remove only exact legacy copies; preserve anything the owner edited.
+    await q(env, `DELETE FROM site_content_blocks target USING site_content_blocks legacy
+      WHERE target.platform_id=$1 AND legacy.tenant_id=$2 AND legacy.platform_id=$3
+        AND target.block_key=legacy.block_key AND target.value=legacy.value`, [platform.id, legacy.tenant_id, legacy.platform_id]);
+    await q(env, `DELETE FROM guide_home_sections target USING guide_home_sections legacy
+      WHERE target.platform_id=$1 AND legacy.tenant_id=$2 AND legacy.platform_id=$3
+        AND target.section_key=legacy.section_key AND target.title=legacy.title AND target.enabled=legacy.enabled`, [platform.id, legacy.tenant_id, legacy.platform_id]);
+  }
+  await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.2.1_platform_context_no_fallback_repair','Platform-aware public requests, neutral non-legacy presentation defaults, and removal of exact legacy presentation copies.') ON CONFLICT(migration_key) DO NOTHING`);
 }
 async function listTenantsForAdmin(env, admin) {
   const values = [];
@@ -1917,7 +1962,7 @@ async function testAiContent(env, p = {}) {
   };
 }
 async function getGuideContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const settings = await getTheme(env, scope); const blocks = await listContentBlocks(env, scope); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; return { settings, platform_key: platform.platform_key, platform_reference: scope.public_route_key || platform.platform_key, content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false, scope), home_sections: (await listHomeSections(env, false, scope)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false, scope), public_languages: [{code:'en',label:'English'}, {code:'hi',label:'Hindi'}], admin_languages: [{code:'en',label:'English'}, {code:'zh',label:'中文'}] }; }
-async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); return { settings: theme, platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', title: theme.chat_header_title || 'BDG AI Support', online: theme.chat_online_text || 'Online assistant' }, languages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }], platforms, default_platform_key:platform.platform_key, quick_replies, support_enabled: theme.show_chat_support_button === true, texts: { en: { title: theme.chat_header_title || 'BDG AI Support', online: theme.chat_online_text || 'Online assistant', welcome: theme.chat_welcome_subtitle || 'Please describe your issue and we will guide you step by step.', welcome_title: theme.chat_welcome_title || 'Welcome to BDG AI Support', placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }, hi: { title: theme.chat_header_title || 'ऑनलाइन सहायक', online: 'ऑनलाइन सहायक', welcome: theme.chat_welcome_subtitle || 'कृपया अपनी समस्या बताएं। हम आपको चरण-दर-चरण मार्गदर्शन देंगे।', welcome_title: theme.chat_welcome_title || 'BDG AI Support में आपका स्वागत है', placeholder: theme.chat_input_placeholder || 'अपना संदेश लिखें...', busy: 'कृपया वर्तमान उत्तर की प्रतीक्षा करें...' } } }; }
+async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = theme.brand_name || scope.platform_name || (platform.name || 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; return { settings: theme, platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages: [{ code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }], platforms, default_platform_key:platform.platform_key, quick_replies, support_enabled: theme.show_chat_support_button === true, texts: { en: { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }, hi: { title: chatTitle, online: theme.chat_online_text || 'ऑनलाइन सहायक', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'अपना संदेश लिखें...', busy: 'कृपया वर्तमान उत्तर की प्रतीक्षा करें...' } } }; }
 async function getAdminSiteContent(env, scope) { return { settings: await getTheme(env, scope), blocks: await listContentBlocks(env, scope), popular_help: [], navigation: await listNavigation(env, true, scope), home_sections: await listHomeSections(env, true, scope), chat_quick_replies: await listQuickReplies(env, true, scope) }; }
 function scopedTombstoneKey(scope, key) { return `p${scope.platform_id}:${key}`; }
 async function updateContentBlock(env, key, p, scope) {

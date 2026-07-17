@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tan
 import { useQuery } from "@tanstack/react-query";
 import { Search, X, Filter, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { api, getPublicLanguage } from "@/lib/api";
+import { api, getPlatformCacheKey, getPublicLanguage } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
@@ -34,12 +34,13 @@ function GuidesIndex() {
   const navigate = useNavigate({ from: "/guides" });
   const [text, setText] = useState(q ?? "");
   const lang = getPublicLanguage();
-  const copy = lang === "hi" ? { title: "गाइड और ट्यूटोरियल", subtitle: "BDG प्लेटफ़ॉर्म के लिए चरण-दर-चरण सहायता।", search: "गाइड खोजें…", all: "सभी", loading: "गाइड लोड हो रहे हैं…", error: "गाइड सेवा से कनेक्ट नहीं हो सका। आपकी प्रकाशित सामग्री सुरक्षित है।", retry: "फिर कोशिश करें", empty: "कोई परिणाम नहीं मिला। दूसरा keyword आज़माएँ।", updated: "अपडेट" } : { title: "Guides & tutorials", subtitle: "Step-by-step help for the whole BDG platform.", search: "Search guides…", all: "All", loading: "Loading guides…", error: "Unable to connect to the guide service. Your published content is still safe.", retry: "Try again", empty: "No results found. Try a different keyword.", updated: "Updated" };
+  const platformKey = getPlatformCacheKey();
+  const copy = lang === "hi" ? { title: "गाइड और ट्यूटोरियल", subtitle: "इस प्लेटफ़ॉर्म के लिए चरण-दर-चरण सहायता।", search: "गाइड खोजें…", all: "सभी", loading: "गाइड लोड हो रहे हैं…", error: "गाइड सेवा से कनेक्ट नहीं हो सका। आपकी प्रकाशित सामग्री सुरक्षित है।", retry: "फिर कोशिश करें", empty: "कोई परिणाम नहीं मिला। दूसरा keyword आज़माएँ।", updated: "अपडेट" } : { title: "Guides & tutorials", subtitle: "Step-by-step help for this platform.", search: "Search guides…", all: "All", loading: "Loading guides…", error: "Unable to connect to this platform's guide service. Published content is still safe.", retry: "Try again", empty: "No results found. Try a different keyword.", updated: "Updated" };
   useEffect(() => setText(q ?? ""), [q]);
 
-  const cats = useQuery({ queryKey: ["categories"], queryFn: api.getCategories });
+  const cats = useQuery({ queryKey: ["categories", platformKey], queryFn: api.getCategories });
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["guides", q, category, lang],
+    queryKey: ["guides", platformKey, q, category, lang],
     queryFn: () => api.getGuides({ q, category }),
   });
 

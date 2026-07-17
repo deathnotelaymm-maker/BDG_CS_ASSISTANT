@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Calendar, Info, AlertTriangle, LifeBuoy, ArrowRight, Loader2, ExternalLink } from "lucide-react";
-import { api, getPublicLanguage } from "@/lib/api";
+import { api, getPlatformCacheKey, getPublicLanguage } from "@/lib/api";
 import type { GuideBlock } from "@/mock/data";
 import { Button } from "@/components/ui/button";
 import { ServiceErrorPanel } from "@/components/public/ServiceErrorPanel";
@@ -33,6 +33,7 @@ export const Route = createFileRoute("/_public/guides/$slug")({
 function GuideDetail() {
   const { slug } = Route.useParams();
   const lang = getPublicLanguage();
+  const platformKey = getPlatformCacheKey();
   const copy = lang === "hi"
     ? {
         all: "सभी गाइड",
@@ -56,11 +57,11 @@ function GuideDetail() {
       };
 
   const { data: guide, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["guide", slug, lang],
+    queryKey: ["guide", platformKey, slug, lang],
     queryFn: () => api.getGuide(slug),
   });
-  const { data: allGuides } = useQuery({ queryKey: ["guides", lang], queryFn: () => api.getGuides() });
-  const { data: allFaqs } = useQuery({ queryKey: ["faqs", lang], queryFn: api.getFaqs });
+  const { data: allGuides } = useQuery({ queryKey: ["guides", platformKey, lang], queryFn: () => api.getGuides() });
+  const { data: allFaqs } = useQuery({ queryKey: ["faqs", platformKey, lang], queryFn: api.getFaqs });
 
   if (isLoading) {
     return (

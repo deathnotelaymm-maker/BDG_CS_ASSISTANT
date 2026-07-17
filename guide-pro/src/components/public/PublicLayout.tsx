@@ -1,9 +1,11 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Home, BookOpen, MessageSquare, Languages } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { PUBLIC_LANGUAGES, getPublicLanguage, type PublicLanguage } from "@/lib/api";
+import { api, PUBLIC_LANGUAGES, getPlatformCacheKey, getPublicLanguage, type PublicLanguage } from "@/lib/api";
 import { useState } from "react";
+import { useEffect } from "react";
 
 const NAV = [
   { to: "/", label: "Home", icon: Home },
@@ -17,9 +19,38 @@ function navLabel(label: string, lang: PublicLanguage) {
 }
 
 export function PublicLayout({ children }: { children: ReactNode }) {
+  const platformKey = getPlatformCacheKey();
+  const { data: theme } = useQuery({
+    queryKey: ["platform-theme", platformKey],
+    queryFn: api.getSettings,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const platformName = theme?.brand_name || theme?.app_name || (platformKey === "default" ? "BDG Help Center" : platformKey);
+  const platformTagline = theme?.brand_tagline || (platformKey === "default" ? "Official Support" : `${platformName} Support`);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.title = `${platformName} — Guides, FAQ & Support`;
+    document.querySelectorAll('link[data-platform-default-favicon="true"]').forEach((link) => {
+      if (platformKey !== "default") link.remove();
+    });
+    const favicon = theme?.guide_favicon_url;
+    const existing = document.querySelector<HTMLLinkElement>('link[data-platform-favicon="true"]');
+    if (favicon) {
+      const link = existing || document.createElement("link");
+      link.rel = "icon";
+      link.setAttribute("data-platform-favicon", "true");
+      link.href = favicon;
+      if (!existing) document.head.appendChild(link);
+    } else if (existing) {
+      existing.remove();
+    }
+  }, [platformKey, platformName, theme?.guide_favicon_url]);
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
-      <PublicHeader />
+      <PublicHeader platformKey={platformKey} platformName={platformName} platformTagline={platformTagline} logoUrl={theme?.guide_logo_url || ""} />
       <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 md:max-w-4xl md:pb-16">
         {children}
       </main>
@@ -28,7 +59,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function PublicHeader() {
+function PublicHeader({ platformKey, platformName, platformTagline, logoUrl }: { platformKey: string; platformName: string; platformTagline: string; logoUrl: string }) {
   const [language, setLanguage] = useState<PublicLanguage>(() => getPublicLanguage());
   const changeLanguage = (next: PublicLanguage) => {
     setLanguage(next);
@@ -41,16 +72,21 @@ function PublicHeader() {
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex h-14 w-full max-w-4xl items-center justify-between gap-2 px-4">
         <Link to="/" className="flex min-w-0 items-center gap-2">
-          <span
-            className="grid h-8 min-w-11 place-items-center rounded-lg px-1.5 font-display text-[11px] font-bold text-[color:var(--bdg-navy-deep)]"
-            style={{ background: "var(--gradient-gold)" }}
-          >
-            BDG
-          </span>
+          {logoUrl ? (
+            <img src={logoUrl} alt={`${platformName} logo`} className="h-8 w-8 rounded-lg object-contain" />
+          ) : (
+            <span
+              className="grid h-8 min-w-11 place-items-center rounded-lg px-1.5 font-display text-[11px] font-bold text-[color:var(--bdg-navy-deep)]"
+              style={{ background: "var(--gradient-gold)" }}
+              title={platformKey === "default" ? "BDG" : "Logo not configured"}
+            >
+              {platformKey === "default" ? "BDG" : "?"}
+            </span>
+          )}
           <div className="flex min-w-0 flex-col leading-tight">
-            <span className="truncate font-display text-sm font-semibold">BDG Help Center</span>
+            <span className="truncate font-display text-sm font-semibold">{platformName}</span>
             <span className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">
-              {language === "hi" ? "आधिकारिक सहायता" : "Official support"}
+              {language === "hi" ? "आधिकारिक सहायता" : platformTagline}
             </span>
           </div>
         </Link>

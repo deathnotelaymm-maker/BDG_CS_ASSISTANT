@@ -45,6 +45,27 @@ const productionSiteContent: mock.SiteContent = {
   },
 };
 
+const neutralSiteContent: mock.SiteContent = {
+  heroEyebrow: "Official support",
+  heroTitle: "How can we help you today?",
+  heroSubtitle: "Browse approved guides, FAQs, and support information.",
+  searchPlaceholder: "Search guides…",
+  searchButtonText: "Search",
+  popularHelpTitle: "Popular help",
+  topicsTitle: "Browse by topic",
+  featuredGuidesTitle: "Featured guides",
+  faqTitle: "Frequently asked questions",
+  supportCtaTitle: "Still need help?",
+  supportCtaSubtitle: "Please contact the platform support team.",
+  emptyStateText: "No guide has been published for this platform yet.",
+  errorStateText: "Unable to load this platform's guide content.",
+  buttons: {
+    contactSupport: "Contact support",
+    readGuide: "Read guide",
+    viewAll: "View all",
+  },
+};
+
 const emptyCategories: mock.Category[] = [];
 const emptyGuides: mock.Guide[] = [];
 const emptyFaqs: mock.Faq[] = [];
@@ -58,6 +79,32 @@ export function getPublicPlatformKey(): string {
   const fromQuery = new URLSearchParams(window.location.search).get("platform");
   const fromPath = window.location.pathname.match(/^\/p\/([a-z0-9-]+)(?:\/|$)/i)?.[1];
   return String(fromQuery || fromPath || "default").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-") || "default";
+}
+export function getPlatformCacheKey(): string {
+  return getPublicPlatformKey();
+}
+export interface PublicTheme {
+  brand_name?: string;
+  brand_tagline?: string;
+  logo_text?: string;
+  app_name?: string;
+  guide_logo_url?: string;
+  guide_favicon_url?: string;
+  accent_color?: string;
+  surface_color?: string;
+  support_link?: string;
+  support_enabled?: boolean;
+}
+function platformLabel(key = getPublicPlatformKey()): string {
+  if (!key || key === "default") return "BDG Help Center";
+  return key
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ") || "Platform Help Center";
+}
+function siteContentDefaults(): mock.SiteContent {
+  return getPublicPlatformKey() === "default" ? productionSiteContent : neutralSiteContent;
 }
 export function getPublicBasePath(): string {
   if (typeof window === "undefined") return "";
@@ -176,12 +223,13 @@ function iconName(icon: unknown, fallback = "HelpCircle") {
 }
 
 function normalizeSiteContent(raw: any): mock.SiteContent {
-  if (!raw) return productionSiteContent;
+  const defaults = siteContentDefaults();
+  if (!raw) return defaults;
 
   // If the API already returns the Guide Pro shape, only merge missing nested values.
   if (raw.heroTitle || raw.heroSubtitle || raw.searchPlaceholder) {
     return {
-      ...productionSiteContent,
+      ...defaults,
       ...raw,
       buttons: { ...defaultButtons, ...(raw.buttons || {}) },
     };
@@ -191,26 +239,26 @@ function normalizeSiteContent(raw: any): mock.SiteContent {
   const c = raw.content || {};
   const settings = raw.settings || {};
   return {
-    ...productionSiteContent,
-    heroEyebrow: text(c.hero_eyebrow, productionSiteContent.heroEyebrow),
-    heroTitle: text(c.hero_title, settings.banner_title || productionSiteContent.heroTitle),
+    ...defaults,
+    heroEyebrow: text(c.hero_eyebrow, defaults.heroEyebrow),
+    heroTitle: text(c.hero_title, settings.banner_title || defaults.heroTitle),
     heroSubtitle: text(
       c.hero_subtitle,
-      settings.banner_subtitle || productionSiteContent.heroSubtitle,
+      settings.banner_subtitle || defaults.heroSubtitle,
     ),
-    searchPlaceholder: text(c.search_placeholder, productionSiteContent.searchPlaceholder),
-    searchButtonText: text(c.search_button_text, productionSiteContent.searchButtonText),
-    popularHelpTitle: text(c.popular_title, productionSiteContent.popularHelpTitle),
-    topicsTitle: text(c.topics_title, productionSiteContent.topicsTitle),
-    featuredGuidesTitle: text(c.guides_title, productionSiteContent.featuredGuidesTitle),
-    faqTitle: text(c.faq_title, productionSiteContent.faqTitle),
-    supportCtaTitle: text(c.support_cta_title, productionSiteContent.supportCtaTitle),
+    searchPlaceholder: text(c.search_placeholder, defaults.searchPlaceholder),
+    searchButtonText: text(c.search_button_text, defaults.searchButtonText),
+    popularHelpTitle: text(c.popular_title, defaults.popularHelpTitle),
+    topicsTitle: text(c.topics_title, defaults.topicsTitle),
+    featuredGuidesTitle: text(c.guides_title, defaults.featuredGuidesTitle),
+    faqTitle: text(c.faq_title, defaults.faqTitle),
+    supportCtaTitle: text(c.support_cta_title, defaults.supportCtaTitle),
     supportCtaSubtitle: text(
       c.support_cta_subtitle,
-      c.footer_note || productionSiteContent.supportCtaSubtitle,
+      c.footer_note || defaults.supportCtaSubtitle,
     ),
-    emptyStateText: text(c.guide_empty_message, productionSiteContent.emptyStateText),
-    errorStateText: text(c.error_state_text, productionSiteContent.errorStateText),
+    emptyStateText: text(c.guide_empty_message, defaults.emptyStateText),
+    errorStateText: text(c.error_state_text, defaults.errorStateText),
     buttons: {
       contactSupport: text(c.support_button_text, defaultButtons.contactSupport),
       readGuide: text(c.read_guide_text, defaultButtons.readGuide),
@@ -379,16 +427,24 @@ async function getGuideContentRaw() {
 
 // ---------- Public endpoints ----------
 export const api = {
-  getSettings: () =>
-    publicSafe("/settings", () => ({
-      brand: "BDG",
-      logoText: "BDG Help",
-      supportUrl: "/support",
-      supportEnabled: false,
-    })),
+  getSettings: (): Promise<PublicTheme> =>
+    publicSafe<PublicTheme>(withLanguage("/settings"), () => {
+      const key = getPublicPlatformKey();
+      const name = platformLabel(key);
+      return {
+        brand_name: key === "default" ? "BDG Help Center" : name,
+        brand_tagline: key === "default" ? "Official Support" : `${name} Support`,
+        logo_text: key === "default" ? "BDG" : name,
+        app_name: key === "default" ? "BDG Help Center" : name,
+        guide_logo_url: "",
+        guide_favicon_url: "",
+        support_link: "/support",
+        support_enabled: false,
+      };
+    }),
   getSiteContent: async () => normalizeSiteContent(await getGuideContentRaw()),
   getCategories: async () =>
-    (await publicSafe<any[]>("/categories", () => emptyCategories)).map(normalizeCategory),
+    (await publicSafe<any[]>(withLanguage("/categories"), () => emptyCategories)).map(normalizeCategory),
   getFaqs: async () =>
     (await publicSafe<any[]>(withLanguage("/faqs"), () => emptyFaqs)).map(normalizeFaq),
   getGuides: async (params?: { category?: string; q?: string }) => {
