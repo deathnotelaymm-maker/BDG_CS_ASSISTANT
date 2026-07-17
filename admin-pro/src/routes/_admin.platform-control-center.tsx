@@ -73,6 +73,7 @@ type PlatformDetail = Platform & {
   features: Array<{ feature_key: string; label: string; enabled: boolean }>;
 };
 type Brand = Record<string, string>;
+type Connector = { enabled: boolean; configured: boolean; allowed_actions: string[]; timeout_ms: number; max_retries: number; secret_configured: boolean; urls: Record<string, boolean> };
 type Control = { operator: boolean; tenants: Tenant[]; platforms: Platform[]; platform_feature_catalog: Array<{ feature_key: string; label: string }>; domain_note?: string };
 
 const statusColor = (value?: string) => value === "active" || value === "verified" ? "green" : value === "pending_dns" ? "gold" : "default";
@@ -87,6 +88,9 @@ function PlatformControlCenter() {
   const [domainOpen, setDomainOpen] = useState(false);
   const [memberOpen, setMemberOpen] = useState(false);
   const [brand, setBrand] = useState<Brand | null>(null);
+  const [connector, setConnector] = useState<Connector | null>(null);
+  const [connectorForm] = Form.useForm();
+  const [connectorTestForm] = Form.useForm();
   const [tenantForm] = Form.useForm();
   const [platformForm] = Form.useForm();
   const [domainForm] = Form.useForm();
@@ -106,7 +110,7 @@ function PlatformControlCenter() {
   };
   const openPlatform = async (row: Platform) => {
     setDetailLoading(true);
-    try { const detail = await api.getTenantPlatform(row.id) as PlatformDetail; setSelected(detail); const result = await api.getPlatformBrand(row.id) as any; setBrand(result.brand || {}); brandForm.setFieldsValue(result.brand || {}); }
+    try { const detail = await api.getTenantPlatform(row.id) as PlatformDetail; setSelected(detail); const [result, connectorResult] = await Promise.all([api.getPlatformBrand(row.id) as Promise<any>, api.getPlatformConnector(row.id) as Promise<any>]); setBrand(result.brand || {}); brandForm.setFieldsValue(result.brand || {}); setConnector(connectorResult as Connector); connectorForm.setFieldsValue({ ...(connectorResult || {}), allowed_actions: connectorResult?.allowed_actions || [] }); }
     catch (error: any) { message.error(error?.message || "Could not load platform details"); }
     finally { setDetailLoading(false); }
   };
@@ -165,6 +169,14 @@ function PlatformControlCenter() {
     await api.createPlatformMember(selected.id, values);
     message.success("Platform member saved.");
     setMemberOpen(false); memberForm.resetFields(); refreshSelected();
+  };
+  const saveConnector = async () => {
+    if (!selected) return;
+    try { const values = await connectorForm.validateFields(); const result = await api.updatePlatformConnector(selected.id, values) as Connector; setConnector(result); connectorForm.setFieldsValue({ ...result, allowed_actions: result.allowed_actions || [] }); message.success("Operations connector settings saved"); } catch (error: any) { message.error(error?.message || "Connector settings could not be saved"); }
+  };
+  const testConnector = async () => {
+    if (!selected) return;
+    try { const values = await connectorTestForm.validateFields(); const result = await api.testPlatformConnector(selected.id, values) as any; if (result.ok) message.success(`Connector test passed (${result.http_status || "ok"})`); else message.warning(result.message || result.question || "Connector test did not pass"); } catch (error: any) { message.error(error?.message || "Connector test failed"); }
   };
 
   return <Spin spinning={loading}>
@@ -252,6 +264,18 @@ function PlatformControlCenter() {
             ]} />
           </> },
           { key: "brand", label: "Brand Studio", children: <Form form={brandForm} layout="vertical" onFinish={async (values) => { try { const result = await api.updatePlatformBrand(selected.id, values) as any; setBrand(result.brand || values); brandForm.setFieldsValue(result.brand || values); message.success("Platform branding saved"); } catch (error: any) { message.error(error?.message || "Brand update failed"); } }}><Alert type="info" showIcon message="Platform-owned branding" description="These values are used by the Guide, Chat, and Admin surfaces for this platform. Empty fields inherit the platform defaults." style={{ marginBottom: 16 }} /><Row gutter={12}><Col span={12}><Form.Item name="brand_name" label="Brand name"><Input /></Form.Item></Col><Col span={12}><Form.Item name="brand_tagline" label="Tagline"><Input /></Form.Item></Col><Col span={12}><Form.Item name="admin_logo_url" label="Admin logo URL"><Input placeholder="https://.../logo.png" /></Form.Item></Col><Col span={12}><Form.Item name="admin_favicon_url" label="Admin favicon URL"><Input placeholder="https://.../favicon.png" /></Form.Item></Col><Col span={12}><Form.Item name="guide_logo_url" label="Guide logo URL"><Input placeholder="https://.../logo.png" /></Form.Item></Col><Col span={12}><Form.Item name="guide_favicon_url" label="Guide favicon URL"><Input placeholder="https://.../favicon.png" /></Form.Item></Col><Col span={12}><Form.Item name="chat_icon_url" label="Chat icon URL"><Input placeholder="https://.../icon.png" /></Form.Item></Col><Col span={12}><Form.Item name="chat_favicon_url" label="Chat favicon URL"><Input placeholder="https://.../favicon.png" /></Form.Item></Col><Col span={8}><Form.Item name="accent_color" label="Accent color"><Input placeholder="#3b82f6" /></Form.Item></Col><Col span={8}><Form.Item name="surface_color" label="Surface color"><Input placeholder="#0f172a" /></Form.Item></Col><Col span={8}><Form.Item name="button_style" label="Button style"><Select options={[{value:"rounded",label:"Rounded"},{value:"pill",label:"Pill"},{value:"square",label:"Square"}]} /></Form.Item></Col></Row><Button type="primary" htmlType="submit">Save brand settings</Button></Form> },
+          { key: "connector", label: "Operations Connector", children: <>
+            <Alert type="info" showIcon message="Backend-only platform checks" description="Connectors are optional. Secrets stay encrypted on the backend, only allowlisted actions can run, and every test is audited with a redacted request ID." style={{ marginBottom: 16 }} />
+            <Form form={connectorForm} layout="vertical">
+              <Form.Item name="enabled" label="Enable live platform checks" valuePropName="checked"><Switch /></Form.Item>
+              <Form.Item name="allowed_actions" label="Allowed actions"><Select mode="multiple" options={["game_status", "game_catalog", "payment_order_status"].map((value) => ({ value, label: value.replace(/_/g, " ") }))} /></Form.Item>
+              <Row gutter={12}><Col span={24}><Form.Item name="game_status_url" label="Game status endpoint"><Input placeholder="https://client-api.example.com/game-status" /></Form.Item></Col><Col span={24}><Form.Item name="game_catalog_url" label="Game catalog endpoint"><Input placeholder="https://client-api.example.com/game-catalog" /></Form.Item></Col><Col span={24}><Form.Item name="payment_order_status_url" label="Payment order status endpoint"><Input placeholder="https://client-api.example.com/payment-order-status" /></Form.Item></Col><Col span={12}><Form.Item name="timeout_ms" label="Timeout (ms)"><Input type="number" min={1500} max={10000} /></Form.Item></Col><Col span={12}><Form.Item name="max_retries" label="Retries"><Input type="number" min={0} max={2} /></Form.Item></Col></Row>
+              <Form.Item name="secret_token" label="Backend API secret"><Input.Password placeholder={connector?.secret_configured ? "Configured — leave blank to keep it" : "Write-only secret"} /></Form.Item>
+              <Button type="primary" onClick={saveConnector}>Save connector</Button>
+            </Form>
+            <Divider />
+            <Form form={connectorTestForm} layout="inline" initialValues={{ action: "game_status" }}><Form.Item name="action"><Select style={{ width: 190 }} options={["game_status", "game_catalog", "payment_order_status"].map((value) => ({ value, label: value.replace(/_/g, " ") }))} /></Form.Item><Form.Item name="game_name"><Input placeholder="Game name (for game checks)" /></Form.Item><Form.Item name="order_number"><Input placeholder="Order number (for payment)" /></Form.Item><Button onClick={testConnector}>Test connection</Button></Form>
+          </> },
           { key: "features", label: `Features (${selected.features.length})`, children: <Table rowKey="feature_key" size="small" pagination={false} dataSource={selected.features} columns={[
             { title: "Module", dataIndex: "label" },
             { title: "Key", dataIndex: "feature_key", render: (value) => <code>{value}</code> },

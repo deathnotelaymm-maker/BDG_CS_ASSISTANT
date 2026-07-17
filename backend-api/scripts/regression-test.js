@@ -396,8 +396,21 @@ expect(
 );
 expect(
   "Health and API errors expose the same release version",
-  core.includes("1.3.0-chat-start-module-experience-studio") &&
-    server.includes("1.3.0-chat-start-module-experience-studio"),
+  core.includes("1.4.0-operations-connector-gateway") &&
+    server.includes("1.4.0-operations-connector-gateway"),
+);
+expect(
+  "Operations Connector Gateway is platform-scoped and allowlisted",
+  core.includes("platform_connectors") &&
+    core.includes("game_status") &&
+    core.includes("payment_order_status") &&
+    core.includes("callPlatformConnector"),
+);
+expect(
+  "Operations Connector admin controls are visible",
+  platformControlCenter.includes("Operations Connector") &&
+    adminApi.includes("getPlatformConnector") &&
+    adminApi.includes("testPlatformConnector"),
 );
 
 for (const check of checks)
