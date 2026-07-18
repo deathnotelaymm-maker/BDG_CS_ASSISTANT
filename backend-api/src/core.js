@@ -2339,6 +2339,13 @@ async function approveKnowledgeImportRow(env, rowId, scope) {
   const row = (await q(env, `SELECT r.*,b.tenant_id,b.platform_id FROM knowledge_import_rows r JOIN knowledge_import_batches b ON b.id=r.batch_id WHERE r.id=$1 AND b.tenant_id=$2 AND b.platform_id=$3 LIMIT 1`, [rowId,scope.tenant_id,scope.platform_id])).rows[0];
   if (!row) bad('Import row not found', 404);
   if (!row.imported_content_id) bad('Create AI Q&A drafts before approving an import row', 409, 'DRAFT_REQUIRED');
+  // Repair drafts created by an early v1.8 build before the Q&A source marker
+  // was persisted. Approval explicitly promotes this row into AI Q&A.
+  const draft = (await q(env, `SELECT id,source_type FROM ai_content_items WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND deleted_at IS NULL LIMIT 1`, [row.imported_content_id,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!draft) bad('AI Q&A draft not found for this import row', 404, 'AI_QA_NOT_FOUND');
+  if (draft.source_type !== 'qa') {
+    await q(env, `UPDATE ai_content_items SET source_type='qa',updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND deleted_at IS NULL`, [row.imported_content_id,scope.tenant_id,scope.platform_id]);
+  }
   const published = await publishAiQa(env, row.imported_content_id, scope);
   await q(env, `UPDATE knowledge_import_rows SET status='approved',updated_at=NOW() WHERE id=$1`, [rowId]);
   await audit(env, 'approve_import_row', 'knowledge_import_rows', rowId, `Approved AI Q&A row ${rowId}`, scope);

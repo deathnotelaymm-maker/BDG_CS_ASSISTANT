@@ -19,6 +19,7 @@ const checks = [
   ['Q&A rich fields are persisted', core.includes('qa_answer_html') && core.includes('qa_steps_json') && core.includes('localized_fields_json')],
   ['Import drafts target AI Q&A', read('backend-api/src/knowledge-import.js').includes("source_type: 'qa'")],
   ['Import review has explicit approval', core.includes('approveKnowledgeImportRow') && importRoute.includes('Approve & publish')],
+  ['Import approval repairs legacy Q&A source marker', core.includes("draft.source_type !== 'qa'") && core.includes("SET source_type='qa'")],
   ['Admin exposes AI Q&A studio', api.includes('"ai-qa": "/admin/ai-qa"') && qaRoute.includes('RichKnowledgeEditor')],
   ['FAQ editor stores rich content', faqRoute.includes('RichKnowledgeEditor') && api.includes('answer_html')],
   ['Guide renders rich FAQ answers', faqPublic.includes('dangerouslySetInnerHTML') && faqPublic.includes('answerHtml')],

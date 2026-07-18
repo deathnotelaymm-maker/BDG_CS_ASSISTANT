@@ -1,0 +1,17 @@
+{
+  "version": "1.8.0a-ai-qa-approval-repair",
+  "base_release": "1.8.0-ai-qa-rich-faq-studio",
+  "title": "AI Q&A approval repair",
+  "repository": "deathnotelaymm-maker/BDG_CS_ASSISTANT",
+  "branch": "main",
+  "auto_push": false,
+  "auto_deploy": false,
+  "installer": "INSTALL-V1.8.0A-AI-QA-REPAIR.cmd",
+  "fix": "Promote legacy imported drafts to source_type=qa within the current tenant/platform before approval publish.",
+  "checks": {
+    "backend_regression": "78/78",
+    "structured_response": "4/4",
+    "upload_regression": "4/4",
+    "v1_8_regression": "10/10"
+  }
+}
