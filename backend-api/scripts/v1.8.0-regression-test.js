@@ -10,6 +10,7 @@ const qaRoute = read('admin-pro/src/routes/_admin.ai-qa.tsx');
 const faqRoute = read('admin-pro/src/routes/_admin.faq.tsx');
 const faqPublic = read('guide-pro/src/routes/_public.faq.tsx');
 const importRoute = read('admin-pro/src/routes/_admin.ai-knowledge-import.tsx');
+const routeTree = read('admin-pro/src/routeTree.gen.ts');
 const migration = read('backend-api/migrations/020_v1.8.0_ai_qa_rich_faq_studio.sql');
 
 const checks = [
@@ -21,6 +22,7 @@ const checks = [
   ['Import review has explicit approval', core.includes('approveKnowledgeImportRow') && importRoute.includes('Approve & publish')],
   ['Import approval repairs legacy Q&A source marker', core.includes("draft.source_type !== 'qa'") && core.includes("SET source_type='qa'")],
   ['Admin exposes AI Q&A studio', api.includes('"ai-qa": "/admin/ai-qa"') && qaRoute.includes('RichKnowledgeEditor')],
+  ['Admin route registry includes AI Q&A studio', routeTree.includes("AdminAiQaRouteImport") && routeTree.includes("'/_admin/ai-qa'")],
   ['FAQ editor stores rich content', faqRoute.includes('RichKnowledgeEditor') && api.includes('answer_html')],
   ['Guide renders rich FAQ answers', faqPublic.includes('dangerouslySetInnerHTML') && faqPublic.includes('answerHtml')],
 ];

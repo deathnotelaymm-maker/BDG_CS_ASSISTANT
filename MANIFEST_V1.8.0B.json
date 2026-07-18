@@ -1,0 +1,11 @@
+{
+  "version": "1.8.0b-admin-ai-qa-route-fix",
+  "base_release": "1.8.0a-ai-qa-approval-repair",
+  "title": "Admin AI Q&A route fix",
+  "repository": "deathnotelaymm-maker/BDG_CS_ASSISTANT",
+  "branch": "main",
+  "auto_push": false,
+  "auto_deploy": false,
+  "installer": "INSTALL-V1.8.0B-ADMIN-QA-ROUTE.cmd",
+  "fix": "Generate and ship the Admin file-based route registry so /ai-qa is not Not Found."
+}

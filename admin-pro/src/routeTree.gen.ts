@@ -12,26 +12,27 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminUnmatchedQuestionsRouteImport } from './routes/_admin.unmatched-questions'
 import { Route as AdminThemeSettingsRouteImport } from './routes/_admin.theme-settings'
 import { Route as AdminSiteContentRouteImport } from './routes/_admin.site-content'
 import { Route as AdminPromptHistoryRouteImport } from './routes/_admin.prompt-history'
+import { Route as AdminPlatformControlCenterRouteImport } from './routes/_admin.platform-control-center'
 import { Route as AdminHelpCardsRouteImport } from './routes/_admin.help-cards'
 import { Route as AdminGuideImagesRouteImport } from './routes/_admin.guide-images'
 import { Route as AdminFaqRouteImport } from './routes/_admin.faq'
 import { Route as AdminDashboardRouteImport } from './routes/_admin.dashboard'
 import { Route as AdminChatQuickRepliesRouteImport } from './routes/_admin.chat-quick-replies'
 import { Route as AdminChatLogsRouteImport } from './routes/_admin.chat-logs'
-import { Route as AdminUnmatchedQuestionsRouteImport } from './routes/_admin.unmatched-questions'
 import { Route as AdminCategoriesRouteImport } from './routes/_admin.categories'
 import { Route as AdminAuditLogsRouteImport } from './routes/_admin.audit-logs'
+import { Route as AdminAiQaRouteImport } from './routes/_admin.ai-qa'
 import { Route as AdminAiPromptManagerRouteImport } from './routes/_admin.ai-prompt-manager'
-import { Route as AdminAiContentStudioRouteImport } from './routes/_admin.ai-content-studio'
 import { Route as AdminAiKnowledgeImportRouteImport } from './routes/_admin.ai-knowledge-import'
 import { Route as AdminAiKnowledgeRouteImport } from './routes/_admin.ai-knowledge'
 import { Route as AdminAiDiagnosticsRouteImport } from './routes/_admin.ai-diagnostics'
+import { Route as AdminAiContentStudioRouteImport } from './routes/_admin.ai-content-studio'
 import { Route as AdminAdminUsersRouteImport } from './routes/_admin.admin-users'
 import { Route as AdminActionButtonsRouteImport } from './routes/_admin.action-buttons'
-import { Route as AdminPlatformControlCenterRouteImport } from './routes/_admin.platform-control-center'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -47,6 +48,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminUnmatchedQuestionsRoute = AdminUnmatchedQuestionsRouteImport.update({
+  id: '/unmatched-questions',
+  path: '/unmatched-questions',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminThemeSettingsRoute = AdminThemeSettingsRouteImport.update({
   id: '/theme-settings',
   path: '/theme-settings',
@@ -57,21 +63,17 @@ const AdminSiteContentRoute = AdminSiteContentRouteImport.update({
   path: '/site-content',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminAiContentStudioRoute = AdminAiContentStudioRouteImport.update({
-  id: '/ai-content-studio',
-  path: '/ai-content-studio',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminAiKnowledgeImportRoute = AdminAiKnowledgeImportRouteImport.update({
-  id: '/ai-knowledge-import',
-  path: '/ai-knowledge-import',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminPromptHistoryRoute = AdminPromptHistoryRouteImport.update({
   id: '/prompt-history',
   path: '/prompt-history',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPlatformControlCenterRoute =
+  AdminPlatformControlCenterRouteImport.update({
+    id: '/platform-control-center',
+    path: '/platform-control-center',
+    getParentRoute: () => AdminRoute,
+  } as any)
 const AdminHelpCardsRoute = AdminHelpCardsRouteImport.update({
   id: '/help-cards',
   path: '/help-cards',
@@ -102,11 +104,6 @@ const AdminChatLogsRoute = AdminChatLogsRouteImport.update({
   path: '/chat-logs',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminUnmatchedQuestionsRoute = AdminUnmatchedQuestionsRouteImport.update({
-  id: '/unmatched-questions',
-  path: '/unmatched-questions',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
   id: '/categories',
   path: '/categories',
@@ -117,9 +114,19 @@ const AdminAuditLogsRoute = AdminAuditLogsRouteImport.update({
   path: '/audit-logs',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAiQaRoute = AdminAiQaRouteImport.update({
+  id: '/ai-qa',
+  path: '/ai-qa',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAiPromptManagerRoute = AdminAiPromptManagerRouteImport.update({
   id: '/ai-prompt-manager',
   path: '/ai-prompt-manager',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAiKnowledgeImportRoute = AdminAiKnowledgeImportRouteImport.update({
+  id: '/ai-knowledge-import',
+  path: '/ai-knowledge-import',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAiKnowledgeRoute = AdminAiKnowledgeRouteImport.update({
@@ -132,6 +139,11 @@ const AdminAiDiagnosticsRoute = AdminAiDiagnosticsRouteImport.update({
   path: '/ai-diagnostics',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAiContentStudioRoute = AdminAiContentStudioRouteImport.update({
+  id: '/ai-content-studio',
+  path: '/ai-content-studio',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAdminUsersRoute = AdminAdminUsersRouteImport.update({
   id: '/admin-users',
   path: '/admin-users',
@@ -142,160 +154,161 @@ const AdminActionButtonsRoute = AdminActionButtonsRouteImport.update({
   path: '/action-buttons',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminPlatformControlCenterRoute = AdminPlatformControlCenterRouteImport.update({
-  id: '/platform-control-center',
-  path: '/platform-control-center',
-  getParentRoute: () => AdminRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/admin-users': typeof AdminAdminUsersRoute
   '/action-buttons': typeof AdminActionButtonsRoute
-  '/platform-control-center': typeof AdminPlatformControlCenterRoute
+  '/admin-users': typeof AdminAdminUsersRoute
+  '/ai-content-studio': typeof AdminAiContentStudioRoute
   '/ai-diagnostics': typeof AdminAiDiagnosticsRoute
   '/ai-knowledge': typeof AdminAiKnowledgeRoute
   '/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
   '/ai-prompt-manager': typeof AdminAiPromptManagerRoute
+  '/ai-qa': typeof AdminAiQaRoute
   '/audit-logs': typeof AdminAuditLogsRoute
   '/categories': typeof AdminCategoriesRoute
   '/chat-logs': typeof AdminChatLogsRoute
-  '/unmatched-questions': typeof AdminUnmatchedQuestionsRoute
   '/chat-quick-replies': typeof AdminChatQuickRepliesRoute
   '/dashboard': typeof AdminDashboardRoute
   '/faq': typeof AdminFaqRoute
   '/guide-images': typeof AdminGuideImagesRoute
   '/help-cards': typeof AdminHelpCardsRoute
+  '/platform-control-center': typeof AdminPlatformControlCenterRoute
   '/prompt-history': typeof AdminPromptHistoryRoute
-  '/ai-content-studio': typeof AdminAiContentStudioRoute
   '/site-content': typeof AdminSiteContentRoute
   '/theme-settings': typeof AdminThemeSettingsRoute
+  '/unmatched-questions': typeof AdminUnmatchedQuestionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/admin-users': typeof AdminAdminUsersRoute
   '/action-buttons': typeof AdminActionButtonsRoute
-  '/platform-control-center': typeof AdminPlatformControlCenterRoute
+  '/admin-users': typeof AdminAdminUsersRoute
+  '/ai-content-studio': typeof AdminAiContentStudioRoute
   '/ai-diagnostics': typeof AdminAiDiagnosticsRoute
   '/ai-knowledge': typeof AdminAiKnowledgeRoute
   '/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
   '/ai-prompt-manager': typeof AdminAiPromptManagerRoute
+  '/ai-qa': typeof AdminAiQaRoute
   '/audit-logs': typeof AdminAuditLogsRoute
   '/categories': typeof AdminCategoriesRoute
   '/chat-logs': typeof AdminChatLogsRoute
-  '/unmatched-questions': typeof AdminUnmatchedQuestionsRoute
   '/chat-quick-replies': typeof AdminChatQuickRepliesRoute
   '/dashboard': typeof AdminDashboardRoute
   '/faq': typeof AdminFaqRoute
   '/guide-images': typeof AdminGuideImagesRoute
   '/help-cards': typeof AdminHelpCardsRoute
+  '/platform-control-center': typeof AdminPlatformControlCenterRoute
   '/prompt-history': typeof AdminPromptHistoryRoute
-  '/ai-content-studio': typeof AdminAiContentStudioRoute
   '/site-content': typeof AdminSiteContentRoute
   '/theme-settings': typeof AdminThemeSettingsRoute
+  '/unmatched-questions': typeof AdminUnmatchedQuestionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
-  '/_admin/admin-users': typeof AdminAdminUsersRoute
   '/_admin/action-buttons': typeof AdminActionButtonsRoute
-  '/_admin/platform-control-center': typeof AdminPlatformControlCenterRoute
+  '/_admin/admin-users': typeof AdminAdminUsersRoute
+  '/_admin/ai-content-studio': typeof AdminAiContentStudioRoute
   '/_admin/ai-diagnostics': typeof AdminAiDiagnosticsRoute
   '/_admin/ai-knowledge': typeof AdminAiKnowledgeRoute
   '/_admin/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
   '/_admin/ai-prompt-manager': typeof AdminAiPromptManagerRoute
+  '/_admin/ai-qa': typeof AdminAiQaRoute
   '/_admin/audit-logs': typeof AdminAuditLogsRoute
   '/_admin/categories': typeof AdminCategoriesRoute
   '/_admin/chat-logs': typeof AdminChatLogsRoute
-  '/_admin/unmatched-questions': typeof AdminUnmatchedQuestionsRoute
   '/_admin/chat-quick-replies': typeof AdminChatQuickRepliesRoute
   '/_admin/dashboard': typeof AdminDashboardRoute
   '/_admin/faq': typeof AdminFaqRoute
   '/_admin/guide-images': typeof AdminGuideImagesRoute
   '/_admin/help-cards': typeof AdminHelpCardsRoute
+  '/_admin/platform-control-center': typeof AdminPlatformControlCenterRoute
   '/_admin/prompt-history': typeof AdminPromptHistoryRoute
-  '/_admin/ai-content-studio': typeof AdminAiContentStudioRoute
   '/_admin/site-content': typeof AdminSiteContentRoute
   '/_admin/theme-settings': typeof AdminThemeSettingsRoute
+  '/_admin/unmatched-questions': typeof AdminUnmatchedQuestionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/login'
-    | '/admin-users'
     | '/action-buttons'
-    | '/platform-control-center'
+    | '/admin-users'
+    | '/ai-content-studio'
     | '/ai-diagnostics'
     | '/ai-knowledge'
     | '/ai-knowledge-import'
     | '/ai-prompt-manager'
+    | '/ai-qa'
     | '/audit-logs'
     | '/categories'
     | '/chat-logs'
-    | '/unmatched-questions'
     | '/chat-quick-replies'
     | '/dashboard'
     | '/faq'
     | '/guide-images'
     | '/help-cards'
+    | '/platform-control-center'
     | '/prompt-history'
-    | '/ai-content-studio'
     | '/site-content'
     | '/theme-settings'
+    | '/unmatched-questions'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
-    | '/admin-users'
     | '/action-buttons'
-    | '/platform-control-center'
+    | '/admin-users'
+    | '/ai-content-studio'
     | '/ai-diagnostics'
     | '/ai-knowledge'
     | '/ai-knowledge-import'
     | '/ai-prompt-manager'
+    | '/ai-qa'
     | '/audit-logs'
     | '/categories'
     | '/chat-logs'
-    | '/unmatched-questions'
     | '/chat-quick-replies'
     | '/dashboard'
     | '/faq'
     | '/guide-images'
     | '/help-cards'
+    | '/platform-control-center'
     | '/prompt-history'
-    | '/ai-content-studio'
     | '/site-content'
     | '/theme-settings'
+    | '/unmatched-questions'
   id:
     | '__root__'
     | '/'
     | '/_admin'
     | '/login'
-    | '/_admin/admin-users'
     | '/_admin/action-buttons'
-    | '/_admin/platform-control-center'
+    | '/_admin/admin-users'
+    | '/_admin/ai-content-studio'
     | '/_admin/ai-diagnostics'
     | '/_admin/ai-knowledge'
     | '/_admin/ai-knowledge-import'
     | '/_admin/ai-prompt-manager'
+    | '/_admin/ai-qa'
     | '/_admin/audit-logs'
     | '/_admin/categories'
     | '/_admin/chat-logs'
-    | '/_admin/unmatched-questions'
     | '/_admin/chat-quick-replies'
     | '/_admin/dashboard'
     | '/_admin/faq'
     | '/_admin/guide-images'
     | '/_admin/help-cards'
+    | '/_admin/platform-control-center'
     | '/_admin/prompt-history'
-    | '/_admin/ai-content-studio'
     | '/_admin/site-content'
     | '/_admin/theme-settings'
+    | '/_admin/unmatched-questions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -327,6 +340,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_admin/unmatched-questions': {
+      id: '/_admin/unmatched-questions'
+      path: '/unmatched-questions'
+      fullPath: '/unmatched-questions'
+      preLoaderRoute: typeof AdminUnmatchedQuestionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/theme-settings': {
       id: '/_admin/theme-settings'
       path: '/theme-settings'
@@ -341,18 +361,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSiteContentRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/_admin/ai-content-studio': {
-      id: '/_admin/ai-content-studio'
-      path: '/ai-content-studio'
-      fullPath: '/ai-content-studio'
-      preLoaderRoute: typeof AdminAiContentStudioRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/_admin/prompt-history': {
       id: '/_admin/prompt-history'
       path: '/prompt-history'
       fullPath: '/prompt-history'
       preLoaderRoute: typeof AdminPromptHistoryRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/platform-control-center': {
+      id: '/_admin/platform-control-center'
+      path: '/platform-control-center'
+      fullPath: '/platform-control-center'
+      preLoaderRoute: typeof AdminPlatformControlCenterRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/help-cards': {
@@ -397,13 +417,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminChatLogsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/_admin/unmatched-questions': {
-      id: '/_admin/unmatched-questions'
-      path: '/unmatched-questions'
-      fullPath: '/unmatched-questions'
-      preLoaderRoute: typeof AdminUnmatchedQuestionsRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/_admin/categories': {
       id: '/_admin/categories'
       path: '/categories'
@@ -418,18 +431,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuditLogsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/ai-qa': {
+      id: '/_admin/ai-qa'
+      path: '/ai-qa'
+      fullPath: '/ai-qa'
+      preLoaderRoute: typeof AdminAiQaRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/ai-prompt-manager': {
       id: '/_admin/ai-prompt-manager'
       path: '/ai-prompt-manager'
       fullPath: '/ai-prompt-manager'
       preLoaderRoute: typeof AdminAiPromptManagerRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/_admin/ai-knowledge': {
-      id: '/_admin/ai-knowledge'
-      path: '/ai-knowledge'
-      fullPath: '/ai-knowledge'
-      preLoaderRoute: typeof AdminAiKnowledgeRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/ai-knowledge-import': {
@@ -439,11 +452,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiKnowledgeImportRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/ai-knowledge': {
+      id: '/_admin/ai-knowledge'
+      path: '/ai-knowledge'
+      fullPath: '/ai-knowledge'
+      preLoaderRoute: typeof AdminAiKnowledgeRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/ai-diagnostics': {
       id: '/_admin/ai-diagnostics'
       path: '/ai-diagnostics'
       fullPath: '/ai-diagnostics'
       preLoaderRoute: typeof AdminAiDiagnosticsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/ai-content-studio': {
+      id: '/_admin/ai-content-studio'
+      path: '/ai-content-studio'
+      fullPath: '/ai-content-studio'
+      preLoaderRoute: typeof AdminAiContentStudioRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/admin-users': {
@@ -460,60 +487,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminActionButtonsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/_admin/platform-control-center': {
-      id: '/_admin/platform-control-center'
-      path: '/platform-control-center'
-      fullPath: '/platform-control-center'
-      preLoaderRoute: typeof AdminPlatformControlCenterRouteImport
-      parentRoute: typeof AdminRoute
-    }
   }
 }
 
 interface AdminRouteChildren {
   AdminActionButtonsRoute: typeof AdminActionButtonsRoute
-  AdminPlatformControlCenterRoute: typeof AdminPlatformControlCenterRoute
   AdminAdminUsersRoute: typeof AdminAdminUsersRoute
+  AdminAiContentStudioRoute: typeof AdminAiContentStudioRoute
   AdminAiDiagnosticsRoute: typeof AdminAiDiagnosticsRoute
   AdminAiKnowledgeRoute: typeof AdminAiKnowledgeRoute
   AdminAiKnowledgeImportRoute: typeof AdminAiKnowledgeImportRoute
   AdminAiPromptManagerRoute: typeof AdminAiPromptManagerRoute
+  AdminAiQaRoute: typeof AdminAiQaRoute
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminChatLogsRoute: typeof AdminChatLogsRoute
-  AdminUnmatchedQuestionsRoute: typeof AdminUnmatchedQuestionsRoute
   AdminChatQuickRepliesRoute: typeof AdminChatQuickRepliesRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminFaqRoute: typeof AdminFaqRoute
   AdminGuideImagesRoute: typeof AdminGuideImagesRoute
   AdminHelpCardsRoute: typeof AdminHelpCardsRoute
+  AdminPlatformControlCenterRoute: typeof AdminPlatformControlCenterRoute
   AdminPromptHistoryRoute: typeof AdminPromptHistoryRoute
-  AdminAiContentStudioRoute: typeof AdminAiContentStudioRoute
   AdminSiteContentRoute: typeof AdminSiteContentRoute
   AdminThemeSettingsRoute: typeof AdminThemeSettingsRoute
+  AdminUnmatchedQuestionsRoute: typeof AdminUnmatchedQuestionsRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminActionButtonsRoute: AdminActionButtonsRoute,
-  AdminPlatformControlCenterRoute: AdminPlatformControlCenterRoute,
   AdminAdminUsersRoute: AdminAdminUsersRoute,
+  AdminAiContentStudioRoute: AdminAiContentStudioRoute,
   AdminAiDiagnosticsRoute: AdminAiDiagnosticsRoute,
   AdminAiKnowledgeRoute: AdminAiKnowledgeRoute,
   AdminAiKnowledgeImportRoute: AdminAiKnowledgeImportRoute,
   AdminAiPromptManagerRoute: AdminAiPromptManagerRoute,
+  AdminAiQaRoute: AdminAiQaRoute,
   AdminAuditLogsRoute: AdminAuditLogsRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminChatLogsRoute: AdminChatLogsRoute,
-  AdminUnmatchedQuestionsRoute: AdminUnmatchedQuestionsRoute,
   AdminChatQuickRepliesRoute: AdminChatQuickRepliesRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminFaqRoute: AdminFaqRoute,
   AdminGuideImagesRoute: AdminGuideImagesRoute,
   AdminHelpCardsRoute: AdminHelpCardsRoute,
+  AdminPlatformControlCenterRoute: AdminPlatformControlCenterRoute,
   AdminPromptHistoryRoute: AdminPromptHistoryRoute,
-  AdminAiContentStudioRoute: AdminAiContentStudioRoute,
   AdminSiteContentRoute: AdminSiteContentRoute,
   AdminThemeSettingsRoute: AdminThemeSettingsRoute,
+  AdminUnmatchedQuestionsRoute: AdminUnmatchedQuestionsRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
