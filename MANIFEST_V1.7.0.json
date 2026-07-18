@@ -1,0 +1,11 @@
+{
+  "release": "v1.7.0",
+  "name": "Strict Tenant Routing + One-Time Quick Replies",
+  "repository": "deathnotelaymm-maker/BDG_CS_ASSISTANT",
+  "branch": "main",
+  "installer": "INSTALL-V1.7.0-STRICT-ROUTING.cmd",
+  "migration": "backend-api/migrations/019_v1.7.0_strict_tenant_routing_quick_reply_lifecycle.sql",
+  "api_version": "1.7.0-strict-tenant-routing-quick-reply-lifecycle",
+  "automatic_push": false,
+  "automatic_deploy": false
+}

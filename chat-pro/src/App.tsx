@@ -66,6 +66,7 @@ function safeFontFamily(value: string | undefined) {
 export default function App() {
   const [preview, setPreview] = useState<{ src:string; alt:string } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [usedQuickReplies, setUsedQuickReplies] = useState<Set<string>>(() => new Set());
   const [input, setInput] = useState("");
   const [content, setContent] = useState<ChatContent | null>(null);
   const [language, setLanguage] = useState<PublicLanguage>(() => {
@@ -85,9 +86,13 @@ export default function App() {
   const welcomeTitle = dynamicTexts.welcome_title || chatConfig.welcomeTitle;
   const welcomeText = dynamicTexts.welcome || chatConfig.welcomeText;
   const iconUrl = content?.branding?.chat_icon_url || "";
+  // Never render built-in quick replies while tenant content is loading or
+  // unavailable. That prevents the previous platform's actions leaking into
+  // a child tenant. Each visible reply is consumed after its first use.
   const quickQuestions = content
     ? (content.quick_replies || []).slice(0, 5).map((q) => q.query || q.text)
-    : chatConfig.quickQuestions;
+    : [];
+  const visibleQuickQuestions = quickQuestions.filter((question) => !usedQuickReplies.has(question));
   const actionButtons = content?.action_buttons || [];
   const layout = safePreset(startModule?.layout || content?.settings?.chat_layout, SAFE_LAYOUTS, "standard");
   const bubbleStyle = safePreset(startModule?.bubble_style || content?.settings?.chat_bubble_style, SAFE_BUBBLES, "soft");
@@ -110,6 +115,7 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
+    setUsedQuickReplies(new Set());
     fetchChatContent(platformKey, controller.signal)
       .then(setContent)
       .catch(() => null);
@@ -262,7 +268,6 @@ export default function App() {
             <ChatStartModule
               module={startModule}
               iconUrl={iconUrl}
-              quickQuestions={quickQuestions}
               actionButtons={actionButtons}
               onStart={() => {
                 setStarted(true);
@@ -312,14 +317,17 @@ export default function App() {
               {chatConfig.replyingLabel}
             </div>
           )}
-          {quickQuestions.length > 0 && (
+          {visibleQuickQuestions.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-2" aria-label="Quick replies">
-              {quickQuestions.map((q) => (
+              {visibleQuickQuestions.map((q) => (
                 <button
                   key={q}
                   type="button"
                   disabled={isProcessing}
-                  onClick={() => send(q)}
+                  onClick={() => {
+                    setUsedQuickReplies((previous) => new Set(previous).add(q));
+                    void send(q);
+                  }}
                   className="text-xs px-3 py-1.5 rounded-full border border-border bg-surface hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {q}
@@ -362,14 +370,12 @@ export default function App() {
 function ChatStartModule({
   module,
   iconUrl,
-  quickQuestions,
   actionButtons,
   onStart,
   onPrompt,
 }: {
   module?: ChatContent["start_module"];
   iconUrl: string;
-  quickQuestions: string[];
   actionButtons: NonNullable<ChatContent["action_buttons"]>;
   onStart: () => void;
   onPrompt: (text: string) => void;
@@ -399,20 +405,6 @@ function ChatStartModule({
       <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
         <StartCopy text={module?.body || "Choose a quick topic or start a conversation."} />
       </p>
-      {quickQuestions.length > 0 ? (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {quickQuestions.map((question) => (
-            <button
-              key={question}
-              type="button"
-              onClick={() => onPrompt(question)}
-              className="rounded-xl border border-border bg-surface px-3 py-2 text-left text-xs transition-colors hover:bg-accent"
-            >
-              {question}
-            </button>
-          ))}
-        </div>
-      ) : null}
       {actionButtons.length > 0 ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {actionButtons.slice(0, 6).map((button) => {

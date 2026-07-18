@@ -45,7 +45,7 @@ export interface ChatContent {
       busy?: string;
     }
   >;
-  quick_replies?: { text: string; query?: string }[];
+  quick_replies?: { text: string; query?: string; lifecycle_mode?: "one_time" | "persistent" | string }[];
   action_buttons?: { id: number; label: string; subtitle?: string; url: string; icon_url?: string; target?: string; action_type?: string }[];
   languages?: { code: string; label: string }[];
   default_locale?: string;

@@ -31,7 +31,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
     queryFn: api.getPlatformLanguages,
     staleTime: 30_000,
   });
-  const platformName = theme?.brand_name || theme?.app_name || (platformKey === "default" ? "BDG Help Center" : platformKey);
+  const platformName = theme?.brand_name || theme?.app_name || (platformKey === "default" ? "BDG Help Center" : "Platform Help Center");
   const platformTagline = theme?.brand_tagline || (platformKey === "default" ? "Official Support" : `${platformName} Support`);
   const guideStyle = {
     ...(theme?.guide_background_url ? { backgroundImage: `url(${theme.guide_background_url})`, backgroundSize: "cover", backgroundAttachment: "fixed" } : {}),

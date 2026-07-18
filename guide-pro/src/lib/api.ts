@@ -104,11 +104,7 @@ export interface PublicTheme {
 }
 function platformLabel(key = getPublicPlatformKey()): string {
   if (!key || key === "default") return "BDG Help Center";
-  return key
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ") || "Platform Help Center";
+  return "Platform Help Center";
 }
 function siteContentDefaults(): mock.SiteContent {
   return getPublicPlatformKey() === "default" ? productionSiteContent : neutralSiteContent;

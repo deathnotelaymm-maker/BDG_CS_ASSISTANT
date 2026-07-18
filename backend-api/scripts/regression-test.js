@@ -396,8 +396,8 @@ expect(
 );
 expect(
   "Health and API errors expose the same release version",
-  core.includes("1.6.0-tenant-experience-studio-resilient-knowledge-import") &&
-    server.includes("1.6.0-tenant-experience-studio-resilient-knowledge-import"),
+  core.includes("1.7.0-strict-tenant-routing-quick-reply-lifecycle") &&
+    server.includes("1.7.0-strict-tenant-routing-quick-reply-lifecycle"),
 );
 expect(
   "Operations Connector Gateway is platform-scoped and allowlisted",

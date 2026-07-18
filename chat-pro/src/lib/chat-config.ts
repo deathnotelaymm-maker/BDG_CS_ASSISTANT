@@ -12,11 +12,9 @@ export function normalizeChatLocale(value: string | undefined, fallback = "en"):
 
 function platformLabel(platformKey = "default") {
   if (!platformKey || platformKey === "default") return "BDG";
-  return platformKey
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ") || "Platform";
+  // A route key is an implementation detail, not a customer-facing brand.
+  // The real tenant name arrives from /chat/content after the route resolves.
+  return "Platform";
 }
 
 const texts = {

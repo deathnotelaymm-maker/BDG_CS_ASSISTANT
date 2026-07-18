@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.6.0-tenant-experience-studio-resilient-knowledge-import';
+const VERSION = '1.7.0-strict-tenant-routing-quick-reply-lifecycle';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -76,7 +76,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -449,6 +449,7 @@ async function ensureBootstrap(env) {
   await ensureOperationsConnectorGateway(env);
   await ensureTenantPermissionsBrandChatStudio(env);
   await ensureTenantExperienceStudio(env);
+  await ensureStrictTenantRoutingQuickReplies(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -527,6 +528,7 @@ async function createTables(env) {
   await q(env, `ALTER TABLE guides ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
   await q(env, `ALTER TABLE faqs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
   await q(env, `ALTER TABLE chat_quick_replies ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
+  await q(env, `ALTER TABLE chat_quick_replies ADD COLUMN IF NOT EXISTS lifecycle_mode VARCHAR(20) DEFAULT 'one_time'`);
   await q(env, `ALTER TABLE unmatched_questions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`);
   await q(env, `ALTER TABLE saas_platforms ADD COLUMN IF NOT EXISTS public_route_key VARCHAR(140)`);
   await q(env, `ALTER TABLE saas_platforms ADD COLUMN IF NOT EXISTS supported_languages TEXT DEFAULT '[]'`);
@@ -726,7 +728,7 @@ function blockOut(row) { return { id: row.id, block_key: row.block_key, label: r
 function cardOut(row) { return { id: row.id, title: row.title, subtitle: row.subtitle || '', icon: row.icon || 'star', query: row.query || '', linked_category_slug: row.linked_category_slug || '', sort_order: row.sort_order ?? 100, status: row.status || 'active' }; }
 function navOut(row) { return { id: row.id, nav_key: row.nav_key, label: row.label, icon: row.icon || '•', href: row.href || '#', sort_order: row.sort_order ?? 100, status: row.status || 'active' }; }
 function sectionOut(row) { return { id: row.id, section_key: row.section_key, title: row.title, enabled: !!row.enabled, sort_order: row.sort_order ?? 100 }; }
-function quickReplyOut(row) { return { id: row.id, text: row.text, query: row.query || row.text, sort_order: row.sort_order ?? 100, status: row.status || 'active' }; }
+function quickReplyOut(row) { return { id: row.id, text: row.text, query: row.query || row.text, sort_order: row.sort_order ?? 100, status: row.status || 'active', lifecycle_mode: row.lifecycle_mode === 'persistent' ? 'persistent' : 'one_time' }; }
 function numericIds(value) {
   const source = Array.isArray(value) ? value : String(value || '').split(/[\s,\n|]+/);
   return [...new Set(source.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))].slice(0, 30);
@@ -869,9 +871,9 @@ async function getTheme(env, scope = null) {
     ? 'SELECT * FROM theme_settings WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id ASC LIMIT 1'
     : 'SELECT * FROM theme_settings ORDER BY id ASC LIMIT 1', scope ? [scope.tenant_id, scope.platform_id] : []);
   const row = rows[0] || {};
-  const platformName = String(scope?.platform_name || '').trim();
-  const scopedName = platformName || (scope ? 'Platform' : 'BDG Help Center');
-  const scopedSupport = platformName ? `${platformName} Support` : 'BDG AI Support';
+  const platformName = scope ? safePlatformDisplayName(scope, 'Support') : '';
+  const scopedName = platformName || (scope ? 'Support' : 'BDG Help Center');
+  const scopedSupport = platformName ? `${platformName} Support` : (scope ? 'Platform Support' : 'BDG AI Support');
   return {
     id: row.id || 1,
     app_name: scope ? ((row.app_name && row.app_name !== 'BDG Help Center') ? row.app_name : scopedName) : (row.app_name || scopedName || appName(env)),
@@ -1353,6 +1355,21 @@ function normalizePublicRouteKey(value, fallback = '') {
   const key = String(value || '').trim().toLowerCase();
   return /^p-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key) && key.length <= 140 ? key : fallback;
 }
+function safePlatformDisplayName(scope, fallback = 'Support') {
+  const candidate = String(scope?.platform_name || '').trim().slice(0, 160);
+  if (!candidate) return fallback;
+  const values = new Set([
+    String(scope?.public_route_key || '').trim().toLowerCase(),
+    String(scope?.platform_key || '').trim().toLowerCase(),
+    String(scope?.legacy_support_platform_key || '').trim().toLowerCase(),
+  ].filter(Boolean));
+  const lower = candidate.toLowerCase();
+  // Route identifiers and legacy routing keys are implementation details,
+  // never tenant-facing branding. Keep a neutral label until an owner sets
+  // a real brand name instead of leaking a generated token such as C04547659.
+  if (values.has(lower) || lower === 'default' || /^p-[a-z0-9-]+$/i.test(candidate) || /^[a-z]?[0-9a-f]{8,}$/i.test(candidate)) return fallback;
+  return candidate;
+}
 function platformAccessLinks(row) {
   const route_key = normalizePublicRouteKey(row?.public_route_key);
   if (!route_key) return { route_key: '', chat: '', guide: '', admin: '' };
@@ -1483,7 +1500,7 @@ async function resolvePublicPlatformScope(env, reference = 'default') {
   } else {
     row = (await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name
       FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id
-      WHERE (p.public_route_key=$1 OR p.legacy_support_platform_key=$1)
+      WHERE p.public_route_key=$1
         AND p.archived_at IS NULL AND p.status='active'
         AND t.archived_at IS NULL AND t.status='active'
       LIMIT 1`, [key])).rows[0];
@@ -1495,7 +1512,7 @@ async function getSupportPlatformForScope(env, scope) {
   const row = (await q(env, `SELECT * FROM support_platforms
     WHERE platform_key=$1 AND deleted_at IS NULL AND status='active' LIMIT 1`, [scope.legacy_support_platform_key])).rows[0];
   return row ? supportPlatformOut(row) : {
-    id: 0, platform_key: scope.legacy_support_platform_key, name: scope.platform_name,
+    id: 0, platform_key: scope.legacy_support_platform_key, name: safePlatformDisplayName(scope),
     support_mode: scope.support_mode, ticket_url:'', support_url:'', status:'active', default_locale:scope.default_locale,
   };
 }
@@ -1719,6 +1736,13 @@ async function ensureTenantExperienceStudio(env) {
     `ALTER TABLE knowledge_import_batches ADD COLUMN IF NOT EXISTS last_error TEXT DEFAULT ''`,
     `ALTER TABLE knowledge_import_batches ADD COLUMN IF NOT EXISTS request_id VARCHAR(120) DEFAULT ''`,
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.6.0_tenant_experience_studio_resilient_knowledge_import','Tenant-scoped Guide theme tokens, visible knowledge import progress, resilient import diagnostics, image-role columns, and downloadable workbook template.') ON CONFLICT(migration_key) DO NOTHING`,
+  ]) await q(env, statement);
+}
+async function ensureStrictTenantRoutingQuickReplies(env) {
+  for (const statement of [
+    `ALTER TABLE chat_quick_replies ADD COLUMN IF NOT EXISTS lifecycle_mode VARCHAR(20) DEFAULT 'one_time'`,
+    `UPDATE chat_quick_replies SET lifecycle_mode='one_time' WHERE lifecycle_mode IS NULL OR lifecycle_mode NOT IN ('one_time','persistent')`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.7.0_strict_tenant_routing_quick_reply_lifecycle','Public tenant routes resolve only immutable public_route_key values; quick replies default to one-time client actions.') ON CONFLICT(migration_key) DO NOTHING`,
   ]) await q(env, statement);
 }
 
@@ -2325,7 +2349,7 @@ async function testAiContent(env, p = {}) {
   };
 }
 async function getGuideContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const settings = await getTheme(env, scope); const blocks = await listContentBlocks(env, scope); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; const languages = scopeLanguages(scope); return { settings, guide_theme: { background_url: settings.guide_background_url, hero_background_url: settings.guide_hero_background_url, hero_overlay_color: settings.guide_hero_overlay_color, font_family: settings.guide_font_family, surface_color: settings.guide_surface_color, text_color: settings.guide_text_color, card_radius: settings.guide_card_radius, content_width: settings.guide_content_width }, platform_key: platform.platform_key, platform_reference: scope.public_route_key || platform.platform_key, content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false, scope), home_sections: (await listHomeSections(env, false, scope)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false, scope), action_buttons: await listActionButtons(env, false, languages[0]?.code || 'en', platform.platform_key, scope), public_languages: languages, admin_languages: languages }; }
-async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = theme.brand_name || scope.platform_name || (platform.name || 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; const languages = scopeLanguages(scope); const defaultLocale = String(scope.default_locale || languages[0]?.code || 'en').trim().toLowerCase(); const texts = Object.fromEntries(languages.map(({ code }) => [code, { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }])); return { settings: theme, start_module: chatExperienceOut(theme, supportName), platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages, default_locale: defaultLocale, platforms, default_platform_key:platform.platform_key, quick_replies, action_buttons: await listActionButtons(env, false, defaultLocale, platform.platform_key, scope), support_enabled: theme.show_chat_support_button === true, texts }; }
+async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = safePlatformDisplayName({ ...scope, platform_name: theme.brand_name || scope.platform_name || platform.name }, 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; const languages = scopeLanguages(scope); const defaultLocale = String(scope.default_locale || languages[0]?.code || 'en').trim().toLowerCase(); const texts = Object.fromEntries(languages.map(({ code }) => [code, { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }])); return { settings: theme, start_module: chatExperienceOut(theme, supportName), platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages, default_locale: defaultLocale, platforms, default_platform_key:platform.platform_key, quick_replies, action_buttons: await listActionButtons(env, false, defaultLocale, platform.platform_key, scope), support_enabled: theme.show_chat_support_button === true, texts }; }
 async function getAdminSiteContent(env, scope) { return { settings: await getTheme(env, scope), blocks: await listContentBlocks(env, scope), popular_help: [], navigation: await listNavigation(env, true, scope), home_sections: await listHomeSections(env, true, scope), chat_quick_replies: await listQuickReplies(env, true, scope) }; }
 function scopedTombstoneKey(scope, key) { return `p${scope.platform_id}:${key}`; }
 async function updateContentBlock(env, key, p, scope) {
@@ -2365,8 +2389,9 @@ async function updatePopularHelp(env,id,p,scope){const {rows}=await q(env,`UPDAT
 async function createNavigation(env,p,scope){const {rows}=await q(env,`INSERT INTO navigation_items(nav_key,label,icon,href,sort_order,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,[p.nav_key||slugify(p.label),p.label,p.icon||'•',p.href||'#',p.sort_order??100,p.status||'active',scope.tenant_id,scope.platform_id]); await audit(env,'create','navigation_items',rows[0].id,'Navigation item created',scope); return navOut(rows[0]);}
 async function updateNavigation(env,id,p,scope){const {rows}=await q(env,`UPDATE navigation_items SET nav_key=$1,label=$2,icon=$3,href=$4,sort_order=$5,status=$6,updated_at=NOW() WHERE id=$7 AND tenant_id=$8 AND platform_id=$9 RETURNING *`,[p.nav_key||slugify(p.label),p.label,p.icon||'•',p.href||'#',p.sort_order??100,p.status||'active',id,scope.tenant_id,scope.platform_id]); if(!rows[0]) bad('Navigation item not found',404); await audit(env,'update','navigation_items',id,'Navigation item updated',scope); return navOut(rows[0]);}
 async function updateHomeSection(env,key,p,scope){const {rows}=await q(env,`UPDATE guide_home_sections SET title=$2,enabled=$3,sort_order=$4,updated_at=NOW() WHERE section_key=$1 AND tenant_id=$5 AND platform_id=$6 RETURNING *`,[key,p.title||key,!!p.enabled,p.sort_order??100,scope.tenant_id,scope.platform_id]); if(!rows[0]) bad('Home section not found',404); await audit(env,'update','guide_home_sections',key,'Home section updated',scope); return sectionOut(rows[0]);}
-async function createQuickReply(env,p,scope){const {rows}=await q(env,`INSERT INTO chat_quick_replies(text,query,sort_order,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,[p.text,p.query||p.text,p.sort_order??100,p.status||'active',scope.tenant_id,scope.platform_id]); await audit(env,'create','chat_quick_replies',rows[0].id,'Quick reply created',scope); return quickReplyOut(rows[0]);}
-async function updateQuickReply(env,id,p,scope){const {rows}=await q(env,`UPDATE chat_quick_replies SET text=$1,query=$2,sort_order=$3,status=$4,updated_at=NOW() WHERE id=$5 AND tenant_id=$6 AND platform_id=$7 RETURNING *`,[p.text,p.query||p.text,p.sort_order??100,p.status||'active',id,scope.tenant_id,scope.platform_id]); if(!rows[0]) bad('Quick reply not found',404); await audit(env,'update','chat_quick_replies',id,'Quick reply updated',scope); return quickReplyOut(rows[0]);}
+function quickReplyLifecycle(value) { return String(value || '').toLowerCase() === 'persistent' ? 'persistent' : 'one_time'; }
+async function createQuickReply(env,p,scope){const {rows}=await q(env,`INSERT INTO chat_quick_replies(text,query,sort_order,status,lifecycle_mode,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,[p.text,p.query||p.text,p.sort_order??100,p.status||'active',quickReplyLifecycle(p.lifecycle_mode),scope.tenant_id,scope.platform_id]); await audit(env,'create','chat_quick_replies',rows[0].id,'Quick reply created',scope); return quickReplyOut(rows[0]);}
+async function updateQuickReply(env,id,p,scope){const {rows}=await q(env,`UPDATE chat_quick_replies SET text=$1,query=$2,sort_order=$3,status=$4,lifecycle_mode=$5,updated_at=NOW() WHERE id=$6 AND tenant_id=$7 AND platform_id=$8 RETURNING *`,[p.text,p.query||p.text,p.sort_order??100,p.status||'active',quickReplyLifecycle(p.lifecycle_mode),id,scope.tenant_id,scope.platform_id]); if(!rows[0]) bad('Quick reply not found',404); await audit(env,'update','chat_quick_replies',id,'Quick reply updated',scope); return quickReplyOut(rows[0]);}
 async function listIncorrectMatchReports(env,scope) { const { rows } = await q(env, `SELECT * FROM incorrect_match_reports WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id DESC LIMIT 300`,[scope.tenant_id,scope.platform_id]); return rows; }
 async function createIncorrectMatchReport(env, p = {},scope) { const { rows } = await q(env, `INSERT INTO incorrect_match_reports(session_id,message,detected_intent,expected_intent,reason,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,'open',$6,$7) RETURNING *`, [p.session_id || '', p.message || '', p.detected_intent || '', p.expected_intent || '', p.reason || '',scope.tenant_id,scope.platform_id]); await audit(env,'create','incorrect_match_reports',rows[0].id,'Incorrect match report created',scope); return rows[0]; }
 async function listKnowledgeVersions(env,scope) { const { rows } = await q(env, `SELECT * FROM knowledge_versions WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id DESC LIMIT 300`,[scope.tenant_id,scope.platform_id]); return rows; }

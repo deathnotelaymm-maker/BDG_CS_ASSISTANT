@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/_admin/theme-settings")({ component: ThemeSettingsPage });
 
-const VERSION = "v1.6.0";
+const VERSION = "v1.7.0";
 
 function ThemeSettingsPage() {
   const [form] = Form.useForm();
