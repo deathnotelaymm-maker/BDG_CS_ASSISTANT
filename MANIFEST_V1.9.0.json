@@ -1,0 +1,10 @@
+{
+  "version": "1.9.0-locale-aware-knowledge-studio",
+  "release": "v1.9.0",
+  "repository": "deathnotelaymm-maker/BDG_CS_ASSISTANT",
+  "migration": "backend-api/migrations/021_v1.9.0_locale_aware_knowledge_studio.sql",
+  "regression": "backend-api/scripts/v1.9.0-regression-test.js",
+  "admin_route": "admin-pro/src/routes/_admin.locale-studio.tsx",
+  "installer": "INSTALL-V1.9.0-LOCALE-KNOWLEDGE-STUDIO.cmd",
+  "deployment": "manual GitHub Desktop commit/push followed by the existing Render and Cloudflare production workflow"
+}

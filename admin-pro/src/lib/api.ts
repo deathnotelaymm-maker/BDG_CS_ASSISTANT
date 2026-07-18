@@ -114,6 +114,7 @@ const resourcePath: Record<string, string> = {
   "chat-quick-replies": "/admin/chat-quick-replies",
   "ai-content": "/admin/ai-content",
   "ai-qa": "/admin/ai-qa",
+  "locale-studio": "/admin/locale-studio",
   "action-buttons": "/admin/action-buttons",
   "content-versions": "/admin/content-versions",
   "chat-logs": "/admin/chat-logs",
@@ -469,6 +470,7 @@ export const api = {
     if (resource === "ai-prompts") return request("/admin/ai/prompts");
     if (resource === "chat-sessions") return request("/admin/chat-sessions");
     const payload = await request(pathFor(resource));
+    if (resource === "locale-studio") return payload;
     return normalizeResourcePayload(resource, payload);
   },
 
@@ -702,6 +704,14 @@ export const api = {
   listSupportPlatforms: async () => {
     if (MOCK_MODE) return delay([{ id: 1, platform_key: "default", name: "Default Help Center", support_mode: "none", status: "active" }]);
     return request("/admin/support-platforms");
+  },
+  getLocaleStudio: async (locale?: string) => {
+    if (MOCK_MODE) return delay({ ok: true, platform: { default_locale: "en", supported_languages: ["en"] }, locales: [{ code: "en", label: "English" }], coverage: [], summary: {} });
+    return request(`/admin/locale-studio${locale ? `?locale=${encodeURIComponent(locale)}` : ""}`);
+  },
+  createLocaleTranslation: async (source_id: string | number, target_locale: string) => {
+    if (MOCK_MODE) return delay({ ok: true, translation_status: "draft", source_id, target_locale });
+    return request("/admin/locale-studio/translations", { method: "POST", body: JSON.stringify({ source_id, target_locale }) });
   },
 
   previewKnowledgeImport: async (file: File, platform_key: string) => {

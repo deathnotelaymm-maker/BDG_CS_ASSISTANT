@@ -17,6 +17,7 @@ import { Route as AdminThemeSettingsRouteImport } from './routes/_admin.theme-se
 import { Route as AdminSiteContentRouteImport } from './routes/_admin.site-content'
 import { Route as AdminPromptHistoryRouteImport } from './routes/_admin.prompt-history'
 import { Route as AdminPlatformControlCenterRouteImport } from './routes/_admin.platform-control-center'
+import { Route as AdminLocaleStudioRouteImport } from './routes/_admin.locale-studio'
 import { Route as AdminHelpCardsRouteImport } from './routes/_admin.help-cards'
 import { Route as AdminGuideImagesRouteImport } from './routes/_admin.guide-images'
 import { Route as AdminFaqRouteImport } from './routes/_admin.faq'
@@ -74,6 +75,11 @@ const AdminPlatformControlCenterRoute =
     path: '/platform-control-center',
     getParentRoute: () => AdminRoute,
   } as any)
+const AdminLocaleStudioRoute = AdminLocaleStudioRouteImport.update({
+  id: '/locale-studio',
+  path: '/locale-studio',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminHelpCardsRoute = AdminHelpCardsRouteImport.update({
   id: '/help-cards',
   path: '/help-cards',
@@ -174,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/faq': typeof AdminFaqRoute
   '/guide-images': typeof AdminGuideImagesRoute
   '/help-cards': typeof AdminHelpCardsRoute
+  '/locale-studio': typeof AdminLocaleStudioRoute
   '/platform-control-center': typeof AdminPlatformControlCenterRoute
   '/prompt-history': typeof AdminPromptHistoryRoute
   '/site-content': typeof AdminSiteContentRoute
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/faq': typeof AdminFaqRoute
   '/guide-images': typeof AdminGuideImagesRoute
   '/help-cards': typeof AdminHelpCardsRoute
+  '/locale-studio': typeof AdminLocaleStudioRoute
   '/platform-control-center': typeof AdminPlatformControlCenterRoute
   '/prompt-history': typeof AdminPromptHistoryRoute
   '/site-content': typeof AdminSiteContentRoute
@@ -226,6 +234,7 @@ export interface FileRoutesById {
   '/_admin/faq': typeof AdminFaqRoute
   '/_admin/guide-images': typeof AdminGuideImagesRoute
   '/_admin/help-cards': typeof AdminHelpCardsRoute
+  '/_admin/locale-studio': typeof AdminLocaleStudioRoute
   '/_admin/platform-control-center': typeof AdminPlatformControlCenterRoute
   '/_admin/prompt-history': typeof AdminPromptHistoryRoute
   '/_admin/site-content': typeof AdminSiteContentRoute
@@ -253,6 +262,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/guide-images'
     | '/help-cards'
+    | '/locale-studio'
     | '/platform-control-center'
     | '/prompt-history'
     | '/site-content'
@@ -278,6 +288,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/guide-images'
     | '/help-cards'
+    | '/locale-studio'
     | '/platform-control-center'
     | '/prompt-history'
     | '/site-content'
@@ -304,6 +315,7 @@ export interface FileRouteTypes {
     | '/_admin/faq'
     | '/_admin/guide-images'
     | '/_admin/help-cards'
+    | '/_admin/locale-studio'
     | '/_admin/platform-control-center'
     | '/_admin/prompt-history'
     | '/_admin/site-content'
@@ -373,6 +385,13 @@ declare module '@tanstack/react-router' {
       path: '/platform-control-center'
       fullPath: '/platform-control-center'
       preLoaderRoute: typeof AdminPlatformControlCenterRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/locale-studio': {
+      id: '/_admin/locale-studio'
+      path: '/locale-studio'
+      fullPath: '/locale-studio'
+      preLoaderRoute: typeof AdminLocaleStudioRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/help-cards': {
@@ -507,6 +526,7 @@ interface AdminRouteChildren {
   AdminFaqRoute: typeof AdminFaqRoute
   AdminGuideImagesRoute: typeof AdminGuideImagesRoute
   AdminHelpCardsRoute: typeof AdminHelpCardsRoute
+  AdminLocaleStudioRoute: typeof AdminLocaleStudioRoute
   AdminPlatformControlCenterRoute: typeof AdminPlatformControlCenterRoute
   AdminPromptHistoryRoute: typeof AdminPromptHistoryRoute
   AdminSiteContentRoute: typeof AdminSiteContentRoute
@@ -531,6 +551,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminFaqRoute: AdminFaqRoute,
   AdminGuideImagesRoute: AdminGuideImagesRoute,
   AdminHelpCardsRoute: AdminHelpCardsRoute,
+  AdminLocaleStudioRoute: AdminLocaleStudioRoute,
   AdminPlatformControlCenterRoute: AdminPlatformControlCenterRoute,
   AdminPromptHistoryRoute: AdminPromptHistoryRoute,
   AdminSiteContentRoute: AdminSiteContentRoute,

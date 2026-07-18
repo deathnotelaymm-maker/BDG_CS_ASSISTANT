@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.8.0-ai-qa-rich-faq-studio';
+const VERSION = '1.9.0-locale-aware-knowledge-studio';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -76,7 +76,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -193,7 +193,9 @@ async function route(request, env, url) {
   if (method === 'POST' && /^\/admin\/knowledge-import-rows\/\d+\/approve$/.test(path)) return json(await approveKnowledgeImportRow(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'POST' && /^\/admin\/knowledge-imports\/\d+\/rollback$/.test(path)) return json(await rollbackKnowledgeImport(env, idFromParts(path, 3), admin, scope), 200, env);
   if (method === 'GET' && path === '/admin/ai-content') return json(await listAiContent(env, true, scope), 200, env);
-  if (method === 'GET' && path === '/admin/ai-qa') return json(await listAiQa(env, scope), 200, env);
+  if (method === 'GET' && path === '/admin/ai-qa') return json(await listAiQa(env, { ...scope, requested_locale: url.searchParams.get('locale') || '' }), 200, env);
+  if (method === 'GET' && path === '/admin/locale-studio') return json(await listLocaleStudio(env, scope), 200, env);
+  if (method === 'POST' && path === '/admin/locale-studio/translations') return json(await createLocaleTranslation(env, await readJson(request), scope), 201, env);
   if (method === 'POST' && path === '/admin/ai-qa') return json(await createAiContent(env, { ...(await readJson(request)), source_type: 'qa' }, scope), 201, env);
   if (method === 'PUT' && /^\/admin\/ai-qa\/\d+$/.test(path)) return json(await updateAiContent(env, idFromPath(path), { ...(await readJson(request)), source_type: 'qa' }, scope), 200, env);
   if (method === 'DELETE' && /^\/admin\/ai-qa\/\d+$/.test(path)) return json(await deleteAiContent(env, idFromPath(path), scope), 200, env);
@@ -457,6 +459,7 @@ async function ensureBootstrap(env) {
   await ensureTenantExperienceStudio(env);
   await ensureStrictTenantRoutingQuickReplies(env);
   await ensureAiQaRichFaqStudio(env);
+  await ensureLocaleAwareKnowledgeStudio(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -1043,11 +1046,60 @@ async function listAiContent(env, admin = false, scope = null) {
   return rows.map(row => aiContentOut(row));
 }
 async function listAiQa(env, scope) {
-  const { rows } = await q(env, `SELECT * FROM ai_content_items WHERE deleted_at IS NULL AND tenant_id=$1 AND platform_id=$2 AND source_type='qa' ORDER BY priority ASC,updated_at DESC,id DESC`, [scope.tenant_id, scope.platform_id]);
+  const values = [scope.tenant_id, scope.platform_id];
+  const requested = String(scope?.requested_locale || '').trim();
+  let localeFilter = '';
+  if (requested) { values.push(assertSupportedLocale(scope, requested)); localeFilter = ` AND (LOWER(locale)=LOWER($${values.length}) OR LOWER(locale)=LOWER(split_part($${values.length},'-',1)) OR locale='all' OR locale='' OR locale IS NULL)`; }
+  const { rows } = await q(env, `SELECT * FROM ai_content_items WHERE deleted_at IS NULL AND tenant_id=$1 AND platform_id=$2 AND source_type='qa'${localeFilter} ORDER BY priority ASC,updated_at DESC,id DESC`, values);
   return rows.map(row => aiContentOut(row));
+}
+async function listLocaleStudio(env, scope) {
+  const policy = localePolicy(scope);
+  const [itemsResult, faqResult] = await Promise.all([
+    q(env, `SELECT id,title,intent_key,locale,status,approval_status,source_type FROM ai_content_items WHERE deleted_at IS NULL AND tenant_id=$1 AND platform_id=$2 AND source_type='qa' ORDER BY intent_key ASC,locale ASC,id DESC`, [scope.tenant_id, scope.platform_id]),
+    q(env, `SELECT locale,COUNT(*)::int AS count FROM faqs WHERE deleted_at IS NULL AND tenant_id=$1 AND platform_id=$2 GROUP BY locale`, [scope.tenant_id, scope.platform_id]),
+  ]);
+  const rows = itemsResult.rows;
+  const byIntent = new Map();
+  for (const row of rows) {
+    const rawKey = String(row.intent_key || row.title || `item-${row.id}`);
+    const key = rawKey.replace(/__[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/i, '');
+    if (!byIntent.has(key)) byIntent.set(key, { intent_key:key, title:row.title || key, locales:{} });
+    const item = byIntent.get(key);
+    const locale = normalizeLocale(row.locale, policy.default_locale);
+    const existing = item.locales[locale];
+    const score = row.status === 'published' && row.approval_status === 'approved' ? 2 : 1;
+    if (!existing || score > existing.score) item.locales[locale] = { id:Number(row.id), locale, status:row.status || 'draft', approval_status:row.approval_status || 'draft', published:score === 2, score };
+  }
+  const coverage = [...byIntent.values()].map((entry) => {
+    const locales = Object.fromEntries(policy.supported_languages.map((locale) => {
+      const match = entry.locales[locale] || Object.values(entry.locales).find((value) => localeMatches(locale, value.locale));
+      return [locale, match ? { id:match.id, status:match.status, approval_status:match.approval_status, published:match.published } : { id:null, status:'missing', approval_status:'missing', published:false }];
+    }));
+    const missing_locales = policy.supported_languages.filter((locale) => locales[locale].status === 'missing');
+    return { intent_key:entry.intent_key, title:entry.title, source_id:Object.values(entry.locales).find((value) => value.published)?.id || Object.values(entry.locales)[0]?.id || null, locales, missing_locales, complete:missing_locales.length === 0 };
+  });
+  const faq_counts = Object.fromEntries(faqResult.rows.map((row) => [normalizeLocale(row.locale, policy.default_locale), Number(row.count || 0)]));
+  return { ok:true, version:VERSION, platform:{ id:scope.platform_id, name:scope.platform_name, platform_key:scope.platform_key, default_locale:policy.default_locale, supported_languages:policy.supported_languages }, locales:policy.locales, coverage, faq_counts, summary:{ intent_count:coverage.length, complete_intents:coverage.filter((row) => row.complete).length, missing_translations:coverage.reduce((sum,row) => sum + row.missing_locales.length, 0), published_items:rows.filter((row) => row.status === 'published' && row.approval_status === 'approved').length, draft_items:rows.filter((row) => !(row.status === 'published' && row.approval_status === 'approved')).length }, rules:{ exact_locale:true, base_locale_fallback:true, universal_locale:'all', unsupported_locale:'rejected' } };
+}
+async function createLocaleTranslation(env, p, scope) {
+  const sourceId = Number(p.source_id || p.sourceId);
+  if (!Number.isInteger(sourceId) || sourceId < 1) bad('Choose a source Q&A item first');
+  const targetLocale = assertSupportedLocale(scope, p.target_locale || p.locale, 'Target locale');
+  if (targetLocale === 'all') bad('A translation draft must use a specific locale');
+  const source = (await q(env, `SELECT * FROM ai_content_items WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND source_type='qa' AND deleted_at IS NULL LIMIT 1`, [sourceId,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!source) bad('Source AI Q&A item not found', 404);
+  if (localeMatches(source.locale, targetLocale)) bad('The source item already uses that locale');
+  const targetIntentKey = `${source.intent_key}__${targetLocale}`.slice(0, 180);
+  const existing = (await q(env, `SELECT id FROM ai_content_items WHERE tenant_id=$1 AND platform_id=$2 AND source_type='qa' AND deleted_at IS NULL AND intent_key=$3 LIMIT 1`, [scope.tenant_id,scope.platform_id,targetIntentKey])).rows[0];
+  if (existing) bad('A translation draft already exists for that intent and locale', 409, 'TRANSLATION_EXISTS');
+  const localized = (() => { try { return JSON.parse(source.localized_fields_json || '{}'); } catch (_) { return {}; } })();
+  const created = await createAiContent(env, { ...aiContentOut(source), title:source.title, intent_key:targetIntentKey, locale:targetLocale, status:'draft', approval_status:'draft', source_type:'qa', localized_fields:localized[targetLocale] ? { [targetLocale]:localized[targetLocale] } : {}, qa_steps: (() => { try { return JSON.parse(source.qa_steps_json || '[]'); } catch (_) { return []; } })() }, scope);
+  return { ok:true, version:VERSION, translation_status:'draft', source_id:sourceId, target_locale:targetLocale, item:created };
 }
 async function createAiContent(env, p, scope) {
   const item = normalizeAiContentPayload(p);
+  item.locale = assertSupportedLocale(scope, item.locale);
   const { rows } = await q(env, `INSERT INTO ai_content_items(title,intent_key,locale,status,source_type,priority,confidence_threshold,keywords,positive_examples,negative_examples,required_fields,faq_content,knowledge_content,example_answers,example_answers_hi,ai_instruction,ai_instruction_hi,rich_json,rich_html,rich_json_hi,rich_html_hi,qa_answer_html,qa_answer_json,qa_steps_json,localized_fields_json,image_urls,image_delivery,button_ids,approval_status,version_label,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32) RETURNING *`, [item.title,item.intent_key,item.locale,item.status,item.source_type,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.qa_answer_html,item.qa_answer_json,item.qa_steps_json,item.localized_fields_json,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,scope.tenant_id,scope.platform_id]);
   await updateAiContentExtensions(env, rows[0].id, item);
   const stored = (await q(env, `SELECT * FROM ai_content_items WHERE id=$1`, [rows[0].id])).rows[0];
@@ -1058,6 +1110,7 @@ async function createAiContent(env, p, scope) {
 }
 async function updateAiContent(env, id, p, scope) {
   const item = normalizeAiContentPayload(p);
+  item.locale = assertSupportedLocale(scope, item.locale);
   const { rows } = await q(env, `UPDATE ai_content_items SET title=$1,intent_key=$2,locale=$3,status=$4,source_type=$5,priority=$6,confidence_threshold=$7,keywords=$8,positive_examples=$9,negative_examples=$10,required_fields=$11,faq_content=$12,knowledge_content=$13,example_answers=$14,example_answers_hi=$15,ai_instruction=$16,ai_instruction_hi=$17,rich_json=$18,rich_html=$19,rich_json_hi=$20,rich_html_hi=$21,qa_answer_html=$22,qa_answer_json=$23,qa_steps_json=$24,localized_fields_json=$25,image_urls=$26,image_delivery=$27,button_ids=$28,approval_status=$29,version_label=$30,updated_at=NOW() WHERE id=$31 AND deleted_at IS NULL AND tenant_id=$32 AND platform_id=$33 RETURNING *`, [item.title,item.intent_key,item.locale,item.status,item.source_type,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.qa_answer_html,item.qa_answer_json,item.qa_steps_json,item.localized_fields_json,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,id,scope.tenant_id,scope.platform_id]);
   if (!rows[0]) bad('AI Content item not found', 404);
   await updateAiContentExtensions(env, id, item);
@@ -1340,6 +1393,24 @@ function localeLabel(code) {
 function scopeLanguages(scope) {
   const locales = normalizeLocaleList(scope?.supported_languages, [scope?.default_locale || 'en']);
   return locales.map((code) => ({ code, label: localeLabel(code) || code }));
+}
+function localePolicy(scope) {
+  const supported_languages = normalizeLocaleList(scope?.supported_languages, [scope?.default_locale || 'en']);
+  const default_locale = normalizeLocale(scope?.default_locale, supported_languages[0] || 'en');
+  if (!supported_languages.some((code) => code.toLowerCase() === default_locale.toLowerCase())) supported_languages.unshift(default_locale);
+  return { default_locale, supported_languages: supported_languages.slice(0, 32), locales: supported_languages.slice(0, 32).map((code) => ({ code, label: localeLabel(code) || code })) };
+}
+function localeMatches(requested, allowed) {
+  const want = normalizeLocale(requested, '');
+  const have = normalizeLocale(allowed, '');
+  return Boolean(want && have && (want.toLowerCase() === have.toLowerCase() || want.split('-')[0] === have.split('-')[0]));
+}
+function assertSupportedLocale(scope, value, label = 'Locale') {
+  const policy = localePolicy(scope);
+  const locale = normalizeLocale(value, policy.default_locale);
+  if (locale === 'all') return locale;
+  if (!policy.supported_languages.some((candidate) => localeMatches(locale, candidate))) bad(`${label} "${locale}" is not enabled for this platform. Choose one of: ${policy.supported_languages.join(', ')}`, 400, 'UNSUPPORTED_LOCALE');
+  return locale;
 }
 function normalizeTenantPayload(p = {}) {
   const name = String(p.name || '').trim().slice(0, 180);
@@ -1788,6 +1859,15 @@ async function ensureAiQaRichFaqStudio(env) {
     `CREATE INDEX IF NOT EXISTS idx_ai_content_qa_scope ON ai_content_items(tenant_id,platform_id,source_type,status,approval_status)`,
     `CREATE INDEX IF NOT EXISTS idx_faqs_locale_scope ON faqs(tenant_id,platform_id,locale,status)`,
     `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.8.0_ai_qa_rich_faq_studio','Tenant-scoped AI Q&A source, explicit import approval, localized knowledge fields, and rich FAQ content.') ON CONFLICT(migration_key) DO NOTHING`,
+  ]) await q(env, statement);
+}
+async function ensureLocaleAwareKnowledgeStudio(env) {
+  for (const statement of [
+    `ALTER TABLE ai_content_items ADD COLUMN IF NOT EXISTS locale VARCHAR(20) DEFAULT 'en'`,
+    `ALTER TABLE faqs ADD COLUMN IF NOT EXISTS locale VARCHAR(20) DEFAULT 'en'`,
+    `CREATE INDEX IF NOT EXISTS idx_ai_content_locale_scope ON ai_content_items(tenant_id,platform_id,source_type,locale,status,approval_status)`,
+    `CREATE INDEX IF NOT EXISTS idx_knowledge_import_rows_locale ON knowledge_import_rows(batch_id,status)`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.9.0_locale_aware_knowledge_studio','Supported-locale policy, locale-aware import validation, coverage reporting, and translation draft workflow.') ON CONFLICT(migration_key) DO NOTHING`,
   ]) await q(env, statement);
 }
 
@@ -2281,10 +2361,21 @@ async function previewKnowledgeImport(env, request, admin, scope) {
   let parsed;
   try { parsed = parseKnowledgeWorkbook(Buffer.from(await file.arrayBuffer())); }
   catch (err) { bad(`Workbook could not be read: ${err?.message || 'invalid Excel file'}`); }
-  const mappedRows = parsed.rows.map((row) => ({ ...row, mapped:{ ...row.mapped, platform_key:platform.platform_key } }));
-  const summary = { sheet_errors:parsed.sheet_errors, truncated:parsed.truncated, import_rule:'Creates AI Content drafts only. No imported row is used by live AI until you review, approve, and publish it.' };
+  const policy = localePolicy(scope);
+  const mappedRows = parsed.rows.map((row) => {
+    const suppliedLocale = String(row.raw?.locale || '').trim();
+    const localeInput = suppliedLocale.replace(/_/g, '-');
+    const malformed = Boolean(suppliedLocale) && !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/i.test(localeInput);
+    const locale = suppliedLocale ? normalizeLocale(row.mapped.locale, policy.default_locale) : policy.default_locale;
+    const unsupported = locale !== 'all' && !policy.supported_languages.some((candidate) => localeMatches(locale, candidate));
+    const errors = [row.validation_error || '', malformed ? `Locale "${suppliedLocale}" is invalid. Use a BCP-47 code such as en-US, my-MM, or zh-CN.` : '', unsupported ? `Locale "${locale}" is not enabled for this platform. Allowed: ${policy.supported_languages.join(', ')}` : ''].filter(Boolean);
+    return { ...row, status:errors.length ? 'error' : row.status, validation_error:errors.join(' '), mapped:{ ...row.mapped, locale, platform_key:platform.platform_key } };
+  });
+  const validRows = mappedRows.filter((row) => row.status === 'valid').length;
+  const errorRows = mappedRows.length - validRows + parsed.sheet_errors.length;
+  const summary = { sheet_errors:parsed.sheet_errors, truncated:parsed.truncated, locale_policy:{ default_locale:policy.default_locale, supported_languages:policy.supported_languages }, import_rule:'Creates AI Content drafts only. No imported row is used by live AI until you review, approve, and publish it.' };
   const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
-  const { rows } = await q(env, `INSERT INTO knowledge_import_batches(filename,platform_key,status,current_stage,progress_percent,processed_rows,sheet_count,total_rows,valid_rows,error_rows,summary_json,created_by,request_id,tenant_id,platform_id) VALUES($1,$2,'review','persisting',75,0,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [filename,platform.platform_key,parsed.sheet_count,parsed.total_rows,parsed.valid_rows,parsed.error_rows,JSON.stringify(summary),admin?.email || 'admin',requestId,scope.tenant_id,scope.platform_id]);
+  const { rows } = await q(env, `INSERT INTO knowledge_import_batches(filename,platform_key,status,current_stage,progress_percent,processed_rows,sheet_count,total_rows,valid_rows,error_rows,summary_json,created_by,request_id,tenant_id,platform_id) VALUES($1,$2,'review','persisting',75,0,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [filename,platform.platform_key,parsed.sheet_count,mappedRows.length,validRows,errorRows,JSON.stringify(summary),admin?.email || 'admin',requestId,scope.tenant_id,scope.platform_id]);
   const batch = rows[0];
   try {
     for (const row of mappedRows) {
@@ -2298,7 +2389,7 @@ async function previewKnowledgeImport(env, request, admin, scope) {
   }
   await q(env, `UPDATE knowledge_import_batches SET current_stage='complete',progress_percent=100,processed_rows=$1 WHERE id=$2 AND tenant_id=$3 AND platform_id=$4`, [mappedRows.length,batch.id,scope.tenant_id,scope.platform_id]);
   batch.current_stage = 'complete'; batch.progress_percent = 100; batch.processed_rows = mappedRows.length; batch.request_id = requestId;
-  await audit(env, 'preview_import', 'knowledge_import_batches', batch.id, `Workbook preview: ${filename}; valid=${parsed.valid_rows}; errors=${parsed.error_rows}`, scope);
+  await audit(env, 'preview_import', 'knowledge_import_batches', batch.id, `Workbook preview: ${filename}; valid=${validRows}; errors=${errorRows}; locales=${policy.supported_languages.join(',')}`, scope);
   return knowledgeImportOut(batch, mappedRows.slice(0, 100));
 }
 async function listKnowledgeImports(env, scope) {
@@ -2482,8 +2573,8 @@ async function deleteGuide(env, id, admin, scope) {
   await audit(env,'delete','guides',id,`Guide deleted: ${current.title}`,scope);
   return {ok:true,deleted:1,id};
 }
-async function createFaq(env, p, scope) { const { rows } = await q(env, 'INSERT INTO faqs(question,answer,answer_html,answer_json,image_urls,locale,keywords,priority,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *', [p.question, p.answer || stripHtml(p.answer_html || ''), p.answer_html || '', typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {}), Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || ''), String(p.locale || 'en').toLowerCase().slice(0,20), p.keywords || '', p.priority ?? 100, p.status || 'published',scope.tenant_id,scope.platform_id]); await audit(env,'create','faqs',rows[0].id,'FAQ created',scope); return faqOut(rows[0]); }
-async function updateFaq(env, id, p, scope) { const { rows } = await q(env, 'UPDATE faqs SET question=$1, answer=$2, answer_html=$3, answer_json=$4, image_urls=$5, locale=$6, keywords=$7, priority=$8, status=$9, updated_at=NOW() WHERE id=$10 AND tenant_id=$11 AND platform_id=$12 RETURNING *', [p.question, p.answer || stripHtml(p.answer_html || ''), p.answer_html || '', typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {}), Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || ''), String(p.locale || 'en').toLowerCase().slice(0,20), p.keywords || '', p.priority ?? 100, p.status || 'published', id,scope.tenant_id,scope.platform_id]); if (!rows[0]) bad('FAQ not found', 404); await audit(env,'update','faqs',id,'FAQ updated',scope); return faqOut(rows[0]); }
+async function createFaq(env, p, scope) { const locale = assertSupportedLocale(scope, p.locale, 'FAQ locale'); const { rows } = await q(env, 'INSERT INTO faqs(question,answer,answer_html,answer_json,image_urls,locale,keywords,priority,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *', [p.question, p.answer || stripHtml(p.answer_html || ''), p.answer_html || '', typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {}), Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || ''), locale, p.keywords || '', p.priority ?? 100, p.status || 'published',scope.tenant_id,scope.platform_id]); await audit(env,'create','faqs',rows[0].id,'FAQ created',scope); return faqOut(rows[0]); }
+async function updateFaq(env, id, p, scope) { const locale = assertSupportedLocale(scope, p.locale, 'FAQ locale'); const { rows } = await q(env, 'UPDATE faqs SET question=$1, answer=$2, answer_html=$3, answer_json=$4, image_urls=$5, locale=$6, keywords=$7, priority=$8, status=$9, updated_at=NOW() WHERE id=$10 AND tenant_id=$11 AND platform_id=$12 RETURNING *', [p.question, p.answer || stripHtml(p.answer_html || ''), p.answer_html || '', typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {}), Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || ''), locale, p.keywords || '', p.priority ?? 100, p.status || 'published', id,scope.tenant_id,scope.platform_id]); if (!rows[0]) bad('FAQ not found', 404); await audit(env,'update','faqs',id,'FAQ updated',scope); return faqOut(rows[0]); }
 async function createKnowledge(env, p, scope) { const { rows } = await q(env, 'INSERT INTO knowledge_items(title,content,keywords,priority,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *', [p.title, p.content, p.keywords || '', p.priority ?? 100, p.status || 'active',scope.tenant_id,scope.platform_id]); await audit(env,'create','knowledge_items',rows[0].id,'Knowledge created',scope); return knowledgeOut(rows[0]); }
 async function updateKnowledge(env, id, p, scope) { const { rows } = await q(env, 'UPDATE knowledge_items SET title=$1, content=$2, keywords=$3, priority=$4, status=$5 WHERE id=$6 AND tenant_id=$7 AND platform_id=$8 RETURNING *', [p.title, p.content, p.keywords || '', p.priority ?? 100, p.status || 'active', id,scope.tenant_id,scope.platform_id]); if (!rows[0]) bad('Knowledge item not found', 404); await audit(env,'update','knowledge_items',id,'Knowledge updated',scope); return knowledgeOut(rows[0]); }
 async function snapshotPrompt(env, row, note='updated') { if (!row) return; await q(env, `INSERT INTO ai_prompt_versions(prompt_id,section_key,title,content,enabled,priority,change_note,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [row.id,row.section_key,row.title,row.content||'',!!row.enabled,row.priority??100,note,row.tenant_id,row.platform_id]); }

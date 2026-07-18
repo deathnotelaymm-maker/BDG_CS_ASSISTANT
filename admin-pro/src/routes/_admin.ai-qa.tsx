@@ -13,6 +13,7 @@ function AiQaPage() {
   const [editing, setEditing] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [localeOptions, setLocaleOptions] = useState<{ value: string; label: string }[]>([{ value: "en", label: "EN — English" }]);
   const [answerJson, setAnswerJson] = useState(blankDoc);
   const [answerHtml, setAnswerHtml] = useState("");
   const [steps, setSteps] = useState<any[]>([]);
@@ -20,14 +21,23 @@ function AiQaPage() {
 
   const load = async () => {
     setLoading(true);
-    try { setRows(await api.list("ai-qa") as any[]); }
+    try {
+      const [qaRows, localeStudio] = await Promise.all([
+        api.list("ai-qa"),
+        api.getLocaleStudio().catch(() => null),
+      ]);
+      setRows(qaRows as any[]);
+      if (Array.isArray(localeStudio?.locales) && localeStudio.locales.length) {
+        setLocaleOptions(localeStudio.locales.map((locale: any) => ({ value: locale.code, label: `${String(locale.code).toUpperCase()} — ${locale.label || locale.code}` })));
+      }
+    }
     catch (error: any) { message.error(error?.message || "Could not load AI Q&A"); }
     finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, []);
 
   const openEditor = (item?: any) => {
-    const current = item || { title: "", intent_key: "", locale: "en", status: "draft", approval_status: "draft", priority: 100, confidence_threshold: 86, source_type: "qa", platform_scope: "all", route_policy: "answer_only" };
+    const current = item || { title: "", intent_key: "", locale: localeOptions[0]?.value || "en", status: "draft", approval_status: "draft", priority: 100, confidence_threshold: 86, source_type: "qa", platform_scope: "all", route_policy: "answer_only" };
     setEditing(current);
     setAnswerJson(current.qa_answer_json || blankDoc);
     setAnswerHtml(current.qa_answer_html || "");
@@ -68,7 +78,7 @@ function AiQaPage() {
     <Drawer open={!!editing} onClose={closeEditor} width="min(1180px, 96vw)" title={editing?.id ? `Edit AI Q&A — ${editing.title}` : "Create AI Q&A"} extra={<Space><Button onClick={closeEditor}>Cancel</Button><Button type="primary" loading={saving} onClick={save}>Save</Button></Space>}>
       <Form form={form} layout="vertical">
         <Form.Item name="title" label="Question title" rules={[{ required: true }]}><Input placeholder="My deposit has not arrived" /></Form.Item>
-        <Space style={{ display: "flex" }} align="start"><Form.Item name="intent_key" label="Intent key" rules={[{ required: true }]} style={{ flex: 1 }}><Input placeholder="deposit-not-received" /></Form.Item><Form.Item name="locale" label="Locale" style={{ width: 160 }}><Input placeholder="en, my, zh-CN" /></Form.Item><Form.Item name="status" label="Status" style={{ width: 150 }}><Select options={["draft", "published", "archived"].map((v) => ({ value: v, label: v }))} /></Form.Item></Space>
+        <Space style={{ display: "flex" }} align="start"><Form.Item name="intent_key" label="Intent key" rules={[{ required: true }]} style={{ flex: 1 }}><Input placeholder="deposit-not-received" /></Form.Item><Form.Item name="locale" label="Locale" rules={[{ required: true }]} style={{ width: 220 }}><Select options={localeOptions} showSearch optionFilterProp="label" /></Form.Item><Form.Item name="status" label="Status" style={{ width: 150 }}><Select options={["draft", "published", "archived"].map((v) => ({ value: v, label: v }))} /></Form.Item></Space>
         <Space style={{ display: "flex" }} align="start"><Form.Item name="priority" label="Priority"><InputNumber min={1} max={999} /></Form.Item><Form.Item name="approval_status" label="Knowledge approval"><Select options={[{ value: "draft", label: "Draft" }, { value: "approved", label: "Approved" }, { value: "archived", label: "Archived" }]} /></Form.Item><Form.Item name="route_policy" label="Action policy" style={{ minWidth: 260 }}><Select options={["answer_only", "action_optional", "ticket_optional", "human_escalation"].map((v) => ({ value: v, label: v }))} /></Form.Item></Space>
         <Form.Item name="positive_examples" label="Positive examples"><Input.TextArea rows={4} placeholder="Users may write typos, mixed language, or short phrases." /></Form.Item>
         <Form.Item name="negative_examples" label="Negative examples"><Input.TextArea rows={4} /></Form.Item>

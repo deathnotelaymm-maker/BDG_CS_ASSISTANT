@@ -14,7 +14,7 @@ const routeTree = read('admin-pro/src/routeTree.gen.ts');
 const migration = read('backend-api/migrations/020_v1.8.0_ai_qa_rich_faq_studio.sql');
 
 const checks = [
-  ['v1.8 API markers align', core.includes('1.8.0-ai-qa-rich-faq-studio') && server.includes('1.8.0-ai-qa-rich-faq-studio')],
+  ['Current API marker remains aligned after v1.8 migration', core.includes('1.9.0-locale-aware-knowledge-studio') && server.includes('1.9.0-locale-aware-knowledge-studio')],
   ['v1.8 migration is additive and idempotent', migration.includes('IF NOT EXISTS') && migration.includes('ON CONFLICT')],
   ['AI Q&A source is tenant scoped', core.includes("source_type='qa'") && core.includes('function listAiQa')],
   ['Q&A rich fields are persisted', core.includes('qa_answer_html') && core.includes('qa_steps_json') && core.includes('localized_fields_json')],

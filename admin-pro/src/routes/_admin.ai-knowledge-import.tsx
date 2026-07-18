@@ -169,6 +169,7 @@ function AiKnowledgeImportPage() {
       </Col>
       <Col xs={24} xl={9}>
         <Card className="bdg-card" title="Support platform profiles">
+          <Alert showIcon type="info" message="Locale policy is managed by Platform Control Center" description="Set the platform default language and enabled language list in Platform Control Center. These legacy support profiles only control ticket/normal-support routing." style={{ marginBottom: 10 }} />
           <Table size="small" loading={loading} rowKey="id" dataSource={platforms} pagination={false} columns={[
             { title:"Platform", render:(_:any,row:any)=><div><b>{row.name}</b><div style={{color:"#8ea0bd",fontSize:12}}>{row.platform_key}</div></div> },
             { title:"Mode", render:(_:any,row:any)=><Tag color={row.support_mode === "none" ? "default" : "blue"}>{row.support_mode}</Tag> },

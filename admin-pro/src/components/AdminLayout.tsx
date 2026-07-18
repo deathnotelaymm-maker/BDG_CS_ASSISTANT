@@ -32,12 +32,13 @@ import {
   LinkOutlined,
   CloudUploadOutlined,
   ApartmentOutlined,
+  GlobalOutlined,
 } from "@ant-design/icons";
 import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-router";
 import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
-const ADMIN_VERSION = "v1.8.0";
+const ADMIN_VERSION = "v1.9.0";
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
   {
@@ -104,6 +105,13 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     to: "/ai-qa",
     label: "AI Q&A",
     icon: <MessageFilled />,
+    group: "AI",
+  },
+  {
+    key: "/locale-studio",
+    to: "/locale-studio",
+    label: "Locale Studio",
+    icon: <GlobalOutlined />,
     group: "AI",
   },
   {
