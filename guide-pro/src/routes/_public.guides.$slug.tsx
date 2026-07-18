@@ -125,7 +125,7 @@ function GuideDetail() {
             {faqs.map((f) => (
               <li key={f.id} className="py-3">
                 <div className="text-sm font-semibold">{f.question}</div>
-                <div className="mt-1 text-sm leading-6 text-muted-foreground">{f.answer}</div>
+                {f.answerHtml ? <div className="mt-1 text-sm leading-6 text-muted-foreground" dangerouslySetInnerHTML={{ __html: f.answerHtml.replace(/<\/?script[^>]*>/gi, "").replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "") }} /> : <div className="mt-1 text-sm leading-6 text-muted-foreground">{f.answer}</div>}
               </li>
             ))}
           </ul>

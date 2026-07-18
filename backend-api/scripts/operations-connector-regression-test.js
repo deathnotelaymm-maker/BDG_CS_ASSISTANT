@@ -10,7 +10,7 @@ const api = read('admin-pro/src/lib/api.ts');
 const ui = read('admin-pro/src/routes/_admin.platform-control-center.tsx');
 const migration = read('backend-api/migrations/016_v1.4.0_operations_connector_gateway.sql');
 const checks = [
-  ['Operations Connector version marker', core.includes('1.7.0-strict-tenant-routing-quick-reply-lifecycle') && server.includes('1.7.0-strict-tenant-routing-quick-reply-lifecycle')],
+  ['Operations Connector version marker', core.includes('1.8.0-ai-qa-rich-faq-studio') && server.includes('1.8.0-ai-qa-rich-faq-studio')],
   ['Connector schema is idempotent and platform unique', migration.includes('CREATE TABLE IF NOT EXISTS platform_connectors') && migration.includes('UNIQUE(platform_id)')],
   ['Connector actions are allowlisted', core.includes("new Set(['game_status', 'game_catalog', 'payment_order_status'])") && core.includes('Unsupported connector action')],
   ['Connector secrets are encrypted and write-only', core.includes('AES-GCM') && core.includes('secret_configured') && !core.includes('secret_token: row.secret_token_encrypted')],

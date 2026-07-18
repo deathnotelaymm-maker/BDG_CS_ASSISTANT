@@ -198,7 +198,7 @@ expect(
 expect("Unified version history is visible and restorable", promptHistory.includes("restoreContentVersion") && promptHistory.includes("restorePromptVersion"));
 expect("Decimal AI confidence is normalized to integer percent", core.includes("normalizeConfidencePercent") && core.includes("parsed * 100") && core.includes("Math.round(percent)"));
 expect("Chat logging cannot destroy a successful AI response", core.includes("event:'chat_log_write_failed'") && core.includes("try {\n      await q(env, 'INSERT INTO chat_logs"));
-expect("Admin FAQ exposes the persisted answer", faqAdmin.includes('name: "answer"') && faqAdmin.includes("FAQ answer") && faqAdmin.includes("keywords"));
+expect("Admin FAQ exposes the persisted answer", (faqAdmin.includes('name: "answer"') || faqAdmin.includes('name="answer"')) && faqAdmin.includes("FAQ answer") && faqAdmin.includes("keywords"));
 expect("Chat and Guide provide mobile image viewers", chatLightbox.includes('role="dialog"') && guideLightbox.includes('role="dialog"') && chatApp.includes("onPreview"));
 expect("AI Diagnostics exposes recent failures and request IDs", core.includes("recent_errors") && diagnosticsAdmin.includes("Recent AI Errors & Fallbacks") && diagnosticsAdmin.includes("Request ID"));
 expect("v0.11.0 import migration is idempotent", migration011.includes("IF NOT EXISTS") && migration011.includes("knowledge_import_batches"));
@@ -396,8 +396,8 @@ expect(
 );
 expect(
   "Health and API errors expose the same release version",
-  core.includes("1.7.0-strict-tenant-routing-quick-reply-lifecycle") &&
-    server.includes("1.7.0-strict-tenant-routing-quick-reply-lifecycle"),
+  core.includes("1.8.0-ai-qa-rich-faq-studio") &&
+    server.includes("1.8.0-ai-qa-rich-faq-studio"),
 );
 expect(
   "Operations Connector Gateway is platform-scoped and allowlisted",

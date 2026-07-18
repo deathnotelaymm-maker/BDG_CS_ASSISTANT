@@ -99,6 +99,17 @@ function AiKnowledgeImportPage() {
     } catch (error: any) { message.error(error?.message || "Could not create drafts"); }
   };
 
+  const approveRow = async (row: any) => {
+    try {
+      await api.approveKnowledgeImportRow(row.id);
+      message.success("Approved and published to AI Q&A");
+      if (selected?.id) await openBatch(selected.id);
+      await load();
+    } catch (error: any) {
+      message.error(error?.message || "Could not approve this row");
+    }
+  };
+
   const rollback = async () => {
     if (!selected?.id) return;
     try {
@@ -193,6 +204,7 @@ function AiKnowledgeImportPage() {
           { title:"Approved answer", width:330, render:(_:any,row:any)=><Typography.Paragraph ellipsis={{ rows:4, tooltip:row.mapped?.answer }}>{row.mapped?.answer || "—"}</Typography.Paragraph> },
           { title:"Ticket / image notes", width:220, render:(_:any,row:any)=><Space direction="vertical" size={2}>{row.mapped?.ticket_label ? <Tag color="gold">Ticket: {row.mapped.ticket_label}</Tag> : null}{row.mapped?.image_ref ? <Tag color="blue">Image: {row.mapped.image_ref}</Tag> : null}{row.mapped?.image_role ? <Tag color="cyan">Role: {row.mapped.image_role}</Tag> : null}{row.mapped?.image_placement ? <Typography.Text type="secondary" style={{fontSize:11}}>Placement: {row.mapped.image_placement}</Typography.Text> : null}{(row.warnings || []).map((warning:string)=><Typography.Text key={warning} type="secondary" style={{fontSize:11}}>{warning}</Typography.Text>)}</Space> },
           { title:"Validation", width:150, render:(_:any,row:any)=><Space direction="vertical" size={2}><Tag color={statusColor(row.status)}>{row.status}</Tag>{row.validation_error ? <Typography.Text type="danger" style={{fontSize:11}}>{row.validation_error}</Typography.Text> : null}</Space> },
+          { title:"AI Q&A", width:170, fixed:"right", render:(_:any,row:any)=><Button size="small" type="primary" disabled={!row.approval_available || row.approval_status === "approved"} onClick={()=>void approveRow(row)}>{row.approval_status === "approved" ? "Published" : "Approve & publish"}</Button> },
         ] as any} />
       </>}
     </Drawer>

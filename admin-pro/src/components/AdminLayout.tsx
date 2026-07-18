@@ -37,7 +37,7 @@ import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-rout
 import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
-const ADMIN_VERSION = "v1.7.0";
+const ADMIN_VERSION = "v1.8.0";
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
   {
@@ -97,6 +97,13 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     to: "/ai-knowledge-import",
     label: "AI Knowledge Import",
     icon: <CloudUploadOutlined />,
+    group: "AI",
+  },
+  {
+    key: "/ai-qa",
+    to: "/ai-qa",
+    label: "AI Q&A",
+    icon: <MessageFilled />,
     group: "AI",
   },
   {

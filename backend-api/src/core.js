@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.7.0-strict-tenant-routing-quick-reply-lifecycle';
+const VERSION = '1.8.0-ai-qa-rich-faq-studio';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -76,7 +76,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -87,7 +87,7 @@ async function route(request, env, url) {
   if (method === 'GET' && (path === '/categories' || path === '/public/categories')) return json(await listCategories(env, await resolvePublicPlatformScope(env, url.searchParams.get('platform') || 'default')), 200, env);
   if (method === 'GET' && (path === '/guides' || path === '/public/guides')) return json(await listGuides(env, url.searchParams), 200, env);
   if (method === 'GET' && path.startsWith('/guides/')) return json(await getGuide(env, decodeURIComponent(path.split('/').pop()), url.searchParams.get('language') || url.searchParams.get('lang') || 'en', url.searchParams.get('platform') || 'default'), 200, env);
-  if (method === 'GET' && (path === '/faqs' || path === '/public/faqs')) return json(await listFaqs(env, false, await resolvePublicPlatformScope(env, url.searchParams.get('platform') || 'default')), 200, env);
+  if (method === 'GET' && (path === '/faqs' || path === '/public/faqs')) return json(await listFaqs(env, false, await resolvePublicPlatformScope(env, url.searchParams.get('platform') || 'default'), url.searchParams.get('language') || url.searchParams.get('lang') || 'en'), 200, env);
   if (method === 'GET' && (path === '/action-buttons' || path === '/public/action-buttons')) return json(await listActionButtons(env, false, url.searchParams.get('language') || 'en', url.searchParams.get('platform') || 'default'), 200, env);
   if (method === 'GET' && (path === '/chat/content' || path === '/public/chat-content')) return json(await getChatContent(env, url.searchParams.get('platform') || 'default'), 200, env);
   if (method === 'GET' && /^\/platform-access\/[a-z0-9-]+$/i.test(path)) return json(await getPublicPlatformAccess(env, decodeURIComponent(path.split('/').pop())), 200, env);
@@ -190,8 +190,14 @@ async function route(request, env, url) {
   if (method === 'GET' && /^\/admin\/knowledge-imports\/\d+\/status$/.test(path)) return json(await getKnowledgeImportStatus(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'POST' && path === '/admin/knowledge-imports/preview') return json(await previewKnowledgeImport(env, request, admin, scope), 200, env);
   if (method === 'POST' && /^\/admin\/knowledge-imports\/\d+\/create-drafts$/.test(path)) return json(await createKnowledgeImportDrafts(env, idFromParts(path, 3), admin, scope), 200, env);
+  if (method === 'POST' && /^\/admin\/knowledge-import-rows\/\d+\/approve$/.test(path)) return json(await approveKnowledgeImportRow(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'POST' && /^\/admin\/knowledge-imports\/\d+\/rollback$/.test(path)) return json(await rollbackKnowledgeImport(env, idFromParts(path, 3), admin, scope), 200, env);
   if (method === 'GET' && path === '/admin/ai-content') return json(await listAiContent(env, true, scope), 200, env);
+  if (method === 'GET' && path === '/admin/ai-qa') return json(await listAiQa(env, scope), 200, env);
+  if (method === 'POST' && path === '/admin/ai-qa') return json(await createAiContent(env, { ...(await readJson(request)), source_type: 'qa' }, scope), 201, env);
+  if (method === 'PUT' && /^\/admin\/ai-qa\/\d+$/.test(path)) return json(await updateAiContent(env, idFromPath(path), { ...(await readJson(request)), source_type: 'qa' }, scope), 200, env);
+  if (method === 'DELETE' && /^\/admin\/ai-qa\/\d+$/.test(path)) return json(await deleteAiContent(env, idFromPath(path), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/ai-qa\/\d+\/publish$/.test(path)) return json(await publishAiQa(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'POST' && path === '/admin/ai-content') return json(await createAiContent(env, await readJson(request), scope), 200, env);
   if (method === 'PUT' && /^\/admin\/ai-content\/\d+$/.test(path)) return json(await updateAiContent(env, idFromPath(path), await readJson(request), scope), 200, env);
   if (method === 'DELETE' && /^\/admin\/ai-content\/\d+$/.test(path)) return json(await deleteAiContent(env, idFromPath(path), scope), 200, env);
@@ -450,6 +456,7 @@ async function ensureBootstrap(env) {
   await ensureTenantPermissionsBrandChatStudio(env);
   await ensureTenantExperienceStudio(env);
   await ensureStrictTenantRoutingQuickReplies(env);
+  await ensureAiQaRichFaqStudio(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -457,11 +464,11 @@ async function createTables(env) {
     `CREATE TABLE IF NOT EXISTS admin_users (id SERIAL PRIMARY KEY,name VARCHAR(160) DEFAULT 'Owner',email VARCHAR(255) UNIQUE NOT NULL,password_hash VARCHAR(255),role VARCHAR(50) DEFAULT 'owner',is_active BOOLEAN DEFAULT TRUE,last_login_at TIMESTAMPTZ,twofa_enabled BOOLEAN DEFAULT FALSE,twofa_secret TEXT,session_version INTEGER DEFAULT 0,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS categories (id SERIAL PRIMARY KEY,name VARCHAR(120) UNIQUE NOT NULL,slug VARCHAR(150) UNIQUE NOT NULL,description TEXT,icon VARCHAR(20) DEFAULT 'target',icon_url TEXT,sort_order INTEGER DEFAULT 100,created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS guides (id SERIAL PRIMARY KEY,title VARCHAR(180) NOT NULL,slug VARCHAR(220) UNIQUE NOT NULL,summary TEXT,body TEXT NOT NULL,image_urls TEXT,keywords TEXT,language VARCHAR(20) DEFAULT 'en',priority INTEGER DEFAULT 100,status VARCHAR(30) DEFAULT 'published',category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW())`,
-    `CREATE TABLE IF NOT EXISTS faqs (id SERIAL PRIMARY KEY,question VARCHAR(255) NOT NULL,answer TEXT NOT NULL,keywords TEXT,priority INTEGER DEFAULT 100,status VARCHAR(30) DEFAULT 'published',created_at TIMESTAMPTZ DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS faqs (id SERIAL PRIMARY KEY,question VARCHAR(255) NOT NULL,answer TEXT NOT NULL,answer_html TEXT DEFAULT '',answer_json TEXT DEFAULT '',image_urls TEXT DEFAULT '',locale VARCHAR(20) DEFAULT 'en',keywords TEXT,priority INTEGER DEFAULT 100,status VARCHAR(30) DEFAULT 'published',created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS knowledge_items (id SERIAL PRIMARY KEY,title VARCHAR(180) NOT NULL,content TEXT NOT NULL,keywords TEXT,priority INTEGER DEFAULT 100,status VARCHAR(30) DEFAULT 'active',created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS theme_settings (id SERIAL PRIMARY KEY,app_name VARCHAR(160) DEFAULT 'BDG Help Center',logo_text VARCHAR(40) DEFAULT 'BDG',banner_title VARCHAR(200) DEFAULT 'BDG Mobile Help Center',banner_subtitle VARCHAR(255) DEFAULT 'Search FAQ and view official guide images.',support_link VARCHAR(500) DEFAULT 'https://t.me/your_support_bot',primary_color VARCHAR(40) DEFAULT '#f7c948',updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS ai_prompt_sections (id SERIAL PRIMARY KEY,section_key VARCHAR(80) UNIQUE NOT NULL,title VARCHAR(180) NOT NULL,content TEXT DEFAULT '',enabled BOOLEAN DEFAULT TRUE,priority INTEGER DEFAULT 100,updated_at TIMESTAMPTZ DEFAULT NOW())`,
-    `CREATE TABLE IF NOT EXISTS ai_content_items (id SERIAL PRIMARY KEY,title VARCHAR(180) NOT NULL,intent_key VARCHAR(180) UNIQUE NOT NULL,locale VARCHAR(20) DEFAULT 'en',status VARCHAR(30) DEFAULT 'draft',priority INTEGER DEFAULT 100,confidence_threshold INTEGER DEFAULT 86,keywords TEXT,positive_examples TEXT,negative_examples TEXT,required_fields TEXT,faq_content TEXT,knowledge_content TEXT,example_answers TEXT,example_answers_hi TEXT,ai_instruction TEXT,ai_instruction_hi TEXT,rich_json TEXT,rich_html TEXT,rich_json_hi TEXT,rich_html_hi TEXT,image_urls TEXT,image_delivery VARCHAR(30) DEFAULT 'after_answer',button_ids TEXT,approval_status VARCHAR(30) DEFAULT 'draft',version_label VARCHAR(80) DEFAULT 'v1',platform_scope VARCHAR(500) DEFAULT 'all',route_policy VARCHAR(40) DEFAULT 'answer_only',import_batch_id INTEGER,import_source_key VARCHAR(180),source_sheet VARCHAR(180),source_row INTEGER,source_ticket_label TEXT,source_image_ref TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),deleted_at TIMESTAMPTZ)`,
+    `CREATE TABLE IF NOT EXISTS ai_content_items (id SERIAL PRIMARY KEY,title VARCHAR(180) NOT NULL,intent_key VARCHAR(180) UNIQUE NOT NULL,locale VARCHAR(20) DEFAULT 'en',status VARCHAR(30) DEFAULT 'draft',source_type VARCHAR(30) DEFAULT 'prompt_image',priority INTEGER DEFAULT 100,confidence_threshold INTEGER DEFAULT 86,keywords TEXT,positive_examples TEXT,negative_examples TEXT,required_fields TEXT,faq_content TEXT,knowledge_content TEXT,example_answers TEXT,example_answers_hi TEXT,ai_instruction TEXT,ai_instruction_hi TEXT,rich_json TEXT,rich_html TEXT,rich_json_hi TEXT,rich_html_hi TEXT,qa_answer_html TEXT DEFAULT '',qa_answer_json TEXT DEFAULT '',qa_steps_json TEXT DEFAULT '[]',localized_fields_json TEXT DEFAULT '{}',image_urls TEXT,image_delivery VARCHAR(30) DEFAULT 'after_answer',button_ids TEXT,approval_status VARCHAR(30) DEFAULT 'draft',version_label VARCHAR(80) DEFAULT 'v1',platform_scope VARCHAR(500) DEFAULT 'all',route_policy VARCHAR(40) DEFAULT 'answer_only',import_batch_id INTEGER,import_source_key VARCHAR(180),source_sheet VARCHAR(180),source_row INTEGER,source_ticket_label TEXT,source_image_ref TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),deleted_at TIMESTAMPTZ)`,
     `CREATE TABLE IF NOT EXISTS ai_model_settings (id SERIAL PRIMARY KEY,provider VARCHAR(50) DEFAULT 'deepseek',model VARCHAR(120) DEFAULT 'deepseek-chat',api_base VARCHAR(500) DEFAULT 'https://api.deepseek.com',enabled BOOLEAN DEFAULT FALSE,temperature DOUBLE PRECISION DEFAULT 0.2,max_tokens INTEGER DEFAULT 700,require_approved_context BOOLEAN DEFAULT TRUE,memory_enabled BOOLEAN DEFAULT TRUE,memory_max_messages INTEGER DEFAULT 12,memory_ttl_days INTEGER DEFAULT 30,updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS chat_sessions (id SERIAL PRIMARY KEY,session_id VARCHAR(120) UNIQUE NOT NULL,memory_summary TEXT,message_count INTEGER DEFAULT 0,resolution_state TEXT DEFAULT 'open',resolved_at TIMESTAMPTZ,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS chat_memory_messages (id SERIAL PRIMARY KEY,session_id VARCHAR(120) NOT NULL,role VARCHAR(20) NOT NULL,content TEXT NOT NULL,image_urls TEXT,created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -720,7 +727,7 @@ function guideOut(row, lang='en') {
     },
   };
 }
-function faqOut(row) { return { id: row.id, question: row.question, answer: row.answer, keywords: row.keywords || '', priority: row.priority ?? 100, status: row.status || 'published' }; }
+function faqOut(row) { return { id: row.id, question: row.question, answer: row.answer, answer_html: row.answer_html || '', answer_json: row.answer_json || '', image_urls: splitUrls(row.image_urls), locale: row.locale || 'en', keywords: row.keywords || '', priority: row.priority ?? 100, status: row.status || 'published' }; }
 function knowledgeOut(row) { return { id: row.id, title: row.title, content: row.content, keywords: row.keywords || '', priority: row.priority ?? 100, status: row.status || 'active' }; }
 function promptOut(row) { return { id: row.id, section_key: row.section_key, title: row.title, content: row.content || '', enabled: !!row.enabled, priority: row.priority ?? 100, updated_at: String(row.updated_at || '') }; }
 function aiSettingOut(row, env) { row = row || {}; return { id: row.id || 1, provider: row.provider || 'deepseek', model: row.model || env.DEEPSEEK_MODEL || 'deepseek-chat', api_base: row.api_base || env.DEEPSEEK_API_BASE || 'https://api.deepseek.com', enabled: !!row.enabled, temperature: Number(row.temperature ?? 0.2), max_tokens: row.max_tokens ?? 700, require_approved_context: !!row.require_approved_context, memory_enabled: row.memory_enabled !== false, memory_max_messages: row.memory_max_messages ?? 12, memory_ttl_days: row.memory_ttl_days ?? 30, has_api_key: !!env.DEEPSEEK_API_KEY }; }
@@ -763,6 +770,7 @@ function aiContentOut(row, score = null, reason = '') {
     title: row.title,
     intent_key: row.intent_key,
     locale: row.locale || 'en',
+    source_type: row.source_type || 'prompt_image',
     status: row.status || 'draft',
     priority: row.priority ?? 100,
     confidence_threshold: row.confidence_threshold ?? 86,
@@ -780,6 +788,10 @@ function aiContentOut(row, score = null, reason = '') {
     rich_html: row.rich_html || '',
     rich_json_hi: row.rich_json_hi || '',
     rich_html_hi: row.rich_html_hi || '',
+    qa_answer_html: row.qa_answer_html || '',
+    qa_answer_json: row.qa_answer_json || '',
+    qa_steps: parseBlocks(row.qa_steps_json || '[]'),
+    localized_fields: (() => { try { const v = JSON.parse(row.localized_fields_json || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } })(),
     image_urls: splitUrls(row.image_urls),
     image_delivery: row.image_delivery || 'after_answer',
     button_ids: numericIds(row.button_ids),
@@ -808,6 +820,7 @@ function normalizeAiContentPayload(p = {}) {
     title,
     intent_key: String(p.intent_key || slugify(title)).trim(),
     locale: String(p.locale || 'en').trim().toLowerCase().slice(0, 20),
+    source_type: ['prompt_image','qa'].includes(String(p.source_type || '').toLowerCase()) ? String(p.source_type).toLowerCase() : 'prompt_image',
     status,
     priority: Math.max(1, Number(p.priority ?? 100)),
     confidence_threshold: Math.max(70, Math.min(99, Number(p.confidence_threshold ?? 86))),
@@ -825,6 +838,10 @@ function normalizeAiContentPayload(p = {}) {
     rich_html: String(p.rich_html || ''),
     rich_json_hi: typeof p.rich_json_hi === 'string' ? p.rich_json_hi : JSON.stringify(p.rich_json_hi || {}),
     rich_html_hi: String(p.rich_html_hi || ''),
+    qa_answer_html: String(p.qa_answer_html || ''),
+    qa_answer_json: typeof p.qa_answer_json === 'string' ? p.qa_answer_json : JSON.stringify(p.qa_answer_json || {}),
+    qa_steps_json: typeof p.qa_steps_json === 'string' ? p.qa_steps_json : JSON.stringify(Array.isArray(p.qa_steps) ? p.qa_steps : []),
+    localized_fields_json: typeof p.localized_fields_json === 'string' ? p.localized_fields_json : JSON.stringify(p.localized_fields || {}),
     image_urls: Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || ''),
     image_delivery: delivery,
     button_ids: numericIds(p.button_ids).join('\n'),
@@ -1011,7 +1028,7 @@ async function listCategories(env, scope = null) { const { rows } = await q(env,
 async function listGuides(env, params = new URLSearchParams()) { const scope = await resolvePublicPlatformScope(env, params.get?.('platform') || 'default'); let sql = `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE g.status='published' AND g.tenant_id=$1 AND g.platform_id=$2`; const vals = [scope.tenant_id, scope.platform_id]; const category = params.get?.('category'); const lang = params.get?.('language') || params.get?.('lang') || 'en'; if (category) { vals.push(category); sql += ` AND c.slug=$${vals.length}`; } sql += ' ORDER BY g.priority ASC, g.updated_at DESC, g.id DESC'; const { rows } = await q(env, sql, vals); let guides = rows; const query = params.get?.('q'); if (query) guides = guides.map(g => [scoreMatch(query, [g.title, g.title_hi || '', g.summary || '', g.summary_hi || '', g.body, g.body_hi || ''], g.keywords), g]).filter(x => x[0] > 0).sort((a,b) => b[0]-a[0] || (a[1].priority||100)-(b[1].priority||100)).map(x => x[1]); return guides.map(g => guideOut(g, lang)); }
 async function listAdminGuides(env, scope) { const { rows } = await q(env, `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE g.tenant_id=$1 AND g.platform_id=$2 ORDER BY g.priority ASC, g.updated_at DESC, g.id DESC`, [scope.tenant_id, scope.platform_id]); return rows.map(g => guideOut(g, 'en')); }
 async function getGuide(env, slug, lang='en', platformKey='default') { const scope = await resolvePublicPlatformScope(env, platformKey); const { rows } = await q(env, `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE (g.slug=$1 OR CAST(g.id AS TEXT)=$1) AND g.status='published' AND g.tenant_id=$2 AND g.platform_id=$3 LIMIT 1`, [slug, scope.tenant_id, scope.platform_id]); if (!rows[0]) bad('Guide not found', 404); const guide = guideOut(rows[0], lang); guide.action_buttons = await buttonsForIds(env, guide.button_ids, lang, platformKey, scope); return guide; }
-async function listFaqs(env, admin = false, scope = null) { const vals = scope ? [scope.tenant_id, scope.platform_id] : []; const base = scope ? `WHERE tenant_id=$1 AND platform_id=$2${admin ? '' : " AND status='published'"}` : (admin ? '' : "WHERE status='published'"); const { rows } = await q(env, `SELECT * FROM faqs ${base} ORDER BY priority ASC, id DESC`, vals); return rows.map(faqOut); }
+async function listFaqs(env, admin = false, scope = null, language = 'en') { const vals = scope ? [scope.tenant_id, scope.platform_id] : []; const locale = String(language || 'en').toLowerCase().slice(0, 20); let base = scope ? `WHERE tenant_id=$1 AND platform_id=$2${admin ? '' : " AND status='published'"}` : (admin ? '' : "WHERE status='published'"); if (!admin && scope) { vals.push(locale); base += ` AND (LOWER(locale)=LOWER($${vals.length}) OR LOWER(locale)=LOWER(split_part($${vals.length},'-',1)) OR locale='all' OR locale='' OR locale IS NULL)`; } const { rows } = await q(env, `SELECT * FROM faqs ${base} ORDER BY priority ASC, id DESC`, vals); return rows.map(faqOut); }
 async function listKnowledge(env, scope) { const { rows } = await q(env, 'SELECT * FROM knowledge_items WHERE tenant_id=$1 AND platform_id=$2 ORDER BY priority ASC, id DESC', [scope.tenant_id, scope.platform_id]); return rows.map(knowledgeOut); }
 async function listPrompts(env, scope) { const { rows } = await q(env, 'SELECT * FROM ai_prompt_sections WHERE tenant_id=$1 AND platform_id=$2 ORDER BY priority ASC, id ASC', [scope.tenant_id, scope.platform_id]); return rows.map(promptOut); }
 async function getAiSettings(env) { const { rows } = await q(env, 'SELECT * FROM ai_model_settings ORDER BY id ASC LIMIT 1'); return rows[0]; }
@@ -1025,9 +1042,13 @@ async function listAiContent(env, admin = false, scope = null) {
   const { rows } = await q(env, scope ? `SELECT * FROM ai_content_items WHERE deleted_at IS NULL AND tenant_id=$1 AND platform_id=$2 ${admin ? '' : "AND status='published'"} ORDER BY priority ASC, updated_at DESC, id DESC` : `SELECT * FROM ai_content_items WHERE deleted_at IS NULL ${admin ? '' : "AND status='published'"} ORDER BY priority ASC, updated_at DESC, id DESC`, scope ? [scope.tenant_id, scope.platform_id] : []);
   return rows.map(row => aiContentOut(row));
 }
+async function listAiQa(env, scope) {
+  const { rows } = await q(env, `SELECT * FROM ai_content_items WHERE deleted_at IS NULL AND tenant_id=$1 AND platform_id=$2 AND source_type='qa' ORDER BY priority ASC,updated_at DESC,id DESC`, [scope.tenant_id, scope.platform_id]);
+  return rows.map(row => aiContentOut(row));
+}
 async function createAiContent(env, p, scope) {
   const item = normalizeAiContentPayload(p);
-  const { rows } = await q(env, `INSERT INTO ai_content_items(title,intent_key,locale,status,priority,confidence_threshold,keywords,positive_examples,negative_examples,required_fields,faq_content,knowledge_content,example_answers,example_answers_hi,ai_instruction,ai_instruction_hi,rich_json,rich_html,rich_json_hi,rich_html_hi,image_urls,image_delivery,button_ids,approval_status,version_label,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27) RETURNING *`, [item.title,item.intent_key,item.locale,item.status,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,scope.tenant_id,scope.platform_id]);
+  const { rows } = await q(env, `INSERT INTO ai_content_items(title,intent_key,locale,status,source_type,priority,confidence_threshold,keywords,positive_examples,negative_examples,required_fields,faq_content,knowledge_content,example_answers,example_answers_hi,ai_instruction,ai_instruction_hi,rich_json,rich_html,rich_json_hi,rich_html_hi,qa_answer_html,qa_answer_json,qa_steps_json,localized_fields_json,image_urls,image_delivery,button_ids,approval_status,version_label,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32) RETURNING *`, [item.title,item.intent_key,item.locale,item.status,item.source_type,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.qa_answer_html,item.qa_answer_json,item.qa_steps_json,item.localized_fields_json,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,scope.tenant_id,scope.platform_id]);
   await updateAiContentExtensions(env, rows[0].id, item);
   const stored = (await q(env, `SELECT * FROM ai_content_items WHERE id=$1`, [rows[0].id])).rows[0];
   await syncContentButtons(env, 'ai_content', stored.id, numericIds(item.button_ids), scope);
@@ -1037,7 +1058,7 @@ async function createAiContent(env, p, scope) {
 }
 async function updateAiContent(env, id, p, scope) {
   const item = normalizeAiContentPayload(p);
-  const { rows } = await q(env, `UPDATE ai_content_items SET title=$1,intent_key=$2,locale=$3,status=$4,priority=$5,confidence_threshold=$6,keywords=$7,positive_examples=$8,negative_examples=$9,required_fields=$10,faq_content=$11,knowledge_content=$12,example_answers=$13,example_answers_hi=$14,ai_instruction=$15,ai_instruction_hi=$16,rich_json=$17,rich_html=$18,rich_json_hi=$19,rich_html_hi=$20,image_urls=$21,image_delivery=$22,button_ids=$23,approval_status=$24,version_label=$25,updated_at=NOW() WHERE id=$26 AND deleted_at IS NULL AND tenant_id=$27 AND platform_id=$28 RETURNING *`, [item.title,item.intent_key,item.locale,item.status,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,id,scope.tenant_id,scope.platform_id]);
+  const { rows } = await q(env, `UPDATE ai_content_items SET title=$1,intent_key=$2,locale=$3,status=$4,source_type=$5,priority=$6,confidence_threshold=$7,keywords=$8,positive_examples=$9,negative_examples=$10,required_fields=$11,faq_content=$12,knowledge_content=$13,example_answers=$14,example_answers_hi=$15,ai_instruction=$16,ai_instruction_hi=$17,rich_json=$18,rich_html=$19,rich_json_hi=$20,rich_html_hi=$21,qa_answer_html=$22,qa_answer_json=$23,qa_steps_json=$24,localized_fields_json=$25,image_urls=$26,image_delivery=$27,button_ids=$28,approval_status=$29,version_label=$30,updated_at=NOW() WHERE id=$31 AND deleted_at IS NULL AND tenant_id=$32 AND platform_id=$33 RETURNING *`, [item.title,item.intent_key,item.locale,item.status,item.source_type,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.qa_answer_html,item.qa_answer_json,item.qa_steps_json,item.localized_fields_json,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,id,scope.tenant_id,scope.platform_id]);
   if (!rows[0]) bad('AI Content item not found', 404);
   await updateAiContentExtensions(env, id, item);
   const stored = (await q(env, `SELECT * FROM ai_content_items WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`, [id,scope.tenant_id,scope.platform_id])).rows[0];
@@ -1048,6 +1069,12 @@ async function updateAiContent(env, id, p, scope) {
 }
 async function updateAiContentExtensions(env, id, item) {
   await q(env, `UPDATE ai_content_items SET platform_scope=$1,route_policy=$2,import_batch_id=$3,import_source_key=$4,source_sheet=$5,source_row=$6,source_ticket_label=$7,source_image_ref=$8,updated_at=NOW() WHERE id=$9`, [item.platform_scope,item.route_policy,item.import_batch_id,item.import_source_key,item.source_sheet,item.source_row,item.source_ticket_label,item.source_image_ref,id]);
+}
+async function publishAiQa(env, id, scope) {
+  const { rows } = await q(env, `UPDATE ai_content_items SET status='published',approval_status='approved',updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND source_type='qa' AND deleted_at IS NULL RETURNING *`, [id, scope.tenant_id, scope.platform_id]);
+  if (!rows[0]) bad('AI Q&A item not found', 404);
+  await audit(env, 'publish', 'ai_content_items', id, `AI Q&A published: ${rows[0].title}`, scope);
+  return aiContentOut(rows[0]);
 }
 async function deleteAiContent(env, id, scope) {
   const current = (await q(env, `SELECT * FROM ai_content_items WHERE id=$1 AND deleted_at IS NULL AND tenant_id=$2 AND platform_id=$3 LIMIT 1`, [id,scope.tenant_id,scope.platform_id])).rows[0];
@@ -1746,6 +1773,24 @@ async function ensureStrictTenantRoutingQuickReplies(env) {
   ]) await q(env, statement);
 }
 
+async function ensureAiQaRichFaqStudio(env) {
+  for (const statement of [
+    `ALTER TABLE ai_content_items ADD COLUMN IF NOT EXISTS source_type VARCHAR(30) DEFAULT 'prompt_image'`,
+    `ALTER TABLE ai_content_items ADD COLUMN IF NOT EXISTS qa_answer_html TEXT DEFAULT ''`,
+    `ALTER TABLE ai_content_items ADD COLUMN IF NOT EXISTS qa_answer_json TEXT DEFAULT ''`,
+    `ALTER TABLE ai_content_items ADD COLUMN IF NOT EXISTS qa_steps_json TEXT DEFAULT '[]'`,
+    `ALTER TABLE ai_content_items ADD COLUMN IF NOT EXISTS localized_fields_json TEXT DEFAULT '{}'`,
+    `ALTER TABLE faqs ADD COLUMN IF NOT EXISTS answer_html TEXT DEFAULT ''`,
+    `ALTER TABLE faqs ADD COLUMN IF NOT EXISTS answer_json TEXT DEFAULT ''`,
+    `ALTER TABLE faqs ADD COLUMN IF NOT EXISTS image_urls TEXT DEFAULT ''`,
+    `ALTER TABLE faqs ADD COLUMN IF NOT EXISTS locale VARCHAR(20) DEFAULT 'en'`,
+    `ALTER TABLE faqs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`,
+    `CREATE INDEX IF NOT EXISTS idx_ai_content_qa_scope ON ai_content_items(tenant_id,platform_id,source_type,status,approval_status)`,
+    `CREATE INDEX IF NOT EXISTS idx_faqs_locale_scope ON faqs(tenant_id,platform_id,locale,status)`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.8.0_ai_qa_rich_faq_studio','Tenant-scoped AI Q&A source, explicit import approval, localized knowledge fields, and rich FAQ content.') ON CONFLICT(migration_key) DO NOTHING`,
+  ]) await q(env, statement);
+}
+
 function connectorUrl(value, label = 'Connector URL') {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -2194,7 +2239,7 @@ function knowledgeImportRowOut(row) {
   try { mapped = JSON.parse(row.mapped_json || '{}'); } catch (_) {}
   try { raw = JSON.parse(row.raw_json || '{}'); } catch (_) {}
   try { warnings = JSON.parse(row.warnings_json || '[]'); } catch (_) {}
-  return { id:Number(row.id),batch_id:Number(row.batch_id),sheet_name:row.sheet_name,row_number:Number(row.row_number),source_key:row.source_key,status:row.status || 'valid',validation_error:row.validation_error || '',warnings:Array.isArray(warnings) ? warnings : [],mapped,raw,imported_content_id:row.imported_content_id == null ? null : Number(row.imported_content_id),created_at:row.created_at ? String(row.created_at) : '',updated_at:row.updated_at ? String(row.updated_at) : '' };
+  return { id:Number(row.id),batch_id:Number(row.batch_id),sheet_name:row.sheet_name,row_number:Number(row.row_number),source_key:row.source_key,status:row.status || 'valid',approval_status: row.status === 'approved' ? 'approved' : 'pending',approval_available: !!row.imported_content_id && !['approved','rolled_back','conflict'].includes(String(row.status)),validation_error:row.validation_error || '',warnings:Array.isArray(warnings) ? warnings : [],mapped,raw,imported_content_id:row.imported_content_id == null ? null : Number(row.imported_content_id),created_at:row.created_at ? String(row.created_at) : '',updated_at:row.updated_at ? String(row.updated_at) : '' };
 }
 function knowledgeImportOut(batch, previewRows = []) {
   let summary = {};
@@ -2289,6 +2334,15 @@ async function createKnowledgeImportDrafts(env, batchId, admin, scope) {
   await q(env, `UPDATE knowledge_import_batches SET status='drafted',drafted_at=NOW(),summary_json=$1 WHERE id=$2 AND tenant_id=$3 AND platform_id=$4`, [JSON.stringify({ created,updated,conflicts,import_rule:'Drafts were created. Review each item in AI Prompt & Image, then set Knowledge approval = Approved and Status = Published before AI may use it.' }),batchId,scope.tenant_id,scope.platform_id]);
   await audit(env, 'create_drafts', 'knowledge_import_batches', batchId, `Created ${created}, refreshed ${updated}, conflicts ${conflicts}`, scope);
   return { ok:true,batch_id:batchId,created,updated,conflicts,next_step:'Review imported drafts in AI Prompt & Image. Only Approved + Published items are eligible for AI routing.' };
+}
+async function approveKnowledgeImportRow(env, rowId, scope) {
+  const row = (await q(env, `SELECT r.*,b.tenant_id,b.platform_id FROM knowledge_import_rows r JOIN knowledge_import_batches b ON b.id=r.batch_id WHERE r.id=$1 AND b.tenant_id=$2 AND b.platform_id=$3 LIMIT 1`, [rowId,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!row) bad('Import row not found', 404);
+  if (!row.imported_content_id) bad('Create AI Q&A drafts before approving an import row', 409, 'DRAFT_REQUIRED');
+  const published = await publishAiQa(env, row.imported_content_id, scope);
+  await q(env, `UPDATE knowledge_import_rows SET status='approved',updated_at=NOW() WHERE id=$1`, [rowId]);
+  await audit(env, 'approve_import_row', 'knowledge_import_rows', rowId, `Approved AI Q&A row ${rowId}`, scope);
+  return { ok: true, row_id: Number(rowId), item: published };
 }
 async function rollbackKnowledgeImport(env, batchId, admin, scope) {
   const batch = (await q(env, `SELECT * FROM knowledge_import_batches WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`, [batchId,scope.tenant_id,scope.platform_id])).rows[0];
@@ -2421,8 +2475,8 @@ async function deleteGuide(env, id, admin, scope) {
   await audit(env,'delete','guides',id,`Guide deleted: ${current.title}`,scope);
   return {ok:true,deleted:1,id};
 }
-async function createFaq(env, p, scope) { const { rows } = await q(env, 'INSERT INTO faqs(question,answer,keywords,priority,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *', [p.question, p.answer, p.keywords || '', p.priority ?? 100, p.status || 'published',scope.tenant_id,scope.platform_id]); await audit(env,'create','faqs',rows[0].id,'FAQ created',scope); return faqOut(rows[0]); }
-async function updateFaq(env, id, p, scope) { const { rows } = await q(env, 'UPDATE faqs SET question=$1, answer=$2, keywords=$3, priority=$4, status=$5 WHERE id=$6 AND tenant_id=$7 AND platform_id=$8 RETURNING *', [p.question, p.answer, p.keywords || '', p.priority ?? 100, p.status || 'published', id,scope.tenant_id,scope.platform_id]); if (!rows[0]) bad('FAQ not found', 404); await audit(env,'update','faqs',id,'FAQ updated',scope); return faqOut(rows[0]); }
+async function createFaq(env, p, scope) { const { rows } = await q(env, 'INSERT INTO faqs(question,answer,answer_html,answer_json,image_urls,locale,keywords,priority,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *', [p.question, p.answer || stripHtml(p.answer_html || ''), p.answer_html || '', typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {}), Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || ''), String(p.locale || 'en').toLowerCase().slice(0,20), p.keywords || '', p.priority ?? 100, p.status || 'published',scope.tenant_id,scope.platform_id]); await audit(env,'create','faqs',rows[0].id,'FAQ created',scope); return faqOut(rows[0]); }
+async function updateFaq(env, id, p, scope) { const { rows } = await q(env, 'UPDATE faqs SET question=$1, answer=$2, answer_html=$3, answer_json=$4, image_urls=$5, locale=$6, keywords=$7, priority=$8, status=$9, updated_at=NOW() WHERE id=$10 AND tenant_id=$11 AND platform_id=$12 RETURNING *', [p.question, p.answer || stripHtml(p.answer_html || ''), p.answer_html || '', typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {}), Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || ''), String(p.locale || 'en').toLowerCase().slice(0,20), p.keywords || '', p.priority ?? 100, p.status || 'published', id,scope.tenant_id,scope.platform_id]); if (!rows[0]) bad('FAQ not found', 404); await audit(env,'update','faqs',id,'FAQ updated',scope); return faqOut(rows[0]); }
 async function createKnowledge(env, p, scope) { const { rows } = await q(env, 'INSERT INTO knowledge_items(title,content,keywords,priority,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *', [p.title, p.content, p.keywords || '', p.priority ?? 100, p.status || 'active',scope.tenant_id,scope.platform_id]); await audit(env,'create','knowledge_items',rows[0].id,'Knowledge created',scope); return knowledgeOut(rows[0]); }
 async function updateKnowledge(env, id, p, scope) { const { rows } = await q(env, 'UPDATE knowledge_items SET title=$1, content=$2, keywords=$3, priority=$4, status=$5 WHERE id=$6 AND tenant_id=$7 AND platform_id=$8 RETURNING *', [p.title, p.content, p.keywords || '', p.priority ?? 100, p.status || 'active', id,scope.tenant_id,scope.platform_id]); if (!rows[0]) bad('Knowledge item not found', 404); await audit(env,'update','knowledge_items',id,'Knowledge updated',scope); return knowledgeOut(rows[0]); }
 async function snapshotPrompt(env, row, note='updated') { if (!row) return; await q(env, `INSERT INTO ai_prompt_versions(prompt_id,section_key,title,content,enabled,priority,change_note,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [row.id,row.section_key,row.title,row.content||'',!!row.enabled,row.priority??100,note,row.tenant_id,row.platform_id]); }
@@ -2899,7 +2953,10 @@ function judgeCatalogItem(row, language) {
     positive_examples: promptClip(row.positive_examples, 1200),
     negative_examples: promptClip(row.negative_examples, 1200),
     item_instruction: promptClip(instruction, 1000),
-    approved_knowledge_summary: promptClip([row.faq_content,row.knowledge_content,stripHtml(visual)].filter(Boolean).join('\n'), 1800),
+    approved_knowledge_summary: promptClip([row.faq_content,row.knowledge_content,row.source_type === 'qa' ? stripHtml(row.qa_answer_html || '') : '',stripHtml(visual)].filter(Boolean).join('\n'), 1800),
+    source_type: row.source_type || 'prompt_image',
+    qa_answer: row.source_type === 'qa' ? promptClip(stripHtml(row.qa_answer_html || row.example_answers), 1800) : '',
+    qa_steps: row.source_type === 'qa' ? promptClip(row.qa_steps_json || '[]', 1200) : '',
     route_policy: row.route_policy || 'answer_only',
   };
 }
@@ -2907,7 +2964,7 @@ async function judgeAiContentWithModel(env, settings, message, language, memoryS
   const locale = String(language || 'en').toLowerCase().slice(0, 20);
   const scope = await resolvePublicPlatformScope(env, platformKey);
   const platform = await getSupportPlatformForScope(env, scope);
-  const found = await q(env, `SELECT * FROM ai_content_items WHERE status='published' AND approval_status='approved' AND deleted_at IS NULL AND tenant_id=$2 AND platform_id=$3 AND (locale=$1 OR locale='all' OR locale='' OR ($1='hi' AND locale='en')) ORDER BY priority ASC,id DESC LIMIT 100`, [locale,scope.tenant_id,scope.platform_id]);
+  const found = await q(env, `SELECT * FROM ai_content_items WHERE status='published' AND approval_status='approved' AND deleted_at IS NULL AND tenant_id=$2 AND platform_id=$3 AND (LOWER(locale)=LOWER($1) OR LOWER(locale)=LOWER(split_part($1,'-',1)) OR locale='all' OR locale='') ORDER BY priority ASC,id DESC LIMIT 100`, [locale,scope.tenant_id,scope.platform_id]);
   const rows = found.rows.filter((row) => platformScopeIncludes(row.platform_scope, platform.platform_key)).slice(0, 60);
   const catalog = rows.map((row) => judgeCatalogItem(row, locale));
   const connector = (await q(env, `SELECT * FROM platform_connectors WHERE tenant_id=$1 AND platform_id=$2 LIMIT 1`, [scope.tenant_id, scope.platform_id])).rows[0];
@@ -3050,6 +3107,9 @@ function aiContentPromptContext(row, lang = 'en') {
   const exampleAnswers = useHi && row.example_answers_hi ? row.example_answers_hi : row.example_answers;
   const instruction = useHi && row.ai_instruction_hi ? row.ai_instruction_hi : row.ai_instruction;
   const richHtml = useHi && row.rich_html_hi ? row.rich_html_hi : row.rich_html;
+  let localized = {};
+  try { localized = JSON.parse(row.localized_fields_json || '{}'); } catch (_) { localized = {}; }
+  const localizedFields = localized?.[String(lang || '').toLowerCase()] || localized?.[String(lang || '').split('-')[0]] || {};
   return [
     `Content title: ${row.title}`,
     `Intent: ${row.intent_key}`,
@@ -3060,13 +3120,21 @@ function aiContentPromptContext(row, lang = 'en') {
     exampleAnswers ? `Example answers control output style only (adapt naturally; never copy facts blindly):\n${exampleAnswers}` : '',
     instruction ? `Item-specific AI instruction:\n${instruction}` : '',
     richHtml ? `Approved formatted visual knowledge:\n${stripHtml(richHtml)}` : '',
+    row.source_type === 'qa' && row.qa_answer_html ? `Approved AI Q&A answer:\n${stripHtml(row.qa_answer_html)}` : '',
+    row.source_type === 'qa' && row.qa_steps_json ? `Approved AI Q&A visual steps:\n${promptClip(stripHtml(row.qa_steps_json), 1200)}` : '',
+    localizedFields.ai_instruction ? `Locale-specific AI instruction:\n${String(localizedFields.ai_instruction)}` : '',
+    localizedFields.visual_knowledge ? `Locale-specific visual knowledge:\n${String(localizedFields.visual_knowledge)}` : '',
   ].filter(Boolean).join('\n\n');
 }
 async function approvedAssetsForContent(env, row, lang = 'en', platformKey = 'default') {
   if (!row) return { images:[], buttons:[] };
   const useHi = String(lang || '').startsWith('hi');
   const richHtml = useHi && row.rich_html_hi ? row.rich_html_hi : row.rich_html;
-  const urls = row.image_delivery === 'never' ? [] : [...new Set([...splitUrls(row.image_urls), ...imageUrlsFromHtml(richHtml)])].slice(0, 20);
+  let stepUrls = [];
+  if (row.source_type === 'qa' && row.qa_steps_json) {
+    try { stepUrls = JSON.parse(row.qa_steps_json).filter((step) => step && typeof step.url === 'string').map((step) => step.url); } catch (_) { stepUrls = []; }
+  }
+  const urls = row.image_delivery === 'never' ? [] : [...new Set([...splitUrls(row.image_urls), ...imageUrlsFromHtml(richHtml), ...stepUrls])].filter((url) => safeResponseUrl(url)).slice(0, 20);
   const images = urls.map((url, index) => ({ image_id:`image_${index + 1}`, url, alt:`${row.title} visual ${index + 1}`, caption:row.title }));
   const buttons = await buttonsForIds(env, row.button_ids, lang, platformKey);
   return { images, buttons };

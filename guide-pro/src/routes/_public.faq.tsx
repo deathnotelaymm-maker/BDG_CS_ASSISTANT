@@ -14,6 +14,14 @@ export const Route = createFileRoute("/_public/faq")({
   component: FAQ,
 });
 
+function safeFaqHtml(value: string) {
+  return String(value || "")
+    .replace(/<\/?script[^>]*>/gi, "")
+    .replace(/<\/?style[^>]*>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/javascript\s*:/gi, "");
+}
+
 function FAQ() {
   const platformKey = getPlatformCacheKey();
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["faqs", platformKey], queryFn: api.getFaqs });
@@ -23,7 +31,7 @@ function FAQ() {
     if (!data) return [];
     const s = q.toLowerCase();
     if (!s) return data;
-    return data.filter((f) => f.question.toLowerCase().includes(s) || f.answer.toLowerCase().includes(s));
+    return data.filter((f) => f.question.toLowerCase().includes(s) || f.answer.toLowerCase().includes(s) || (f.answerHtml || "").toLowerCase().includes(s));
   }, [data, q]);
 
   const grouped = useMemo(() => {
@@ -71,7 +79,10 @@ function FAQ() {
               {items.map((f) => (
                 <AccordionItem key={f.id} value={f.id}>
                   <AccordionTrigger className="text-left text-sm">{f.question}</AccordionTrigger>
-                  <AccordionContent className="text-sm text-muted-foreground">{f.answer}</AccordionContent>
+                  <AccordionContent className="text-sm text-muted-foreground">
+                    {f.answerHtml ? <div className="bdg-rich-public" dangerouslySetInnerHTML={{ __html: safeFaqHtml(f.answerHtml) }} /> : f.answer}
+                    {!!f.imageUrls?.length && <div className="mt-3 grid gap-2 sm:grid-cols-2">{f.imageUrls.map((url) => <img key={url} src={url} alt="FAQ reference" className="max-h-64 w-full rounded-xl object-contain" loading="lazy" />)}</div>}
+                  </AccordionContent>
                 </AccordionItem>
               ))}
             </Accordion>

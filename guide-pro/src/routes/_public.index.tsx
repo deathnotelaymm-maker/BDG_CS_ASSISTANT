@@ -212,7 +212,7 @@ function Home() {
                 <AccordionItem key={f.id} value={f.id} className="border-border">
                   <AccordionTrigger className="text-left text-sm">{f.question}</AccordionTrigger>
                   <AccordionContent className="text-sm text-muted-foreground">
-                    {f.answer}
+                    {f.answerHtml ? <div className="bdg-rich-public" dangerouslySetInnerHTML={{ __html: f.answerHtml.replace(/<\/?script[^>]*>/gi, "").replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "") }} /> : f.answer}
                   </AccordionContent>
                 </AccordionItem>
               ))}

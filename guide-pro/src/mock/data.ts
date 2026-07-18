@@ -38,7 +38,7 @@ export type Category = {
   iconUrl?: string;
   description: string;
 };
-export type Faq = { id: string; question: string; answer: string; category?: string };
+export type Faq = { id: string; question: string; answer: string; answerHtml?: string; answerJson?: string; imageUrls?: string[]; locale?: string; category?: string };
 export type PopularHelp = {
   id: string;
   title: string;

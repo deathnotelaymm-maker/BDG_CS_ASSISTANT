@@ -292,6 +292,10 @@ function normalizeFaq(row: any): mock.Faq {
     id: String(row?.id ?? row?.question ?? Math.random()),
     question: text(row?.question, "Question"),
     answer: text(row?.answer, ""),
+    answerHtml: text(row?.answer_html, ""),
+    answerJson: text(row?.answer_json, ""),
+    imageUrls: Array.isArray(row?.image_urls) ? row.image_urls.filter(Boolean).map(String) : [],
+    locale: text(row?.locale, "en"),
     category: row?.category || row?.category_slug || undefined,
   };
 }

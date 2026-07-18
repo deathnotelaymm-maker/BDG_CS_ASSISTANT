@@ -113,6 +113,7 @@ const resourcePath: Record<string, string> = {
   "prompt-history": "/admin/ai/prompt-versions",
   "chat-quick-replies": "/admin/chat-quick-replies",
   "ai-content": "/admin/ai-content",
+  "ai-qa": "/admin/ai-qa",
   "action-buttons": "/admin/action-buttons",
   "content-versions": "/admin/content-versions",
   "chat-logs": "/admin/chat-logs",
@@ -266,6 +267,10 @@ function normalizeForCreate(resource: string, data: any) {
     return {
       question: data.question,
       answer: data.answer || data.value || "",
+      answer_html: data.answer_html || "",
+      answer_json: data.answer_json || "",
+      image_urls: Array.isArray(data.image_urls) ? data.image_urls : String(data.image_urls || "").split(/\r?\n|,/).map((x) => x.trim()).filter(Boolean),
+      locale: data.locale || "en",
       keywords: data.keywords || "",
       priority: Number(data.priority || 100),
       status: data.status || "published",
@@ -332,6 +337,16 @@ function normalizeForCreate(resource: string, data: any) {
       version_label: data.version_label || "v1",
       platform_scope: data.platform_scope || "all",
       route_policy: data.route_policy || "answer_only",
+    };
+  }
+  if (resource === "ai-qa") {
+    return {
+      ...normalizeForCreate("ai-content", data),
+      source_type: "qa",
+      qa_answer_html: data.qa_answer_html || data.answer_html || "",
+      qa_answer_json: data.qa_answer_json || data.answer_json || "",
+      qa_steps: data.qa_steps || [],
+      localized_fields: data.localized_fields || {},
     };
   }
   if (resource === "action-buttons") {
@@ -734,6 +749,16 @@ export const api = {
   getKnowledgeImport: async (id: string | number) => {
     if (MOCK_MODE) return delay({ id, preview_rows: [] });
     return request(`/admin/knowledge-imports/${id}`);
+  },
+
+  approveKnowledgeImportRow: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, row_id: id });
+    return request(`/admin/knowledge-import-rows/${id}/approve`, { method: "POST", body: JSON.stringify({}) });
+  },
+
+  requestAiQaPublish: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, id, status: "published", approval_status: "approved" });
+    return request(`/admin/ai-qa/${id}/publish`, { method: "POST", body: JSON.stringify({}) });
   },
 
   createKnowledgeImportDrafts: async (id: string | number) => {

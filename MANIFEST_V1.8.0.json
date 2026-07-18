@@ -1,0 +1,18 @@
+{
+  "version": "1.8.0-ai-qa-rich-faq-studio",
+  "release": "v1.8.0",
+  "title": "AI Q&A + Rich FAQ Studio",
+  "repository": "deathnotelaymm-maker/BDG_CS_ASSISTANT",
+  "branch": "main",
+  "auto_push": false,
+  "auto_deploy": false,
+  "migration": "backend-api/migrations/020_v1.8.0_ai_qa_rich_faq_studio.sql",
+  "installer": "INSTALL-V1.8.0-AI-QA-RICH-FAQ.cmd",
+  "checks": {
+    "backend_regression": "78/78",
+    "structured_response": "4/4",
+    "upload_regression": "4/4",
+    "v1_8_regression": "9/9",
+    "production_builds": "guide, chat, admin"
+  }
+}
