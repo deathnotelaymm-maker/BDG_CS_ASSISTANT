@@ -31,6 +31,8 @@ const migration120a2 = read("backend-api/migrations/012_v1.2.0a2_scoped_backfill
 const migration120a4 = read("backend-api/migrations/013_v1.2.0a4_safe_active_platform_bootstrap_repair.sql");
 const migration121 = read("backend-api/migrations/014_v1.2.1_platform_context_no_fallback_repair.sql");
 const migration130 = read("backend-api/migrations/015_v1.3.0_chat_start_module_experience_studio.sql");
+const migration191 = read("backend-api/migrations/022_v1.9.1_faq_sql_repair_locale_registry.sql");
+const localeStudioAdmin = read("admin-pro/src/routes/_admin.locale-studio.tsx");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
 const promptHistory = read("admin-pro/src/routes/_admin.prompt-history.tsx");
@@ -396,8 +398,8 @@ expect(
 );
 expect(
   "Health and API errors expose the same release version",
-  core.includes("1.9.0-locale-aware-knowledge-studio") &&
-    server.includes("1.9.0-locale-aware-knowledge-studio"),
+  core.includes("1.9.1-faq-sql-repair-locale-registry") &&
+    server.includes("1.9.1-faq-sql-repair-locale-registry"),
 );
 expect(
   "Operations Connector Gateway is platform-scoped and allowlisted",
@@ -412,6 +414,25 @@ expect(
     adminApi.includes("getPlatformConnector") &&
     adminApi.includes("testPlatformConnector"),
 );
+expect(
+  "v1.9.1 locale registry migration is additive and idempotent",
+  migration191.includes("CREATE TABLE IF NOT EXISTS platform_locales") &&
+    migration191.includes("CREATE UNIQUE INDEX IF NOT EXISTS") &&
+    migration191.includes("ON CONFLICT (migration_key) DO NOTHING"),
+);
+expect(
+  "FAQ writes use deterministic PostgreSQL casts and diagnostics",
+  core.includes("$1::varchar(255)") &&
+    core.includes("$10::integer") &&
+    core.includes("FAQ storage query failed"),
+);
+expect(
+  "FAQ and AI Q&A locale selectors use the platform registry",
+  core.includes("/admin/locale-registry") &&
+    adminApi.includes("getLocaleRegistry") &&
+    faqAdmin.includes("Choose a platform locale") &&
+    localeStudioAdmin.includes("Platform locale registry"),
+);
 
 for (const check of checks)
   console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
@@ -420,3 +441,4 @@ console.log(
   `\n${checks.length - failed.length}/${checks.length} regression checks passed`,
 );
 if (failed.length) process.exitCode = 1;
+

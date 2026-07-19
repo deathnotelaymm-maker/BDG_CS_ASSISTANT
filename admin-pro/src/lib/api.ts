@@ -709,6 +709,14 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, platform: { default_locale: "en", supported_languages: ["en"] }, locales: [{ code: "en", label: "English" }], coverage: [], summary: {} });
     return request(`/admin/locale-studio${locale ? `?locale=${encodeURIComponent(locale)}` : ""}`);
   },
+  getLocaleRegistry: async () => {
+    if (MOCK_MODE) return delay({ ok: true, default_locale: "en", supported_languages: ["en"], locales: [{ code: "en", label: "EN — English", native_name: "English", direction: "ltr", is_default: true }] });
+    return request("/admin/locale-registry");
+  },
+  updateLocaleRegistry: async (data: { default_locale: string; supported_languages: string[]; locales?: Array<{ code: string; label?: string }> }) => {
+    if (MOCK_MODE) return delay({ ok: true, ...data, locales: (data.locales || []).map((locale) => ({ code: locale.code, label: locale.label || locale.code })) });
+    return request("/admin/locale-registry", { method: "PUT", body: JSON.stringify(data) });
+  },
   createLocaleTranslation: async (source_id: string | number, target_locale: string) => {
     if (MOCK_MODE) return delay({ ok: true, translation_status: "draft", source_id, target_locale });
     return request("/admin/locale-studio/translations", { method: "POST", body: JSON.stringify({ source_id, target_locale }) });
@@ -851,3 +859,4 @@ export const api = {
     return { ...res, latencyMs: Date.now() - started };
   },
 };
+

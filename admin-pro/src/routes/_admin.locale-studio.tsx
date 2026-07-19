@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Card, Space, Table, Tag, message } from "antd";
+import { Alert, Button, Card, Input, Select, Space, Table, Tag, message } from "antd";
 import { GlobalOutlined, ReloadOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
 
@@ -16,14 +16,42 @@ function LocaleStudioPage() {
   const [data, setData] = useState<any>({ locales: [], coverage: [], summary: {}, platform: {} });
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState<string | null>(null);
+  const [registry, setRegistry] = useState<any>({ default_locale: "en", supported_languages: [], locales: [] });
+  const [localeText, setLocaleText] = useState("");
+  const [savingRegistry, setSavingRegistry] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    try { setData(await api.getLocaleStudio()); }
-    catch (error: any) { message.error(error?.message || "Could not load Locale Studio"); }
+    try {
+      const [studio, nextRegistry] = await Promise.all([api.getLocaleStudio(), api.getLocaleRegistry()]);
+      setData(studio);
+      setRegistry(nextRegistry || {});
+      setLocaleText((nextRegistry?.supported_languages || []).join(", "));
+    } catch (error: any) { message.error(error?.message || "Could not load Locale Studio"); }
     finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, []);
+
+  const saveRegistry = async () => {
+    const supported_languages = [...new Set(localeText.split(/[,s]+/).map((value) => value.trim().toLowerCase()).filter(Boolean))];
+    if (!supported_languages.length) { message.error("Add at least one locale code, such as en, my-MM, or zh-CN"); return; }
+    setSavingRegistry(true);
+    try {
+      const result = await api.updateLocaleRegistry({
+        default_locale: registry.default_locale || supported_languages[0],
+        supported_languages,
+        locales: supported_languages.map((code) => ({
+          code,
+          label: registry.locales?.find((locale: any) => locale.code === code)?.label || code,
+        })),
+      });
+      setRegistry(result);
+      setLocaleText((result.supported_languages || supported_languages).join(", "));
+      message.success("Platform locale registry saved");
+      await load();
+    } catch (error: any) { message.error(error?.message || "Could not save platform locales"); }
+    finally { setSavingRegistry(false); }
+  };
 
   const createDraft = async (sourceId: number, locale: string) => {
     const key = `${sourceId}:${locale}`;
@@ -61,6 +89,17 @@ function LocaleStudioPage() {
         <div><b>{data.summary?.published_items || 0}</b><div>Published Q&A</div></div>
       </div>
     </Card>
+    <Card title={<Space><GlobalOutlined />Platform locale registry</Space>} style={{ marginBottom: 12 }}>
+      <Alert showIcon type="info" message="This list controls every locale selector for this platform" description="Enter BCP-47 locale codes separated by commas or spaces. Examples: en, my-MM, zh-CN, hi-IN, ar. A locale must be enabled here before an FAQ, AI Q&A item, or knowledge import row can be saved." style={{ marginBottom: 12 }} />
+      <Space direction="vertical" style={{ width: "100%" }}>
+        <Input.TextArea value={localeText} onChange={(event) => setLocaleText(event.target.value)} rows={2} placeholder="en, my-MM, zh-CN" />
+        <Space>
+          <span>Default locale</span>
+          <Select value={registry.default_locale || undefined} onChange={(value) => setRegistry((current: any) => ({ ...current, default_locale: value }))} options={(registry.supported_languages || []).map((code: string) => ({ value: code, label: code.toUpperCase() }))} placeholder="Choose default" style={{ width: 180 }} />
+          <Button type="primary" loading={savingRegistry} onClick={() => void saveRegistry()}>Save locale policy</Button>
+        </Space>
+      </Space>
+    </Card>
     <Card title="Locale coverage" style={{ marginBottom: 12 }}>
       <Table rowKey="intent_key" loading={loading} dataSource={data.coverage || []} columns={columns as any} pagination={{ pageSize: 20 }} scroll={{ x: 900 }} />
     </Card>
@@ -69,3 +108,4 @@ function LocaleStudioPage() {
     </Card>
   </>;
 }
+

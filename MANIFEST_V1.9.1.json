@@ -1,0 +1,17 @@
+{
+  "release": "v1.9.1",
+  "version": "1.9.1-faq-sql-repair-locale-registry",
+  "repository": "deathnotelaymm-maker/BDG_CS_ASSISTANT",
+  "migration": "backend-api/migrations/022_v1.9.1_faq_sql_repair_locale_registry.sql",
+  "checks": "backend-api/scripts/regression-test.js",
+  "admin_routes": [
+    "/locale-studio",
+    "/faq"
+  ],
+  "api_routes": [
+    "/admin/locale-registry",
+    "/admin/faqs"
+  ],
+  "deployment": "Render pre-deploy migration, then existing Pages production workflow"
+}
+

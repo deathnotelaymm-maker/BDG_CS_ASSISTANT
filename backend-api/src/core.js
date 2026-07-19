@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.9.0-locale-aware-knowledge-studio';
+const VERSION = '1.9.1-faq-sql-repair-locale-registry';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -76,7 +76,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -195,6 +195,8 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/ai-content') return json(await listAiContent(env, true, scope), 200, env);
   if (method === 'GET' && path === '/admin/ai-qa') return json(await listAiQa(env, { ...scope, requested_locale: url.searchParams.get('locale') || '' }), 200, env);
   if (method === 'GET' && path === '/admin/locale-studio') return json(await listLocaleStudio(env, scope), 200, env);
+  if (method === 'GET' && path === '/admin/locale-registry') return json(await listPlatformLocales(env, scope), 200, env);
+  if (method === 'PUT' && path === '/admin/locale-registry') return json(await updatePlatformLocales(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/locale-studio/translations') return json(await createLocaleTranslation(env, await readJson(request), scope), 201, env);
   if (method === 'POST' && path === '/admin/ai-qa') return json(await createAiContent(env, { ...(await readJson(request)), source_type: 'qa' }, scope), 201, env);
   if (method === 'PUT' && /^\/admin\/ai-qa\/\d+$/.test(path)) return json(await updateAiContent(env, idFromPath(path), { ...(await readJson(request)), source_type: 'qa' }, scope), 200, env);
@@ -460,6 +462,7 @@ async function ensureBootstrap(env) {
   await ensureStrictTenantRoutingQuickReplies(env);
   await ensureAiQaRichFaqStudio(env);
   await ensureLocaleAwareKnowledgeStudio(env);
+  await ensureFaqLocaleRegistry(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -1871,6 +1874,123 @@ async function ensureLocaleAwareKnowledgeStudio(env) {
   ]) await q(env, statement);
 }
 
+/**
+ * v1.9.1 keeps platform locale configuration in a durable registry instead of
+ * making FAQ and Q&A forms guess from a hard-coded language list. The
+ * bootstrap is intentionally additive and idempotent for existing tenants.
+ */
+async function ensureFaqLocaleRegistry(env) {
+  for (const statement of [
+    `CREATE TABLE IF NOT EXISTS platform_locales (
+      id SERIAL PRIMARY KEY,
+      tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE CASCADE,
+      platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,
+      locale VARCHAR(35) NOT NULL,
+      display_name VARCHAR(120) NOT NULL,
+      native_name VARCHAR(120) DEFAULT '',
+      direction VARCHAR(3) NOT NULL DEFAULT 'ltr',
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
+      is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(tenant_id, platform_id, locale)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_platform_locales_scope_enabled ON platform_locales(tenant_id,platform_id,is_enabled,locale)`,
+    `WITH ranked AS (SELECT id,ROW_NUMBER() OVER(PARTITION BY tenant_id,platform_id ORDER BY id) AS rn FROM platform_locales WHERE is_default=TRUE) UPDATE platform_locales p SET is_default=(ranked.rn=1),updated_at=NOW() FROM ranked WHERE p.id=ranked.id`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_locales_one_default ON platform_locales(tenant_id,platform_id) WHERE is_default=TRUE`,
+    `ALTER TABLE faqs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+    `CREATE INDEX IF NOT EXISTS idx_faqs_scope_locale_status ON faqs(tenant_id,platform_id,locale,status,priority)`,
+  ]) await q(env, statement);
+
+  const platforms = (await q(env, `SELECT id,tenant_id,default_locale,supported_languages FROM saas_platforms WHERE archived_at IS NULL`)).rows;
+  for (const platform of platforms) {
+    const defaultLocale = normalizeLocale(platform.default_locale, 'en');
+    const locales = normalizeLocaleList(platform.supported_languages, [defaultLocale]);
+    if (!locales.some((code) => code.toLowerCase() === defaultLocale.toLowerCase())) locales.unshift(defaultLocale);
+    for (const locale of locales.slice(0, 32)) {
+      const direction = /^(ar|fa|he|iw|ur)(?:-|$)/i.test(locale) ? 'rtl' : 'ltr';
+      await q(env, `INSERT INTO platform_locales(tenant_id,platform_id,locale,display_name,native_name,direction,is_default,is_enabled)
+        VALUES($1::integer,$2::integer,$3::varchar(35),$4::varchar(120),$5::varchar(120),$6::varchar(3),$7::boolean,TRUE)
+        ON CONFLICT(tenant_id,platform_id,locale) DO UPDATE SET
+          display_name=EXCLUDED.display_name,
+          direction=EXCLUDED.direction,
+          is_default=EXCLUDED.is_default,
+          is_enabled=TRUE,
+          updated_at=NOW()`,
+        [platform.tenant_id, platform.id, locale, localeLabel(locale) || locale, locale, direction, locale === defaultLocale]);
+    }
+    await q(env, `UPDATE saas_platforms SET default_locale=$1::varchar(20),supported_languages=$2::text,updated_at=NOW() WHERE id=$3::integer AND tenant_id=$4::integer`,
+      [defaultLocale, JSON.stringify(locales.slice(0, 32)), platform.id, platform.tenant_id]);
+  }
+  await q(env, `INSERT INTO system_migrations(migration_key,notes)
+    VALUES('v1.9.1_faq_sql_repair_locale_registry','Deterministic FAQ SQL casts and a tenant/platform-scoped locale registry.')
+    ON CONFLICT(migration_key) DO NOTHING`);
+}
+
+async function listPlatformLocales(env, scope) {
+  if (!scope) bad('Platform context is required', 403, 'PLATFORM_CONTEXT_REQUIRED');
+  let rows = (await q(env, `SELECT id,locale,display_name,native_name,direction,is_default,is_enabled
+    FROM platform_locales WHERE tenant_id=$1::integer AND platform_id=$2::integer
+    ORDER BY is_default DESC, display_name ASC, locale ASC`, [scope.tenant_id, scope.platform_id])).rows;
+  if (!rows.length) {
+    await ensureFaqLocaleRegistry(env);
+    rows = (await q(env, `SELECT id,locale,display_name,native_name,direction,is_default,is_enabled
+      FROM platform_locales WHERE tenant_id=$1::integer AND platform_id=$2::integer
+      ORDER BY is_default DESC, display_name ASC, locale ASC`, [scope.tenant_id, scope.platform_id])).rows;
+  }
+  const policy = localePolicy(scope);
+  const enabled = rows.filter((row) => row.is_enabled !== false);
+  return {
+    ok: true,
+    default_locale: enabled.find((row) => row.is_default)?.locale || policy.default_locale,
+    supported_languages: enabled.map((row) => row.locale),
+    locales: enabled.map((row) => ({
+      id: Number(row.id), code: row.locale, label: row.display_name || localeLabel(row.locale) || row.locale,
+      native_name: row.native_name || row.locale, direction: row.direction || 'ltr', is_default: Boolean(row.is_default),
+    })),
+  };
+}
+
+async function updatePlatformLocales(env, payload = {}, scope) {
+  if (!scope) bad('Platform context is required', 403, 'PLATFORM_CONTEXT_REQUIRED');
+  const requested = Array.isArray(payload.supported_languages)
+    ? payload.supported_languages
+    : Array.isArray(payload.locales) ? payload.locales.map((entry) => typeof entry === 'string' ? entry : entry?.code) : [];
+  const supported = normalizeLocaleList(requested, []);
+  if (!supported.length) bad('Add at least one supported locale');
+  const defaultLocale = normalizeLocale(payload.default_locale || supported[0], supported[0]);
+  if (!supported.some((locale) => locale.toLowerCase() === defaultLocale.toLowerCase())) supported.unshift(defaultLocale);
+  const labels = new Map((Array.isArray(payload.locales) ? payload.locales : [])
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => [normalizeLocale(entry.code, ''), String(entry.label || entry.display_name || '').trim().slice(0, 120)]));
+  await ensureFaqLocaleRegistry(env);
+  await q(env, `UPDATE platform_locales SET is_enabled=FALSE,is_default=FALSE,updated_at=NOW()
+    WHERE tenant_id=$1::integer AND platform_id=$2::integer`, [scope.tenant_id, scope.platform_id]);
+  for (const locale of supported.slice(0, 32)) {
+    const direction = /^(ar|fa|he|iw|ur)(?:-|$)/i.test(locale) ? 'rtl' : 'ltr';
+    await q(env, `INSERT INTO platform_locales(tenant_id,platform_id,locale,display_name,native_name,direction,is_default,is_enabled)
+      VALUES($1::integer,$2::integer,$3::varchar(35),$4::varchar(120),$5::varchar(120),$6::varchar(3),$7::boolean,TRUE)
+      ON CONFLICT(tenant_id,platform_id,locale) DO UPDATE SET display_name=EXCLUDED.display_name,
+        direction=EXCLUDED.direction,is_default=EXCLUDED.is_default,is_enabled=TRUE,updated_at=NOW()`,
+      [scope.tenant_id, scope.platform_id, locale, labels.get(locale) || localeLabel(locale) || locale, locale, direction, locale === defaultLocale]);
+  }
+  await q(env, `UPDATE saas_platforms SET default_locale=$1::varchar(20),supported_languages=$2::text,updated_at=NOW()
+    WHERE id=$3::integer AND tenant_id=$4::integer`, [defaultLocale, JSON.stringify(supported.slice(0, 32)), scope.platform_id, scope.tenant_id]);
+  const updatedScope = { ...scope, default_locale: defaultLocale, supported_languages: JSON.stringify(supported.slice(0, 32)) };
+  await audit(env, 'update', 'platform_locales', scope.platform_id, `Enabled locales: ${supported.join(', ')}`, updatedScope);
+  return listPlatformLocales(env, updatedScope);
+}
+
+async function assertSupportedLocaleFromRegistry(env, scope, value, label = 'Locale') {
+  const registry = await listPlatformLocales(env, scope);
+  const locale = normalizeLocale(value, registry.default_locale);
+  if (locale === 'all') return locale;
+  if (!registry.supported_languages.some((candidate) => localeMatches(locale, candidate))) {
+    bad(`${label} "${locale}" is not enabled for this platform. Choose one of: ${registry.supported_languages.join(', ')}`, 400, 'UNSUPPORTED_LOCALE');
+  }
+  return locale;
+}
+
 function connectorUrl(value, label = 'Connector URL') {
   const text = String(value || '').trim();
   if (!text) return '';
@@ -2573,8 +2693,65 @@ async function deleteGuide(env, id, admin, scope) {
   await audit(env,'delete','guides',id,`Guide deleted: ${current.title}`,scope);
   return {ok:true,deleted:1,id};
 }
-async function createFaq(env, p, scope) { const locale = assertSupportedLocale(scope, p.locale, 'FAQ locale'); const { rows } = await q(env, 'INSERT INTO faqs(question,answer,answer_html,answer_json,image_urls,locale,keywords,priority,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *', [p.question, p.answer || stripHtml(p.answer_html || ''), p.answer_html || '', typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {}), Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || ''), locale, p.keywords || '', p.priority ?? 100, p.status || 'published',scope.tenant_id,scope.platform_id]); await audit(env,'create','faqs',rows[0].id,'FAQ created',scope); return faqOut(rows[0]); }
-async function updateFaq(env, id, p, scope) { const locale = assertSupportedLocale(scope, p.locale, 'FAQ locale'); const { rows } = await q(env, 'UPDATE faqs SET question=$1, answer=$2, answer_html=$3, answer_json=$4, image_urls=$5, locale=$6, keywords=$7, priority=$8, status=$9, updated_at=NOW() WHERE id=$10 AND tenant_id=$11 AND platform_id=$12 RETURNING *', [p.question, p.answer || stripHtml(p.answer_html || ''), p.answer_html || '', typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {}), Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || ''), locale, p.keywords || '', p.priority ?? 100, p.status || 'published', id,scope.tenant_id,scope.platform_id]); if (!rows[0]) bad('FAQ not found', 404); await audit(env,'update','faqs',id,'FAQ updated',scope); return faqOut(rows[0]); }
+async function createFaq(env, p = {}, scope) {
+  const question = String(p.question || '').trim();
+  if (!question) bad('FAQ question is required');
+  const answerHtml = String(p.answer_html || '');
+  const answer = String(p.answer || stripHtml(answerHtml)).trim();
+  if (!answer) bad('FAQ answer is required');
+  const locale = await assertSupportedLocaleFromRegistry(env, scope, p.locale, 'FAQ locale');
+  const answerJson = typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {});
+  const imageUrls = Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || '');
+  const priority = Number.isFinite(Number(p.priority)) ? Math.trunc(Number(p.priority)) : 100;
+  const status = String(p.status || 'published').trim().slice(0, 30) || 'published';
+  try {
+    const { rows } = await q(env, `INSERT INTO faqs(
+      question,answer,answer_html,answer_json,image_urls,locale,keywords,priority,status,tenant_id,platform_id
+      ) VALUES($1::varchar(255),$2::text,$3::text,$4::text,$5::text,$6::varchar(35),$7::text,$8::integer,$9::varchar(30),$10::integer,$11::integer)
+      RETURNING *`, [
+      question, answer, answerHtml, answerJson, imageUrls, locale, String(p.keywords || ''), priority, status,
+      scope.tenant_id, scope.platform_id,
+    ]);
+    await audit(env, 'create', 'faqs', rows[0].id, 'FAQ created', scope);
+    return faqOut(rows[0]);
+  } catch (error) {
+    if (error?.code === '42601') {
+      error.message = 'FAQ storage query failed. Apply v1.9.1 migration and retry.';
+      error.publicMessage = error.message;
+      error.code = 'FAQ_SQL_ERROR';
+    }
+    throw error;
+  }
+}
+async function updateFaq(env, id, p = {}, scope) {
+  const question = String(p.question || '').trim();
+  if (!question) bad('FAQ question is required');
+  const answerHtml = String(p.answer_html || '');
+  const answer = String(p.answer || stripHtml(answerHtml)).trim();
+  if (!answer) bad('FAQ answer is required');
+  const locale = await assertSupportedLocaleFromRegistry(env, scope, p.locale, 'FAQ locale');
+  const answerJson = typeof p.answer_json === 'string' ? p.answer_json : JSON.stringify(p.answer_json || {});
+  const imageUrls = Array.isArray(p.image_urls) ? joinUrls(p.image_urls) : String(p.image_urls || '');
+  const priority = Number.isFinite(Number(p.priority)) ? Math.trunc(Number(p.priority)) : 100;
+  const status = String(p.status || 'published').trim().slice(0, 30) || 'published';
+  try {
+    const { rows } = await q(env, `UPDATE faqs SET
+      question=$1::varchar(255),answer=$2::text,answer_html=$3::text,answer_json=$4::text,image_urls=$5::text,
+      locale=$6::varchar(35),keywords=$7::text,priority=$8::integer,status=$9::varchar(30),updated_at=NOW()
+      WHERE id=$10::integer AND tenant_id=$11::integer AND platform_id=$12::integer RETURNING *`,
+      [question, answer, answerHtml, answerJson, imageUrls, locale, String(p.keywords || ''), priority, status, id, scope.tenant_id, scope.platform_id]);
+    if (!rows[0]) bad('FAQ not found', 404);
+    await audit(env, 'update', 'faqs', id, 'FAQ updated', scope);
+    return faqOut(rows[0]);
+  } catch (error) {
+    if (error?.code === '42601') {
+      error.message = 'FAQ storage query failed. Apply v1.9.1 migration and retry.';
+      error.publicMessage = error.message;
+      error.code = 'FAQ_SQL_ERROR';
+    }
+    throw error;
+  }
+}
 async function createKnowledge(env, p, scope) { const { rows } = await q(env, 'INSERT INTO knowledge_items(title,content,keywords,priority,status,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *', [p.title, p.content, p.keywords || '', p.priority ?? 100, p.status || 'active',scope.tenant_id,scope.platform_id]); await audit(env,'create','knowledge_items',rows[0].id,'Knowledge created',scope); return knowledgeOut(rows[0]); }
 async function updateKnowledge(env, id, p, scope) { const { rows } = await q(env, 'UPDATE knowledge_items SET title=$1, content=$2, keywords=$3, priority=$4, status=$5 WHERE id=$6 AND tenant_id=$7 AND platform_id=$8 RETURNING *', [p.title, p.content, p.keywords || '', p.priority ?? 100, p.status || 'active', id,scope.tenant_id,scope.platform_id]); if (!rows[0]) bad('Knowledge item not found', 404); await audit(env,'update','knowledge_items',id,'Knowledge updated',scope); return knowledgeOut(rows[0]); }
 async function snapshotPrompt(env, row, note='updated') { if (!row) return; await q(env, `INSERT INTO ai_prompt_versions(prompt_id,section_key,title,content,enabled,priority,change_note,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [row.id,row.section_key,row.title,row.content||'',!!row.enabled,row.priority??100,note,row.tenant_id,row.platform_id]); }
@@ -3570,3 +3747,4 @@ export async function readiness(env) {
   if (!migrated) throw new Error('Database migrations have not been applied');
   return { ok: true, service: appName(env), version: VERSION, database: 'ok', database_provider: String(env.DATABASE_PROVIDER || 'neon').toLowerCase(), connection_mode: env.DATABASE_CONNECTION_MODE || 'pooled-runtime', migration_table: 'ok', latency_ms: Date.now() - started };
 }
+

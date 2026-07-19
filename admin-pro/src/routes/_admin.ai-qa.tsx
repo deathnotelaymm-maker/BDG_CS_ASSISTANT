@@ -22,13 +22,13 @@ function AiQaPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [qaRows, localeStudio] = await Promise.all([
+      const [qaRows, registry] = await Promise.all([
         api.list("ai-qa"),
-        api.getLocaleStudio().catch(() => null),
+        api.getLocaleRegistry().catch(() => null),
       ]);
       setRows(qaRows as any[]);
-      if (Array.isArray(localeStudio?.locales) && localeStudio.locales.length) {
-        setLocaleOptions(localeStudio.locales.map((locale: any) => ({ value: locale.code, label: `${String(locale.code).toUpperCase()} — ${locale.label || locale.code}` })));
+      if (Array.isArray(registry?.locales) && registry.locales.length) {
+        setLocaleOptions(registry.locales.map((locale: any) => ({ value: locale.code, label: `${String(locale.code).toUpperCase()} — ${locale.label || locale.code}` })));
       }
     }
     catch (error: any) { message.error(error?.message || "Could not load AI Q&A"); }
@@ -91,3 +91,4 @@ function AiQaPage() {
     </Drawer>
   </>;
 }
+
