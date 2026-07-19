@@ -32,6 +32,7 @@ const migration120a4 = read("backend-api/migrations/013_v1.2.0a4_safe_active_pla
 const migration121 = read("backend-api/migrations/014_v1.2.1_platform_context_no_fallback_repair.sql");
 const migration130 = read("backend-api/migrations/015_v1.3.0_chat_start_module_experience_studio.sql");
 const migration191 = read("backend-api/migrations/022_v1.9.1_faq_sql_repair_locale_registry.sql");
+const migration192 = read("backend-api/migrations/023_v1.9.2_guide_locale_studio_dynamic_translation_variants.sql");
 const localeStudioAdmin = read("admin-pro/src/routes/_admin.locale-studio.tsx");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
@@ -398,8 +399,8 @@ expect(
 );
 expect(
   "Health and API errors expose the same release version",
-  core.includes("1.9.1-faq-sql-repair-locale-registry") &&
-    server.includes("1.9.1-faq-sql-repair-locale-registry"),
+  core.includes("1.9.2-guide-locale-studio-dynamic-translation-variants") &&
+    server.includes("1.9.2-guide-locale-studio-dynamic-translation-variants"),
 );
 expect(
   "Operations Connector Gateway is platform-scoped and allowlisted",
@@ -433,6 +434,35 @@ expect(
     faqAdmin.includes("Choose a platform locale") &&
     localeStudioAdmin.includes("Platform locale registry"),
 );
+expect(
+  "Guide locale studio uses dynamic platform locales",
+  guideStudio.includes("Guide Locale Studio") &&
+    guideStudio.includes("platform's Locale Studio") &&
+    guideStudio.includes("Save locale") &&
+    guideStudio.includes("Publish locale") &&
+    !guideStudio.includes("Hindi / Indian Visual Guide") &&
+    !guideStudio.includes("Copy EN to Hindi"),
+);
+expect(
+  "Guide translation storage is additive and idempotent",
+  migration192.includes("CREATE TABLE IF NOT EXISTS guide_translations") &&
+    migration192.includes("UNIQUE(platform_id, guide_id, locale)") &&
+    migration192.includes("ON CONFLICT (migration_key) DO NOTHING") &&
+    core.includes("v1.9.2_guide_locale_studio_dynamic_translation_variants"),
+);
+expect(
+  "Guide translations publish only inside the active platform scope",
+  core.includes("/admin/guide-locale-studio") &&
+    core.includes("upsertGuideTranslation(env") &&
+    core.includes("batchPublishGuideTranslations(env") &&
+    core.includes("tenant_id=$2::integer AND platform_id=$3::integer"),
+);
+expect(
+  "Public Guide has no cross-platform translation fallback",
+  core.includes("GUIDE_TRANSLATION_UNAVAILABLE") &&
+    core.includes("listGuides(env, params") &&
+    core.includes("if (error?.code !== 'GUIDE_TRANSLATION_UNAVAILABLE')"),
+);
 
 for (const check of checks)
   console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
@@ -441,4 +471,3 @@ console.log(
   `\n${checks.length - failed.length}/${checks.length} regression checks passed`,
 );
 if (failed.length) process.exitCode = 1;
-

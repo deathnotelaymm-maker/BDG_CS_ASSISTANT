@@ -506,6 +506,31 @@ export const api = {
     });
   },
 
+  getGuideLocaleStudio: async () => {
+    if (MOCK_MODE) return delay({ ok: true, locales: [{ code: "en", label: "English", is_default: true }], guides: [] });
+    return request("/admin/guide-locale-studio");
+  },
+  listGuideTranslations: async (guideId: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, translations: [] });
+    return request(`/admin/guides/${guideId}/translations`);
+  },
+  saveGuideTranslation: async (guideId: string | number, data: any) => {
+    if (MOCK_MODE) return delay({ ok: true, translation: { ...data, id: Date.now(), guide_id: guideId } });
+    return request(`/admin/guides/${guideId}/translations`, { method: "POST", body: JSON.stringify(data) });
+  },
+  updateGuideTranslation: async (id: string | number, data: any) => {
+    if (MOCK_MODE) return delay({ ok: true, translation: { ...data, id } });
+    return request(`/admin/guide-translations/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  },
+  publishGuideTranslation: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, translation: { id, status: "published" } });
+    return request(`/admin/guide-translations/${id}/publish`, { method: "POST", body: JSON.stringify({}) });
+  },
+  batchPublishGuideTranslations: async (ids: Array<string | number>) => {
+    if (MOCK_MODE) return delay({ ok: true, published: ids.length });
+    return request("/admin/guide-translations/batch-publish", { method: "POST", body: JSON.stringify({ ids }) });
+  },
+
   remove: async (resource: string, id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true });
     if (
@@ -859,4 +884,3 @@ export const api = {
     return { ...res, latencyMs: Date.now() - started };
   },
 };
-

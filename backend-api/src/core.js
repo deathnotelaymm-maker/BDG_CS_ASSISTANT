@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.9.1-faq-sql-repair-locale-registry';
+const VERSION = '1.9.2-guide-locale-studio-dynamic-translation-variants';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -76,7 +76,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -197,6 +197,12 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/locale-studio') return json(await listLocaleStudio(env, scope), 200, env);
   if (method === 'GET' && path === '/admin/locale-registry') return json(await listPlatformLocales(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/locale-registry') return json(await updatePlatformLocales(env, await readJson(request), scope), 200, env);
+  if (method === 'GET' && path === '/admin/guide-locale-studio') return json(await listGuideLocaleStudio(env, scope), 200, env);
+  if (method === 'GET' && /^\/admin\/guides\/\d+\/translations$/.test(path)) return json(await listGuideTranslations(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/guides\/\d+\/translations$/.test(path)) return json(await upsertGuideTranslation(env, idFromParts(path, 3), await readJson(request), scope), 200, env);
+  if (method === 'PUT' && /^\/admin\/guide-translations\/\d+$/.test(path)) return json(await updateGuideTranslation(env, idFromPath(path), await readJson(request), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/guide-translations\/\d+\/publish$/.test(path)) return json(await publishGuideTranslation(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'POST' && path === '/admin/guide-translations/batch-publish') return json(await batchPublishGuideTranslations(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/locale-studio/translations') return json(await createLocaleTranslation(env, await readJson(request), scope), 201, env);
   if (method === 'POST' && path === '/admin/ai-qa') return json(await createAiContent(env, { ...(await readJson(request)), source_type: 'qa' }, scope), 201, env);
   if (method === 'PUT' && /^\/admin\/ai-qa\/\d+$/.test(path)) return json(await updateAiContent(env, idFromPath(path), { ...(await readJson(request)), source_type: 'qa' }, scope), 200, env);
@@ -463,6 +469,7 @@ async function ensureBootstrap(env) {
   await ensureAiQaRichFaqStudio(env);
   await ensureLocaleAwareKnowledgeStudio(env);
   await ensureFaqLocaleRegistry(env);
+  await ensureGuideLocaleStudio(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -1031,9 +1038,62 @@ async function updateTheme(env, p = {}, scope = null) {
   return getTheme(env, scope);
 }
 async function listCategories(env, scope = null) { const { rows } = await q(env, scope ? 'SELECT * FROM categories WHERE tenant_id=$1 AND platform_id=$2 AND deleted_at IS NULL ORDER BY sort_order ASC, name ASC' : 'SELECT * FROM categories ORDER BY sort_order ASC, name ASC', scope ? [scope.tenant_id, scope.platform_id] : []); return rows.map(categoryOut); }
-async function listGuides(env, params = new URLSearchParams()) { const scope = await resolvePublicPlatformScope(env, params.get?.('platform') || 'default'); let sql = `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE g.status='published' AND g.tenant_id=$1 AND g.platform_id=$2`; const vals = [scope.tenant_id, scope.platform_id]; const category = params.get?.('category'); const lang = params.get?.('language') || params.get?.('lang') || 'en'; if (category) { vals.push(category); sql += ` AND c.slug=$${vals.length}`; } sql += ' ORDER BY g.priority ASC, g.updated_at DESC, g.id DESC'; const { rows } = await q(env, sql, vals); let guides = rows; const query = params.get?.('q'); if (query) guides = guides.map(g => [scoreMatch(query, [g.title, g.title_hi || '', g.summary || '', g.summary_hi || '', g.body, g.body_hi || ''], g.keywords), g]).filter(x => x[0] > 0).sort((a,b) => b[0]-a[0] || (a[1].priority||100)-(b[1].priority||100)).map(x => x[1]); return guides.map(g => guideOut(g, lang)); }
-async function listAdminGuides(env, scope) { const { rows } = await q(env, `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE g.tenant_id=$1 AND g.platform_id=$2 ORDER BY g.priority ASC, g.updated_at DESC, g.id DESC`, [scope.tenant_id, scope.platform_id]); return rows.map(g => guideOut(g, 'en')); }
-async function getGuide(env, slug, lang='en', platformKey='default') { const scope = await resolvePublicPlatformScope(env, platformKey); const { rows } = await q(env, `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE (g.slug=$1 OR CAST(g.id AS TEXT)=$1) AND g.status='published' AND g.tenant_id=$2 AND g.platform_id=$3 LIMIT 1`, [slug, scope.tenant_id, scope.platform_id]); if (!rows[0]) bad('Guide not found', 404); const guide = guideOut(rows[0], lang); guide.action_buttons = await buttonsForIds(env, guide.button_ids, lang, platformKey, scope); return guide; }
+async function applyGuideLocale(env, row, scope, requestedLocale, { requirePublished = true } = {}) {
+  const registry = await listPlatformLocales(env, scope);
+  const locale = await assertSupportedLocaleFromRegistry(env, scope, requestedLocale || registry.default_locale, 'Guide locale');
+  const defaultLocale = normalizeLocale(registry.default_locale, 'en');
+  if (locale === 'all' || localeMatches(locale, defaultLocale)) {
+    const output = guideOut(row, locale);
+    output.locale = defaultLocale;
+    output.translation_id = null;
+    output.translation_status = row.status || 'published';
+    output.available_locales = registry.supported_languages;
+    return output;
+  }
+  const translation = (await q(env, `SELECT * FROM guide_translations WHERE guide_id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer AND (LOWER(locale)=LOWER($4) OR LOWER(split_part(locale,'-',1))=LOWER(split_part($4,'-',1))) ${requirePublished ? "AND status='published'" : ''} ORDER BY (LOWER(locale)=LOWER($4)) DESC,id DESC LIMIT 1`, [row.id,scope.tenant_id,scope.platform_id,locale])).rows[0];
+  if (!translation) bad(`Guide translation is not published for locale "${locale}"`, 404, 'GUIDE_TRANSLATION_UNAVAILABLE');
+  const merged = { ...row, title:translation.title, summary:translation.summary, body:translation.body, body_html:translation.rich_html, body_blocks_json:translation.rich_json, image_urls:translation.image_urls, cover_image_url:translation.cover_image_url, keywords:translation.keywords, language:translation.locale };
+  const output = guideOut(merged, translation.locale);
+  output.locale = translation.locale;
+  output.translation_id = Number(translation.id);
+  output.translation_status = translation.status || 'draft';
+  output.translation = guideTranslationOut(translation);
+  output.available_locales = registry.supported_languages;
+  return output;
+}
+async function listGuides(env, params = new URLSearchParams()) {
+  const scope = await resolvePublicPlatformScope(env, params.get?.('platform') || 'default');
+  const lang = params.get?.('language') || params.get?.('lang') || scope.default_locale || 'en';
+  let sql = `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE g.status='published' AND g.tenant_id=$1 AND g.platform_id=$2`;
+  const vals = [scope.tenant_id, scope.platform_id]; const category = params.get?.('category');
+  if (category) { vals.push(category); sql += ` AND c.slug=$${vals.length}`; }
+  sql += ' ORDER BY g.priority ASC, g.updated_at DESC, g.id DESC';
+  const rows = (await q(env, sql, vals)).rows;
+  const translated = [];
+  for (const row of rows) {
+    try { translated.push(await applyGuideLocale(env, row, scope, lang)); } catch (error) { if (error?.code !== 'GUIDE_TRANSLATION_UNAVAILABLE') throw error; }
+  }
+  const query = params.get?.('q');
+  if (!query) return translated;
+  return translated.map((g) => [scoreMatch(query, [g.title,g.summary,g.body,g.keywords], g.keywords),g]).filter((x) => x[0] > 0).sort((a,b) => b[0]-a[0] || (a[1].priority||100)-(b[1].priority||100)).map((x) => x[1]);
+}
+async function listAdminGuides(env, scope) {
+  const { rows } = await q(env, `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE g.tenant_id=$1 AND g.platform_id=$2 ORDER BY g.priority ASC, g.updated_at DESC, g.id DESC`, [scope.tenant_id, scope.platform_id]);
+  const registry = await listPlatformLocales(env, scope);
+  return Promise.all(rows.map(async (g) => {
+    const result = await listGuideTranslations(env, g.id, scope);
+    const localeCoverage = Object.fromEntries((result.translations || []).map((translation) => [translation.locale, translation.status]));
+    return { ...guideOut(g, registry.default_locale), locale_coverage: localeCoverage, supported_locales: registry.supported_languages };
+  }));
+}
+async function getGuide(env, slug, lang='en', platformKey='default') {
+  const scope = await resolvePublicPlatformScope(env, platformKey);
+  const { rows } = await q(env, `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE (g.slug=$1 OR CAST(g.id AS TEXT)=$1) AND g.status='published' AND g.tenant_id=$2 AND g.platform_id=$3 LIMIT 1`, [slug, scope.tenant_id, scope.platform_id]);
+  if (!rows[0]) bad('Guide not found', 404);
+  const guide = await applyGuideLocale(env, rows[0], scope, lang);
+  guide.action_buttons = await buttonsForIds(env, guide.button_ids, lang, platformKey, scope);
+  return guide;
+}
 async function listFaqs(env, admin = false, scope = null, language = 'en') { const vals = scope ? [scope.tenant_id, scope.platform_id] : []; const locale = String(language || 'en').toLowerCase().slice(0, 20); let base = scope ? `WHERE tenant_id=$1 AND platform_id=$2${admin ? '' : " AND status='published'"}` : (admin ? '' : "WHERE status='published'"); if (!admin && scope) { vals.push(locale); base += ` AND (LOWER(locale)=LOWER($${vals.length}) OR LOWER(locale)=LOWER(split_part($${vals.length},'-',1)) OR locale='all' OR locale='' OR locale IS NULL)`; } const { rows } = await q(env, `SELECT * FROM faqs ${base} ORDER BY priority ASC, id DESC`, vals); return rows.map(faqOut); }
 async function listKnowledge(env, scope) { const { rows } = await q(env, 'SELECT * FROM knowledge_items WHERE tenant_id=$1 AND platform_id=$2 ORDER BY priority ASC, id DESC', [scope.tenant_id, scope.platform_id]); return rows.map(knowledgeOut); }
 async function listPrompts(env, scope) { const { rows } = await q(env, 'SELECT * FROM ai_prompt_sections WHERE tenant_id=$1 AND platform_id=$2 ORDER BY priority ASC, id ASC', [scope.tenant_id, scope.platform_id]); return rows.map(promptOut); }
@@ -1368,7 +1428,10 @@ function normalizeLocale(value, fallback = 'en') {
   // pt-BR). The previous en/hi/all allow-list silently changed other
   // platforms back to English, which made imported knowledge appear under
   // the wrong language.
-  return /^[a-z]{2,3}(?:-[a-z0-9]{2,8})?$/.test(locale) ? locale : fallback;
+  // Accept language, script, region, and a small number of valid extension
+  // subtags (for example `id`, `zh-Hans-CN`, or `sr-Latn`). The registry is
+  // still capped at 32 entries per platform, so this cannot grow unbounded.
+  return /^[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,3}$/.test(locale) ? locale : fallback;
 }
 function normalizeLocaleList(value, fallback = []) {
   let values;
@@ -1925,6 +1988,163 @@ async function ensureFaqLocaleRegistry(env) {
   await q(env, `INSERT INTO system_migrations(migration_key,notes)
     VALUES('v1.9.1_faq_sql_repair_locale_registry','Deterministic FAQ SQL casts and a tenant/platform-scoped locale registry.')
     ON CONFLICT(migration_key) DO NOTHING`);
+}
+
+/**
+ * Guide translations are separate rows rather than fixed en/hi columns. This
+ * lets each platform publish any BCP-47 locale without changing the guide
+ * schema, while keeping the legacy English fields intact for old links.
+ */
+async function ensureGuideLocaleStudio(env) {
+  for (const statement of [
+    `CREATE TABLE IF NOT EXISTS guide_translations (
+      id SERIAL PRIMARY KEY,
+      tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE CASCADE,
+      platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,
+      guide_id INTEGER NOT NULL REFERENCES guides(id) ON DELETE CASCADE,
+      locale VARCHAR(35) NOT NULL,
+      title VARCHAR(180) NOT NULL,
+      summary TEXT DEFAULT '',
+      body TEXT NOT NULL DEFAULT '',
+      rich_json TEXT DEFAULT '',
+      rich_html TEXT DEFAULT '',
+      image_urls TEXT DEFAULT '',
+      cover_image_url TEXT DEFAULT '',
+      keywords TEXT DEFAULT '',
+      seo_title VARCHAR(180) DEFAULT '',
+      seo_description VARCHAR(255) DEFAULT '',
+      alt_text TEXT DEFAULT '',
+      status VARCHAR(30) DEFAULT 'draft',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(platform_id, guide_id, locale)
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_guide_translations_scope_locale ON guide_translations(tenant_id,platform_id,locale,status,guide_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_guide_translations_guide ON guide_translations(guide_id,locale,status)`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.9.2_guide_locale_studio_dynamic_translation_variants','Guide-only locale registry, per-platform translation rows, exact-locale publishing, and batch publication.') ON CONFLICT(migration_key) DO NOTHING`,
+  ]) await q(env, statement);
+
+  // Seed only the platform's default locale. The old Hindi columns are left
+  // untouched; if they contain content, it is copied as an ordinary `hi`
+  // variant only when that locale is enabled in the platform registry.
+  const platforms = (await q(env, `SELECT id,tenant_id,default_locale,supported_languages FROM saas_platforms WHERE archived_at IS NULL AND status='active'`)).rows;
+  for (const platform of platforms) {
+    const defaultLocale = normalizeLocale(platform.default_locale, 'en');
+    const enabled = normalizeLocaleList(platform.supported_languages, [defaultLocale]);
+    const guides = (await q(env, `SELECT * FROM guides WHERE tenant_id=$1::integer AND platform_id=$2::integer AND deleted_at IS NULL`, [platform.tenant_id, platform.id])).rows;
+    for (const guide of guides) {
+      await q(env, `INSERT INTO guide_translations(tenant_id,platform_id,guide_id,locale,title,summary,body,rich_json,rich_html,image_urls,cover_image_url,keywords,status)
+        VALUES($1::integer,$2::integer,$3::integer,$4::varchar(35),$5::varchar(180),$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::text,$13::varchar(30))
+        ON CONFLICT(platform_id,guide_id,locale) DO NOTHING`,
+        [platform.tenant_id, platform.id, guide.id, defaultLocale, guide.title || 'Untitled guide', guide.summary || '', guide.body || '', guide.body_blocks_json || '', guide.body_html || '', guide.image_urls || '', guide.cover_image_url || '', guide.keywords || '', guide.status === 'published' ? 'published' : 'draft']);
+      if (enabled.some((locale) => localeMatches(locale, 'hi')) && (guide.title_hi || guide.body_hi || guide.body_blocks_json_hi || guide.body_html_hi)) {
+        await q(env, `INSERT INTO guide_translations(tenant_id,platform_id,guide_id,locale,title,summary,body,rich_json,rich_html,image_urls,cover_image_url,keywords,status)
+          VALUES($1::integer,$2::integer,$3::integer,'hi',$4::varchar(180),$5::text,$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::varchar(30))
+          ON CONFLICT(platform_id,guide_id,locale) DO NOTHING`,
+          [platform.tenant_id, platform.id, guide.id, guide.title_hi || guide.title || 'Untitled guide', guide.summary_hi || '', guide.body_hi || '', guide.body_blocks_json_hi || '', guide.body_html_hi || '', guide.image_urls_hi || '', guide.cover_image_url_hi || '', guide.keywords || '', guide.status === 'published' ? 'published' : 'draft']);
+      }
+    }
+  }
+}
+
+function guideTranslationOut(row) {
+  return {
+    id: Number(row.id), guide_id: Number(row.guide_id), locale: row.locale,
+    title: row.title || '', summary: row.summary || '', body: row.body || '',
+    rich_json: row.rich_json || '', rich_html: row.rich_html || '',
+    image_urls: splitUrls(row.image_urls), cover_image_url: row.cover_image_url || '',
+    keywords: row.keywords || '', seo_title: row.seo_title || '',
+    seo_description: row.seo_description || '', alt_text: row.alt_text || '',
+    status: row.status || 'draft', updated_at: row.updated_at ? String(row.updated_at) : '',
+    created_at: row.created_at ? String(row.created_at) : '',
+  };
+}
+
+async function guideRowForScope(env, guideId, scope) {
+  const row = (await q(env, `SELECT g.*,c.name AS category_name,c.icon AS category_icon,c.slug AS category_slug
+    FROM guides g LEFT JOIN categories c ON c.id=g.category_id
+    WHERE g.id=$1::integer AND g.tenant_id=$2::integer AND g.platform_id=$3::integer LIMIT 1`, [guideId, scope.tenant_id, scope.platform_id])).rows[0];
+  if (!row) bad('Guide not found', 404);
+  return row;
+}
+
+async function listGuideTranslations(env, guideId, scope) {
+  await guideRowForScope(env, guideId, scope);
+  const rows = (await q(env, `SELECT * FROM guide_translations WHERE guide_id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer ORDER BY locale ASC`, [guideId, scope.tenant_id, scope.platform_id])).rows;
+  const registry = await listPlatformLocales(env, scope);
+  return { ok:true, version:VERSION, guide_id:guideId, default_locale:registry.default_locale, locales:registry.locales, translations:rows.map(guideTranslationOut) };
+}
+
+function normalizeGuideTranslationPayload(p = {}, localeFallback = 'en') {
+  const blocks = Array.isArray(p.blocks) ? p.blocks : parseBlocks(p.rich_json || p.body_blocks_json || '');
+  const html = String(p.rich_html || p.body_html || '').slice(0, 200000);
+  return {
+    locale: normalizeLocale(p.locale || p.language, localeFallback),
+    title: String(p.title || '').trim().slice(0, 180),
+    summary: String(p.summary || '').trim().slice(0, 2000),
+    body: String(p.body || blocksToText(blocks) || stripHtml(html)).trim().slice(0, 200000),
+    rich_json: blocks.length ? JSON.stringify(blocks) : String(p.rich_json || p.body_blocks_json || ''),
+    rich_html: html,
+    image_urls: joinUrls(Array.isArray(p.image_urls) ? p.image_urls : splitUrls(p.image_urls || p.images || '')),
+    cover_image_url: String(p.cover_image_url || p.cover || '').trim().slice(0, 2000),
+    keywords: Array.isArray(p.keywords) ? p.keywords.join(', ') : String(p.keywords || '').slice(0, 2000),
+    seo_title: String(p.seo_title || '').trim().slice(0, 180),
+    seo_description: String(p.seo_description || '').trim().slice(0, 255),
+    alt_text: String(p.alt_text || '').trim().slice(0, 2000),
+    status: ['draft','published','archived'].includes(String(p.status || '').toLowerCase()) ? String(p.status).toLowerCase() : 'draft',
+  };
+}
+
+async function upsertGuideTranslation(env, guideId, p, scope) {
+  const guide = await guideRowForScope(env, guideId, scope);
+  const registry = await listPlatformLocales(env, scope);
+  const data = normalizeGuideTranslationPayload(p, registry.default_locale);
+  data.locale = await assertSupportedLocaleFromRegistry(env, scope, data.locale, 'Guide locale');
+  if (data.locale === 'all') bad('Guide translation must use a specific locale');
+  if (!data.title) bad('Guide translation title is required');
+  const { rows } = await q(env, `INSERT INTO guide_translations(tenant_id,platform_id,guide_id,locale,title,summary,body,rich_json,rich_html,image_urls,cover_image_url,keywords,seo_title,seo_description,alt_text,status)
+    VALUES($1::integer,$2::integer,$3::integer,$4::varchar(35),$5::varchar(180),$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::text,$13::varchar(180),$14::varchar(255),$15::text,$16::varchar(30))
+    ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,seo_title=EXCLUDED.seo_title,seo_description=EXCLUDED.seo_description,alt_text=EXCLUDED.alt_text,status=EXCLUDED.status,updated_at=NOW()
+    RETURNING *`, [scope.tenant_id,scope.platform_id,guide.id,data.locale,data.title,data.summary,data.body,data.rich_json,data.rich_html,data.image_urls,data.cover_image_url,data.keywords,data.seo_title,data.seo_description,data.alt_text,data.status]);
+  await audit(env,'update','guide_translations',rows[0].id,`Guide ${guideId} ${data.locale} translation saved`,scope);
+  return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]) };
+}
+
+async function updateGuideTranslation(env, id, p, scope) {
+  const current = (await q(env, `SELECT * FROM guide_translations WHERE id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer LIMIT 1`, [id,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!current) bad('Guide translation not found',404);
+  const data = normalizeGuideTranslationPayload({ ...current, ...p }, current.locale);
+  data.locale = await assertSupportedLocaleFromRegistry(env, scope, data.locale, 'Guide locale');
+  if (!data.title) bad('Guide translation title is required');
+  const { rows } = await q(env, `UPDATE guide_translations SET locale=$1::varchar(35),title=$2::varchar(180),summary=$3::text,body=$4::text,rich_json=$5::text,rich_html=$6::text,image_urls=$7::text,cover_image_url=$8::text,keywords=$9::text,seo_title=$10::varchar(180),seo_description=$11::varchar(255),alt_text=$12::text,status=$13::varchar(30),updated_at=NOW() WHERE id=$14::integer AND tenant_id=$15::integer AND platform_id=$16::integer RETURNING *`, [data.locale,data.title,data.summary,data.body,data.rich_json,data.rich_html,data.image_urls,data.cover_image_url,data.keywords,data.seo_title,data.seo_description,data.alt_text,data.status,id,scope.tenant_id,scope.platform_id]);
+  await audit(env,'update','guide_translations',id,`Guide translation ${data.locale} updated`,scope);
+  return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]) };
+}
+
+async function publishGuideTranslation(env, id, scope) {
+  const { rows } = await q(env, `UPDATE guide_translations SET status='published',updated_at=NOW() WHERE id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer RETURNING *`, [id,scope.tenant_id,scope.platform_id]);
+  if (!rows[0]) bad('Guide translation not found',404);
+  await audit(env,'publish','guide_translations',id,`Guide translation ${rows[0].locale} published`,scope);
+  return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]) };
+}
+
+async function batchPublishGuideTranslations(env, payload = {}, scope) {
+  const ids = (Array.isArray(payload.ids) ? payload.ids : []).map(Number).filter((id) => Number.isInteger(id) && id > 0);
+  if (!ids.length) return { ok:true, version:VERSION, published:0 };
+  const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+  const result = await q(env, `UPDATE guide_translations SET status='published',updated_at=NOW() WHERE id IN (${placeholders}) AND tenant_id=$${ids.length + 1}::integer AND platform_id=$${ids.length + 2}::integer`, [...ids,scope.tenant_id,scope.platform_id]);
+  await audit(env,'publish','guide_translations',ids.join(','),`Batch published ${result.rowCount || 0} guide translations`,scope);
+  return { ok:true, version:VERSION, published:result.rowCount || 0 };
+}
+
+async function listGuideLocaleStudio(env, scope) {
+  const registry = await listPlatformLocales(env, scope);
+  const rows = (await q(env, `SELECT g.id,g.title,g.slug,g.status,g.priority,COUNT(gt.id)::int AS variant_count,
+    COUNT(gt.id) FILTER (WHERE gt.status='published')::int AS published_variant_count,
+    COALESCE(json_agg(json_build_object('id',gt.id,'locale',gt.locale,'status',gt.status) ORDER BY gt.locale) FILTER (WHERE gt.id IS NOT NULL),'[]'::json) AS variants
+    FROM guides g LEFT JOIN guide_translations gt ON gt.guide_id=g.id AND gt.tenant_id=g.tenant_id AND gt.platform_id=g.platform_id
+    WHERE g.tenant_id=$1::integer AND g.platform_id=$2::integer GROUP BY g.id ORDER BY g.priority ASC,g.updated_at DESC,g.id DESC`, [scope.tenant_id,scope.platform_id])).rows;
+  return { ok:true, version:VERSION, platform:{ id:scope.platform_id,name:scope.platform_name,default_locale:registry.default_locale,supported_languages:registry.supported_languages }, locales:registry.locales, guides:rows.map((row) => ({ ...row, id:Number(row.id), variant_count:Number(row.variant_count || 0), published_variant_count:Number(row.published_variant_count || 0), variants:Array.isArray(row.variants) ? row.variants : [] })) };
 }
 
 async function listPlatformLocales(env, scope) {
@@ -2673,6 +2893,7 @@ async function resolveGuideCategoryId(env, p, scope) { if (p.category_id) { cons
 async function createGuide(env, p, scope) {
   const categoryId = await resolveGuideCategoryId(env, p, scope); const gp = normalizeGuidePayload(p);
   const { rows } = await q(env, 'INSERT INTO guides(title,slug,summary,body,image_urls,keywords,language,priority,status,category_id,title_hi,summary_hi,body_hi,body_html,body_blocks_json,cover_image_url,body_html_hi,body_blocks_json_hi,image_urls_hi,cover_image_url_hi,button_ids,version_number,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,1,$22,$23) RETURNING *', [gp.title,gp.slug,gp.summary,gp.body,gp.image_urls,gp.keywords,gp.language,gp.priority,gp.status,categoryId,gp.title_hi,gp.summary_hi,gp.body_hi,gp.body_html,gp.body_blocks_json,gp.cover_image_url,gp.body_html_hi,gp.body_blocks_json_hi,gp.image_urls_hi,gp.cover_image_url_hi,gp.button_ids,scope.tenant_id,scope.platform_id]);
+  await syncDefaultGuideTranslation(env, rows[0], gp, scope);
   await syncContentButtons(env, 'guide', rows[0].id, numericIds(gp.button_ids), scope);
   await snapshotContentVersion(env, 'guide', rows[0].id, gp.title, guideOut(rows[0], gp.language), 'created', 'admin', scope);
   await audit(env,'create','guides',rows[0].id,'Visual guide created',scope); return guideOut(rows[0], gp.language);
@@ -2681,6 +2902,7 @@ async function updateGuide(env, id, p, scope) {
   const categoryId = await resolveGuideCategoryId(env, p, scope); const gp = normalizeGuidePayload(p);
   const { rows } = await q(env, 'UPDATE guides SET title=$1,slug=$2,summary=$3,body=$4,image_urls=$5,keywords=$6,language=$7,priority=$8,status=$9,category_id=$10,title_hi=$11,summary_hi=$12,body_hi=$13,body_html=$14,body_blocks_json=$15,cover_image_url=$16,body_html_hi=$17,body_blocks_json_hi=$18,image_urls_hi=$19,cover_image_url_hi=$20,button_ids=$21,version_number=COALESCE(version_number,1)+1,updated_at=NOW() WHERE id=$22 AND tenant_id=$23 AND platform_id=$24 RETURNING *', [gp.title,gp.slug,gp.summary,gp.body,gp.image_urls,gp.keywords,gp.language,gp.priority,gp.status,categoryId,gp.title_hi,gp.summary_hi,gp.body_hi,gp.body_html,gp.body_blocks_json,gp.cover_image_url,gp.body_html_hi,gp.body_blocks_json_hi,gp.image_urls_hi,gp.cover_image_url_hi,gp.button_ids,id,scope.tenant_id,scope.platform_id]);
   if (!rows[0]) bad('Guide not found', 404);
+  await syncDefaultGuideTranslation(env, rows[0], gp, scope);
   await syncContentButtons(env, 'guide', id, numericIds(gp.button_ids), scope);
   await snapshotContentVersion(env, 'guide', id, gp.title, guideOut(rows[0], gp.language), p.change_note || 'updated', 'admin', scope);
   await audit(env,'update','guides',id,'Visual guide updated',scope); return guideOut(rows[0], gp.language);
@@ -2922,6 +3144,22 @@ function normalizeGuidePayload(p) {
     cover_image_url_hi: coverHi,
     button_ids: numericIds(p.button_ids).join('\n'),
   };
+}
+
+async function syncDefaultGuideTranslation(env, guide, gp, scope) {
+  const registry = await listPlatformLocales(env, scope);
+  const locale = normalizeLocale(gp.language || registry.default_locale, registry.default_locale);
+  await q(env, `INSERT INTO guide_translations(tenant_id,platform_id,guide_id,locale,title,summary,body,rich_json,rich_html,image_urls,cover_image_url,keywords,status)
+    VALUES($1::integer,$2::integer,$3::integer,$4::varchar(35),$5::varchar(180),$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::text,$13::varchar(30))
+    ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,status=EXCLUDED.status,updated_at=NOW()`,
+    [scope.tenant_id,scope.platform_id,guide.id,locale,gp.title,gp.summary,gp.body,gp.body_blocks_json,gp.body_html,gp.image_urls,gp.cover_image_url,gp.keywords,gp.status]);
+  if (gp.title_hi || gp.body_hi || gp.body_blocks_json_hi || gp.body_html_hi) {
+    const supportsHindi = registry.supported_languages.some((candidate) => localeMatches(candidate, 'hi'));
+    if (supportsHindi) await q(env, `INSERT INTO guide_translations(tenant_id,platform_id,guide_id,locale,title,summary,body,rich_json,rich_html,image_urls,cover_image_url,keywords,status)
+      VALUES($1::integer,$2::integer,$3::integer,'hi',$4::varchar(180),$5::text,$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::varchar(30))
+      ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,status=EXCLUDED.status,updated_at=NOW()`,
+      [scope.tenant_id,scope.platform_id,guide.id,gp.title_hi || gp.title,gp.summary_hi || '',gp.body_hi || '',gp.body_blocks_json_hi || '',gp.body_html_hi || '',gp.image_urls_hi || '',gp.cover_image_url_hi || '',gp.keywords,gp.status]);
+  }
 }
 
 async function deleteById(env, table, id, scope) { const res = await q(env, `DELETE FROM ${table} WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`, [id,scope.tenant_id,scope.platform_id]); await audit(env,'delete',table,id,`Deleted ${res.rowCount || 0} item(s)`,scope); return { ok: true, deleted: res.rowCount || 0 }; }
@@ -3747,4 +3985,3 @@ export async function readiness(env) {
   if (!migrated) throw new Error('Database migrations have not been applied');
   return { ok: true, service: appName(env), version: VERSION, database: 'ok', database_provider: String(env.DATABASE_PROVIDER || 'neon').toLowerCase(), connection_mode: env.DATABASE_CONNECTION_MODE || 'pooled-runtime', migration_table: 'ok', latency_ms: Date.now() - started };
 }
-

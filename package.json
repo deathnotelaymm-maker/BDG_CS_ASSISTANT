@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-center-business-platform",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,4 +12,3 @@
     "test:regression": "npm --prefix backend-api run test:regression"
   }
 }
-
