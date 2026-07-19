@@ -33,12 +33,13 @@ import {
   CloudUploadOutlined,
   ApartmentOutlined,
   GlobalOutlined,
+  ShareAltOutlined,
 } from "@ant-design/icons";
 import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-router";
 import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
-const ADMIN_VERSION = "v1.9.2";
+const ADMIN_VERSION = "v1.10.0";
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
   {
@@ -105,6 +106,13 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     to: "/ai-qa",
     label: "AI Q&A",
     icon: <MessageFilled />,
+    group: "AI",
+  },
+  {
+    key: "/ai-source-router",
+    to: "/ai-source-router",
+    label: "AI Source Router",
+    icon: <ShareAltOutlined />,
     group: "AI",
   },
   {
@@ -190,6 +198,8 @@ const ZH: Record<string, string> = {
   "AI Prompt Manager": "AI 提示词管理",
   "AI Prompt & Image": "AI 提示与图片",
   "AI Knowledge Import": "AI 知识导入",
+  "AI Q&A": "AI 问答",
+  "AI Source Router": "AI 来源路由",
   "Prompt Version History": "提示词版本历史",
   "Buttons Configuration": "按钮配置",
   "AI Diagnostics": "AI 诊断",

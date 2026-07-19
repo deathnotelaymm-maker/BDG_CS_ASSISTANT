@@ -746,6 +746,18 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, translation_status: "draft", source_id, target_locale });
     return request("/admin/locale-studio/translations", { method: "POST", body: JSON.stringify({ source_id, target_locale }) });
   },
+  getAiSourceRouter: async () => {
+    if (MOCK_MODE) return delay({ ok: true, enabled: true, prompt_manager_enabled: true, source_order: ["prompt_image", "qa", "faq", "guide", "knowledge"], locale_strategy: "exact_then_base", max_candidates: 80, source_counts: {} });
+    return request("/admin/ai-source-router");
+  },
+  updateAiSourceRouter: async (data: { enabled: boolean; prompt_manager_enabled: boolean; source_order: string[]; locale_strategy: string; max_candidates: number }) => {
+    if (MOCK_MODE) return delay({ ok: true, ...data });
+    return request("/admin/ai-source-router", { method: "PUT", body: JSON.stringify(data) });
+  },
+  previewAiSourceRouter: async (message: string, locale?: string) => {
+    if (MOCK_MODE) return delay({ ok: true, message, locale: locale || "en", candidate_catalog_size: 0, source_counts: {}, candidates: [] });
+    return request("/admin/ai-source-router/preview", { method: "POST", body: JSON.stringify({ message, locale }) });
+  },
 
   previewKnowledgeImport: async (file: File, platform_key: string) => {
     if (MOCK_MODE) return delay({ id: Date.now(), filename: file.name, platform_key, status: "review", total_rows: 1, valid_rows: 1, error_rows: 0, preview_rows: [] });

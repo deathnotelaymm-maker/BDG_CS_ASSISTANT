@@ -33,6 +33,7 @@ const migration121 = read("backend-api/migrations/014_v1.2.1_platform_context_no
 const migration130 = read("backend-api/migrations/015_v1.3.0_chat_start_module_experience_studio.sql");
 const migration191 = read("backend-api/migrations/022_v1.9.1_faq_sql_repair_locale_registry.sql");
 const migration192 = read("backend-api/migrations/023_v1.9.2_guide_locale_studio_dynamic_translation_variants.sql");
+const migration110 = read("backend-api/migrations/024_v1.10.0_unified_ai_source_router.sql");
 const localeStudioAdmin = read("admin-pro/src/routes/_admin.locale-studio.tsx");
 const actionButtons = read("admin-pro/src/routes/_admin.action-buttons.tsx");
 const guideStudio = read("admin-pro/src/routes/_admin.guide-images.tsx");
@@ -58,6 +59,7 @@ const guideIndex = read("guide-pro/src/routes/_public.index.tsx");
 const guideList = read("guide-pro/src/routes/_public.guides.tsx");
 const guideDetail = read("guide-pro/src/routes/_public.guides.$slug.tsx");
 const guideFaq = read("guide-pro/src/routes/_public.faq.tsx");
+const aiSourceRouterAdmin = read("admin-pro/src/routes/_admin.ai-source-router.tsx");
 const chatConfig = read("chat-pro/src/lib/chat-config.ts");
 const server = read("backend-api/src/server.js");
 const deployScript = read("DEPLOY-V0.10.1-PRODUCTION-WINDOWS.ps1");
@@ -399,8 +401,8 @@ expect(
 );
 expect(
   "Health and API errors expose the same release version",
-  core.includes("1.9.2-guide-locale-studio-dynamic-translation-variants") &&
-    server.includes("1.9.2-guide-locale-studio-dynamic-translation-variants"),
+  core.includes("1.10.0-unified-ai-source-router") &&
+    server.includes("1.10.0-unified-ai-source-router"),
 );
 expect(
   "Operations Connector Gateway is platform-scoped and allowlisted",
@@ -462,6 +464,34 @@ expect(
   core.includes("GUIDE_TRANSLATION_UNAVAILABLE") &&
     core.includes("listGuides(env, params") &&
     core.includes("if (error?.code !== 'GUIDE_TRANSLATION_UNAVAILABLE')"),
+);
+expect(
+  "v1.10.0 source router migration is additive and idempotent",
+  migration110.includes("CREATE TABLE IF NOT EXISTS ai_source_router_settings") &&
+    migration110.includes("ON CONFLICT(migration_key) DO NOTHING") &&
+    core.includes("v1.10.0_unified_ai_source_router"),
+);
+expect(
+  "Unified AI catalog includes every approved source type",
+  core.includes("buildUnifiedAiSourceCatalog") &&
+    core.includes("AI_ROUTER_SOURCE_TYPES") &&
+    core.includes("virtualFaqRow") &&
+    core.includes("virtualGuideRow") &&
+    core.includes("virtualKnowledgeRow") &&
+    core.includes("source_type === 'qa'"),
+);
+expect(
+  "AI chat uses the platform locale policy instead of an English/Hindi switch",
+  core.includes("const languagePolicy = localePolicy(publicScope)") &&
+    core.includes("requestedLocale") &&
+    core.includes("customer's requested locale"),
+);
+expect(
+  "AI Source Router admin controls and explainable preview are available",
+  aiSourceRouterAdmin.includes("Unified AI Source Router") &&
+    aiSourceRouterAdmin.includes("previewAiSourceRouter") &&
+    adminApi.includes("getAiSourceRouter") &&
+    adminLayout.includes("AI Source Router"),
 );
 
 for (const check of checks)
