@@ -39,7 +39,7 @@ import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-rout
 import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
-const ADMIN_VERSION = "v1.10.0";
+const ADMIN_VERSION = "v1.11.0";
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
   {
@@ -220,6 +220,9 @@ const ZH: Record<string, string> = {
   "Sign out": "退出登录",
   "My Profile": "我的资料",
 };
+const MY: Record<string, string> = {
+  Dashboard: "ဒက်ရှ်ဘုတ်", "Platform Control Center": "ပလက်ဖောင်းထိန်းချုပ်မှု", "Site Content": "ဆိုက်အကြောင်းအရာ", Categories: "အမျိုးအစားများ", Guide: "လမ်းညွှန်", FAQ: "အမေးများ", "AI Prompt Manager": "AI Prompt စီမံခန့်ခွဲမှု", "AI Prompt & Image": "AI Prompt နှင့် ပုံ", "AI Knowledge Import": "AI အသိပညာ တင်သွင်းရန်", "AI Q&A": "AI အမေးအဖြေ", "AI Source Router": "AI ရင်းမြစ် လမ်းကြောင်း", "Prompt Version History": "Prompt ဗားရှင်းမှတ်တမ်း", "Buttons Configuration": "ခလုတ်ပြင်ဆင်မှု", "AI Diagnostics": "AI စစ်ဆေးမှု", "Chat Quick Replies": "Chat အမြန်ဖြေ", "Chat Logs": "Chat မှတ်တမ်း", "Unmatched Questions": "မကိုက်ညီသောမေးခွန်းများ", "Theme Settings": "အပြင်အဆင်", "Audit Logs": "စစ်ဆေးမှတ်တမ်း", "Admin Users": "စီမံသူများ", PLATFORM: "ပလက်ဖောင်း", OVERVIEW: "အနှစ်ချုပ်", CONTENT: "အကြောင်းအရာ", AI: "AI", CHAT: "Chat", SETTINGS: "ဆက်တင်များ", Console: "ကွန်ဆိုလ်", "Sign out": "ထွက်ရန်", "My Profile": "ကိုယ်ရေးအချက်အလက်"
+};
 function langNow() {
   try {
     return localStorage.getItem("bdg_admin_lang") || "en";
@@ -229,7 +232,8 @@ function langNow() {
 }
 function tr(v?: string) {
   if (!v) return "";
-  return langNow() === "zh" ? ZH[v] || v : v;
+  const lang = langNow();
+  return lang === "zh" ? ZH[v] || v : lang === "my" ? MY[v] || v : v;
 }
 
 function buildMenu(userRole?: string, canManagePlatform = false): MenuProps["items"] {
@@ -369,6 +373,7 @@ export default function AdminLayout({
                 options={[
                   { value: "en", label: "English" },
                   { value: "zh", label: "中文" },
+                  { value: "my", label: "မြန်မာ" },
                 ]}
               />
               <Dropdown menu={{ items: userMenu }} trigger={["click"]}>

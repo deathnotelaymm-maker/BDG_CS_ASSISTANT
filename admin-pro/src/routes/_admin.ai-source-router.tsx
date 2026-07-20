@@ -15,7 +15,7 @@ const sourceOptions = [
 ];
 
 function AiSourceRouterPage() {
-  const [router, setRouter] = useState<any>({ enabled: true, prompt_manager_enabled: true, source_order: sourceOptions.map((item) => item.value), locale_strategy: "exact_then_base", max_candidates: 80 });
+  const [router, setRouter] = useState<any>({ enabled: true, prompt_manager_enabled: true, source_order: sourceOptions.map((item) => item.value), enabled_sources: sourceOptions.map((item) => item.value), locale_strategy: "exact_then_base", max_candidates: 80 });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [messageText, setMessageText] = useState("My deposit has not arrived");
@@ -32,7 +32,7 @@ function AiSourceRouterPage() {
 
   const save = async () => {
     setSaving(true);
-    try { setRouter(await api.updateAiSourceRouter({ enabled: router.enabled !== false, prompt_manager_enabled: router.prompt_manager_enabled !== false, source_order: router.source_order || sourceOptions.map((item) => item.value), locale_strategy: router.locale_strategy || "exact_then_base", max_candidates: Number(router.max_candidates || 80) })); message.success("AI source routing policy saved"); }
+    try { setRouter(await api.updateAiSourceRouter({ enabled: router.enabled !== false, prompt_manager_enabled: router.prompt_manager_enabled !== false, source_order: router.source_order || sourceOptions.map((item) => item.value), enabled_sources: router.enabled_sources || sourceOptions.map((item) => item.value), locale_strategy: router.locale_strategy || "exact_then_base", max_candidates: Number(router.max_candidates || 80) })); message.success("AI source routing policy saved"); }
     catch (error: any) { message.error(error?.message || "Could not save AI source routing policy"); }
     finally { setSaving(false); }
   };
@@ -56,6 +56,8 @@ function AiSourceRouterPage() {
       <Space direction="vertical" style={{ width: "100%", marginTop: 16 }} size="middle">
         <Space wrap><span>Router enabled</span><Switch checked={router.enabled !== false} onChange={(value) => setRouter((current: any) => ({ ...current, enabled: value }))} /><span>Prompt Manager global instructions</span><Switch checked={router.prompt_manager_enabled !== false} onChange={(value) => setRouter((current: any) => ({ ...current, prompt_manager_enabled: value }))} /></Space>
         <label>Source priority order <Select mode="multiple" value={router.source_order || []} onChange={(value) => setRouter((current: any) => ({ ...current, source_order: value }))} options={sourceOptions} style={{ width: "100%" }} /></label>
+        <label>Enabled sources <Select mode="multiple" value={router.enabled_sources || router.source_order || []} onChange={(value) => setRouter((current: any) => ({ ...current, enabled_sources: value }))} options={sourceOptions} style={{ width: "100%" }} /></label>
+        <Alert showIcon type="warning" message="Removing a source pauses it for this platform only" description="It is not deleted. Re-enable it here whenever the platform should use that source again. No source falls back to BDG or another tenant." />
         <Space wrap><label>Locale matching <Select value={router.locale_strategy || "exact_then_base"} onChange={(value) => setRouter((current: any) => ({ ...current, locale_strategy: value }))} options={[{ value: "exact_then_base", label: "Exact locale, then base language" }, { value: "exact_only", label: "Exact locale only" }]} style={{ width: 260 }} /></label><label>Maximum candidates <InputNumber min={10} max={200} value={router.max_candidates || 80} onChange={(value) => setRouter((current: any) => ({ ...current, max_candidates: value || 80 }))} /></label><Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={() => void save()}>Save policy</Button></Space>
       </Space>
     </Card>

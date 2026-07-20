@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import type { Key } from "react";
 import { Alert, Button, Card, Drawer, Form, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Upload, message } from "antd";
 import { DeleteOutlined, EditOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import RichKnowledgeEditor from "@/components/RichKnowledgeEditor";
@@ -17,13 +18,15 @@ function AiQaPage() {
   const [answerJson, setAnswerJson] = useState(blankDoc);
   const [answerHtml, setAnswerHtml] = useState("");
   const [steps, setSteps] = useState<any[]>([]);
+  const [filters, setFilters] = useState({ q: "", locale: "", status: "", approval: "", has_images: "" });
+  const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
   const [form] = Form.useForm();
 
   const load = async () => {
     setLoading(true);
     try {
       const [qaRows, registry] = await Promise.all([
-        api.list("ai-qa"),
+        api.listAiQa(filters),
         api.getLocaleRegistry().catch(() => null),
       ]);
       setRows(qaRows as any[]);
@@ -34,7 +37,7 @@ function AiQaPage() {
     catch (error: any) { message.error(error?.message || "Could not load AI Q&A"); }
     finally { setLoading(false); }
   };
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [filters.q, filters.locale, filters.status, filters.approval, filters.has_images]);
 
   const openEditor = (item?: any) => {
     const current = item || { title: "", intent_key: "", locale: localeOptions[0]?.value || "en", status: "draft", approval_status: "draft", priority: 100, confidence_threshold: 86, source_type: "qa", platform_scope: "all", route_policy: "answer_only" };
@@ -62,8 +65,17 @@ function AiQaPage() {
   };
   const publish = async (item: any) => { try { await api.requestAiQaPublish?.(item.id); message.success("AI Q&A published"); await load(); } catch (error: any) { message.error(error?.message || "Publish failed"); } };
   const remove = async (id: number) => { try { await api.remove("ai-qa", id); message.success("AI Q&A archived"); await load(); } catch (error: any) { message.error(error?.message || "Delete failed"); } };
+  const runBatch = async (kind: "approve" | "publish" | "delete") => {
+    if (!selectedKeys.length) { message.warning("Select at least one item"); return; }
+    try {
+      if (kind === "approve") await api.batchApproveAiQa(selectedKeys as Array<string | number>);
+      if (kind === "publish") await api.batchPublishAiQa(selectedKeys as Array<string | number>);
+      if (kind === "delete") await api.batchDeleteAiQa(selectedKeys as Array<string | number>);
+      message.success(`Batch ${kind} completed`); setSelectedKeys([]); await load();
+    } catch (error: any) { message.error(error?.message || `Batch ${kind} failed`); }
+  };
   const columns = useMemo(() => [
-    { title: "Question / intent", render: (_: any, row: any) => <div><b>{row.title}</b><div style={{ color: "#8ea0bd", fontSize: 12 }}>{row.intent_key}</div></div> },
+    { title: "Name / question", render: (_: any, row: any) => <div><b>{row.content_name || row.name || row.title}</b><div>{row.title}</div><div style={{ color: "#8ea0bd", fontSize: 12 }}>{row.intent_key}</div></div> },
     { title: "Locale", dataIndex: "locale", width: 90, render: (v: string) => <Tag>{String(v || "en").toUpperCase()}</Tag> },
     { title: "Source", dataIndex: "source_type", width: 90, render: () => <Tag color="blue">AI Q&A</Tag> },
     { title: "Approval", dataIndex: "approval_status", width: 110, render: (v: string) => <Tag color={v === "approved" ? "green" : "gold"}>{v || "draft"}</Tag> },
@@ -73,10 +85,12 @@ function AiQaPage() {
 
   return <>
     <Alert showIcon type="info" message="AI Q&A knowledge source" description="Imported questions become editable tenant-scoped Q&A drafts. Approve and publish an item before the AI can use its answer or visual steps. Locale fields are independent, so a platform only shows languages it supports." style={{ marginBottom: 12 }} />
-    <div className="bdg-filters" style={{ marginBottom: 12 }}><div style={{ flex: 1, color: "#8ea0bd" }}>Q&A answers and visual steps are an additional source beside AI Prompt & Image.</div><Button onClick={() => void load()}>Refresh</Button><Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>New AI Q&A</Button></div>
-    <Table rowKey="id" loading={loading} dataSource={rows} columns={columns as any} pagination={{ pageSize: 20 }} />
+    <Card size="small" style={{ marginBottom: 12 }}><Space wrap style={{ width: "100%" }}><Input.Search allowClear value={filters.q} onChange={(e) => setFilters((v) => ({ ...v, q: e.target.value }))} placeholder="Search name, question, intent" style={{ width: 280 }} /><Select allowClear placeholder="Locale" value={filters.locale || undefined} onChange={(v) => setFilters((x) => ({ ...x, locale: v || "" }))} options={localeOptions} style={{ width: 150 }} /><Select allowClear placeholder="Status" value={filters.status || undefined} onChange={(v) => setFilters((x) => ({ ...x, status: v || "" }))} options={["draft", "published", "archived"].map((v) => ({ value: v, label: v }))} /><Select allowClear placeholder="Approval" value={filters.approval || undefined} onChange={(v) => setFilters((x) => ({ ...x, approval: v || "" }))} options={["draft", "approved", "archived"].map((v) => ({ value: v, label: v }))} /><Select allowClear placeholder="Images" value={filters.has_images || undefined} onChange={(v) => setFilters((x) => ({ ...x, has_images: v || "" }))} options={[{ value: "true", label: "Has images" }]} /><Button onClick={() => void load()}>Refresh</Button><Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>New AI Q&A</Button></Space></Card>
+    <Space style={{ marginBottom: 12 }} wrap><Button disabled={!selectedKeys.length} onClick={() => void runBatch("approve")}>Approve selected</Button><Button disabled={!selectedKeys.length} type="primary" onClick={() => void runBatch("publish")}>Publish selected</Button><Button disabled={!selectedKeys.length} danger onClick={() => void runBatch("delete")}>Archive selected</Button>{selectedKeys.length ? <Tag>{selectedKeys.length} selected</Tag> : null}</Space>
+    <Table rowKey="id" loading={loading} dataSource={rows} rowSelection={{ selectedRowKeys: selectedKeys, onChange: setSelectedKeys }} columns={columns as any} pagination={{ pageSize: 20 }} />
     <Drawer open={!!editing} onClose={closeEditor} width="min(1180px, 96vw)" title={editing?.id ? `Edit AI Q&A — ${editing.title}` : "Create AI Q&A"} extra={<Space><Button onClick={closeEditor}>Cancel</Button><Button type="primary" loading={saving} onClick={save}>Save</Button></Space>}>
       <Form form={form} layout="vertical">
+        <Form.Item name="content_name" label="Name" rules={[{ required: true }]}><Input placeholder="Deposit not received" /></Form.Item>
         <Form.Item name="title" label="Question title" rules={[{ required: true }]}><Input placeholder="My deposit has not arrived" /></Form.Item>
         <Space style={{ display: "flex" }} align="start"><Form.Item name="intent_key" label="Intent key" rules={[{ required: true }]} style={{ flex: 1 }}><Input placeholder="deposit-not-received" /></Form.Item><Form.Item name="locale" label="Locale" rules={[{ required: true }]} style={{ width: 220 }}><Select options={localeOptions} showSearch optionFilterProp="label" /></Form.Item><Form.Item name="status" label="Status" style={{ width: 150 }}><Select options={["draft", "published", "archived"].map((v) => ({ value: v, label: v }))} /></Form.Item></Space>
         <Space style={{ display: "flex" }} align="start"><Form.Item name="priority" label="Priority"><InputNumber min={1} max={999} /></Form.Item><Form.Item name="approval_status" label="Knowledge approval"><Select options={[{ value: "draft", label: "Draft" }, { value: "approved", label: "Approved" }, { value: "archived", label: "Archived" }]} /></Form.Item><Form.Item name="route_policy" label="Action policy" style={{ minWidth: 260 }}><Select options={["answer_only", "action_optional", "ticket_optional", "human_escalation"].map((v) => ({ value: v, label: v }))} /></Form.Item></Space>
@@ -91,4 +105,3 @@ function AiQaPage() {
     </Drawer>
   </>;
 }
-

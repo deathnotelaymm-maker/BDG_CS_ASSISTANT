@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.10.0-unified-ai-source-router';
+const VERSION = '1.11.0-batch-import-approval-publishing-rollback';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -190,10 +190,12 @@ async function route(request, env, url) {
   if (method === 'GET' && /^\/admin\/knowledge-imports\/\d+\/status$/.test(path)) return json(await getKnowledgeImportStatus(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'POST' && path === '/admin/knowledge-imports/preview') return json(await previewKnowledgeImport(env, request, admin, scope), 200, env);
   if (method === 'POST' && /^\/admin\/knowledge-imports\/\d+\/create-drafts$/.test(path)) return json(await createKnowledgeImportDrafts(env, idFromParts(path, 3), admin, scope), 200, env);
+  if (method === 'POST' && /^\/admin\/knowledge-imports\/\d+\/approve$/.test(path)) return json(await approveKnowledgeImportBatch(env, idFromParts(path, 3), admin, scope), 200, env);
+  if (method === 'POST' && /^\/admin\/knowledge-imports\/\d+\/publish$/.test(path)) return json(await publishKnowledgeImportBatch(env, idFromParts(path, 3), admin, scope), 200, env);
   if (method === 'POST' && /^\/admin\/knowledge-import-rows\/\d+\/approve$/.test(path)) return json(await approveKnowledgeImportRow(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'POST' && /^\/admin\/knowledge-imports\/\d+\/rollback$/.test(path)) return json(await rollbackKnowledgeImport(env, idFromParts(path, 3), admin, scope), 200, env);
   if (method === 'GET' && path === '/admin/ai-content') return json(await listAiContent(env, true, scope), 200, env);
-  if (method === 'GET' && path === '/admin/ai-qa') return json(await listAiQa(env, { ...scope, requested_locale: url.searchParams.get('locale') || '' }), 200, env);
+  if (method === 'GET' && path === '/admin/ai-qa') return json(await listAiQa(env, { ...scope, requested_locale: url.searchParams.get('locale') || '', query: url.searchParams.get('q') || url.searchParams.get('name') || '', status: url.searchParams.get('status') || '', approval_status: url.searchParams.get('approval') || '', has_images: url.searchParams.get('has_images') || '' }), 200, env);
   if (method === 'GET' && path === '/admin/ai-source-router') return json(await getAiSourceRouter(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/ai-source-router') return json(await updateAiSourceRouter(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/ai-source-router/preview') return json(await previewAiSourceRouter(env, await readJson(request), scope), 200, env);
@@ -208,6 +210,9 @@ async function route(request, env, url) {
   if (method === 'POST' && path === '/admin/guide-translations/batch-publish') return json(await batchPublishGuideTranslations(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/locale-studio/translations') return json(await createLocaleTranslation(env, await readJson(request), scope), 201, env);
   if (method === 'POST' && path === '/admin/ai-qa') return json(await createAiContent(env, { ...(await readJson(request)), source_type: 'qa' }, scope), 201, env);
+  if (method === 'POST' && path === '/admin/ai-qa/batch-approve') return json(await batchApproveAiQa(env, (await readJson(request)).ids, scope), 200, env);
+  if (method === 'POST' && path === '/admin/ai-qa/batch-publish') return json(await batchPublishAiQa(env, (await readJson(request)).ids, scope), 200, env);
+  if (method === 'POST' && path === '/admin/ai-qa/batch-delete') return json(await batchDeleteAiQa(env, (await readJson(request)).ids, scope), 200, env);
   if (method === 'PUT' && /^\/admin\/ai-qa\/\d+$/.test(path)) return json(await updateAiContent(env, idFromPath(path), { ...(await readJson(request)), source_type: 'qa' }, scope), 200, env);
   if (method === 'DELETE' && /^\/admin\/ai-qa\/\d+$/.test(path)) return json(await deleteAiContent(env, idFromPath(path), scope), 200, env);
   if (method === 'POST' && /^\/admin\/ai-qa\/\d+\/publish$/.test(path)) return json(await publishAiQa(env, idFromParts(path, 3), scope), 200, env);
@@ -474,6 +479,7 @@ async function ensureBootstrap(env) {
   await ensureFaqLocaleRegistry(env);
   await ensureGuideLocaleStudio(env);
   await ensureAiSourceRouter(env);
+  await ensureV111BatchPublishing(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -485,7 +491,7 @@ async function createTables(env) {
     `CREATE TABLE IF NOT EXISTS knowledge_items (id SERIAL PRIMARY KEY,title VARCHAR(180) NOT NULL,content TEXT NOT NULL,keywords TEXT,priority INTEGER DEFAULT 100,status VARCHAR(30) DEFAULT 'active',created_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS theme_settings (id SERIAL PRIMARY KEY,app_name VARCHAR(160) DEFAULT 'BDG Help Center',logo_text VARCHAR(40) DEFAULT 'BDG',banner_title VARCHAR(200) DEFAULT 'BDG Mobile Help Center',banner_subtitle VARCHAR(255) DEFAULT 'Search FAQ and view official guide images.',support_link VARCHAR(500) DEFAULT 'https://t.me/your_support_bot',primary_color VARCHAR(40) DEFAULT '#f7c948',updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS ai_prompt_sections (id SERIAL PRIMARY KEY,section_key VARCHAR(80) UNIQUE NOT NULL,title VARCHAR(180) NOT NULL,content TEXT DEFAULT '',enabled BOOLEAN DEFAULT TRUE,priority INTEGER DEFAULT 100,updated_at TIMESTAMPTZ DEFAULT NOW())`,
-    `CREATE TABLE IF NOT EXISTS ai_content_items (id SERIAL PRIMARY KEY,title VARCHAR(180) NOT NULL,intent_key VARCHAR(180) UNIQUE NOT NULL,locale VARCHAR(20) DEFAULT 'en',status VARCHAR(30) DEFAULT 'draft',source_type VARCHAR(30) DEFAULT 'prompt_image',priority INTEGER DEFAULT 100,confidence_threshold INTEGER DEFAULT 86,keywords TEXT,positive_examples TEXT,negative_examples TEXT,required_fields TEXT,faq_content TEXT,knowledge_content TEXT,example_answers TEXT,example_answers_hi TEXT,ai_instruction TEXT,ai_instruction_hi TEXT,rich_json TEXT,rich_html TEXT,rich_json_hi TEXT,rich_html_hi TEXT,qa_answer_html TEXT DEFAULT '',qa_answer_json TEXT DEFAULT '',qa_steps_json TEXT DEFAULT '[]',localized_fields_json TEXT DEFAULT '{}',image_urls TEXT,image_delivery VARCHAR(30) DEFAULT 'after_answer',button_ids TEXT,approval_status VARCHAR(30) DEFAULT 'draft',version_label VARCHAR(80) DEFAULT 'v1',platform_scope VARCHAR(500) DEFAULT 'all',route_policy VARCHAR(40) DEFAULT 'answer_only',import_batch_id INTEGER,import_source_key VARCHAR(180),source_sheet VARCHAR(180),source_row INTEGER,source_ticket_label TEXT,source_image_ref TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),deleted_at TIMESTAMPTZ)`,
+    `CREATE TABLE IF NOT EXISTS ai_content_items (id SERIAL PRIMARY KEY,title VARCHAR(180) NOT NULL,intent_key VARCHAR(180) UNIQUE NOT NULL,locale VARCHAR(20) DEFAULT 'en',status VARCHAR(30) DEFAULT 'draft',source_type VARCHAR(30) DEFAULT 'prompt_image',priority INTEGER DEFAULT 100,confidence_threshold INTEGER DEFAULT 86,keywords TEXT,positive_examples TEXT,negative_examples TEXT,required_fields TEXT,faq_content TEXT,knowledge_content TEXT,example_answers TEXT,example_answers_hi TEXT,ai_instruction TEXT,ai_instruction_hi TEXT,rich_json TEXT,rich_html TEXT,rich_json_hi TEXT,rich_html_hi TEXT,qa_answer_html TEXT DEFAULT '',qa_answer_json TEXT DEFAULT '',qa_steps_json TEXT DEFAULT '[]',localized_fields_json TEXT DEFAULT '{}',image_urls TEXT,image_delivery VARCHAR(30) DEFAULT 'after_answer',button_ids TEXT,approval_status VARCHAR(30) DEFAULT 'draft',version_label VARCHAR(80) DEFAULT 'v1',platform_scope VARCHAR(500) DEFAULT 'all',route_policy VARCHAR(40) DEFAULT 'answer_only',import_batch_id INTEGER,import_source_key VARCHAR(180),source_sheet VARCHAR(180),source_row INTEGER,source_ticket_label TEXT,source_image_ref TEXT,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW(),deleted_at TIMESTAMPTZ,content_name VARCHAR(180) DEFAULT '')`,
     `CREATE TABLE IF NOT EXISTS ai_model_settings (id SERIAL PRIMARY KEY,provider VARCHAR(50) DEFAULT 'deepseek',model VARCHAR(120) DEFAULT 'deepseek-chat',api_base VARCHAR(500) DEFAULT 'https://api.deepseek.com',enabled BOOLEAN DEFAULT FALSE,temperature DOUBLE PRECISION DEFAULT 0.2,max_tokens INTEGER DEFAULT 700,require_approved_context BOOLEAN DEFAULT TRUE,memory_enabled BOOLEAN DEFAULT TRUE,memory_max_messages INTEGER DEFAULT 12,memory_ttl_days INTEGER DEFAULT 30,updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS chat_sessions (id SERIAL PRIMARY KEY,session_id VARCHAR(120) UNIQUE NOT NULL,memory_summary TEXT,message_count INTEGER DEFAULT 0,resolution_state TEXT DEFAULT 'open',resolved_at TIMESTAMPTZ,created_at TIMESTAMPTZ DEFAULT NOW(),updated_at TIMESTAMPTZ DEFAULT NOW())`,
     `CREATE TABLE IF NOT EXISTS chat_memory_messages (id SERIAL PRIMARY KEY,session_id VARCHAR(120) NOT NULL,role VARCHAR(20) NOT NULL,content TEXT NOT NULL,image_urls TEXT,created_at TIMESTAMPTZ DEFAULT NOW())`,
@@ -785,6 +791,8 @@ function actionButtonOut(row, lang = 'en') {
 function aiContentOut(row, score = null, reason = '') {
   return {
     id: row.id,
+    name: row.content_name || row.title || '',
+    content_name: row.content_name || row.title || '',
     title: row.title,
     intent_key: row.intent_key,
     locale: row.locale || 'en',
@@ -835,6 +843,7 @@ function normalizeAiContentPayload(p = {}) {
   const status = ['draft','published','archived'].includes(String(p.status || '').toLowerCase()) ? String(p.status).toLowerCase() : 'draft';
   const delivery = ['after_answer','never'].includes(String(p.image_delivery || '').toLowerCase()) ? String(p.image_delivery).toLowerCase() : 'after_answer';
   return {
+    content_name: String(p.content_name || p.name || title).trim().slice(0, 180),
     title,
     intent_key: String(p.intent_key || slugify(title)).trim(),
     locale: String(p.locale || 'en').trim().toLowerCase().slice(0, 20),
@@ -1118,8 +1127,35 @@ async function listAiQa(env, scope) {
   const requested = String(scope?.requested_locale || '').trim();
   let localeFilter = '';
   if (requested) { values.push(assertSupportedLocale(scope, requested)); localeFilter = ` AND (LOWER(locale)=LOWER($${values.length}) OR LOWER(locale)=LOWER(split_part($${values.length},'-',1)) OR locale='all' OR locale='' OR locale IS NULL)`; }
-  const { rows } = await q(env, `SELECT * FROM ai_content_items WHERE deleted_at IS NULL AND tenant_id=$1 AND platform_id=$2 AND source_type='qa'${localeFilter} ORDER BY priority ASC,updated_at DESC,id DESC`, values);
+  const query = String(scope?.query || '').trim();
+  if (query) { values.push(`%${query}%`); const i = values.length; localeFilter += ` AND (content_name ILIKE $${i} OR title ILIKE $${i} OR intent_key ILIKE $${i} OR keywords ILIKE $${i})`; }
+  const status = ['draft','published','archived'].includes(String(scope?.status || '').toLowerCase()) ? String(scope.status).toLowerCase() : '';
+  if (status) { values.push(status); localeFilter += ` AND status=$${values.length}`; }
+  const approval = ['draft','approved','archived'].includes(String(scope?.approval_status || '').toLowerCase()) ? String(scope.approval_status).toLowerCase() : '';
+  if (approval) { values.push(approval); localeFilter += ` AND approval_status=$${values.length}`; }
+  if (String(scope?.has_images || '') === 'true') localeFilter += ` AND COALESCE(NULLIF(image_urls,''),'') <> ''`;
+  const { rows } = await q(env, `SELECT * FROM ai_content_items WHERE deleted_at IS NULL AND tenant_id=$1 AND platform_id=$2 AND source_type='qa'${localeFilter} ORDER BY priority ASC,updated_at DESC,id DESC LIMIT 1000`, values);
   return rows.map(row => aiContentOut(row));
+}
+
+function integerIds(ids) { return [...new Set((Array.isArray(ids) ? ids : []).map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))].slice(0, 500); }
+async function batchApproveAiQa(env, ids, scope) {
+  requirePlatformWrite(scope); const selected = integerIds(ids); if (!selected.length) bad('Select at least one AI Q&A item');
+  const { rows } = await q(env, `UPDATE ai_content_items SET approval_status='approved',updated_at=NOW() WHERE id=ANY($1::int[]) AND tenant_id=$2 AND platform_id=$3 AND source_type='qa' AND deleted_at IS NULL RETURNING id`, [selected,scope.tenant_id,scope.platform_id]);
+  await audit(env, 'approve_batch', 'ai_content_items', selected.join(','), `Approved ${rows.length} AI Q&A items`, scope);
+  return { ok:true, requested:selected.length, approved:rows.length };
+}
+async function batchPublishAiQa(env, ids, scope) {
+  requirePlatformWrite(scope); const selected = integerIds(ids); if (!selected.length) bad('Select at least one AI Q&A item');
+  const { rows } = await q(env, `UPDATE ai_content_items SET status='published',approval_status='approved',updated_at=NOW() WHERE id=ANY($1::int[]) AND tenant_id=$2 AND platform_id=$3 AND source_type='qa' AND deleted_at IS NULL AND approval_status='approved' RETURNING id`, [selected,scope.tenant_id,scope.platform_id]);
+  await audit(env, 'publish_batch', 'ai_content_items', selected.join(','), `Published ${rows.length} AI Q&A items`, scope);
+  return { ok:true, requested:selected.length, published:rows.length, skipped:selected.length - rows.length };
+}
+async function batchDeleteAiQa(env, ids, scope) {
+  requirePlatformWrite(scope); const selected = integerIds(ids); if (!selected.length) bad('Select at least one AI Q&A item');
+  const { rows } = await q(env, `UPDATE ai_content_items SET status='archived',approval_status='archived',deleted_at=NOW(),updated_at=NOW() WHERE id=ANY($1::int[]) AND tenant_id=$2 AND platform_id=$3 AND source_type='qa' AND deleted_at IS NULL RETURNING id`, [selected,scope.tenant_id,scope.platform_id]);
+  await audit(env, 'delete_batch', 'ai_content_items', selected.join(','), `Archived ${rows.length} AI Q&A items`, scope);
+  return { ok:true, archived:rows.length };
 }
 async function listLocaleStudio(env, scope) {
   const policy = localePolicy(scope);
@@ -1168,7 +1204,7 @@ async function createLocaleTranslation(env, p, scope) {
 async function createAiContent(env, p, scope) {
   const item = normalizeAiContentPayload(p);
   item.locale = assertSupportedLocale(scope, item.locale);
-  const { rows } = await q(env, `INSERT INTO ai_content_items(title,intent_key,locale,status,source_type,priority,confidence_threshold,keywords,positive_examples,negative_examples,required_fields,faq_content,knowledge_content,example_answers,example_answers_hi,ai_instruction,ai_instruction_hi,rich_json,rich_html,rich_json_hi,rich_html_hi,qa_answer_html,qa_answer_json,qa_steps_json,localized_fields_json,image_urls,image_delivery,button_ids,approval_status,version_label,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32) RETURNING *`, [item.title,item.intent_key,item.locale,item.status,item.source_type,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.qa_answer_html,item.qa_answer_json,item.qa_steps_json,item.localized_fields_json,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,scope.tenant_id,scope.platform_id]);
+  const { rows } = await q(env, `INSERT INTO ai_content_items(content_name,title,intent_key,locale,status,source_type,priority,confidence_threshold,keywords,positive_examples,negative_examples,required_fields,faq_content,knowledge_content,example_answers,example_answers_hi,ai_instruction,ai_instruction_hi,rich_json,rich_html,rich_json_hi,rich_html_hi,qa_answer_html,qa_answer_json,qa_steps_json,localized_fields_json,image_urls,image_delivery,button_ids,approval_status,version_label,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33) RETURNING *`, [item.content_name,item.title,item.intent_key,item.locale,item.status,item.source_type,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.qa_answer_html,item.qa_answer_json,item.qa_steps_json,item.localized_fields_json,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,scope.tenant_id,scope.platform_id]);
   await updateAiContentExtensions(env, rows[0].id, item);
   const stored = (await q(env, `SELECT * FROM ai_content_items WHERE id=$1`, [rows[0].id])).rows[0];
   await syncContentButtons(env, 'ai_content', stored.id, numericIds(item.button_ids), scope);
@@ -1179,7 +1215,7 @@ async function createAiContent(env, p, scope) {
 async function updateAiContent(env, id, p, scope) {
   const item = normalizeAiContentPayload(p);
   item.locale = assertSupportedLocale(scope, item.locale);
-  const { rows } = await q(env, `UPDATE ai_content_items SET title=$1,intent_key=$2,locale=$3,status=$4,source_type=$5,priority=$6,confidence_threshold=$7,keywords=$8,positive_examples=$9,negative_examples=$10,required_fields=$11,faq_content=$12,knowledge_content=$13,example_answers=$14,example_answers_hi=$15,ai_instruction=$16,ai_instruction_hi=$17,rich_json=$18,rich_html=$19,rich_json_hi=$20,rich_html_hi=$21,qa_answer_html=$22,qa_answer_json=$23,qa_steps_json=$24,localized_fields_json=$25,image_urls=$26,image_delivery=$27,button_ids=$28,approval_status=$29,version_label=$30,updated_at=NOW() WHERE id=$31 AND deleted_at IS NULL AND tenant_id=$32 AND platform_id=$33 RETURNING *`, [item.title,item.intent_key,item.locale,item.status,item.source_type,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.qa_answer_html,item.qa_answer_json,item.qa_steps_json,item.localized_fields_json,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,id,scope.tenant_id,scope.platform_id]);
+  const { rows } = await q(env, `UPDATE ai_content_items SET content_name=$1,title=$2,intent_key=$3,locale=$4,status=$5,source_type=$6,priority=$7,confidence_threshold=$8,keywords=$9,positive_examples=$10,negative_examples=$11,required_fields=$12,faq_content=$13,knowledge_content=$14,example_answers=$15,example_answers_hi=$16,ai_instruction=$17,ai_instruction_hi=$18,rich_json=$19,rich_html=$20,rich_json_hi=$21,rich_html_hi=$22,qa_answer_html=$23,qa_answer_json=$24,qa_steps_json=$25,localized_fields_json=$26,image_urls=$27,image_delivery=$28,button_ids=$29,approval_status=$30,version_label=$31,updated_at=NOW() WHERE id=$32 AND deleted_at IS NULL AND tenant_id=$33 AND platform_id=$34 RETURNING *`, [item.content_name,item.title,item.intent_key,item.locale,item.status,item.source_type,item.priority,item.confidence_threshold,item.keywords,item.positive_examples,item.negative_examples,item.required_fields,item.faq_content,item.knowledge_content,item.example_answers,item.example_answers_hi,item.ai_instruction,item.ai_instruction_hi,item.rich_json,item.rich_html,item.rich_json_hi,item.rich_html_hi,item.qa_answer_html,item.qa_answer_json,item.qa_steps_json,item.localized_fields_json,item.image_urls,item.image_delivery,item.button_ids,item.approval_status,item.version_label,id,scope.tenant_id,scope.platform_id]);
   if (!rows[0]) bad('AI Content item not found', 404);
   await updateAiContentExtensions(env, id, item);
   const stored = (await q(env, `SELECT * FROM ai_content_items WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`, [id,scope.tenant_id,scope.platform_id])).rows[0];
@@ -2075,8 +2111,25 @@ function normalizeAiRouterStrategy(value) {
 function parseAiRouterOrder(value) {
   try { return normalizeAiRouterOrder(JSON.parse(value || '[]')); } catch (_) { return normalizeAiRouterOrder(value); }
 }
+function normalizeAiRouterEnabled(value, fallback = AI_ROUTER_SOURCE_TYPES) {
+  if (value === undefined || value === null) return [...fallback];
+  // An explicitly empty list is meaningful: it pauses every optional source
+  // for this tenant/platform. Do not silently restore all sources when an
+  // owner intentionally removes them in the Admin multi-select.
+  if (Array.isArray(value) && value.length === 0) return [];
+  if (typeof value === 'string' && !value.trim()) return [];
+  const values = Array.isArray(value) ? value : String(value || '').split(/[\s,]+/);
+  const clean = [...new Set(values.map((item) => String(item || '').trim().toLowerCase()).filter((item) => AI_ROUTER_SOURCE_TYPES.includes(item)))];
+  return clean.length ? clean : [];
+}
 function aiSourceRouterOut(row, scope = null) {
   const order = normalizeAiRouterOrder(parseAiRouterOrder(row?.source_order));
+  let enabled = [...AI_ROUTER_SOURCE_TYPES];
+  try {
+    enabled = row?.enabled_sources == null
+      ? normalizeAiRouterEnabled(undefined)
+      : normalizeAiRouterEnabled(JSON.parse(row.enabled_sources));
+  } catch (_) { enabled = normalizeAiRouterEnabled(row?.enabled_sources); }
   return {
     ok: true,
     version: VERSION,
@@ -2085,7 +2138,8 @@ function aiSourceRouterOut(row, scope = null) {
     enabled: row?.enabled !== false,
     prompt_manager_enabled: row?.prompt_manager_enabled !== false,
     source_order: order,
-    sources: order.map((source_type, index) => ({ source_type, label: AI_ROUTER_SOURCE_LABELS[source_type], priority: index + 1, enabled: true })),
+    enabled_sources: enabled,
+    sources: order.map((source_type, index) => ({ source_type, label: AI_ROUTER_SOURCE_LABELS[source_type], priority: index + 1, enabled: enabled.includes(source_type) })),
     locale_strategy: normalizeAiRouterStrategy(row?.locale_strategy),
     max_candidates: Math.max(10, Math.min(200, Number(row?.max_candidates || 80))),
     updated_at: row?.updated_at ? String(row.updated_at) : '',
@@ -2093,7 +2147,7 @@ function aiSourceRouterOut(row, scope = null) {
   };
 }
 async function ensureAiSourceRouter(env) {
-  await q(env, `CREATE TABLE IF NOT EXISTS ai_source_router_settings (id SERIAL PRIMARY KEY,tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE CASCADE,platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,enabled BOOLEAN DEFAULT TRUE,prompt_manager_enabled BOOLEAN DEFAULT TRUE,source_order TEXT DEFAULT '["prompt_image","qa","faq","guide","knowledge"]',locale_strategy VARCHAR(30) DEFAULT 'exact_then_base',max_candidates INTEGER DEFAULT 80,updated_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(tenant_id,platform_id))`);
+  await q(env, `CREATE TABLE IF NOT EXISTS ai_source_router_settings (id SERIAL PRIMARY KEY,tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE CASCADE,platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,enabled BOOLEAN DEFAULT TRUE,prompt_manager_enabled BOOLEAN DEFAULT TRUE,source_order TEXT DEFAULT '["prompt_image","qa","faq","guide","knowledge"]',enabled_sources TEXT DEFAULT '["prompt_image","qa","faq","guide","knowledge"]',locale_strategy VARCHAR(30) DEFAULT 'exact_then_base',max_candidates INTEGER DEFAULT 80,updated_at TIMESTAMPTZ DEFAULT NOW(),UNIQUE(tenant_id,platform_id))`);
   await q(env, `CREATE INDEX IF NOT EXISTS idx_ai_source_router_scope ON ai_source_router_settings(tenant_id,platform_id)`);
   const platforms = (await q(env, `SELECT id,tenant_id FROM saas_platforms WHERE archived_at IS NULL AND status='active'`)).rows;
   for (const platform of platforms) {
@@ -2103,6 +2157,14 @@ async function ensureAiSourceRouter(env) {
   }
   await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.10.0_unified_ai_source_router','Platform-scoped unified AI source policy for Prompt & Image, AI Q&A, FAQ, Guide, and Knowledge with explainable diagnostics.') ON CONFLICT(migration_key) DO NOTHING`);
 }
+async function ensureV111BatchPublishing(env) {
+  await q(env, `ALTER TABLE ai_content_items ADD COLUMN IF NOT EXISTS content_name VARCHAR(180) DEFAULT ''`);
+  await q(env, `UPDATE ai_content_items SET content_name=title WHERE COALESCE(content_name,'')=''`);
+  await q(env, `ALTER TABLE ai_source_router_settings ADD COLUMN IF NOT EXISTS enabled_sources TEXT DEFAULT '["prompt_image","qa","faq","guide","knowledge"]'`);
+  await q(env, `CREATE TABLE IF NOT EXISTS knowledge_import_releases (id SERIAL PRIMARY KEY,batch_id INTEGER NOT NULL REFERENCES knowledge_import_batches(id) ON DELETE CASCADE,tenant_id INTEGER NOT NULL,platform_id INTEGER NOT NULL,status VARCHAR(30) DEFAULT 'published',row_count INTEGER DEFAULT 0,previous_snapshot_json TEXT DEFAULT '[]',created_by VARCHAR(255),published_at TIMESTAMPTZ,rolled_back_at TIMESTAMPTZ,created_at TIMESTAMPTZ DEFAULT NOW())`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_knowledge_import_releases_scope ON knowledge_import_releases(tenant_id,platform_id,batch_id)`);
+  await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.11.0_batch_import_approval_publishing_rollback','Named workbook rows, source filters, batch approval/publishing, and release rollback.') ON CONFLICT(migration_key) DO NOTHING`);
+}
 async function getAiSourceRouter(env, scope) {
   const row = (await q(env, `SELECT * FROM ai_source_router_settings WHERE tenant_id=$1::integer AND platform_id=$2::integer LIMIT 1`, [scope.tenant_id, scope.platform_id])).rows[0];
   if (!row) { await ensureAiSourceRouter(env); return getAiSourceRouter(env, scope); }
@@ -2111,13 +2173,14 @@ async function getAiSourceRouter(env, scope) {
 async function updateAiSourceRouter(env, payload = {}, scope) {
   requirePlatformWrite(scope);
   const order = normalizeAiRouterOrder(payload.source_order || payload.sources);
+  const enabledSources = normalizeAiRouterEnabled(payload.enabled_sources || payload.enabledSources || payload.source_order || payload.sources);
   const strategy = normalizeAiRouterStrategy(payload.locale_strategy);
   const max = Math.max(10, Math.min(200, Number(payload.max_candidates || 80)));
-  const row = (await q(env, `INSERT INTO ai_source_router_settings(tenant_id,platform_id,enabled,prompt_manager_enabled,source_order,locale_strategy,max_candidates,updated_at)
-    VALUES($1::integer,$2::integer,$3::boolean,$4::boolean,$5::text,$6::varchar(30),$7::integer,NOW())
-    ON CONFLICT(tenant_id,platform_id) DO UPDATE SET enabled=EXCLUDED.enabled,prompt_manager_enabled=EXCLUDED.prompt_manager_enabled,source_order=EXCLUDED.source_order,locale_strategy=EXCLUDED.locale_strategy,max_candidates=EXCLUDED.max_candidates,updated_at=NOW()
-    RETURNING *`, [scope.tenant_id, scope.platform_id, payload.enabled !== false, payload.prompt_manager_enabled !== false, JSON.stringify(order), strategy, max])).rows[0];
-  await audit(env, 'update', 'ai_source_router_settings', `${scope.platform_id}`, `AI source order: ${order.join(', ')}`, scope);
+  const row = (await q(env, `INSERT INTO ai_source_router_settings(tenant_id,platform_id,enabled,prompt_manager_enabled,source_order,enabled_sources,locale_strategy,max_candidates,updated_at)
+    VALUES($1::integer,$2::integer,$3::boolean,$4::boolean,$5::text,$6::text,$7::varchar(30),$8::integer,NOW())
+    ON CONFLICT(tenant_id,platform_id) DO UPDATE SET enabled=EXCLUDED.enabled,prompt_manager_enabled=EXCLUDED.prompt_manager_enabled,source_order=EXCLUDED.source_order,enabled_sources=EXCLUDED.enabled_sources,locale_strategy=EXCLUDED.locale_strategy,max_candidates=EXCLUDED.max_candidates,updated_at=NOW()
+    RETURNING *`, [scope.tenant_id, scope.platform_id, payload.enabled !== false, payload.prompt_manager_enabled !== false, JSON.stringify(order), JSON.stringify(enabledSources), strategy, max])).rows[0];
+  await audit(env, 'update', 'ai_source_router_settings', `${scope.platform_id}`, `AI sources enabled: ${enabledSources.join(', ')}`, scope);
   return aiSourceRouterOut(row, scope);
 }
 function routerLocaleWhere(locale, strategy, startIndex) {
@@ -2136,7 +2199,8 @@ function virtualKnowledgeRow(row) {
 }
 async function buildUnifiedAiSourceCatalog(env, scope, locale, router) {
   if (!router.enabled) return { rows: [], source_counts: {}, source_order: router.source_order };
-  const order = normalizeAiRouterOrder(router.source_order);
+  const enabled = normalizeAiRouterEnabled(router.enabled_sources);
+  const order = normalizeAiRouterOrder(router.source_order).filter((source) => enabled.includes(source));
   const rows = [];
   const sourceCounts = {};
   const localeClause = router.locale_strategy === 'exact_only'
@@ -2787,7 +2851,7 @@ function knowledgeImportRowOut(row) {
   try { mapped = JSON.parse(row.mapped_json || '{}'); } catch (_) {}
   try { raw = JSON.parse(row.raw_json || '{}'); } catch (_) {}
   try { warnings = JSON.parse(row.warnings_json || '[]'); } catch (_) {}
-  return { id:Number(row.id),batch_id:Number(row.batch_id),sheet_name:row.sheet_name,row_number:Number(row.row_number),source_key:row.source_key,status:row.status || 'valid',approval_status: row.status === 'approved' ? 'approved' : 'pending',approval_available: !!row.imported_content_id && !['approved','rolled_back','conflict'].includes(String(row.status)),validation_error:row.validation_error || '',warnings:Array.isArray(warnings) ? warnings : [],mapped,raw,imported_content_id:row.imported_content_id == null ? null : Number(row.imported_content_id),created_at:row.created_at ? String(row.created_at) : '',updated_at:row.updated_at ? String(row.updated_at) : '' };
+  return { id:Number(row.id),batch_id:Number(row.batch_id),sheet_name:row.sheet_name,row_number:Number(row.row_number),source_key:row.source_key,name:mapped.content_name || mapped.name || mapped.title || '',status:row.status || 'valid',approval_status: row.status === 'approved' ? 'approved' : 'pending',approval_available: !!row.imported_content_id && !['approved','rolled_back','conflict'].includes(String(row.status)),validation_error:row.validation_error || '',warnings:Array.isArray(warnings) ? warnings : [],mapped,raw,imported_content_id:row.imported_content_id == null ? null : Number(row.imported_content_id),created_at:row.created_at ? String(row.created_at) : '',updated_at:row.updated_at ? String(row.updated_at) : '' };
 }
 function knowledgeImportOut(batch, previewRows = []) {
   let summary = {};
@@ -2797,8 +2861,8 @@ function knowledgeImportOut(batch, previewRows = []) {
 function knowledgeImportTemplateResponse(env) {
   const wb = XLSX.utils.book_new();
   const rows = [
-    ['Question','How to reply / Answer','Positive examples','Negative examples','AI instruction','Locale','Platform','Image URL','Image role','Image alt','Image caption','Image placement','Corresponding Ticket','Intent key'],
-    ['My deposit has not arrived','Explain the approved processing steps and the safe escalation route.','deposit not received\nrecharge pending','How do I deposit?\nwithdrawal not received','Use short steps. Never promise a balance adjustment.','en-US','your-platform','https://example.com/deposit.png','step','Deposit history screen','Where to find the pending deposit','after_answer','deposit-not-received','deposit-not-received'],
+    ['Name','Question','How to reply / Answer','Positive examples','Negative examples','AI instruction','Locale','Platform','Image URL','Image role','Image alt','Image caption','Image placement','Corresponding Ticket','Intent key'],
+    ['Deposit not received','My deposit has not arrived','Explain the approved processing steps and the safe escalation route.','deposit not received\nrecharge pending','How do I deposit?\nwithdrawal not received','Use short steps. Never promise a balance adjustment.','en-US','your-platform','https://example.com/deposit.png','step','Deposit history screen','Where to find the pending deposit','after_answer','deposit-not-received','deposit-not-received'],
   ];
   const sheet = XLSX.utils.aoa_to_sheet(rows);
   sheet['!cols'] = rows[0].map((header) => ({ wch: Math.max(14, Math.min(36, header.length + 4)) }));
@@ -2894,7 +2958,7 @@ async function createKnowledgeImportDrafts(env, batchId, admin, scope) {
   await audit(env, 'create_drafts', 'knowledge_import_batches', batchId, `Created ${created}, refreshed ${updated}, conflicts ${conflicts}`, scope);
   return { ok:true,batch_id:batchId,created,updated,conflicts,next_step:'Review imported drafts in AI Prompt & Image. Only Approved + Published items are eligible for AI routing.' };
 }
-async function approveKnowledgeImportRow(env, rowId, scope) {
+async function approveKnowledgeImportRow(env, rowId, scope, publish = true) {
   const row = (await q(env, `SELECT r.*,b.tenant_id,b.platform_id FROM knowledge_import_rows r JOIN knowledge_import_batches b ON b.id=r.batch_id WHERE r.id=$1 AND b.tenant_id=$2 AND b.platform_id=$3 LIMIT 1`, [rowId,scope.tenant_id,scope.platform_id])).rows[0];
   if (!row) bad('Import row not found', 404);
   if (!row.imported_content_id) bad('Create AI Q&A drafts before approving an import row', 409, 'DRAFT_REQUIRED');
@@ -2905,19 +2969,50 @@ async function approveKnowledgeImportRow(env, rowId, scope) {
   if (draft.source_type !== 'qa') {
     await q(env, `UPDATE ai_content_items SET source_type='qa',updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND deleted_at IS NULL`, [row.imported_content_id,scope.tenant_id,scope.platform_id]);
   }
-  const published = await publishAiQa(env, row.imported_content_id, scope);
+  const published = publish ? await publishAiQa(env, row.imported_content_id, scope) : aiContentOut((await q(env, `UPDATE ai_content_items SET approval_status='approved',status=CASE WHEN status='published' THEN status ELSE 'draft' END,updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 RETURNING *`, [row.imported_content_id,scope.tenant_id,scope.platform_id])).rows[0]);
   await q(env, `UPDATE knowledge_import_rows SET status='approved',updated_at=NOW() WHERE id=$1`, [rowId]);
   await audit(env, 'approve_import_row', 'knowledge_import_rows', rowId, `Approved AI Q&A row ${rowId}`, scope);
   return { ok: true, row_id: Number(rowId), item: published };
 }
+async function approveKnowledgeImportBatch(env, batchId, admin, scope) {
+  requirePlatformWrite(scope);
+  const batch = (await q(env, `SELECT * FROM knowledge_import_batches WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`, [batchId,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!batch) bad('Knowledge import not found', 404);
+  const { rows } = await q(env, `SELECT id FROM knowledge_import_rows WHERE batch_id=$1 AND imported_content_id IS NOT NULL AND status IN ('draft_created','valid','approved') ORDER BY id ASC`, [batchId]);
+  let approved = 0; let skipped = 0;
+  for (const row of rows) {
+    try { await approveKnowledgeImportRow(env, row.id, scope, false); approved += 1; } catch (_) { skipped += 1; }
+  }
+  await q(env, `UPDATE knowledge_import_batches SET status='approved',summary_json=$1 WHERE id=$2 AND tenant_id=$3 AND platform_id=$4`, [JSON.stringify({ approved, skipped, batch_action:'approve', note:'Rows are approved. Publish the batch to make them live.' }),batchId,scope.tenant_id,scope.platform_id]);
+  return { ok:true, batch_id:Number(batchId), approved, skipped, next_step:'Publish this batch when the review is complete.' };
+}
+async function publishKnowledgeImportBatch(env, batchId, admin, scope) {
+  requirePlatformWrite(scope);
+  const batch = (await q(env, `SELECT * FROM knowledge_import_batches WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`, [batchId,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!batch) bad('Knowledge import not found', 404);
+  const { rows } = await q(env, `SELECT r.*,a.* FROM knowledge_import_rows r JOIN ai_content_items a ON a.id=r.imported_content_id WHERE r.batch_id=$1 AND r.status='approved' AND a.tenant_id=$2 AND a.platform_id=$3 AND a.deleted_at IS NULL`, [batchId,scope.tenant_id,scope.platform_id]);
+  if (!rows.length) bad('Approve at least one row before publishing the batch', 409, 'NOTHING_APPROVED');
+  const snapshot = rows.map((row) => ({ id:Number(row.imported_content_id), status:row.status, approval_status:row.approval_status, deleted_at:row.deleted_at || null }));
+  const release = (await q(env, `INSERT INTO knowledge_import_releases(batch_id,tenant_id,platform_id,status,row_count,previous_snapshot_json,created_by,published_at) VALUES($1,$2,$3,'published',$4,$5,$6,NOW()) RETURNING *`, [batchId,scope.tenant_id,scope.platform_id,rows.length,JSON.stringify(snapshot),admin?.email || 'admin'])).rows[0];
+  await q(env, `UPDATE ai_content_items SET status='published',approval_status='approved',updated_at=NOW() WHERE import_batch_id=$1 AND tenant_id=$2 AND platform_id=$3 AND deleted_at IS NULL AND approval_status='approved'`, [batchId,scope.tenant_id,scope.platform_id]);
+  await q(env, `UPDATE knowledge_import_batches SET status='published',summary_json=$1 WHERE id=$2 AND tenant_id=$3 AND platform_id=$4`, [JSON.stringify({ published:rows.length, release_id:Number(release.id), batch_action:'publish' }),batchId,scope.tenant_id,scope.platform_id]);
+  await audit(env, 'publish_batch', 'knowledge_import_batches', batchId, `Published ${rows.length} imported knowledge items`, scope);
+  return { ok:true, batch_id:Number(batchId), release_id:Number(release.id), published:rows.length };
+}
 async function rollbackKnowledgeImport(env, batchId, admin, scope) {
   const batch = (await q(env, `SELECT * FROM knowledge_import_batches WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`, [batchId,scope.tenant_id,scope.platform_id])).rows[0];
   if (!batch) bad('Knowledge import not found', 404);
+  const release = (await q(env, `SELECT * FROM knowledge_import_releases WHERE batch_id=$1 AND tenant_id=$2 AND platform_id=$3 AND status='published' ORDER BY id DESC LIMIT 1`, [batchId,scope.tenant_id,scope.platform_id])).rows[0];
   const { rows } = await q(env, `UPDATE ai_content_items SET status='archived',approval_status='archived',deleted_at=NOW(),updated_at=NOW() WHERE import_batch_id=$1 AND tenant_id=$2 AND platform_id=$3 AND deleted_at IS NULL AND status='draft' AND approval_status='draft' RETURNING id`, [batchId,scope.tenant_id,scope.platform_id]);
+  if (release) {
+    let previous = []; try { previous = JSON.parse(release.previous_snapshot_json || '[]'); } catch (_) {}
+    for (const item of previous) await q(env, `UPDATE ai_content_items SET status=$1,approval_status=$2,deleted_at=$3,updated_at=NOW() WHERE id=$4 AND tenant_id=$5 AND platform_id=$6`, [item.status || 'draft',item.approval_status || 'draft',item.deleted_at || null,item.id,scope.tenant_id,scope.platform_id]);
+    await q(env, `UPDATE knowledge_import_releases SET status='rolled_back',rolled_back_at=NOW() WHERE id=$1`, [release.id]);
+  }
   await q(env, `UPDATE knowledge_import_rows SET status=CASE WHEN status='draft_created' THEN 'rolled_back' ELSE status END,updated_at=NOW() WHERE batch_id=$1`, [batchId]);
   await q(env, `UPDATE knowledge_import_batches SET status='rolled_back',rolled_back_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`, [batchId,scope.tenant_id,scope.platform_id]);
   await audit(env, 'rollback_import', 'knowledge_import_batches', batchId, `Archived ${rows.length} unapproved imported drafts`, scope);
-  return { ok:true,batch_id:batchId,archived_drafts:rows.length,note:'Approved or edited content is intentionally preserved.' };
+  return { ok:true,batch_id:batchId,release_id:release ? Number(release.id) : null,archived_drafts:rows.length,restored:release ? true : false,note:release ? 'The last batch release was rolled back.' : 'Approved or edited content is intentionally preserved.' };
 }
 async function snapshotContentVersion(env, entityType, entityId, title, snapshot, note = 'updated', actorEmail = 'admin', scope = null) {
   try {

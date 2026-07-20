@@ -306,6 +306,7 @@ function normalizeForCreate(resource: string, data: any) {
   }
   if (resource === "ai-content") {
     return {
+      content_name: data.content_name || data.name || data.title,
       title: data.title,
       intent_key: data.intent_key,
       locale: data.locale || "en",
@@ -472,6 +473,11 @@ export const api = {
     const payload = await request(pathFor(resource));
     if (resource === "locale-studio") return payload;
     return normalizeResourcePayload(resource, payload);
+  },
+  listAiQa: async (filters: Record<string, string> = {}) => {
+    if (MOCK_MODE) return delay([]);
+    const params = new URLSearchParams(Object.entries(filters).filter(([, value]) => String(value || '').trim()).map(([key, value]) => [key, String(value)]));
+    return request(`/admin/ai-qa${params.size ? `?${params.toString()}` : ''}`);
   },
 
   create: async (resource: string, data: any) => {
@@ -750,7 +756,7 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, enabled: true, prompt_manager_enabled: true, source_order: ["prompt_image", "qa", "faq", "guide", "knowledge"], locale_strategy: "exact_then_base", max_candidates: 80, source_counts: {} });
     return request("/admin/ai-source-router");
   },
-  updateAiSourceRouter: async (data: { enabled: boolean; prompt_manager_enabled: boolean; source_order: string[]; locale_strategy: string; max_candidates: number }) => {
+  updateAiSourceRouter: async (data: { enabled: boolean; prompt_manager_enabled: boolean; source_order: string[]; enabled_sources?: string[]; locale_strategy: string; max_candidates: number }) => {
     if (MOCK_MODE) return delay({ ok: true, ...data });
     return request("/admin/ai-source-router", { method: "PUT", body: JSON.stringify(data) });
   },
@@ -811,10 +817,16 @@ export const api = {
     return request(`/admin/knowledge-import-rows/${id}/approve`, { method: "POST", body: JSON.stringify({}) });
   },
 
+  approveKnowledgeImportBatch: async (id: string | number) => request(`/admin/knowledge-imports/${id}/approve`, { method: "POST", body: JSON.stringify({}) }),
+  publishKnowledgeImportBatch: async (id: string | number) => request(`/admin/knowledge-imports/${id}/publish`, { method: "POST", body: JSON.stringify({}) }),
+
   requestAiQaPublish: async (id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true, id, status: "published", approval_status: "approved" });
     return request(`/admin/ai-qa/${id}/publish`, { method: "POST", body: JSON.stringify({}) });
   },
+  batchApproveAiQa: async (ids: Array<string | number>) => request("/admin/ai-qa/batch-approve", { method: "POST", body: JSON.stringify({ ids }) }),
+  batchPublishAiQa: async (ids: Array<string | number>) => request("/admin/ai-qa/batch-publish", { method: "POST", body: JSON.stringify({ ids }) }),
+  batchDeleteAiQa: async (ids: Array<string | number>) => request("/admin/ai-qa/batch-delete", { method: "POST", body: JSON.stringify({ ids }) }),
 
   createKnowledgeImportDrafts: async (id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true, created: 0, updated: 0, conflicts: 0 });
