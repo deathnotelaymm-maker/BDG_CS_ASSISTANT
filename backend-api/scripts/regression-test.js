@@ -9,7 +9,7 @@ const expect = (name, condition) => checks.push({ name, ok: Boolean(condition) }
 const core = read("backend-api/src/core.js");
 const server = read("backend-api/src/server.js");
 const importer = read("backend-api/src/knowledge-import.js");
-const migration = read("backend-api/migrations/026_v1.12.0_production_domain_mapping_ai_reliability_foundation.sql");
+const migration = read("backend-api/migrations/027_v1.12.1_ai_platform_context_lock_domain_mapping_sql_repair.sql");
 const adminApi = read("admin-pro/src/lib/api.ts");
 const adminLayout = read("admin-pro/src/components/AdminLayout.tsx");
 const importPage = read("admin-pro/src/routes/_admin.ai-knowledge-import.tsx");
@@ -19,13 +19,13 @@ const localizedHelp = read("admin-pro/src/components/LocalizedHelp.tsx");
 const domainPage = read("admin-pro/src/routes/_admin.domain-mapping.tsx");
 const reliabilityPage = read("admin-pro/src/routes/_admin.ai-reliability.tsx");
 
-expect("Backend and server expose the same v1.12.0 release", core.includes("1.12.0-production-domain-mapping-ai-reliability-foundation") && server.includes("1.12.0-production-domain-mapping-ai-reliability-foundation"));
+expect("Backend and server expose the same v1.12.1 release", core.includes("1.12.1-ai-platform-context-lock-domain-mapping-sql-repair") && server.includes("1.12.1-ai-platform-context-lock-domain-mapping-sql-repair"));
 expect("Backend source remains syntax-safe", core.includes("async function ensureBootstrap") && server.includes("createServer"));
 expect("Workbook parser requires Question and Answer", importer.includes("Could not find both Question and How to reply / Answer columns."));
 expect("Workbook parser accepts the named Name column", importer.includes("name: ['name'") && importer.includes("content_name: name"));
 expect("Workbook parser supports image roles and placement", importer.includes("image_role") && importer.includes("image_placement") && importer.includes("image_urls"));
 expect("Named import template is downloadable", core.includes("knowledgeImportTemplateResponse") && core.includes("['Name','Question','How to reply / Answer'"));
-expect("v1.12 migration is additive and idempotent", migration.includes("ADD COLUMN IF NOT EXISTS") && migration.includes("CREATE TABLE IF NOT EXISTS") && migration.includes("ON CONFLICT (migration_key) DO NOTHING"));
+expect("v1.12.1 migration is additive and idempotent", migration.includes("ADD COLUMN IF NOT EXISTS") && migration.includes("CREATE INDEX IF NOT EXISTS") && migration.includes("ON CONFLICT (migration_key) DO NOTHING"));
 expect("AI content names are stored and returned", core.includes("content_name") && core.includes("aiContentOut"));
 expect("Knowledge import batch approval is scoped", core.includes("approveKnowledgeImportBatch") && core.includes("tenant_id=$2 AND platform_id=$3"));
 expect("Knowledge import batch publishing creates a release snapshot", core.includes("publishKnowledgeImportBatch") && core.includes("knowledge_import_releases") && core.includes("previous_snapshot_json"));
@@ -43,8 +43,17 @@ expect("Generated platform links are route-scoped and custom domains require ver
 expect("AI reliability settings are platform-scoped and diagnostics are persisted", core.includes("ai_reliability_settings") && core.includes("failure_stage") && core.includes("retry_count") && core.includes("testAiReliability"));
 expect("Admin domain mapping and reliability controls are visible", adminLayout.includes("Domain Mapping") && adminLayout.includes("AI Reliability") && domainPage.includes("Generate links") && reliabilityPage.includes("Run safety test"));
 expect("Key AI workflows provide English, Chinese, and Burmese explanations", localizedHelp.includes("zh") && localizedHelp.includes("my") && importPage.includes("LocalizedHelp") && qaPage.includes("LocalizedHelp") && routerPage.includes("LocalizedHelp"));
+expect("Context-lock migration persists platform resolution diagnostics", migration.includes("platform_context_source") && migration.includes("platform_context_reference") && migration.includes("idx_chat_logs_platform_context") && migration.includes("ON CONFLICT (migration_key) DO NOTHING"));
+expect("Domain queries scope tenant through saas_platforms", core.includes("JOIN saas_platforms p ON p.id=d.platform_id") && core.includes("p.tenant_id=$1::integer") && !core.includes("FROM saas_platform_domains WHERE tenant_id"));
+expect("Missing and malformed context are rejected", core.includes("PLATFORM_CONTEXT_REQUIRED") && core.includes("PLATFORM_CONTEXT_INVALID") && core.includes("PLATFORM_NOT_FOUND"));
+expect("Public context no longer defaults to BDG", core.includes("const publicReference = publicContext.reference || publicContext.raw_reference || ''") && !core.includes("resolvePublicPlatformScope(env, publicReference || 'default')"));
+expect("Admin AI tests use the active SaaS platform scope", core.includes("testAiContent(env, await readJson(request), scope)") && core.includes("runAiChat(env, await readJson(request), true, scope, scope.platform_context)") && !core.includes("testAiContent(env, await readJson(request), scope.legacy_support_platform_key"));
+expect("AI judge accepts the active scope directly", core.includes("activeScope = null") && core.includes("const scope = activeScope || await resolvePublicPlatformScope(env, platformKey)") && core.includes("platform_resolution: platformResolutionDiagnostics(scope, scope.platform_context)"));
+expect("Chat logs record context source and resolved route", core.includes("platform_context_source,platform_context_reference") && core.includes("logMeta.platform_context_source") && core.includes("platform_context_reference:x.platform_context_reference"));
+expect("Admin platform context exposes resolution diagnostics", core.includes("platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context)"));
+expect("Admin release marker is v1.12.1", adminLayout.includes('const ADMIN_VERSION = "v1.12.1"'));
 
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
-console.log(`\n${checks.length - failed.length}/${checks.length} v1.12.0 regression checks passed`);
+console.log(`\n${checks.length - failed.length}/${checks.length} v1.12.1 regression checks passed`);
 if (failed.length) process.exitCode = 1;

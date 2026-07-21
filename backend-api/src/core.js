@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.12.0-production-domain-mapping-ai-reliability-foundation';
+const VERSION = '1.12.1-ai-platform-context-lock-domain-mapping-sql-repair';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -60,12 +60,14 @@ export default {
       const publicMessage = status >= 500
         ? (err?.publicMessage || 'Service temporarily unavailable')
         : (err?.message || 'Request failed');
+      const platformContext = platformContextFromRequest(request, url, { allowQuery: true });
       return json({
         ok: false,
         error: publicMessage,
         code: err?.code || (status >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),
         request_id: requestId,
         version: VERSION,
+        platform_resolution: platformResolutionDiagnostics(null, platformContext, status >= 500 ? 'unresolved' : undefined),
       }, status, env);
     }
   }
@@ -76,24 +78,25 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
-  const publicReference = publicPlatformReference(request, url, url.searchParams.get('platform') || 'default');
-  if (method === 'GET' && (path === '/settings' || path === '/public/theme')) return json(await getTheme(env, await resolvePublicPlatformScope(env, publicReference)), 200, env);
-  if (method === 'GET' && (path === '/guide/content' || path === '/public/guide-content')) return json(await getGuideContent(env, publicReference), 200, env);
-  if (method === 'GET' && (path === '/popular-help' || path === '/public/popular-help')) return json(await listPopularHelp(env, false, await resolvePublicPlatformScope(env, publicReference)), 200, env);
-  if (method === 'GET' && (path === '/navigation' || path === '/public/navigation')) return json(await listNavigation(env, false, await resolvePublicPlatformScope(env, publicReference)), 200, env);
-  if (method === 'GET' && (path === '/categories' || path === '/public/categories')) return json(await listCategories(env, await resolvePublicPlatformScope(env, publicReference)), 200, env);
+  const publicContext = platformContextFromRequest(request, url, { allowQuery: true });
+  const publicReference = publicContext.reference || publicContext.raw_reference || '';
+  if (method === 'GET' && (path === '/settings' || path === '/public/theme')) return json(await getTheme(env, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
+  if (method === 'GET' && (path === '/guide/content' || path === '/public/guide-content')) return json(await getGuideContent(env, publicReference, publicContext), 200, env);
+  if (method === 'GET' && (path === '/popular-help' || path === '/public/popular-help')) return json(await listPopularHelp(env, false, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
+  if (method === 'GET' && (path === '/navigation' || path === '/public/navigation')) return json(await listNavigation(env, false, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
+  if (method === 'GET' && (path === '/categories' || path === '/public/categories')) return json(await listCategories(env, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
   if (method === 'GET' && (path === '/guides' || path === '/public/guides')) { const params = new URLSearchParams(url.searchParams); params.set('platform', publicReference); return json(await listGuides(env, params), 200, env); }
   if (method === 'GET' && path.startsWith('/guides/')) return json(await getGuide(env, decodeURIComponent(path.split('/').pop()), url.searchParams.get('language') || url.searchParams.get('lang') || 'en', publicReference), 200, env);
-  if (method === 'GET' && (path === '/faqs' || path === '/public/faqs')) return json(await listFaqs(env, false, await resolvePublicPlatformScope(env, publicReference), url.searchParams.get('language') || url.searchParams.get('lang') || 'en'), 200, env);
+  if (method === 'GET' && (path === '/faqs' || path === '/public/faqs')) return json(await listFaqs(env, false, await resolvePublicPlatformScope(env, publicReference, publicContext), url.searchParams.get('language') || url.searchParams.get('lang') || 'en'), 200, env);
   if (method === 'GET' && (path === '/action-buttons' || path === '/public/action-buttons')) return json(await listActionButtons(env, false, url.searchParams.get('language') || 'en', publicReference), 200, env);
-  if (method === 'GET' && (path === '/chat/content' || path === '/public/chat-content')) return json(await getChatContent(env, publicReference), 200, env);
-  if (method === 'GET' && path === '/public/platform-context') return json(await getPublicPlatformMapping(env, publicReference), 200, env);
+  if (method === 'GET' && (path === '/chat/content' || path === '/public/chat-content')) return json(await getChatContent(env, publicReference, publicContext), 200, env);
+  if (method === 'GET' && path === '/public/platform-context') return json(await getPublicPlatformMapping(env, publicReference, publicContext), 200, env);
   if (method === 'GET' && /^\/platform-access\/[a-z0-9-]+$/i.test(path)) return json(await getPublicPlatformAccess(env, decodeURIComponent(path.split('/').pop())), 200, env);
-  if (method === 'POST' && path === '/chat') return json(finalizeChatResponse(await runAiChat(env, { ...(await readJson(request)), platform_key: publicReference }, false)), 200, env);
+  if (method === 'POST' && path === '/chat') return json(finalizeChatResponse(await runAiChat(env, { ...(await readJson(request)), platform_key: publicReference }, false, null, publicContext)), 200, env);
   if (method === 'POST' && path === '/chat/uploads') return uploadToR2(request, env, 'chat');
 
   if (method === 'POST' && (path === '/auth/login' || path === '/login' || path === '/api/login')) return login(request, env);
@@ -230,7 +233,7 @@ async function route(request, env, url) {
   if (method === 'POST' && path === '/admin/ai-content') return json(await createAiContent(env, await readJson(request), scope), 200, env);
   if (method === 'PUT' && /^\/admin\/ai-content\/\d+$/.test(path)) return json(await updateAiContent(env, idFromPath(path), await readJson(request), scope), 200, env);
   if (method === 'DELETE' && /^\/admin\/ai-content\/\d+$/.test(path)) return json(await deleteAiContent(env, idFromPath(path), scope), 200, env);
-  if (method === 'POST' && path === '/admin/ai-content/test') return json(await testAiContent(env, { ...(await readJson(request)), platform_key: scope.legacy_support_platform_key }, scope), 200, env);
+  if (method === 'POST' && path === '/admin/ai-content/test') return json(await testAiContent(env, await readJson(request), scope), 200, env);
   if (method === 'GET' && path === '/admin/incorrect-match-reports') return json(await listIncorrectMatchReports(env, scope), 200, env);
   if (method === 'POST' && path === '/admin/incorrect-match-reports') return json(await createIncorrectMatchReport(env, await readJson(request), scope), 200, env);
   if (method === 'GET' && path === '/admin/knowledge-versions') return json(await listKnowledgeVersions(env, scope), 200, env);
@@ -300,7 +303,7 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/api-diagnostics') return json(await adminApiDiagnostics(env, scope), 200, env);
   if (method === 'GET' && path === '/admin/system-health') return json(await systemHealth(env), 200, env);
   if (method === 'GET' && path === '/admin/foundation-diagnostics') return json(await adminFoundationDiagnostics(env), 200, env);
-  if (method === 'POST' && path === '/admin/ai/test') return json(finalizeChatResponse(await runAiChat(env, { ...(await readJson(request)), platform_key: scope.legacy_support_platform_key }, true)), 200, env);
+  if (method === 'POST' && path === '/admin/ai/test') return json(finalizeChatResponse(await runAiChat(env, await readJson(request), true, scope, scope.platform_context)), 200, env);
 
   if (method === 'GET' && path === '/admin/chat-sessions') return json(await listSessions(env, scope), 200, env);
   if (method === 'DELETE' && path.startsWith('/admin/chat-sessions/')) return json(await clearSession(env, decodeURIComponent(path.replace('/admin/chat-sessions/', '')), scope), 200, env);
@@ -492,6 +495,7 @@ async function ensureBootstrap(env) {
   await ensureAiSourceRouter(env);
   await ensureV111BatchPublishing(env);
   await ensureV112ProductionFoundation(env);
+  await ensureV121ContextLock(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -1088,7 +1092,7 @@ async function applyGuideLocale(env, row, scope, requestedLocale, { requirePubli
   return output;
 }
 async function listGuides(env, params = new URLSearchParams()) {
-  const scope = await resolvePublicPlatformScope(env, params.get?.('platform') || 'default');
+  const scope = await resolvePublicPlatformScope(env, params.get?.('platform') || '');
   const lang = params.get?.('language') || params.get?.('lang') || scope.default_locale || 'en';
   let sql = `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE g.status='published' AND g.tenant_id=$1 AND g.platform_id=$2`;
   const vals = [scope.tenant_id, scope.platform_id]; const category = params.get?.('category');
@@ -1112,7 +1116,7 @@ async function listAdminGuides(env, scope) {
     return { ...guideOut(g, registry.default_locale), locale_coverage: localeCoverage, supported_locales: registry.supported_languages };
   }));
 }
-async function getGuide(env, slug, lang='en', platformKey='default') {
+async function getGuide(env, slug, lang='en', platformKey='') {
   const scope = await resolvePublicPlatformScope(env, platformKey);
   const { rows } = await q(env, `SELECT g.*, c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug FROM guides g LEFT JOIN categories c ON c.id=g.category_id WHERE (g.slug=$1 OR CAST(g.id AS TEXT)=$1) AND g.status='published' AND g.tenant_id=$2 AND g.platform_id=$3 LIMIT 1`, [slug, scope.tenant_id, scope.platform_id]);
   if (!rows[0]) bad('Guide not found', 404);
@@ -1675,7 +1679,9 @@ function platformFeatureOut(row) {
   try { configuration = JSON.parse(row.configuration_json || '{}'); } catch (_) {}
   return { platform_id: Number(row.platform_id), feature_key: row.feature_key, label: PLATFORM_FEATURES.find(([key]) => key === row.feature_key)?.[1] || row.feature_key, enabled: row.enabled !== false, configuration, updated_at: row.updated_at ? String(row.updated_at) : '' };
 }
-function scopeOut(row, access = {}) {
+function scopeOut(row, access = {}, resolution = {}) {
+  const requestedReference = String(resolution.requested_reference || '').trim();
+  const source = String(resolution.source || 'platform-reference');
   return {
     tenant_id: Number(row.tenant_id),
     platform_id: Number(row.id),
@@ -1694,6 +1700,15 @@ function scopeOut(row, access = {}) {
     can_write: access.can_write === true,
     can_manage_platform: access.can_manage_platform === true,
     operator: access.operator === true,
+    platform_context: {
+      required: true,
+      source,
+      requested_reference: requestedReference,
+      resolved_reference: normalizePublicRouteKey(row.public_route_key),
+      resolved_platform_id: Number(row.id),
+      resolved_platform_key: row.platform_key || '',
+      fallback_applied: false,
+    },
   };
 }
 async function legacyPlatformScope(env) {
@@ -1703,32 +1718,56 @@ async function legacyPlatformScope(env) {
       AND t.archived_at IS NULL AND t.status='active'
     ORDER BY p.id ASC LIMIT 1`)).rows[0];
   if (!row) bad('The legacy BDG platform is not available', 503, 'PLATFORM_BOOTSTRAP_REQUIRED');
-  return scopeOut(row, { role:'operator', can_write:true, can_manage_platform:true, operator:true });
+  return scopeOut(row, { role:'operator', can_write:true, can_manage_platform:true, operator:true }, { source:'legacy-explicit', requested_reference:'legacy-bdg' });
 }
-function publicPlatformReference(request, url, fallback = 'default') {
-  const header = normalizePublicRouteKey(request?.headers?.get?.('x-bdg-platform-route'), '');
-  const match = String(url?.pathname || '').match(/\/p\/(p-[a-z0-9-]+)/i);
-  return header || normalizePublicRouteKey(match?.[1], '') || String(url?.searchParams?.get?.('platform') || fallback || 'default');
-}
-async function resolvePublicPlatformScope(env, reference = 'default') {
-  const key = normalizePlatformKey(reference, 'default');
-  let row;
-  if (key === 'default') {
-    row = (await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name
-      FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id
-      WHERE p.legacy_support_platform_key='default' AND p.archived_at IS NULL AND p.status='active'
-        AND t.archived_at IS NULL AND t.status='active'
-      ORDER BY p.id ASC LIMIT 1`)).rows[0];
-  } else {
-    row = (await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name
-      FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id
-      WHERE p.public_route_key=$1
-        AND p.archived_at IS NULL AND p.status='active'
-        AND t.archived_at IS NULL AND t.status='active'
-      LIMIT 1`, [key])).rows[0];
+function platformContextFromRequest(request, url, { allowQuery = true } = {}) {
+  const headerRaw = String(request?.headers?.get?.('x-bdg-platform-route') || '').trim();
+  const headerReference = normalizePublicRouteKey(headerRaw, '');
+  if (headerRaw) return { source:'header', raw_reference:headerRaw, reference:headerReference, status:headerReference ? 'provided' : 'invalid' };
+  const pathMatch = String(url?.pathname || '').match(/\/p\/([^/]+)/i);
+  if (pathMatch) {
+    const raw = String(pathMatch[1] || '').trim();
+    const reference = normalizePublicRouteKey(raw, '');
+    return { source:'path', raw_reference:raw, reference, status:reference ? 'provided' : 'invalid' };
   }
+  if (allowQuery) {
+    const queryRaw = String(url?.searchParams?.get?.('platform') || '').trim();
+    if (queryRaw) {
+      const reference = normalizePublicRouteKey(queryRaw, '');
+      return { source:'query', raw_reference:queryRaw, reference, status:reference ? 'provided' : 'invalid' };
+    }
+  }
+  return { source:'missing', raw_reference:'', reference:'', status:'missing' };
+}
+function platformResolutionDiagnostics(scope = null, context = {}, status = '') {
+  return {
+    status: status || (scope ? 'resolved' : (context?.status === 'invalid' ? 'invalid' : 'missing')),
+    source: context?.source || scope?.platform_context?.source || 'unknown',
+    requested_reference: String(context?.raw_reference || scope?.platform_context?.requested_reference || ''),
+    resolved_reference: scope?.public_route_key || scope?.platform_context?.resolved_reference || '',
+    tenant_id: scope?.tenant_id == null ? null : Number(scope.tenant_id),
+    platform_id: scope?.platform_id == null ? null : Number(scope.platform_id),
+    platform_key: scope?.platform_key || scope?.platform_context?.resolved_platform_key || '',
+    fallback_applied: false,
+  };
+}
+function publicPlatformReference(request, url) {
+  const context = platformContextFromRequest(request, url, { allowQuery: true });
+  return context.reference || context.raw_reference || '';
+}
+async function resolvePublicPlatformScope(env, reference = '', resolution = {}) {
+  const rawReference = String(reference || '').trim();
+  if (!rawReference) bad('Platform context is required. Open the platform-specific public link.', 400, 'PLATFORM_CONTEXT_REQUIRED');
+  const key = normalizePublicRouteKey(rawReference, '');
+  if (!key) bad('Platform context is invalid. Use the generated /p/<platform-route> link.', 400, 'PLATFORM_CONTEXT_INVALID');
+  const row = (await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name
+    FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id
+    WHERE p.public_route_key=$1
+      AND p.archived_at IS NULL AND p.status='active'
+      AND t.archived_at IS NULL AND t.status='active'
+    LIMIT 1`, [key])).rows[0];
   if (!row) bad('Platform access link was not found', 404, 'PLATFORM_NOT_FOUND');
-  return scopeOut(row, { role:'public' });
+  return scopeOut(row, { role:'public' }, { source:resolution.source || 'platform-reference', requested_reference:rawReference });
 }
 async function getSupportPlatformForScope(env, scope) {
   const row = (await q(env, `SELECT * FROM support_platforms
@@ -1748,12 +1787,10 @@ function requiresPlatformScope(path) {
   return true;
 }
 async function resolveAdminPlatformScope(env, request, admin) {
-  const requested = normalizePublicRouteKey(request.headers.get('x-bdg-platform-route'), '');
-  if (!requested) {
-    if (!isPlatformOperator(admin)) bad('Open the platform-specific Admin URL to manage this platform', 403, 'PLATFORM_CONTEXT_REQUIRED');
-    return legacyPlatformScope(env);
-  }
-  const scope = await resolvePublicPlatformScope(env, requested);
+  const resolution = platformContextFromRequest(request, new URL(request.url), { allowQuery:false });
+  const requested = resolution.reference || resolution.raw_reference || '';
+  if (!requested) bad('Open the platform-specific Admin URL to manage this platform', 403, 'PLATFORM_CONTEXT_REQUIRED');
+  const scope = await resolvePublicPlatformScope(env, requested, resolution);
   if (isPlatformOperator(admin)) return { ...scope, access_role:'operator', can_write:true, can_manage_platform:true, operator:true };
   const tenantMembership = (await q(env, `SELECT tm.role AS membership_role FROM saas_tenant_memberships tm
     JOIN admin_users u ON u.id=tm.admin_user_id
@@ -1770,7 +1807,7 @@ async function resolveAdminPlatformScope(env, request, admin) {
 }
 async function getAdminPlatformContext(env, request, admin) {
   const scope = await resolveAdminPlatformScope(env, request, admin);
-  return { ok:true, version:VERSION, platform:scope, access: { role:scope.access_role, can_write:scope.can_write, can_manage_platform:scope.can_manage_platform } };
+  return { ok:true, version:VERSION, platform:scope, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), access: { role:scope.access_role, can_write:scope.can_write, can_manage_platform:scope.can_manage_platform } };
 }
 function requirePlatformWrite(scope) {
   if (!scope?.can_write) bad('This platform membership is read-only', 403, 'PLATFORM_WRITE_DENIED');
@@ -2216,6 +2253,16 @@ async function ensureV112ProductionFoundation(env) {
   }
   await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.12.0_production_domain_mapping_ai_reliability_foundation','Generated /p/ platform routes, custom-domain verification metadata, scoped reliability controls, and failure diagnostics.') ON CONFLICT(migration_key) DO NOTHING`);
 }
+async function ensureV121ContextLock(env) {
+  // Domain ownership belongs to the platform row. Tenant scoping is enforced
+  // through the saas_platforms join in every domain read/write query; the
+  // domains table intentionally has no tenant_id column.
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS platform_context_source VARCHAR(30) DEFAULT ''`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS platform_context_reference VARCHAR(180) DEFAULT ''`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_chat_logs_platform_context ON chat_logs(tenant_id,platform_id,created_at DESC)`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_platform_domains_platform_scope ON saas_platform_domains(platform_id,archived_at)`);
+  await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.12.1_ai_platform_context_lock_domain_mapping_sql_repair','Rejects missing/invalid platform context, removes silent default-platform routing, binds AI tests to the active platform, repairs domain tenant scoping through saas_platforms, and persists resolution diagnostics.') ON CONFLICT(migration_key) DO NOTHING`);
+}
 function reliabilityOut(row, scope) {
   return {
     ok: true, version: VERSION, tenant_id: Number(scope?.tenant_id || row?.tenant_id || 0), platform_id: Number(scope?.platform_id || row?.platform_id || 0),
@@ -2271,8 +2318,8 @@ function domainRouteLinks(env, scope) {
   return { chat: `${publicBaseUrl(env,'chat')}/p/${route}`, guide: `${publicBaseUrl(env,'guide')}/p/${route}`, admin: `${publicBaseUrl(env,'admin')}/p/${route}/admin` };
 }
 async function getDomainMapping(env, scope) {
-  const domains = (await q(env, `SELECT * FROM saas_platform_domains WHERE tenant_id=$1::integer AND platform_id=$2::integer AND archived_at IS NULL ORDER BY site_kind`, [scope.tenant_id, scope.platform_id])).rows;
-  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, generated:domainRouteLinks(env, scope), custom_domains:domains.map((row) => ({ ...platformDomainOut(row), domain_mode:row.domain_mode || 'custom', route_prefix:row.route_prefix || `/p/${scope.public_route_key}`, verification_token:row.verification_token || '', last_verification_error:row.last_verification_error || '' })), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: 'Add the hostname in Cloudflare Pages, configure DNS, then verify it here. DNS is never changed automatically.' } };
+  const domains = (await q(env, `SELECT d.* FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE p.tenant_id=$1::integer AND d.platform_id=$2::integer AND d.archived_at IS NULL ORDER BY d.site_kind`, [scope.tenant_id, scope.platform_id])).rows;
+  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), custom_domains:domains.map((row) => ({ ...platformDomainOut(row), domain_mode:row.domain_mode || 'custom', route_prefix:row.route_prefix || `/p/${scope.public_route_key}`, verification_token:row.verification_token || '', last_verification_error:row.last_verification_error || '' })), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: 'Add the hostname in Cloudflare Pages, configure DNS, then verify it here. DNS is never changed automatically.' } };
 }
 async function generateDomainMapping(env, scope) {
   const mapping = await getDomainMapping(env, scope);
@@ -2280,16 +2327,16 @@ async function generateDomainMapping(env, scope) {
   return { ...mapping, generated_at:new Date().toISOString() };
 }
 async function verifyMappedDomain(env, id, scope) {
-  const row = (await q(env, `SELECT * FROM saas_platform_domains WHERE id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer AND archived_at IS NULL LIMIT 1`, [id, scope.tenant_id, scope.platform_id])).rows[0];
+  const row = (await q(env, `SELECT d.* FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE d.id=$1::integer AND p.tenant_id=$2::integer AND d.platform_id=$3::integer AND d.archived_at IS NULL LIMIT 1`, [id, scope.tenant_id, scope.platform_id])).rows[0];
   if (!row) bad('Platform domain not found', 404);
   const token = String(row.verification_token || '');
   const note = token ? `Publish a DNS TXT record named _bdg-verify.${row.hostname} with value ${token}.` : 'Add the hostname in Cloudflare Pages and complete DNS verification.';
   await q(env, `UPDATE saas_platform_domains SET provisioning_status='pending_dns',verification_note=$1::text,last_verification_error='',updated_at=NOW() WHERE id=$2::integer`, [note, id]);
-  return { ok:true, version:VERSION, domain: { ...platformDomainOut(row), provisioning_status:'pending_dns', verification_note:note }, verified:false, next_step:note };
+  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), domain: { ...platformDomainOut(row), provisioning_status:'pending_dns', verification_note:note }, verified:false, next_step:note };
 }
-async function getPublicPlatformMapping(env, reference) {
-  const scope = await resolvePublicPlatformScope(env, reference);
-  return { ok:true, version:VERSION, platform:scope, links:domainRouteLinks(env, scope), custom_domains:(await q(env, `SELECT site_kind,hostname,provisioning_status FROM saas_platform_domains WHERE platform_id=$1::integer AND archived_at IS NULL AND provisioning_status IN ('verified','active')`, [scope.platform_id])).rows };
+async function getPublicPlatformMapping(env, reference, resolution = {}) {
+  const scope = await resolvePublicPlatformScope(env, reference, resolution);
+  return { ok:true, version:VERSION, platform:scope, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), links:domainRouteLinks(env, scope), custom_domains:(await q(env, `SELECT site_kind,hostname,provisioning_status FROM saas_platform_domains WHERE platform_id=$1::integer AND archived_at IS NULL AND provisioning_status IN ('verified','active')`, [scope.platform_id])).rows };
 }
 async function getAiSourceRouter(env, scope) {
   const row = (await q(env, `SELECT * FROM ai_source_router_settings WHERE tenant_id=$1::integer AND platform_id=$2::integer LIMIT 1`, [scope.tenant_id, scope.platform_id])).rows[0];
@@ -3171,13 +3218,14 @@ async function restoreContentVersion(env, versionId, admin, scope) {
   if (version.entity_type === 'site_content') return updateContentBlock(env, version.entity_id, snapshot, scope);
   bad('This version type cannot be restored', 400);
 }
-async function testAiContent(env, p = {}) {
+async function testAiContent(env, p = {}, scope = null) {
+  if (!scope?.platform_id) bad('Platform context is required for AI testing. Open the platform-specific Admin URL.', 403, 'PLATFORM_CONTEXT_REQUIRED');
   const message = String(p.message || '').trim();
   if (!message) bad('Message is required');
   const language = p.language || p.lang || 'en';
-  const platformKey = normalizePlatformKey(p.platform_key || p.platform || 'default');
+  const platformKey = scope.public_route_key;
   const settings = aiSettingOut(await getAiSettings(env), env);
-  const result = await judgeAiContentWithModel(env, settings, message, language, String(p.memory_summary || ''), platformKey);
+  const result = await judgeAiContentWithModel(env, settings, message, language, String(p.memory_summary || ''), platformKey, scope);
   return {
     ok: result.ok,
     engine: 'ai-knowledge-orchestrator-v3',
@@ -3187,10 +3235,11 @@ async function testAiContent(env, p = {}) {
     selected_content: result.selected ? aiContentOut(result.selected, result.decision?.confidence, result.decision?.reason) : null,
     catalog_size: result.catalog?.length || 0,
     provider_error: result.ok ? null : result.provider?.error || 'AI judge unavailable',
+    platform_resolution: platformResolutionDiagnostics(scope, scope.platform_context),
   };
 }
-async function getGuideContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const settings = await getTheme(env, scope); const blocks = await listContentBlocks(env, scope); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; const languages = scopeLanguages(scope); return { settings, guide_theme: { background_url: settings.guide_background_url, hero_background_url: settings.guide_hero_background_url, hero_overlay_color: settings.guide_hero_overlay_color, font_family: settings.guide_font_family, surface_color: settings.guide_surface_color, text_color: settings.guide_text_color, card_radius: settings.guide_card_radius, content_width: settings.guide_content_width }, platform_key: platform.platform_key, platform_reference: scope.public_route_key || platform.platform_key, content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false, scope), home_sections: (await listHomeSections(env, false, scope)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false, scope), action_buttons: await listActionButtons(env, false, languages[0]?.code || 'en', platform.platform_key, scope), public_languages: languages, admin_languages: languages }; }
-async function getChatContent(env, platformReference = 'default') { const scope = await resolvePublicPlatformScope(env, platformReference); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = safePlatformDisplayName({ ...scope, platform_name: theme.brand_name || scope.platform_name || platform.name }, 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; const languages = scopeLanguages(scope); const defaultLocale = String(scope.default_locale || languages[0]?.code || 'en').trim().toLowerCase(); const texts = Object.fromEntries(languages.map(({ code }) => [code, { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }])); return { settings: theme, start_module: chatExperienceOut(theme, supportName), platform_reference: scope.public_route_key || platform.platform_key, branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages, default_locale: defaultLocale, platforms, default_platform_key:platform.platform_key, quick_replies, action_buttons: await listActionButtons(env, false, defaultLocale, platform.platform_key, scope), support_enabled: theme.show_chat_support_button === true, texts }; }
+async function getGuideContent(env, platformReference = '', resolution = {}) { const scope = await resolvePublicPlatformScope(env, platformReference, resolution); const platform = await getSupportPlatformForScope(env, scope); const settings = await getTheme(env, scope); const blocks = await listContentBlocks(env, scope); const content = Object.fromEntries(blocks.map(b => [b.block_key, b.value])); const content_version = blocks.map((b) => b.updated_at || '').sort().at(-1) || settings.updated_at || ''; const languages = scopeLanguages(scope); return { settings, guide_theme: { background_url: settings.guide_background_url, hero_background_url: settings.guide_hero_background_url, hero_overlay_color: settings.guide_hero_overlay_color, font_family: settings.guide_font_family, surface_color: settings.guide_surface_color, text_color: settings.guide_text_color, card_radius: settings.guide_card_radius, content_width: settings.guide_content_width }, platform_key: platform.platform_key, platform_reference: scope.public_route_key || platform.platform_key, platform_resolution: platformResolutionDiagnostics(scope, scope.platform_context), content, blocks, content_version, cache_policy: 'live-no-store', popular_help: [], navigation: await listNavigation(env, false, scope), home_sections: (await listHomeSections(env, false, scope)).map(s => s.section_key === 'popular' ? { ...s, enabled: false } : s), quick_replies: await listQuickReplies(env, false, scope), action_buttons: await listActionButtons(env, false, languages[0]?.code || 'en', platform.platform_key, scope), public_languages: languages, admin_languages: languages }; }
+async function getChatContent(env, platformReference = '', resolution = {}) { const scope = await resolvePublicPlatformScope(env, platformReference, resolution); const platform = await getSupportPlatformForScope(env, scope); const theme = await getTheme(env, scope); const quick_replies = await listQuickReplies(env, false, scope); const platforms = await listSupportPlatforms(env, false, scope); const supportName = safePlatformDisplayName({ ...scope, platform_name: theme.brand_name || scope.platform_name || platform.name }, 'Support'); const chatTitle = theme.chat_header_title || `${supportName} Support`; const welcomeTitle = theme.chat_welcome_title || `Welcome to ${supportName} Support`; const welcomeText = theme.chat_welcome_subtitle || `Please describe your issue and ${supportName} Support will guide you step by step.`; const languages = scopeLanguages(scope); const defaultLocale = String(scope.default_locale || languages[0]?.code || 'en').trim().toLowerCase(); const texts = Object.fromEntries(languages.map(({ code }) => [code, { title: chatTitle, online: theme.chat_online_text || 'Online assistant', welcome: welcomeText, welcome_title: welcomeTitle, placeholder: theme.chat_input_placeholder || 'Type your message...', busy: 'Please wait for the current reply...' }])); return { settings: theme, start_module: chatExperienceOut(theme, supportName), platform_reference: scope.public_route_key || platform.platform_key, platform_resolution: platformResolutionDiagnostics(scope, scope.platform_context), branding: { chat_icon_url: theme.chat_icon_url || '', favicon_url: theme.chat_favicon_url || theme.favicon_url || '', brand_name: supportName, title: chatTitle, online: theme.chat_online_text || 'Online assistant' }, languages, default_locale: defaultLocale, platforms, default_platform_key:platform.platform_key, quick_replies, action_buttons: await listActionButtons(env, false, defaultLocale, platform.platform_key, scope), support_enabled: theme.show_chat_support_button === true, texts }; }
 async function getAdminSiteContent(env, scope) { return { settings: await getTheme(env, scope), blocks: await listContentBlocks(env, scope), popular_help: [], navigation: await listNavigation(env, true, scope), home_sections: await listHomeSections(env, true, scope), chat_quick_replies: await listQuickReplies(env, true, scope) }; }
 function scopedTombstoneKey(scope, key) { return `p${scope.platform_id}:${key}`; }
 async function updateContentBlock(env, key, p, scope) {
@@ -3827,9 +3876,9 @@ function judgeCatalogItem(row, language) {
     route_policy: row.route_policy || 'answer_only',
   };
 }
-async function judgeAiContentWithModel(env, settings, message, language, memorySummary = '', platformKey = 'default') {
+async function judgeAiContentWithModel(env, settings, message, language, memorySummary = '', platformKey = '', activeScope = null) {
   const locale = String(language || 'en').toLowerCase().slice(0, 20);
-  const scope = await resolvePublicPlatformScope(env, platformKey);
+  const scope = activeScope || await resolvePublicPlatformScope(env, platformKey);
   const platform = await getSupportPlatformForScope(env, scope);
   const router = await getAiSourceRouter(env, scope);
   const unified = await buildUnifiedAiSourceCatalog(env, scope, locale, router);
@@ -3952,7 +4001,7 @@ async function finishChatTurn(env, session, settings, adminTest, message, reply,
     const finalBlocks = responseBlocks.length ? responseBlocks : responseBlocksFromText(reply);
     const confidence = normalizeConfidencePercent(logMeta.confidence);
     try {
-      await q(env, 'INSERT INTO chat_logs(session_id,customer_message,assistant_reply,matched_sources,matched_images,uploaded_images,used_deepseek,model,provider_status,error_type,error_detail,latency_ms,request_id,intent_id,confidence,attachment_decision,response_blocks_json,response_format,resolution_state,decision_json,user_intent,desired_outcome,platform_key,import_batch_id,tenant_id,platform_id,failure_stage,fallback_action,retry_count,resolved_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)', [session.session_id,message,reply,logMeta.sources || '',logMeta.images || '',joinUrls(uploaded),!!logMeta.usedDeepseek,logMeta.model || 'conversation-state-local',logMeta.provider_status || (logMeta.usedDeepseek ? 'success' : 'fallback'),logMeta.error_type || '',logMeta.error_detail || '',Number(logMeta.latency_ms || 0),logMeta.request_id || '',logMeta.intent_id || '',confidence,logMeta.attachment_decision || 'none',JSON.stringify(finalBlocks),'structured-v2',logMeta.resolution_state || 'open',JSON.stringify(logMeta.decision || {}),logMeta.user_intent || '',logMeta.desired_outcome || '',normalizePlatformKey(logMeta.platform_key || 'default'),Number(logMeta.import_batch_id) || null,session.tenant_id,session.platform_id,logMeta.failure_stage || '',logMeta.fallback_action || '',Number(logMeta.retry_count || 0),logMeta.resolved_by || '']);
+      await q(env, 'INSERT INTO chat_logs(session_id,customer_message,assistant_reply,matched_sources,matched_images,uploaded_images,used_deepseek,model,provider_status,error_type,error_detail,latency_ms,request_id,intent_id,confidence,attachment_decision,response_blocks_json,response_format,resolution_state,decision_json,user_intent,desired_outcome,platform_key,import_batch_id,tenant_id,platform_id,failure_stage,fallback_action,retry_count,resolved_by,platform_context_source,platform_context_reference) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)', [session.session_id,message,reply,logMeta.sources || '',logMeta.images || '',joinUrls(uploaded),!!logMeta.usedDeepseek,logMeta.model || 'conversation-state-local',logMeta.provider_status || (logMeta.usedDeepseek ? 'success' : 'fallback'),logMeta.error_type || '',logMeta.error_detail || '',Number(logMeta.latency_ms || 0),logMeta.request_id || '',logMeta.intent_id || '',confidence,logMeta.attachment_decision || 'none',JSON.stringify(finalBlocks),'structured-v2',logMeta.resolution_state || 'open',JSON.stringify(logMeta.decision || {}),logMeta.user_intent || '',logMeta.desired_outcome || '',String(logMeta.platform_key || ''),Number(logMeta.import_batch_id) || null,session.tenant_id,session.platform_id,logMeta.failure_stage || '',logMeta.fallback_action || '',Number(logMeta.retry_count || 0),logMeta.resolved_by || '',logMeta.platform_context_source || '',logMeta.platform_context_reference || '']);
     } catch (err) {
       console.error(JSON.stringify({ level:'error', event:'chat_log_write_failed', request_id:logMeta.request_id || '', code:err?.code || '', message:err?.message || String(err) }));
     }
@@ -4055,14 +4104,16 @@ function technicalUnavailableText(lang, reliability = null, kind = 'provider') {
   if (String(lang || '').startsWith('my')) return kind === 'unknown' ? 'ယုံကြည်စိတ်ချရသော အဖြေကို မတွေ့သေးပါ။ အသေးစိတ်ကို ထပ်မံဖော်ပြပေးပါ။' : 'AI အကူအညီကို ခဏတာ မရရှိနိုင်သေးပါ။ နောက်မှ ထပ်ကြိုးစားပါ။';
   return kind === 'unknown' ? 'I could not find a reliable answer yet. Please add a little more detail and I will continue.' : 'AI support is temporarily unavailable. Please try again in a moment.';
 }
-async function runAiChat(env, payload, adminTest) {
+async function runAiChat(env, payload, adminTest, activeScope = null, contextResolution = {}) {
   const turnStarted = Date.now();
   const turnRequestId = crypto.randomUUID();
   const message = String(payload.message || '').trim();
   if (!message) bad('Message is required');
   const uploaded = Array.isArray(payload.image_urls) ? payload.image_urls : [];
-  const platformKey = normalizePlatformKey(payload.platform_key || payload.platform || 'default');
-  const publicScope = await resolvePublicPlatformScope(env, platformKey);
+  const requestedPlatform = String(payload.platform_key || payload.platform || '').trim();
+  const publicScope = activeScope || await resolvePublicPlatformScope(env, requestedPlatform, contextResolution);
+  if (!publicScope?.platform_id) bad('Platform context is required for AI chat', 400, 'PLATFORM_CONTEXT_REQUIRED');
+  const platformKey = publicScope.public_route_key;
   const reliability = await getAiReliability(env, publicScope);
   const languagePolicy = localePolicy(publicScope);
   const requestedLocale = normalizeLocale(payload.language || payload.lang || languagePolicy.default_locale, languagePolicy.default_locale);
@@ -4072,7 +4123,7 @@ async function runAiChat(env, payload, adminTest) {
 
   const configured = settings.enabled && !!env.DEEPSEEK_API_KEY;
   const judge = configured
-    ? await judgeAiContentWithModel(env, settings, message, lang, session.memory_summary, platformKey)
+    ? await judgeAiContentWithModel(env, settings, message, lang, session.memory_summary, platformKey, publicScope)
     : { ok:false, provider:{ reply:null,error:settings.enabled ? 'Missing DEEPSEEK_API_KEY' : 'AI model disabled',error_type:'configuration',attempts:0 }, decision:null, selected:null, catalog:[], router:await getAiSourceRouter(env, publicScope), source_counts:{}, platform:await getSupportPlatformForScope(env, publicScope), scope:publicScope };
   const decision = judge.decision || { decision:'technical_failure',item_id:null,intent_key:'',confidence:0,user_intent:'',desired_outcome:'',clarification_question:'',reason:judge.provider?.error || 'AI judge unavailable' };
   const selected = judge.selected || null;
@@ -4129,6 +4180,8 @@ async function runAiChat(env, payload, adminTest) {
     failure_stage: usedDeepSeek ? '' : (provider?.error_type || 'provider'),
     fallback_action: usedDeepSeek ? '' : (decision.decision === 'no_match' ? 'clarify_or_handoff' : 'neutral_reply'),
     retry_count: Number(provider?.attempts || 0),
+    platform_context_source: publicScope.platform_context?.source || contextResolution.source || '',
+    platform_context_reference: publicScope.public_route_key || '',
   });
 
   if (!adminTest && judge.ok && decision.decision === 'no_match' && !uploaded.length) {
@@ -4144,6 +4197,7 @@ async function runAiChat(env, payload, adminTest) {
     request_id: turnRequestId,
     language: lang,
     platform: judge.platform || { platform_key:platformKey, support_mode:'none' },
+    platform_resolution: platformResolutionDiagnostics(publicScope, publicScope.platform_context || contextResolution),
     memory_summary: memorySummary,
     used_deepseek: usedDeepSeek,
     model: usedDeepSeek ? settings.model : 'technical-unavailable',
@@ -4162,6 +4216,7 @@ async function runAiChat(env, payload, adminTest) {
       source_router: judge.router || null,
       source_counts: judge.source_counts || {},
       selected_source_type: selected?.source_type || '',
+      platform_resolution: platformResolutionDiagnostics(publicScope, publicScope.platform_context || contextResolution),
     } : undefined,
   };
 }
@@ -4329,7 +4384,7 @@ async function systemHealth(env) {
   return { ok: !failed.length, status: failed.length ? 'degraded' : 'healthy', version: VERSION, checks, timestamp: new Date().toISOString() };
 }
 
-async function listChatLogs(env,scope) { const { rows } = await q(env, 'SELECT * FROM chat_logs WHERE tenant_id=$1 AND platform_id=$2 ORDER BY created_at DESC, id DESC LIMIT 300',[scope.tenant_id,scope.platform_id]); return rows.map(x => { let decision={}; try{decision=JSON.parse(x.decision_json||'{}');}catch{} return ({ id:x.id,session_id:x.session_id,customer_message:x.customer_message || '',assistant_reply:x.assistant_reply || '',matched_sources:splitUrls(x.matched_sources),matched_images:splitUrls(x.matched_images),uploaded_images:splitUrls(x.uploaded_images),used_deepseek:!!x.used_deepseek,provider_status:x.provider_status || (x.used_deepseek ? 'success' : 'fallback'),error_type:x.error_type || '',error_detail:x.error_detail || '',latency_ms:Number(x.latency_ms || 0),request_id:x.request_id || '',intent_id:x.intent_id || '',confidence:x.confidence == null ? null : Number(x.confidence),attachment_decision:x.attachment_decision || '',response_blocks:normalizeResponseBlocks(x.response_blocks_json || ''),response_format:x.response_format || 'text',resolution_state:x.resolution_state || 'open',decision,user_intent:x.user_intent || decision.user_intent || '',desired_outcome:x.desired_outcome || decision.desired_outcome || '',platform_key:x.platform_key || 'default',import_batch_id:x.import_batch_id == null ? null : Number(x.import_batch_id),model:x.model,created_at:String(x.created_at) }); }); }
+async function listChatLogs(env,scope) { const { rows } = await q(env, 'SELECT * FROM chat_logs WHERE tenant_id=$1 AND platform_id=$2 ORDER BY created_at DESC, id DESC LIMIT 300',[scope.tenant_id,scope.platform_id]); return rows.map(x => { let decision={}; try{decision=JSON.parse(x.decision_json||'{}');}catch{} return ({ id:x.id,session_id:x.session_id,customer_message:x.customer_message || '',assistant_reply:x.assistant_reply || '',matched_sources:splitUrls(x.matched_sources),matched_images:splitUrls(x.matched_images),uploaded_images:splitUrls(x.uploaded_images),used_deepseek:!!x.used_deepseek,provider_status:x.provider_status || (x.used_deepseek ? 'success' : 'fallback'),error_type:x.error_type || '',error_detail:x.error_detail || '',latency_ms:Number(x.latency_ms || 0),request_id:x.request_id || '',intent_id:x.intent_id || '',confidence:x.confidence == null ? null : Number(x.confidence),attachment_decision:x.attachment_decision || '',response_blocks:normalizeResponseBlocks(x.response_blocks_json || ''),response_format:x.response_format || 'text',resolution_state:x.resolution_state || 'open',decision,user_intent:x.user_intent || decision.user_intent || '',desired_outcome:x.desired_outcome || decision.desired_outcome || '',platform_key:x.platform_key || '',platform_context_source:x.platform_context_source || '',platform_context_reference:x.platform_context_reference || '',import_batch_id:x.import_batch_id == null ? null : Number(x.import_batch_id),model:x.model,created_at:String(x.created_at) }); }); }
 async function listUnmatchedQuestions(env,scope) { const { rows } = await q(env, 'SELECT * FROM unmatched_questions WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id DESC LIMIT 300',[scope.tenant_id,scope.platform_id]); return rows.map(x => ({ id: x.id, session_id: x.session_id, customer_message: x.customer_message, language: x.language || 'en', suggested_intent: x.suggested_intent || '', created_at: String(x.created_at) })); }
 
 
