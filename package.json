@@ -1,6 +1,10 @@
 {
   "name": "bdg-help-center-business-platform",
+<<<<<<< Updated upstream
   "version": "1.11.0",
+=======
+  "version": "1.12.0",
+>>>>>>> Stashed changes
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,7 +1,11 @@
 {
   "name": "bdg-guide-pro",
   "private": true,
+<<<<<<< Updated upstream
   "version": "1.11.0",
+=======
+  "version": "1.12.0",
+>>>>>>> Stashed changes
   "type": "module",
   "scripts": {
     "dev": "vite",

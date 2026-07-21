@@ -3,6 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Input, InputNumber, Select, Space, Switch, Table, Tag, message } from "antd";
 import { ApartmentOutlined, ReloadOutlined, SaveOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
+<<<<<<< Updated upstream
+=======
+import LocalizedHelp from "@/components/LocalizedHelp";
+>>>>>>> Stashed changes
 
 export const Route = createFileRoute("/_admin/ai-source-router")({ component: AiSourceRouterPage });
 
@@ -52,7 +56,15 @@ function AiSourceRouterPage() {
 
   return <>
     <Card loading={loading} title={<Space><ApartmentOutlined />Unified AI Source Router</Space>} extra={<Button icon={<ReloadOutlined />} onClick={() => void load()}>Refresh</Button>} style={{ marginBottom: 12 }}>
+<<<<<<< Updated upstream
       <Alert showIcon type="info" message="One deterministic policy for every approved AI source" description="The live AI can use AI Prompt & Image, AI Q&A, FAQ, published Guide translations, and Knowledge. Every candidate is scoped to the current tenant and platform; drafts, archived items, and cross-platform content are never routed. This replaces silent BDG/default fallback." />
+=======
+      <LocalizedHelp copies={{
+        en: { title: "One deterministic policy for every approved AI source", body: "The live AI can use AI Prompt & Image, AI Q&A, FAQ, published Guide translations, and Knowledge. Every candidate is scoped to the current tenant and platform; drafts, archived items, and cross-platform content are never routed. This replaces silent BDG/default fallback.", bullets: ["Enabled sources are eligible; source order decides which approved answer wins.", "Use Preview to see the exact sources the current tenant and platform can use."] },
+        zh: { title: "所有已批准 AI 来源使用一套确定性策略", body: "在线 AI 可以使用 AI 提示与图片、AI 问答、FAQ、已发布的指南翻译和知识内容。所有候选内容都限制在当前租户和平台，草稿、归档以及其他平台的内容不会被路由。", bullets: ["启用的来源才有资格参与；来源顺序决定优先回答。", "使用预览查看当前租户和平台实际可使用的内容。"] },
+        my: { title: "အတည်ပြုပြီးသော AI ရင်းမြစ်အားလုံးအတွက် တိကျသော မူဝါဒတစ်ခု", body: "Live AI သည် AI Prompt & Image၊ AI Q&A၊ FAQ၊ ထုတ်ဝေပြီး Guide ဘာသာပြန်များနှင့် Knowledge ကို အသုံးပြုနိုင်သည်။ Candidate အားလုံးကို လက်ရှိ tenant နှင့် platform အတွင်းသာ ကန့်သတ်ထားပြီး draft၊ archive နှင့် အခြား platform အကြောင်းအရာများကို မပို့ပါ။", bullets: ["ဖွင့်ထားသော source များသာ ပါဝင်မည်၊ source order က ဦးစားပေးအဖြေကို ဆုံးဖြတ်မည်။", "Preview ဖြင့် လက်ရှိ tenant/platform သုံးနိုင်သည့် source အတိအကျကို ကြည့်ပါ။"] },
+      }} />
+>>>>>>> Stashed changes
       <Space direction="vertical" style={{ width: "100%", marginTop: 16 }} size="middle">
         <Space wrap><span>Router enabled</span><Switch checked={router.enabled !== false} onChange={(value) => setRouter((current: any) => ({ ...current, enabled: value }))} /><span>Prompt Manager global instructions</span><Switch checked={router.prompt_manager_enabled !== false} onChange={(value) => setRouter((current: any) => ({ ...current, prompt_manager_enabled: value }))} /></Space>
         <label>Source priority order <Select mode="multiple" value={router.source_order || []} onChange={(value) => setRouter((current: any) => ({ ...current, source_order: value }))} options={sourceOptions} style={{ width: "100%" }} /></label>

@@ -7,7 +7,11 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
+<<<<<<< Updated upstream
 const VERSION = '1.11.0-batch-import-approval-publishing-rollback';
+=======
+const VERSION = '1.12.0-production-domain-mapping-ai-reliability-foundation';
+>>>>>>> Stashed changes
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -76,6 +80,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
+<<<<<<< Updated upstream
   if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
@@ -90,8 +95,26 @@ async function route(request, env, url) {
   if (method === 'GET' && (path === '/faqs' || path === '/public/faqs')) return json(await listFaqs(env, false, await resolvePublicPlatformScope(env, url.searchParams.get('platform') || 'default'), url.searchParams.get('language') || url.searchParams.get('lang') || 'en'), 200, env);
   if (method === 'GET' && (path === '/action-buttons' || path === '/public/action-buttons')) return json(await listActionButtons(env, false, url.searchParams.get('language') || 'en', url.searchParams.get('platform') || 'default'), 200, env);
   if (method === 'GET' && (path === '/chat/content' || path === '/public/chat-content')) return json(await getChatContent(env, url.searchParams.get('platform') || 'default'), 200, env);
+=======
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help'] }, 200, env);
+  if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
+
+  // Public API
+  const publicReference = publicPlatformReference(request, url, url.searchParams.get('platform') || 'default');
+  if (method === 'GET' && (path === '/settings' || path === '/public/theme')) return json(await getTheme(env, await resolvePublicPlatformScope(env, publicReference)), 200, env);
+  if (method === 'GET' && (path === '/guide/content' || path === '/public/guide-content')) return json(await getGuideContent(env, publicReference), 200, env);
+  if (method === 'GET' && (path === '/popular-help' || path === '/public/popular-help')) return json(await listPopularHelp(env, false, await resolvePublicPlatformScope(env, publicReference)), 200, env);
+  if (method === 'GET' && (path === '/navigation' || path === '/public/navigation')) return json(await listNavigation(env, false, await resolvePublicPlatformScope(env, publicReference)), 200, env);
+  if (method === 'GET' && (path === '/categories' || path === '/public/categories')) return json(await listCategories(env, await resolvePublicPlatformScope(env, publicReference)), 200, env);
+  if (method === 'GET' && (path === '/guides' || path === '/public/guides')) { const params = new URLSearchParams(url.searchParams); params.set('platform', publicReference); return json(await listGuides(env, params), 200, env); }
+  if (method === 'GET' && path.startsWith('/guides/')) return json(await getGuide(env, decodeURIComponent(path.split('/').pop()), url.searchParams.get('language') || url.searchParams.get('lang') || 'en', publicReference), 200, env);
+  if (method === 'GET' && (path === '/faqs' || path === '/public/faqs')) return json(await listFaqs(env, false, await resolvePublicPlatformScope(env, publicReference), url.searchParams.get('language') || url.searchParams.get('lang') || 'en'), 200, env);
+  if (method === 'GET' && (path === '/action-buttons' || path === '/public/action-buttons')) return json(await listActionButtons(env, false, url.searchParams.get('language') || 'en', publicReference), 200, env);
+  if (method === 'GET' && (path === '/chat/content' || path === '/public/chat-content')) return json(await getChatContent(env, publicReference), 200, env);
+  if (method === 'GET' && path === '/public/platform-context') return json(await getPublicPlatformMapping(env, publicReference), 200, env);
+>>>>>>> Stashed changes
   if (method === 'GET' && /^\/platform-access\/[a-z0-9-]+$/i.test(path)) return json(await getPublicPlatformAccess(env, decodeURIComponent(path.split('/').pop())), 200, env);
-  if (method === 'POST' && path === '/chat') return json(finalizeChatResponse(await runAiChat(env, await readJson(request), false)), 200, env);
+  if (method === 'POST' && path === '/chat') return json(finalizeChatResponse(await runAiChat(env, { ...(await readJson(request)), platform_key: publicReference }, false)), 200, env);
   if (method === 'POST' && path === '/chat/uploads') return uploadToR2(request, env, 'chat');
 
   if (method === 'POST' && (path === '/auth/login' || path === '/login' || path === '/api/login')) return login(request, env);
@@ -141,6 +164,15 @@ async function route(request, env, url) {
   // their generated /p/<route-key>/admin URL.
   const scope = requiresPlatformScope(path) ? await resolveAdminPlatformScope(env, request, admin) : null;
   if (scope && method !== 'GET') requirePlatformWrite(scope);
+
+  // v1.12 production mapping and AI reliability controls. These are always
+  // tenant/platform scoped and never expose connector or provider secrets.
+  if (method === 'GET' && path === '/admin/domain-mapping') return json(await getDomainMapping(env, scope), 200, env);
+  if (method === 'POST' && path === '/admin/domain-mapping/generate') return json(await generateDomainMapping(env, scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/verify$/.test(path)) return json(await verifyMappedDomain(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'GET' && path === '/admin/ai/reliability') return json(await getAiReliability(env, scope), 200, env);
+  if (method === 'PUT' && path === '/admin/ai/reliability') return json(await updateAiReliability(env, await readJson(request), scope), 200, env);
+  if (method === 'POST' && path === '/admin/ai/reliability/test') return json(await testAiReliability(env, await readJson(request), scope), 200, env);
 
   // v1.4 Operations Connector Gateway. Connector secrets never leave the
   // backend and every request is bound to the active tenant/platform scope.
@@ -480,6 +512,10 @@ async function ensureBootstrap(env) {
   await ensureGuideLocaleStudio(env);
   await ensureAiSourceRouter(env);
   await ensureV111BatchPublishing(env);
+<<<<<<< Updated upstream
+=======
+  await ensureV112ProductionFoundation(env);
+>>>>>>> Stashed changes
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -1693,6 +1729,11 @@ async function legacyPlatformScope(env) {
   if (!row) bad('The legacy BDG platform is not available', 503, 'PLATFORM_BOOTSTRAP_REQUIRED');
   return scopeOut(row, { role:'operator', can_write:true, can_manage_platform:true, operator:true });
 }
+function publicPlatformReference(request, url, fallback = 'default') {
+  const header = normalizePublicRouteKey(request?.headers?.get?.('x-bdg-platform-route'), '');
+  const match = String(url?.pathname || '').match(/\/p\/(p-[a-z0-9-]+)/i);
+  return header || normalizePublicRouteKey(match?.[1], '') || String(url?.searchParams?.get?.('platform') || fallback || 'default');
+}
 async function resolvePublicPlatformScope(env, reference = 'default') {
   const key = normalizePlatformKey(reference, 'default');
   let row;
@@ -2165,6 +2206,118 @@ async function ensureV111BatchPublishing(env) {
   await q(env, `CREATE INDEX IF NOT EXISTS idx_knowledge_import_releases_scope ON knowledge_import_releases(tenant_id,platform_id,batch_id)`);
   await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.11.0_batch_import_approval_publishing_rollback','Named workbook rows, source filters, batch approval/publishing, and release rollback.') ON CONFLICT(migration_key) DO NOTHING`);
 }
+<<<<<<< Updated upstream
+=======
+async function ensureV112ProductionFoundation(env) {
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS domain_mode VARCHAR(20) DEFAULT 'custom'`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS route_prefix VARCHAR(180) DEFAULT ''`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS verification_token VARCHAR(120) DEFAULT ''`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS last_verification_error TEXT DEFAULT ''`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_platform_domains_hostname_active ON saas_platform_domains(lower(hostname)) WHERE archived_at IS NULL`);
+  await q(env, `CREATE TABLE IF NOT EXISTS ai_reliability_settings (
+    id SERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE CASCADE,
+    platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,
+    enabled BOOLEAN DEFAULT TRUE,
+    clarification_threshold INTEGER DEFAULT 70,
+    escalation_threshold INTEGER DEFAULT 55,
+    max_retries INTEGER DEFAULT 2,
+    provider_timeout_ms INTEGER DEFAULT 12000,
+    fallback_mode VARCHAR(40) DEFAULT 'clarify_then_human',
+    handoff_url TEXT DEFAULT '',
+    unknown_reply TEXT DEFAULT '',
+    provider_error_reply TEXT DEFAULT '',
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(tenant_id, platform_id)
+  )`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_ai_reliability_scope ON ai_reliability_settings(tenant_id,platform_id)`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS failure_stage VARCHAR(40) DEFAULT ''`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS fallback_action VARCHAR(40) DEFAULT ''`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0`);
+  await q(env, `ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS resolved_by VARCHAR(120) DEFAULT ''`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_chat_logs_reliability_scope ON chat_logs(tenant_id,platform_id,created_at DESC)`);
+  const platforms = (await q(env, `SELECT id,tenant_id FROM saas_platforms WHERE archived_at IS NULL AND status='active'`)).rows;
+  for (const platform of platforms) {
+    await q(env, `INSERT INTO ai_reliability_settings(tenant_id,platform_id) VALUES($1::integer,$2::integer) ON CONFLICT(tenant_id,platform_id) DO NOTHING`, [platform.tenant_id, platform.id]);
+  }
+  await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.12.0_production_domain_mapping_ai_reliability_foundation','Generated /p/ platform routes, custom-domain verification metadata, scoped reliability controls, and failure diagnostics.') ON CONFLICT(migration_key) DO NOTHING`);
+}
+function reliabilityOut(row, scope) {
+  return {
+    ok: true, version: VERSION, tenant_id: Number(scope?.tenant_id || row?.tenant_id || 0), platform_id: Number(scope?.platform_id || row?.platform_id || 0),
+    enabled: row?.enabled !== false,
+    clarification_threshold: Math.max(1, Math.min(100, Number(row?.clarification_threshold ?? 70))),
+    escalation_threshold: Math.max(1, Math.min(100, Number(row?.escalation_threshold ?? 55))),
+    max_retries: Math.max(0, Math.min(5, Number(row?.max_retries ?? 2))),
+    provider_timeout_ms: Math.max(3000, Math.min(30000, Number(row?.provider_timeout_ms ?? 12000))),
+    fallback_mode: ['clarify_then_human','clarify_only','human_only'].includes(String(row?.fallback_mode || '')) ? String(row.fallback_mode) : 'clarify_then_human',
+    handoff_url: String(row?.handoff_url || ''), unknown_reply: String(row?.unknown_reply || ''), provider_error_reply: String(row?.provider_error_reply || ''),
+    updated_at: row?.updated_at ? String(row.updated_at) : '',
+    contract: { provider_errors_never_expose_secrets: true, unknown_questions_are_logged: true, tenant_platform_scoped: true, retries_bounded: true },
+  };
+}
+async function getAiReliability(env, scope) {
+  const row = (await q(env, `SELECT * FROM ai_reliability_settings WHERE tenant_id=$1::integer AND platform_id=$2::integer LIMIT 1`, [scope.tenant_id, scope.platform_id])).rows[0];
+  if (!row) { await q(env, `INSERT INTO ai_reliability_settings(tenant_id,platform_id) VALUES($1::integer,$2::integer) ON CONFLICT(tenant_id,platform_id) DO NOTHING`, [scope.tenant_id, scope.platform_id]); return getAiReliability(env, scope); }
+  return reliabilityOut(row, scope);
+}
+async function updateAiReliability(env, payload = {}, scope) {
+  requirePlatformWrite(scope);
+  const current = await getAiReliability(env, scope);
+  const clean = {
+    enabled: payload.enabled !== false,
+    clarification_threshold: Math.max(1, Math.min(100, Number(payload.clarification_threshold ?? current.clarification_threshold))),
+    escalation_threshold: Math.max(1, Math.min(100, Number(payload.escalation_threshold ?? current.escalation_threshold))),
+    max_retries: Math.max(0, Math.min(5, Number(payload.max_retries ?? current.max_retries))),
+    provider_timeout_ms: Math.max(3000, Math.min(30000, Number(payload.provider_timeout_ms ?? current.provider_timeout_ms))),
+    fallback_mode: ['clarify_then_human','clarify_only','human_only'].includes(String(payload.fallback_mode || current.fallback_mode)) ? String(payload.fallback_mode || current.fallback_mode) : current.fallback_mode,
+    handoff_url: String(payload.handoff_url ?? current.handoff_url).trim().slice(0, 2000),
+    unknown_reply: String(payload.unknown_reply ?? current.unknown_reply).trim().slice(0, 2000),
+    provider_error_reply: String(payload.provider_error_reply ?? current.provider_error_reply).trim().slice(0, 2000),
+  };
+  const row = (await q(env, `UPDATE ai_reliability_settings SET enabled=$3::boolean,clarification_threshold=$4::integer,escalation_threshold=$5::integer,max_retries=$6::integer,provider_timeout_ms=$7::integer,fallback_mode=$8::varchar(40),handoff_url=$9::text,unknown_reply=$10::text,provider_error_reply=$11::text,updated_at=NOW() WHERE tenant_id=$1::integer AND platform_id=$2::integer RETURNING *`, [scope.tenant_id, scope.platform_id, clean.enabled, clean.clarification_threshold, clean.escalation_threshold, clean.max_retries, clean.provider_timeout_ms, clean.fallback_mode, clean.handoff_url, clean.unknown_reply, clean.provider_error_reply])).rows[0];
+  await audit(env, 'update', 'ai_reliability_settings', `${scope.platform_id}`, 'AI reliability policy updated', scope);
+  return reliabilityOut(row, scope);
+}
+async function testAiReliability(env, payload = {}, scope) {
+  const policy = await getAiReliability(env, scope);
+  return { ok: true, version: VERSION, platform_id: scope.platform_id, checks: [
+    { name: 'bounded retries', ok: policy.max_retries <= 5, value: policy.max_retries },
+    { name: 'provider timeout', ok: policy.provider_timeout_ms >= 3000 && policy.provider_timeout_ms <= 30000, value: policy.provider_timeout_ms },
+    { name: 'neutral unknown response', ok: !!(policy.unknown_reply || policy.fallback_mode !== 'human_only') },
+    { name: 'handoff route', ok: policy.fallback_mode === 'clarify_only' || !policy.handoff_url || /^https?:\/\//i.test(policy.handoff_url), value: policy.handoff_url ? 'configured' : 'not configured' },
+  ], simulated_message: String(payload.message || 'unknown customer question').slice(0, 300), policy };
+}
+function publicBaseUrl(env, kind) {
+  const key = `${kind.toUpperCase()}_BASE_URL`;
+  return String(env[key] || PLATFORM_PUBLIC_ORIGINS[kind]).replace(/\/$/, '');
+}
+function domainRouteLinks(env, scope) {
+  const route = encodeURIComponent(normalizePublicRouteKey(scope.public_route_key, ''));
+  return { chat: `${publicBaseUrl(env,'chat')}/p/${route}`, guide: `${publicBaseUrl(env,'guide')}/p/${route}`, admin: `${publicBaseUrl(env,'admin')}/p/${route}/admin` };
+}
+async function getDomainMapping(env, scope) {
+  const domains = (await q(env, `SELECT * FROM saas_platform_domains WHERE tenant_id=$1::integer AND platform_id=$2::integer AND archived_at IS NULL ORDER BY site_kind`, [scope.tenant_id, scope.platform_id])).rows;
+  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, generated:domainRouteLinks(env, scope), custom_domains:domains.map((row) => ({ ...platformDomainOut(row), domain_mode:row.domain_mode || 'custom', route_prefix:row.route_prefix || `/p/${scope.public_route_key}`, verification_token:row.verification_token || '', last_verification_error:row.last_verification_error || '' })), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: 'Add the hostname in Cloudflare Pages, configure DNS, then verify it here. DNS is never changed automatically.' } };
+}
+async function generateDomainMapping(env, scope) {
+  const mapping = await getDomainMapping(env, scope);
+  await audit(env, 'generate', 'platform_route_mapping', scope.platform_id, `Generated /p/${scope.public_route_key} links`, scope);
+  return { ...mapping, generated_at:new Date().toISOString() };
+}
+async function verifyMappedDomain(env, id, scope) {
+  const row = (await q(env, `SELECT * FROM saas_platform_domains WHERE id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer AND archived_at IS NULL LIMIT 1`, [id, scope.tenant_id, scope.platform_id])).rows[0];
+  if (!row) bad('Platform domain not found', 404);
+  const token = String(row.verification_token || '');
+  const note = token ? `Publish a DNS TXT record named _bdg-verify.${row.hostname} with value ${token}.` : 'Add the hostname in Cloudflare Pages and complete DNS verification.';
+  await q(env, `UPDATE saas_platform_domains SET provisioning_status='pending_dns',verification_note=$1::text,last_verification_error='',updated_at=NOW() WHERE id=$2::integer`, [note, id]);
+  return { ok:true, version:VERSION, domain: { ...platformDomainOut(row), provisioning_status:'pending_dns', verification_note:note }, verified:false, next_step:note };
+}
+async function getPublicPlatformMapping(env, reference) {
+  const scope = await resolvePublicPlatformScope(env, reference);
+  return { ok:true, version:VERSION, platform:scope, links:domainRouteLinks(env, scope), custom_domains:(await q(env, `SELECT site_kind,hostname,provisioning_status FROM saas_platform_domains WHERE platform_id=$1::integer AND archived_at IS NULL AND provisioning_status IN ('verified','active')`, [scope.platform_id])).rows };
+}
+>>>>>>> Stashed changes
 async function getAiSourceRouter(env, scope) {
   const row = (await q(env, `SELECT * FROM ai_source_router_settings WHERE tenant_id=$1::integer AND platform_id=$2::integer LIMIT 1`, [scope.tenant_id, scope.platform_id])).rows[0];
   if (!row) { await ensureAiSourceRouter(env); return getAiSourceRouter(env, scope); }
@@ -3826,7 +3979,7 @@ async function finishChatTurn(env, session, settings, adminTest, message, reply,
     const finalBlocks = responseBlocks.length ? responseBlocks : responseBlocksFromText(reply);
     const confidence = normalizeConfidencePercent(logMeta.confidence);
     try {
-      await q(env, 'INSERT INTO chat_logs(session_id,customer_message,assistant_reply,matched_sources,matched_images,uploaded_images,used_deepseek,model,provider_status,error_type,error_detail,latency_ms,request_id,intent_id,confidence,attachment_decision,response_blocks_json,response_format,resolution_state,decision_json,user_intent,desired_outcome,platform_key,import_batch_id,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)', [session.session_id,message,reply,logMeta.sources || '',logMeta.images || '',joinUrls(uploaded),!!logMeta.usedDeepseek,logMeta.model || 'conversation-state-local',logMeta.provider_status || (logMeta.usedDeepseek ? 'success' : 'fallback'),logMeta.error_type || '',logMeta.error_detail || '',Number(logMeta.latency_ms || 0),logMeta.request_id || '',logMeta.intent_id || '',confidence,logMeta.attachment_decision || 'none',JSON.stringify(finalBlocks),'structured-v2',logMeta.resolution_state || 'open',JSON.stringify(logMeta.decision || {}),logMeta.user_intent || '',logMeta.desired_outcome || '',normalizePlatformKey(logMeta.platform_key || 'default'),Number(logMeta.import_batch_id) || null,session.tenant_id,session.platform_id]);
+      await q(env, 'INSERT INTO chat_logs(session_id,customer_message,assistant_reply,matched_sources,matched_images,uploaded_images,used_deepseek,model,provider_status,error_type,error_detail,latency_ms,request_id,intent_id,confidence,attachment_decision,response_blocks_json,response_format,resolution_state,decision_json,user_intent,desired_outcome,platform_key,import_batch_id,tenant_id,platform_id,failure_stage,fallback_action,retry_count,resolved_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)', [session.session_id,message,reply,logMeta.sources || '',logMeta.images || '',joinUrls(uploaded),!!logMeta.usedDeepseek,logMeta.model || 'conversation-state-local',logMeta.provider_status || (logMeta.usedDeepseek ? 'success' : 'fallback'),logMeta.error_type || '',logMeta.error_detail || '',Number(logMeta.latency_ms || 0),logMeta.request_id || '',logMeta.intent_id || '',confidence,logMeta.attachment_decision || 'none',JSON.stringify(finalBlocks),'structured-v2',logMeta.resolution_state || 'open',JSON.stringify(logMeta.decision || {}),logMeta.user_intent || '',logMeta.desired_outcome || '',normalizePlatformKey(logMeta.platform_key || 'default'),Number(logMeta.import_batch_id) || null,session.tenant_id,session.platform_id,logMeta.failure_stage || '',logMeta.fallback_action || '',Number(logMeta.retry_count || 0),logMeta.resolved_by || '']);
     } catch (err) {
       console.error(JSON.stringify({ level:'error', event:'chat_log_write_failed', request_id:logMeta.request_id || '', code:err?.code || '', message:err?.message || String(err) }));
     }
@@ -3921,10 +4074,13 @@ async function composeAiResponse(env, settings, message, lang, decision, selecte
   if (!reply && !blocks.length) return { ok:false, provider:{ ...provider,error:'AI composer returned an empty response',error_type:'invalid_response' }, assets, reply:'', blocks:[] };
   return { ok:true, provider, assets, reply:reply || ' ', blocks:blocks.length ? blocks : responseBlocksFromText(reply) };
 }
-function technicalUnavailableText(lang) {
-  return lang === 'hi'
-    ? 'AI सहायता अभी अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ देर बाद फिर प्रयास करें।'
-    : 'AI support is temporarily unavailable. Please try again in a moment.';
+function technicalUnavailableText(lang, reliability = null, kind = 'provider') {
+  const configured = kind === 'unknown' ? String(reliability?.unknown_reply || '') : String(reliability?.provider_error_reply || '');
+  if (configured) return configured;
+  if (String(lang || '').startsWith('hi')) return kind === 'unknown' ? 'मैं इस प्रश्न का भरोसेमंद उत्तर नहीं ढूँढ सका। कृपया अपना प्रश्न थोड़ा और स्पष्ट करें।' : 'AI सहायता अभी अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ देर बाद फिर प्रयास करें।';
+  if (String(lang || '').startsWith('zh')) return kind === 'unknown' ? '我暂时找不到可靠答案。请再说明一些细节，我会继续帮助您。' : 'AI 客服暂时不可用，请稍后再试。';
+  if (String(lang || '').startsWith('my')) return kind === 'unknown' ? 'ယုံကြည်စိတ်ချရသော အဖြေကို မတွေ့သေးပါ။ အသေးစိတ်ကို ထပ်မံဖော်ပြပေးပါ။' : 'AI အကူအညီကို ခဏတာ မရရှိနိုင်သေးပါ။ နောက်မှ ထပ်ကြိုးစားပါ။';
+  return kind === 'unknown' ? 'I could not find a reliable answer yet. Please add a little more detail and I will continue.' : 'AI support is temporarily unavailable. Please try again in a moment.';
 }
 async function runAiChat(env, payload, adminTest) {
   const turnStarted = Date.now();
@@ -3934,6 +4090,10 @@ async function runAiChat(env, payload, adminTest) {
   const uploaded = Array.isArray(payload.image_urls) ? payload.image_urls : [];
   const platformKey = normalizePlatformKey(payload.platform_key || payload.platform || 'default');
   const publicScope = await resolvePublicPlatformScope(env, platformKey);
+<<<<<<< Updated upstream
+=======
+  const reliability = await getAiReliability(env, publicScope);
+>>>>>>> Stashed changes
   const languagePolicy = localePolicy(publicScope);
   const requestedLocale = normalizeLocale(payload.language || payload.lang || languagePolicy.default_locale, languagePolicy.default_locale);
   const lang = languagePolicy.supported_languages.find((candidate) => localeMatches(requestedLocale, candidate)) || languagePolicy.default_locale;
@@ -3971,7 +4131,7 @@ async function runAiChat(env, payload, adminTest) {
 
   const usedDeepSeek = !!(judge.ok && (decision.decision === 'clarify' || composed?.ok || connectorResult?.status === 'needs_input'));
   if (!usedDeepSeek) {
-    reply = technicalUnavailableText(lang);
+    reply = technicalUnavailableText(lang, reliability, decision.decision === 'no_match' ? 'unknown' : 'provider');
     responseBlocks = [{ type:'error', text:reply }];
   }
   const contentImages = responseBlocks.filter((block) => block.type === 'image').map((block) => block.url);
@@ -3996,6 +4156,9 @@ async function runAiChat(env, payload, adminTest) {
     desired_outcome: decision.desired_outcome || '',
     platform_key: judge.platform?.platform_key || platformKey,
     import_batch_id: selected?.import_batch_id || null,
+    failure_stage: usedDeepSeek ? '' : (provider?.error_type || 'provider'),
+    fallback_action: usedDeepSeek ? '' : (decision.decision === 'no_match' ? 'clarify_or_handoff' : 'neutral_reply'),
+    retry_count: Number(provider?.attempts || 0),
   });
 
   if (!adminTest && judge.ok && decision.decision === 'no_match' && !uploaded.length) {
@@ -4134,6 +4297,10 @@ async function adminFoundationDiagnostics(env) {
 async function aiDiagnostics(env, scope) {
   const settings = await getAiSettings(env);
   const source_router = await getAiSourceRouter(env, scope);
+<<<<<<< Updated upstream
+=======
+  const reliability = await getAiReliability(env, scope);
+>>>>>>> Stashed changes
   const counts = {};
   for (const [key, table] of Object.entries({ categories:'categories', guides:'guides', faqs:'faqs', knowledge:'knowledge_items', prompts:'ai_prompt_sections', prompt_versions:'ai_prompt_versions', ai_content:'ai_content_items', action_buttons:'action_buttons', knowledge_import_batches:'knowledge_import_batches', content_versions:'content_versions', sessions:'chat_sessions', logs:'chat_logs', unmatched:'unmatched_questions', content_blocks:'site_content_blocks', content_tombstones:'site_content_tombstones', popular_help:'popular_help_cards', nav:'navigation_items', audit:'admin_audit_logs' })) {
     try { counts[key] = Number((await q(env, `SELECT COUNT(*)::int AS count FROM ${table} WHERE tenant_id=$1 AND platform_id=$2`,[scope.tenant_id,scope.platform_id])).rows[0]?.count || 0); }
@@ -4149,7 +4316,11 @@ async function aiDiagnostics(env, scope) {
   } catch (err) {
     recent_errors = [{ error_type:'diagnostics_query_failed', error_detail:err?.message || String(err) }];
   }
+<<<<<<< Updated upstream
   return { ok:true,version:VERSION,routing_engine:'unified-ai-source-router',backend_keyword_scoring:false,two_stage_ai:true,images_are_routing_input:false,guide_attachments:'removed',knowledge_import_mode:'draft-review-approve-publish',platform_router:'capability-guarded',source_router,deepseek_key_present:!!env.DEEPSEEK_API_KEY,deepseek_api_base:settings?.api_base || env.DEEPSEEK_API_BASE || 'https://api.deepseek.com',model:settings?.model || env.DEEPSEEK_MODEL || 'deepseek-chat',ai_enabled_in_db:!!settings?.enabled,require_approved_context:!!settings?.require_approved_context,memory_enabled:!!settings?.memory_enabled,counts,recent_errors,provider_summary };
+=======
+  return { ok:true,version:VERSION,routing_engine:'unified-ai-source-router',backend_keyword_scoring:false,two_stage_ai:true,images_are_routing_input:false,guide_attachments:'removed',knowledge_import_mode:'draft-review-approve-publish',platform_router:'capability-guarded',source_router,reliability,deepseek_key_present:!!env.DEEPSEEK_API_KEY,deepseek_api_base:settings?.api_base || env.DEEPSEEK_API_BASE || 'https://api.deepseek.com',model:settings?.model || env.DEEPSEEK_MODEL || 'deepseek-chat',ai_enabled_in_db:!!settings?.enabled,require_approved_context:!!settings?.require_approved_context,memory_enabled:!!settings?.memory_enabled,counts,recent_errors,provider_summary };
+>>>>>>> Stashed changes
 }
 async function listSessions(env,scope) { const { rows } = await q(env, 'SELECT * FROM chat_sessions WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id DESC LIMIT 100',[scope.tenant_id,scope.platform_id]); return rows.map(x => ({ id: x.id, session_id: x.session_id, memory_summary: x.memory_summary, message_count: x.message_count, created_at: String(x.created_at), updated_at: String(x.updated_at) })); }
 async function clearSession(env, sessionId,scope) { await q(env, 'UPDATE chat_sessions SET memory_summary=$2, message_count=0, updated_at=NOW() WHERE session_id=$1 AND tenant_id=$3 AND platform_id=$4', [sessionId, '',scope.tenant_id,scope.platform_id]); await q(env, 'DELETE FROM chat_memory_messages WHERE session_id=$1 AND EXISTS (SELECT 1 FROM chat_sessions WHERE session_id=$1 AND tenant_id=$2 AND platform_id=$3)', [sessionId,scope.tenant_id,scope.platform_id]); return { ok: true }; }

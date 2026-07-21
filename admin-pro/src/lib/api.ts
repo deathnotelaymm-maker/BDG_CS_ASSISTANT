@@ -764,6 +764,33 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, message, locale: locale || "en", candidate_catalog_size: 0, source_counts: {}, candidates: [] });
     return request("/admin/ai-source-router/preview", { method: "POST", body: JSON.stringify({ message, locale }) });
   },
+<<<<<<< Updated upstream
+=======
+  getDomainMapping: async () => {
+    if (MOCK_MODE) return delay({ ok: true, generated: {}, custom_domains: [], dns_instructions: [] });
+    return request("/admin/domain-mapping");
+  },
+  generateDomainMapping: async () => {
+    if (MOCK_MODE) return delay({ ok: true, generated: {} });
+    return request("/admin/domain-mapping/generate", { method: "POST", body: JSON.stringify({}) });
+  },
+  verifyMappedDomain: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, domain: { id, status: "pending_dns" } });
+    return request(`/admin/domain-mapping/domains/${id}/verify`, { method: "POST", body: JSON.stringify({}) });
+  },
+  getAiReliability: async () => {
+    if (MOCK_MODE) return delay({ ok: true, settings: { enabled: true, confidence_floor: 70, max_retries: 2, timeout_ms: 12000, fallback_mode: "neutral", unknown_reply: "I could not find a verified answer yet.", provider_error_reply: "Support is temporarily unavailable.", handoff_url: "" } });
+    return request("/admin/ai/reliability");
+  },
+  updateAiReliability: async (data: any) => {
+    if (MOCK_MODE) return delay({ ok: true, settings: data });
+    return request("/admin/ai/reliability", { method: "PUT", body: JSON.stringify(data) });
+  },
+  testAiReliability: async (data: any = {}) => {
+    if (MOCK_MODE) return delay({ ok: true, test: { status: "pass", checks: [] } });
+    return request("/admin/ai/reliability/test", { method: "POST", body: JSON.stringify(data) });
+  },
+>>>>>>> Stashed changes
 
   previewKnowledgeImport: async (file: File, platform_key: string) => {
     if (MOCK_MODE) return delay({ id: Date.now(), filename: file.name, platform_key, status: "review", total_rows: 1, valid_rows: 1, error_rows: 0, preview_rows: [] });

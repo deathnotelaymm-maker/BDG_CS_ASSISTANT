@@ -3,6 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, Input, Select, Space, Table, Tag, message } from "antd";
 import { GlobalOutlined, ReloadOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
+<<<<<<< Updated upstream
+=======
+import LocalizedHelp from "@/components/LocalizedHelp";
+>>>>>>> Stashed changes
 
 export const Route = createFileRoute("/_admin/locale-studio")({ component: LocaleStudioPage });
 
@@ -80,6 +84,14 @@ function LocaleStudioPage() {
 
   const locales = (data.platform?.supported_languages || []).map((code: string) => code.toUpperCase()).join(", ");
   return <>
+<<<<<<< Updated upstream
+=======
+    <LocalizedHelp copies={{
+      en: { title: "Platform Locale Studio", body: "This registry controls the languages available to this platform's Guide, FAQ, AI Q&A, and knowledge import forms. Use standard BCP-47 codes such as en-US, id-ID, zh-CN, or my-MM. The AI and Guide never use a language that is not enabled here.", bullets: ["Choose one default locale for new content.", "Add a locale before importing or publishing content in that language."] },
+      zh: { title: "平台语言工作室", body: "此注册表控制当前平台的指南、FAQ、AI 问答和知识导入表单可使用的语言。请使用标准 BCP-47 代码，例如 en-US、id-ID、zh-CN 或 my-MM。AI 和指南不会使用未启用的语言。", bullets: ["为新内容选择一个默认语言。", "导入或发布某种语言的内容前，先添加该语言。"] },
+      my: { title: "Platform Locale Studio", body: "ဤ registry သည် platform ၏ Guide၊ FAQ၊ AI Q&A နှင့် knowledge import form များတွင် အသုံးပြုနိုင်သော ဘာသာများကို ထိန်းချုပ်သည်။ en-US၊ id-ID၊ zh-CN သို့မဟုတ် my-MM ကဲ့သို့ BCP-47 code ကို သုံးပါ။ ဖွင့်မထားသော ဘာသာကို AI နှင့် Guide က မသုံးပါ။", bullets: ["အကြောင်းအရာအသစ်အတွက် default locale တစ်ခု ရွေးပါ။", "ထိုဘာသာဖြင့် import သို့မဟုတ် publish မလုပ်မီ locale ကို ထည့်ပါ။"] },
+    }} />
+>>>>>>> Stashed changes
     <Card title={<Space><GlobalOutlined />Locale-Aware Knowledge Studio</Space>} extra={<Button icon={<ReloadOutlined />} onClick={() => void load()}>Refresh</Button>} loading={loading} style={{ marginBottom: 12 }}>
       <Alert showIcon type="info" message={`Platform languages: ${locales || "not configured"}`} description={`Default locale: ${(data.platform?.default_locale || "en").toUpperCase()}. Imports and AI Q&A drafts must use an enabled locale. Exact locale is preferred, base-language matching is allowed, and unsupported locales are rejected.`} />
       <div style={{ display: "flex", gap: 24, marginTop: 16, flexWrap: "wrap" }}>
@@ -108,4 +120,7 @@ function LocaleStudioPage() {
     </Card>
   </>;
 }
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes

@@ -34,12 +34,20 @@ import {
   ApartmentOutlined,
   GlobalOutlined,
   ShareAltOutlined,
+<<<<<<< Updated upstream
+=======
+  SafetyCertificateOutlined,
+>>>>>>> Stashed changes
 } from "@ant-design/icons";
 import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-router";
 import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
+<<<<<<< Updated upstream
 const ADMIN_VERSION = "v1.11.0";
+=======
+const ADMIN_VERSION = "v1.12.0";
+>>>>>>> Stashed changes
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
   {
@@ -54,6 +62,13 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     to: "/platform-control-center",
     label: "Platform Control Center",
     icon: <ApartmentOutlined />,
+    group: "PLATFORM",
+  },
+  {
+    key: "/domain-mapping",
+    to: "/domain-mapping",
+    label: "Domain Mapping",
+    icon: <LinkOutlined />,
     group: "PLATFORM",
   },
 
@@ -143,6 +158,13 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     icon: <MonitorOutlined />,
     group: "AI",
   },
+  {
+    key: "/ai-reliability",
+    to: "/ai-reliability",
+    label: "AI Reliability",
+    icon: <SafetyCertificateOutlined />,
+    group: "AI",
+  },
 
   {
     key: "/chat-quick-replies",
@@ -210,6 +232,8 @@ const ZH: Record<string, string> = {
   "Audit Logs": "审计日志",
   "Admin Users": "管理员账号",
   "Platform Control Center": "平台控制中心",
+  "Domain Mapping": "域名映射",
+  "AI Reliability": "AI 可靠性",
   PLATFORM: "平台",
   OVERVIEW: "概览",
   CONTENT: "内容",
@@ -221,7 +245,11 @@ const ZH: Record<string, string> = {
   "My Profile": "我的资料",
 };
 const MY: Record<string, string> = {
+<<<<<<< Updated upstream
   Dashboard: "ဒက်ရှ်ဘုတ်", "Platform Control Center": "ပလက်ဖောင်းထိန်းချုပ်မှု", "Site Content": "ဆိုက်အကြောင်းအရာ", Categories: "အမျိုးအစားများ", Guide: "လမ်းညွှန်", FAQ: "အမေးများ", "AI Prompt Manager": "AI Prompt စီမံခန့်ခွဲမှု", "AI Prompt & Image": "AI Prompt နှင့် ပုံ", "AI Knowledge Import": "AI အသိပညာ တင်သွင်းရန်", "AI Q&A": "AI အမေးအဖြေ", "AI Source Router": "AI ရင်းမြစ် လမ်းကြောင်း", "Prompt Version History": "Prompt ဗားရှင်းမှတ်တမ်း", "Buttons Configuration": "ခလုတ်ပြင်ဆင်မှု", "AI Diagnostics": "AI စစ်ဆေးမှု", "Chat Quick Replies": "Chat အမြန်ဖြေ", "Chat Logs": "Chat မှတ်တမ်း", "Unmatched Questions": "မကိုက်ညီသောမေးခွန်းများ", "Theme Settings": "အပြင်အဆင်", "Audit Logs": "စစ်ဆေးမှတ်တမ်း", "Admin Users": "စီမံသူများ", PLATFORM: "ပလက်ဖောင်း", OVERVIEW: "အနှစ်ချုပ်", CONTENT: "အကြောင်းအရာ", AI: "AI", CHAT: "Chat", SETTINGS: "ဆက်တင်များ", Console: "ကွန်ဆိုလ်", "Sign out": "ထွက်ရန်", "My Profile": "ကိုယ်ရေးအချက်အလက်"
+=======
+  Dashboard: "ဒက်ရှ်ဘုတ်", "Platform Control Center": "ပလက်ဖောင်းထိန်းချုပ်မှု", "Domain Mapping": "ဒိုမိန်းချိတ်ဆက်မှု", "Site Content": "ဆိုက်အကြောင်းအရာ", Categories: "အမျိုးအစားများ", Guide: "လမ်းညွှန်", FAQ: "အမေးများ", "AI Prompt Manager": "AI Prompt စီမံခန့်ခွဲမှု", "AI Prompt & Image": "AI Prompt နှင့် ပုံ", "AI Knowledge Import": "AI အသိပညာ တင်သွင်းရန်", "AI Q&A": "AI အမေးအဖြေ", "AI Source Router": "AI ရင်းမြစ် လမ်းကြောင်း", "AI Reliability": "AI ယုံကြည်စိတ်ချရမှု", "Prompt Version History": "Prompt ဗားရှင်းမှတ်တမ်း", "Buttons Configuration": "ခလုတ်ပြင်ဆင်မှု", "AI Diagnostics": "AI စစ်ဆေးမှု", "Chat Quick Replies": "Chat အမြန်ဖြေ", "Chat Logs": "Chat မှတ်တမ်း", "Unmatched Questions": "မကိုက်ညီသောမေးခွန်းများ", "Theme Settings": "အပြင်အဆင်", "Audit Logs": "စစ်ဆေးမှတ်တမ်း", "Admin Users": "စီမံသူများ", PLATFORM: "ပလက်ဖောင်း", OVERVIEW: "အနှစ်ချုပ်", CONTENT: "အကြောင်းအရာ", AI: "AI", CHAT: "Chat", SETTINGS: "ဆက်တင်များ", Console: "ကွန်ဆိုလ်", "Sign out": "ထွက်ရန်", "My Profile": "ကိုယ်ရေးအချက်အလက်"
+>>>>>>> Stashed changes
 };
 function langNow() {
   try {
@@ -333,7 +361,7 @@ export default function AdminLayout({
               <div>
                 <div className="bdg-brand-title">Luke Admin Control</div>
                 <div className="bdg-brand-sub">
-                  {adminLang === "zh" ? `业务管理后台 · ${ADMIN_VERSION}` : `Business Admin Console · ${ADMIN_VERSION}`}
+                  {adminLang === "zh" ? `业务管理后台 · ${ADMIN_VERSION}` : adminLang === "my" ? `လုပ်ငန်းစီမံခန့်ခွဲမှု · ${ADMIN_VERSION}` : `Business Admin Console · ${ADMIN_VERSION}`}
                 </div>
               </div>
             )}
