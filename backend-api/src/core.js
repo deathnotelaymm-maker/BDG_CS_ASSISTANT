@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.12.2-chat-platform-route-propagation-fix';
+const VERSION = '1.13.0-bring-your-own-domain-cloudflare-custom-hostnames';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -60,7 +60,7 @@ export default {
       const publicMessage = status >= 500
         ? (err?.publicMessage || 'Service temporarily unavailable')
         : (err?.message || 'Request failed');
-      const platformContext = err?.platform_context || platformContextFromRequest(request, url, { allowQuery: true });
+      const platformContext = err?.platform_context || platformContextFromRequest(request, url, { allowQuery: true, allowHostname: true });
       return json({
         ok: false,
         error: publicMessage,
@@ -78,11 +78,11 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
-  const publicContext = platformContextFromRequest(request, url, { allowQuery: true });
+  const publicContext = platformContextFromRequest(request, url, { allowQuery: true, allowHostname: true });
   const publicReference = publicContext.reference || publicContext.raw_reference || '';
   if (method === 'GET' && (path === '/settings' || path === '/public/theme')) return json(await getTheme(env, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
   if (method === 'GET' && (path === '/guide/content' || path === '/public/guide-content')) return json(await getGuideContent(env, publicReference, publicContext), 200, env);
@@ -162,7 +162,11 @@ async function route(request, env, url) {
   // tenant/platform scoped and never expose connector or provider secrets.
   if (method === 'GET' && path === '/admin/domain-mapping') return json(await getDomainMapping(env, scope), 200, env);
   if (method === 'POST' && path === '/admin/domain-mapping/generate') return json(await generateDomainMapping(env, scope), 200, env);
+  if (method === 'POST' && path === '/admin/domain-mapping/domains') return json(await createDomainMappingDomain(env, admin, await readJson(request), scope), 201, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/provision$/.test(path)) return json(await provisionMappedDomain(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/sync$/.test(path)) return json(await syncMappedDomain(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/verify$/.test(path)) return json(await verifyMappedDomain(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'DELETE' && /^\/admin\/domain-mapping\/domains\/\d+$/.test(path)) return json(await deleteMappedDomain(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'GET' && path === '/admin/ai/reliability') return json(await getAiReliability(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/ai/reliability') return json(await updateAiReliability(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/ai/reliability/test') return json(await testAiReliability(env, await readJson(request), scope), 200, env);
@@ -366,7 +370,21 @@ export async function closeDatabasePools() {
   await Promise.all([...pools.values()].map((pool) => pool.end().catch(() => undefined)));
   pools.clear();
 }
-function corsHeaders(env) { return { 'Access-Control-Allow-Origin': env.ALLOWED_ORIGINS || '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-BDG-Platform-Route', 'Access-Control-Max-Age': '86400' }; }
+export async function isActiveCustomHostnameOrigin(env, origin) {
+  const enabled = env?.CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED === true || String(env?.CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED || '').toLowerCase() === 'true';
+  if (!enabled || !origin) return false;
+  let hostname = '';
+  try { hostname = new URL(String(origin)).hostname.toLowerCase().replace(/\.$/, ''); } catch (_) { return false; }
+  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') return false;
+  try {
+    const row = (await q(env, `SELECT id FROM saas_platform_domains WHERE lower(hostname)=lower($1) AND archived_at IS NULL AND provisioning_status IN ('planned','pending_dns','pending_ssl','verified','active') LIMIT 1`, [hostname])).rows[0];
+    return !!row;
+  } catch (error) {
+    console.error(JSON.stringify({ level:'warn', event:'custom_hostname_cors_lookup_failed', hostname, code:error?.code || '', message:error?.message || String(error) }));
+    return false;
+  }
+}
+function corsHeaders(env) { return { 'Access-Control-Allow-Origin': env.ALLOWED_ORIGINS || '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-BDG-Platform-Route, X-BDG-Platform-Host', 'Access-Control-Max-Age': '86400' }; }
 function corsResponse(body, status, env, headers = {}) { return new Response(body, { status, headers: { ...corsHeaders(env), ...headers } }); }
 function json(data, status = 200, env) { return corsResponse(JSON.stringify(data), status, env, { 'Content-Type': 'application/json; charset=utf-8' }); }
 function bad(message, status = 400, code = 'BAD_REQUEST') { const e = new Error(message); e.status = status; e.code = code; throw e; }
@@ -508,6 +526,7 @@ async function ensureBootstrap(env) {
   await ensureV112ProductionFoundation(env);
   await ensureV121ContextLock(env);
   await ensureV122ChatRoutePropagation(env);
+  await ensureV113BringYourOwnDomain(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -1647,12 +1666,18 @@ function normalizeHostname(value) {
   }
   return hostname;
 }
+function parseJsonObject(value, fallback = {}) {
+  try { const parsed = typeof value === 'string' ? JSON.parse(value || '{}') : value; return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback; } catch (_) { return fallback; }
+}
+function parseJsonArray(value, fallback = []) {
+  try { const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value; return Array.isArray(parsed) ? parsed : fallback; } catch (_) { return fallback; }
+}
 function normalizePlatformDomainPayload(p = {}) {
-  const site_kind = String(p.site_kind || '').trim().toLowerCase();
+  const site_kind = String(p.site_kind || 'guide').trim().toLowerCase();
   if (!['chat', 'guide', 'admin'].includes(site_kind)) bad('Domain type must be chat, guide, or admin');
   const requestedStatus = String(p.provisioning_status || '').toLowerCase();
   if (requestedStatus === 'verified') bad('Custom-domain verification is performed by Cloudflare. Do not mark a domain verified manually.');
-  const provisioning_status = ['planned', 'pending_dns', 'disabled'].includes(requestedStatus) ? requestedStatus : 'planned';
+  const provisioning_status = ['planned', 'pending_dns', 'pending_ssl', 'error', 'disabled'].includes(requestedStatus) ? requestedStatus : 'planned';
   return {
     site_kind,
     hostname: normalizeHostname(p.hostname),
@@ -1681,7 +1706,10 @@ function tenantPlatformOut(row) {
   };
 }
 function platformDomainOut(row) {
-  return { id: Number(row.id), platform_id: Number(row.platform_id), site_kind: row.site_kind, hostname: row.hostname, public_url: `https://${row.hostname}`, provisioning_status: row.provisioning_status || 'planned', verification_note: row.verification_note || '', created_at: row.created_at ? String(row.created_at) : '', updated_at: row.updated_at ? String(row.updated_at) : '', verified_at: row.verified_at ? String(row.verified_at) : '' };
+  const ownership = parseJsonObject(row.ownership_verification_json, {});
+  const sslRecords = parseJsonArray(row.ssl_validation_records_json, []);
+  const route = normalizePublicRouteKey(row.public_route_key || row.route_key, '');
+  return { id: Number(row.id), platform_id: Number(row.platform_id), site_kind: row.site_kind, hostname: row.hostname, public_url: `https://${row.hostname}`, custom_url: route ? `https://${row.hostname}/p/${route}` : `https://${row.hostname}`, provisioning_status: row.provisioning_status || 'planned', verification_note: row.verification_note || '', created_at: row.created_at ? String(row.created_at) : '', updated_at: row.updated_at ? String(row.updated_at) : '', verified_at: row.verified_at ? String(row.verified_at) : '', cloudflare_hostname_id: row.cloudflare_hostname_id || '', cloudflare_zone_id: row.cloudflare_zone_id || '', cloudflare_status: row.cloudflare_status || '', cloudflare_ssl_status: row.cloudflare_ssl_status || '', cloudflare_origin_server: row.cloudflare_origin_server || '', cloudflare_cname_target: row.cloudflare_cname_target || '', validation_method: row.validation_method || 'txt', ownership_verification: ownership, ssl_validation_records: sslRecords, cloudflare_last_synced_at: row.cloudflare_last_synced_at ? String(row.cloudflare_last_synced_at) : '', cloudflare_last_error: row.cloudflare_last_error || '' };
 }
 function platformMemberOut(row) {
   return { id: Number(row.id), platform_id: Number(row.platform_id), admin_user_id: Number(row.admin_user_id), name: row.name || '', email: row.email || '', role: row.role || 'viewer', is_active: row.is_active !== false, created_at: row.created_at ? String(row.created_at) : '' };
@@ -1732,23 +1760,38 @@ async function legacyPlatformScope(env) {
   if (!row) bad('The legacy BDG platform is not available', 503, 'PLATFORM_BOOTSTRAP_REQUIRED');
   return scopeOut(row, { role:'operator', can_write:true, can_manage_platform:true, operator:true }, { source:'legacy-explicit', requested_reference:'legacy-bdg' });
 }
-function platformContextFromRequest(request, url, { allowQuery = true } = {}) {
+function sharedPublicHostnames() {
+  return new Set(Object.values(PLATFORM_PUBLIC_ORIGINS).map((origin) => { try { return new URL(origin).hostname.toLowerCase(); } catch (_) { return ''; } }).filter(Boolean));
+}
+function customHostnameFromRequest(request) {
+  const explicitHost = String(request?.headers?.get?.('x-bdg-platform-host') || '').trim();
+  const originRaw = String(request?.headers?.get?.('origin') || '').trim();
+  let originHost = '';
+  try { originHost = originRaw ? new URL(originRaw).hostname.toLowerCase() : ''; } catch (_) {}
+  const hostname = (explicitHost || originHost).toLowerCase().replace(/\.$/, '');
+  if (!hostname || sharedPublicHostnames().has(hostname) || hostname === 'localhost' || hostname === '127.0.0.1') return '';
+  return hostname;
+}
+function platformContextFromRequest(request, url, { allowQuery = true, allowHostname = false } = {}) {
+  const originHostname = allowHostname ? customHostnameFromRequest(request) : '';
+  const withOriginHostname = (context) => originHostname ? { ...context, origin_hostname: originHostname } : context;
   const headerRaw = String(request?.headers?.get?.('x-bdg-platform-route') || '').trim();
   const headerReference = normalizePublicRouteKey(headerRaw, '');
-  if (headerRaw) return { source:'header', raw_reference:headerRaw, reference:headerReference, status:headerReference ? 'provided' : 'invalid' };
+  if (headerRaw) return withOriginHostname({ source:'header', raw_reference:headerRaw, reference:headerReference, status:headerReference ? 'provided' : 'invalid' });
   const pathMatch = String(url?.pathname || '').match(/\/p\/([^/]+)/i);
   if (pathMatch) {
     const raw = String(pathMatch[1] || '').trim();
     const reference = normalizePublicRouteKey(raw, '');
-    return { source:'path', raw_reference:raw, reference, status:reference ? 'provided' : 'invalid' };
+    return withOriginHostname({ source:'path', raw_reference:raw, reference, status:reference ? 'provided' : 'invalid' });
   }
   if (allowQuery) {
     const queryRaw = String(url?.searchParams?.get?.('platform') || '').trim();
     if (queryRaw) {
       const reference = normalizePublicRouteKey(queryRaw, '');
-      return { source:'query', raw_reference:queryRaw, reference, status:reference ? 'provided' : 'invalid' };
+      return withOriginHostname({ source:'query', raw_reference:queryRaw, reference, status:reference ? 'provided' : 'invalid' });
     }
   }
+  if (originHostname) return { source:'hostname', raw_reference:originHostname, reference:originHostname, status:'provided' };
   return { source:'missing', raw_reference:'', reference:'', status:'missing' };
 }
 function platformContextFromPayload(payload = {}) {
@@ -1759,7 +1802,7 @@ function platformContextFromPayload(payload = {}) {
 }
 function mergePlatformContexts(requestContext = {}, payload = {}) {
   const bodyContext = platformContextFromPayload(payload);
-  const requestReference = String(requestContext?.reference || '').trim();
+  const requestReference = requestContext?.source === 'hostname' ? '' : String(requestContext?.reference || '').trim();
   if (requestContext?.status === 'invalid') bad('Platform context is invalid. Use the generated /p/<platform-route> link.', 400, 'PLATFORM_CONTEXT_INVALID');
   if (bodyContext.status === 'missing') return requestContext?.status ? requestContext : { source:'missing', raw_reference:'', reference:'', status:'missing' };
   if (bodyContext.status === 'invalid') {
@@ -1767,7 +1810,9 @@ function mergePlatformContexts(requestContext = {}, payload = {}) {
     return bodyContext;
   }
   if (requestReference && requestReference !== bodyContext.reference) bad('Chat platform context does not match the public link.', 400, 'PLATFORM_CONTEXT_MISMATCH');
-  return requestReference ? requestContext : bodyContext;
+  if (requestReference) return requestContext;
+  if (requestContext?.source === 'hostname' && bodyContext.status === 'provided') return { ...bodyContext, origin_hostname: requestContext.raw_reference, source:'body' };
+  return bodyContext;
 }
 function platformResolutionDiagnostics(scope = null, context = {}, status = '') {
   return {
@@ -1782,12 +1827,18 @@ function platformResolutionDiagnostics(scope = null, context = {}, status = '') 
   };
 }
 function publicPlatformReference(request, url) {
-  const context = platformContextFromRequest(request, url, { allowQuery: true });
+  const context = platformContextFromRequest(request, url, { allowQuery: true, allowHostname: true });
   return context.reference || context.raw_reference || '';
 }
 async function resolvePublicPlatformScope(env, reference = '', resolution = {}) {
   const rawReference = String(reference || '').trim();
   if (!rawReference) bad('Platform context is required. Open the platform-specific public link.', 400, 'PLATFORM_CONTEXT_REQUIRED');
+  if (resolution?.source === 'hostname') {
+    const hostname = normalizeHostname(rawReference);
+    const hostRow = (await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id JOIN saas_tenants t ON t.id=p.tenant_id WHERE lower(d.hostname)=lower($1) AND d.archived_at IS NULL AND d.provisioning_status IN ('verified','active') AND p.archived_at IS NULL AND p.status='active' AND t.archived_at IS NULL AND t.status='active' LIMIT 1`, [hostname])).rows[0];
+    if (!hostRow) bad('Custom hostname is not active for a platform', 404, 'CUSTOM_HOSTNAME_NOT_READY');
+    return scopeOut(hostRow, { role:'public' }, { source:'hostname', requested_reference:hostname });
+  }
   const key = normalizePublicRouteKey(rawReference, '');
   if (!key) bad('Platform context is invalid. Use the generated /p/<platform-route> link.', 400, 'PLATFORM_CONTEXT_INVALID');
   const row = (await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name
@@ -1797,6 +1848,11 @@ async function resolvePublicPlatformScope(env, reference = '', resolution = {}) 
       AND t.archived_at IS NULL AND t.status='active'
     LIMIT 1`, [key])).rows[0];
   if (!row) bad('Platform access link was not found', 404, 'PLATFORM_NOT_FOUND');
+  if (resolution?.origin_hostname) {
+    const host = normalizeHostname(resolution.origin_hostname);
+    const matchesHost = (await q(env, `SELECT d.id FROM saas_platform_domains d WHERE d.platform_id=$1::integer AND lower(d.hostname)=lower($2) AND d.archived_at IS NULL AND d.provisioning_status IN ('verified','active') LIMIT 1`, [row.id, host])).rows[0];
+    if (!matchesHost) bad('Chat platform route does not match the custom hostname', 400, 'PLATFORM_CONTEXT_MISMATCH');
+  }
   return scopeOut(row, { role:'public' }, { source:resolution.source || 'platform-reference', requested_reference:rawReference });
 }
 async function getSupportPlatformForScope(env, scope) {
@@ -2296,6 +2352,22 @@ async function ensureV121ContextLock(env) {
 async function ensureV122ChatRoutePropagation(env) {
   await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.12.2_chat_platform_route_propagation_fix','Accepts the already-deployed Chat JSON platform_key as explicit context, rejects mismatches, preserves strict platform resolution, and never falls back to the BDG platform.') ON CONFLICT(migration_key) DO NOTHING`);
 }
+async function ensureV113BringYourOwnDomain(env) {
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS cloudflare_hostname_id VARCHAR(128) DEFAULT ''`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS cloudflare_zone_id VARCHAR(64) DEFAULT ''`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS cloudflare_status VARCHAR(40) DEFAULT ''`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS cloudflare_ssl_status VARCHAR(40) DEFAULT ''`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS cloudflare_origin_server VARCHAR(253) DEFAULT ''`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS cloudflare_cname_target VARCHAR(253) DEFAULT ''`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS validation_method VARCHAR(20) DEFAULT 'txt'`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS ownership_verification_json TEXT DEFAULT '{}'`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS ssl_validation_records_json TEXT DEFAULT '[]'`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS cloudflare_last_synced_at TIMESTAMPTZ`);
+  await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS cloudflare_last_error TEXT DEFAULT ''`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_platform_domains_cloudflare_id ON saas_platform_domains(cloudflare_hostname_id) WHERE archived_at IS NULL`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_platform_domains_provisioning ON saas_platform_domains(provisioning_status,archived_at)`);
+  await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.13.0_bring_your_own_domain_cloudflare_custom_hostnames','Adds platform-scoped Cloudflare Custom Hostname provisioning, ownership/TLS validation records, DNS target instructions, custom-hostname readiness, and hostname-based platform resolution without changing DNS automatically.') ON CONFLICT(migration_key) DO NOTHING`);
+}
 function reliabilityOut(row, scope) {
   return {
     ok: true, version: VERSION, tenant_id: Number(scope?.tenant_id || row?.tenant_id || 0), platform_id: Number(scope?.platform_id || row?.platform_id || 0),
@@ -2350,26 +2422,153 @@ function domainRouteLinks(env, scope) {
   const route = encodeURIComponent(normalizePublicRouteKey(scope.public_route_key, ''));
   return { chat: `${publicBaseUrl(env,'chat')}/p/${route}`, guide: `${publicBaseUrl(env,'guide')}/p/${route}`, admin: `${publicBaseUrl(env,'admin')}/p/${route}/admin` };
 }
+function cloudflareHostnameConfig(env, siteKind = '') {
+  const kind = String(siteKind || '').trim().toUpperCase();
+  const kindOrigin = kind ? String(env[`CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN_${kind}`] || '').trim() : '';
+  return {
+    enabled: env.CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED === true || String(env.CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED).toLowerCase() === 'true',
+    api_token: String(env.CLOUDFLARE_API_TOKEN || '').trim(),
+    zone_id: String(env.CLOUDFLARE_ZONE_ID || '').trim(),
+    cname_target: String(env.CLOUDFLARE_SAAS_CNAME_TARGET || '').trim().replace(/\.$/, ''),
+    origin_server: (kindOrigin || String(env.CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN || '').trim()).replace(/^https?:\/\//i, '').replace(/\/.*$/, '').replace(/\.$/, ''),
+    origin_sni: String(env.CLOUDFLARE_CUSTOM_ORIGIN_SNI || ':request_host_header:').trim(),
+    validation_method: ['txt','http','email'].includes(String(env.CLOUDFLARE_CUSTOM_HOSTNAME_VALIDATION_METHOD || 'txt').toLowerCase()) ? String(env.CLOUDFLARE_CUSTOM_HOSTNAME_VALIDATION_METHOD || 'txt').toLowerCase() : 'txt',
+    min_tls_version: String(env.CLOUDFLARE_CUSTOM_HOSTNAME_MIN_TLS_VERSION || '1.2').trim(),
+    metadata_enabled: env.CLOUDFLARE_CUSTOM_METADATA_ENABLED === true || String(env.CLOUDFLARE_CUSTOM_METADATA_ENABLED).toLowerCase() === 'true',
+  };
+}
+function requireCloudflareHostnameConfig(env, siteKind = '') {
+  const config = cloudflareHostnameConfig(env, siteKind);
+  if (!config.enabled || !config.api_token || !config.zone_id || !config.cname_target) bad('Cloudflare Custom Hostnames are not configured. Set CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID, and CLOUDFLARE_SAAS_CNAME_TARGET.', 503, 'CLOUDFLARE_NOT_CONFIGURED');
+  return config;
+}
+async function cloudflareHostnameRequest(env, method, hostnameId = '', body = undefined) {
+  const config = requireCloudflareHostnameConfig(env);
+  const suffix = hostnameId ? `/custom_hostnames/${encodeURIComponent(hostnameId)}` : '/custom_hostnames';
+  const response = await fetch(`https://api.cloudflare.com/client/v4/zones/${encodeURIComponent(config.zone_id)}${suffix}`, {
+    method,
+    headers: { Authorization: `Bearer ${config.api_token}`, 'Content-Type': 'application/json' },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.success === false) {
+    const detail = Array.isArray(payload?.errors) ? payload.errors.map((item) => item?.message || String(item)).filter(Boolean).join('; ') : '';
+    const error = new Error(detail || `Cloudflare Custom Hostname API returned HTTP ${response.status}`);
+    error.status = 502;
+    error.code = 'CLOUDFLARE_API_ERROR';
+    error.publicMessage = 'Cloudflare could not process this custom hostname request.';
+    throw error;
+  }
+  return payload?.result || null;
+}
+function cloudflareValidationRecords(result) {
+  const sslRecords = Array.isArray(result?.ssl?.validation_records) ? result.ssl.validation_records : [];
+  return sslRecords.map((record) => ({ status: record.status || '', txt_name: record.txt_name || '', txt_value: record.txt_value || '', http_url: record.http_url || '', http_body: record.http_body || '' })).filter((record) => record.txt_name || record.txt_value || record.http_url || record.http_body);
+}
+function cloudflareOwnershipVerification(result) {
+  const ownership = result?.ownership_verification || {};
+  const http = result?.ownership_verification_http || {};
+  return { type: ownership.type || '', name: ownership.name || '', value: ownership.value || '', http_url: http.http_url || '', http_body: http.http_body || '' };
+}
+function domainReadiness(result) {
+  const hostnameStatus = String(result?.status || '').toLowerCase();
+  const sslStatus = String(result?.ssl?.status || '').toLowerCase();
+  if (hostnameStatus === 'active' && sslStatus === 'active') return { provisioning_status: 'active', verified: true };
+  if (hostnameStatus === 'active') return { provisioning_status: 'pending_ssl', verified: false };
+  if (hostnameStatus === 'deleted' || hostnameStatus === 'moved') return { provisioning_status: 'error', verified: false };
+  return { provisioning_status: 'pending_dns', verified: false };
+}
+function domainDnsInstructions(row, config = cloudflareHostnameConfig({})) {
+  const ownership = parseJsonObject(row.ownership_verification_json, {});
+  const sslRecords = parseJsonArray(row.ssl_validation_records_json, []);
+  const records = [];
+  if (ownership.name && ownership.value) records.push({ type: 'TXT', name: ownership.name, value: ownership.value, purpose: 'Cloudflare hostname ownership verification' });
+  for (const record of sslRecords) if (record.txt_name && record.txt_value) records.push({ type: 'TXT', name: record.txt_name, value: record.txt_value, purpose: 'Cloudflare certificate validation' });
+  if (row.hostname && row.cloudflare_cname_target) records.push({ type: 'CNAME', name: row.hostname, value: row.cloudflare_cname_target, purpose: 'Route customer traffic to the SaaS zone' });
+  return { records, cname_target: row.cloudflare_cname_target || config.cname_target || '', note: 'Cloudflare must report both hostname status active and SSL status active before this domain is production-ready.' };
+}
+function cloudflareDomainOut(row, scope, env) {
+  return { ...platformDomainOut({ ...row, public_route_key: scope?.public_route_key }), domain_mode: row.domain_mode || 'custom', route_prefix: `/p/${scope?.public_route_key || ''}`, dns: domainDnsInstructions(row, cloudflareHostnameConfig(env, row.site_kind)), ready: row.provisioning_status === 'active' && row.cloudflare_status === 'active' && row.cloudflare_ssl_status === 'active' };
+}
 async function getDomainMapping(env, scope) {
   const domains = (await q(env, `SELECT d.* FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE p.tenant_id=$1::integer AND d.platform_id=$2::integer AND d.archived_at IS NULL ORDER BY d.site_kind`, [scope.tenant_id, scope.platform_id])).rows;
-  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), custom_domains:domains.map((row) => ({ ...platformDomainOut(row), domain_mode:row.domain_mode || 'custom', route_prefix:row.route_prefix || `/p/${scope.public_route_key}`, verification_token:row.verification_token || '', last_verification_error:row.last_verification_error || '' })), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: 'Add the hostname in Cloudflare Pages, configure DNS, then verify it here. DNS is never changed automatically.' } };
+  const config = cloudflareHostnameConfig(env);
+  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), cloudflare: { enabled:config.enabled, configured:!!(config.enabled && config.api_token && config.zone_id && config.cname_target), cname_target:config.cname_target, validation_method:config.validation_method, production_rule:'hostname status active + SSL status active + customer DNS points to the SaaS target' }, custom_domains:domains.map((row) => cloudflareDomainOut(row, scope, env)), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: config.enabled ? 'Add the displayed TXT records, then point the hostname CNAME to the displayed SaaS target. DNS is never changed automatically.' : 'Set up the Cloudflare Custom Hostnames environment variables before provisioning customer domains.' } };
 }
 async function generateDomainMapping(env, scope) {
   const mapping = await getDomainMapping(env, scope);
   await audit(env, 'generate', 'platform_route_mapping', scope.platform_id, `Generated /p/${scope.public_route_key} links`, scope);
   return { ...mapping, generated_at:new Date().toISOString() };
 }
+async function getScopedDomain(env, id, scope) {
+  const row = (await q(env, `SELECT d.*,p.public_route_key FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE d.id=$1::integer AND p.tenant_id=$2::integer AND d.platform_id=$3::integer AND d.archived_at IS NULL LIMIT 1`, [id, scope.tenant_id, scope.platform_id])).rows[0];
+  if (!row) bad('Platform domain not found', 404, 'PLATFORM_DOMAIN_NOT_FOUND');
+  return row;
+}
+async function persistCloudflareHostname(env, row, result, config, errorText = '') {
+  const readiness = domainReadiness(result || {});
+  const ownership = cloudflareOwnershipVerification(result || {});
+  const sslRecords = cloudflareValidationRecords(result || {});
+  const note = errorText || (result ? 'Add the displayed Cloudflare TXT records and CNAME target, then refresh status.' : row.verification_note || 'Provision the hostname through Cloudflare Custom Hostnames.');
+  await q(env, `UPDATE saas_platform_domains SET cloudflare_hostname_id=$1,cloudflare_zone_id=$2,cloudflare_status=$3,cloudflare_ssl_status=$4,cloudflare_origin_server=$5,cloudflare_cname_target=$6,validation_method=$7,ownership_verification_json=$8,ssl_validation_records_json=$9,cloudflare_last_synced_at=NOW(),cloudflare_last_error=$10,provisioning_status=$11,verification_note=$12,verified_at=$13,updated_at=NOW() WHERE id=$14::integer`, [String(result?.id || row.cloudflare_hostname_id || ''), config.zone_id, String(result?.status || row.cloudflare_status || ''), String(result?.ssl?.status || row.cloudflare_ssl_status || ''), config.origin_server, config.cname_target, config.validation_method, JSON.stringify(ownership), JSON.stringify(sslRecords), errorText, readiness.provisioning_status, note, readiness.verified ? new Date() : null, row.id]);
+  return (await q(env, `SELECT d.*,p.public_route_key FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE d.id=$1::integer`, [row.id])).rows[0];
+}
+async function provisionMappedDomain(env, id, scope) {
+  requirePlatformWrite(scope);
+  const row = await getScopedDomain(env, id, scope);
+  if (row.cloudflare_hostname_id) return syncMappedDomain(env, id, scope);
+  const config = requireCloudflareHostnameConfig(env, row.site_kind);
+  const body = { hostname: row.hostname, ssl: { method: config.validation_method, type: 'dv', settings: { min_tls_version: config.min_tls_version } } };
+  if (config.origin_server) { body.custom_origin_server = config.origin_server; body.custom_origin_sni = config.origin_sni; }
+  if (config.metadata_enabled) body.custom_metadata = { tenant_id: String(scope.tenant_id), platform_id: String(scope.platform_id), site_kind: String(row.site_kind || 'guide'), platform_route: String(scope.public_route_key || '') };
+  let result;
+  try { result = await cloudflareHostnameRequest(env, 'POST', '', body); }
+  catch (error) {
+    await q(env, `UPDATE saas_platform_domains SET provisioning_status='error',cloudflare_last_error=$1,updated_at=NOW() WHERE id=$2::integer`, [String(error?.message || 'Cloudflare API request failed').slice(0, 4000), id]);
+    throw error;
+  }
+  const updated = await persistCloudflareHostname(env, row, result, config);
+  await audit(env, 'provision', 'saas_platform_domains', id, `Cloudflare Custom Hostname created: ${row.hostname}`, scope);
+  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), domain:cloudflareDomainOut(updated, scope, env), next_step:domainDnsInstructions(updated, config) };
+}
+async function syncMappedDomain(env, id, scope) {
+  requirePlatformWrite(scope);
+  const row = await getScopedDomain(env, id, scope);
+  if (!row.cloudflare_hostname_id) return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), domain:cloudflareDomainOut(row, scope, env), next_step: 'Provision this hostname through Cloudflare first.', synced:false };
+  const config = requireCloudflareHostnameConfig(env, row.site_kind);
+  let result;
+  try { result = await cloudflareHostnameRequest(env, 'GET', row.cloudflare_hostname_id); }
+  catch (error) {
+    await q(env, `UPDATE saas_platform_domains SET cloudflare_last_error=$1,updated_at=NOW() WHERE id=$2::integer`, [String(error?.message || 'Cloudflare API request failed').slice(0, 4000), id]);
+    throw error;
+  }
+  const updated = await persistCloudflareHostname(env, row, result, config);
+  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), domain:cloudflareDomainOut(updated, scope, env), next_step:domainDnsInstructions(updated, config), synced:true };
+}
 async function verifyMappedDomain(env, id, scope) {
-  const row = (await q(env, `SELECT d.* FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE d.id=$1::integer AND p.tenant_id=$2::integer AND d.platform_id=$3::integer AND d.archived_at IS NULL LIMIT 1`, [id, scope.tenant_id, scope.platform_id])).rows[0];
-  if (!row) bad('Platform domain not found', 404);
+  const row = await getScopedDomain(env, id, scope);
+  if (cloudflareHostnameConfig(env, row.site_kind).enabled) return row.cloudflare_hostname_id ? syncMappedDomain(env, id, scope) : provisionMappedDomain(env, id, scope);
   const token = String(row.verification_token || '');
-  const note = token ? `Publish a DNS TXT record named _bdg-verify.${row.hostname} with value ${token}.` : 'Add the hostname in Cloudflare Pages and complete DNS verification.';
-  await q(env, `UPDATE saas_platform_domains SET provisioning_status='pending_dns',verification_note=$1::text,last_verification_error='',updated_at=NOW() WHERE id=$2::integer`, [note, id]);
-  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), domain: { ...platformDomainOut(row), provisioning_status:'pending_dns', verification_note:note }, verified:false, next_step:note };
+  const note = token ? `Publish a DNS TXT record named _bdg-verify.${row.hostname} with value ${token}.` : 'Enable Cloudflare Custom Hostnames and provision this domain before verifying it.';
+  await q(env, `UPDATE saas_platform_domains SET provisioning_status='pending_dns',verification_note=$1::text,cloudflare_last_error='Cloudflare Custom Hostnames integration is not configured',updated_at=NOW() WHERE id=$2::integer`, [note, id]);
+  const updated = await getScopedDomain(env, id, scope);
+  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), domain:cloudflareDomainOut(updated, scope, env), verified:false, next_step:note };
+}
+async function deleteMappedDomain(env, id, scope) {
+  requirePlatformWrite(scope);
+  const row = await getScopedDomain(env, id, scope);
+  if (row.cloudflare_hostname_id) {
+    const config = requireCloudflareHostnameConfig(env, row.site_kind);
+    await cloudflareHostnameRequest(env, 'DELETE', row.cloudflare_hostname_id);
+  }
+  await q(env, `UPDATE saas_platform_domains SET provisioning_status='disabled',archived_at=NOW(),cloudflare_last_error='',updated_at=NOW() WHERE id=$1::integer`, [id]);
+  await audit(env, 'delete', 'saas_platform_domains', id, `Custom hostname removed: ${row.hostname}`, scope);
+  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), id, hostname:row.hostname };
 }
 async function getPublicPlatformMapping(env, reference, resolution = {}) {
   const scope = await resolvePublicPlatformScope(env, reference, resolution);
-  return { ok:true, version:VERSION, platform:scope, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), links:domainRouteLinks(env, scope), custom_domains:(await q(env, `SELECT site_kind,hostname,provisioning_status FROM saas_platform_domains WHERE platform_id=$1::integer AND archived_at IS NULL AND provisioning_status IN ('verified','active')`, [scope.platform_id])).rows };
+  const domains = (await q(env, `SELECT * FROM saas_platform_domains WHERE platform_id=$1::integer AND archived_at IS NULL AND provisioning_status IN ('verified','active')`, [scope.platform_id])).rows;
+  return { ok:true, version:VERSION, platform:scope, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), links:domainRouteLinks(env, scope), custom_domains:domains.map((row) => cloudflareDomainOut({ ...row, public_route_key:scope.public_route_key }, scope, env)) };
 }
 async function getAiSourceRouter(env, scope) {
   const row = (await q(env, `SELECT * FROM ai_source_router_settings WHERE tenant_id=$1::integer AND platform_id=$2::integer LIMIT 1`, [scope.tenant_id, scope.platform_id])).rows[0];
@@ -2944,6 +3143,12 @@ async function createPlatformDomain(env, admin, platformId, payload) {
   catch (error) { if (error?.code === '23505') bad('This hostname or domain type is already assigned to another platform.'); throw error; }
   await audit(env, 'create', 'saas_platform_domains', row.id, `Platform domain planned: ${domain.hostname}`);
   return platformDomainOut(row);
+}
+async function createDomainMappingDomain(env, admin, payload, scope) {
+  if (!scope?.can_manage_platform) bad('Only a platform owner or platform administrator can add a custom domain', 403, 'PLATFORM_DOMAIN_ADMIN_REQUIRED');
+  const created = await createPlatformDomain(env, admin, scope.platform_id, payload);
+  const row = await getScopedDomain(env, created.id, scope);
+  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), domain:cloudflareDomainOut(row, scope, env), next_step: 'Provision this hostname through Cloudflare Custom Hostnames.' };
 }
 async function updatePlatformDomain(env, admin, id, payload) {
   const current = (await q(env, `SELECT * FROM saas_platform_domains WHERE id=$1 AND archived_at IS NULL`, [id])).rows[0];

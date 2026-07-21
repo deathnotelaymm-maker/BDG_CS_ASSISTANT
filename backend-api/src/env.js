@@ -53,6 +53,18 @@ export function getRuntimeEnv(source = process.env) {
     R2_BUCKET_NAME: source.R2_BUCKET_NAME || 'bdg-ai-guide-images',
     R2_PUBLIC_BASE_URL: source.R2_PUBLIC_BASE_URL || '',
     R2_REQUIRED: booleanValue(source.R2_REQUIRED, true),
+    CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED: booleanValue(source.CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED, false),
+    CLOUDFLARE_API_TOKEN: source.CLOUDFLARE_API_TOKEN || '',
+    CLOUDFLARE_ZONE_ID: source.CLOUDFLARE_ZONE_ID || '',
+    CLOUDFLARE_SAAS_CNAME_TARGET: source.CLOUDFLARE_SAAS_CNAME_TARGET || '',
+    CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN: source.CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN || '',
+    CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN_CHAT: source.CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN_CHAT || '',
+    CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN_GUIDE: source.CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN_GUIDE || '',
+    CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN_ADMIN: source.CLOUDFLARE_CUSTOM_HOSTNAME_ORIGIN_ADMIN || '',
+    CLOUDFLARE_CUSTOM_ORIGIN_SNI: source.CLOUDFLARE_CUSTOM_ORIGIN_SNI || ':request_host_header:',
+    CLOUDFLARE_CUSTOM_HOSTNAME_VALIDATION_METHOD: source.CLOUDFLARE_CUSTOM_HOSTNAME_VALIDATION_METHOD || 'txt',
+    CLOUDFLARE_CUSTOM_HOSTNAME_MIN_TLS_VERSION: source.CLOUDFLARE_CUSTOM_HOSTNAME_MIN_TLS_VERSION || '1.2',
+    CLOUDFLARE_CUSTOM_METADATA_ENABLED: booleanValue(source.CLOUDFLARE_CUSTOM_METADATA_ENABLED, false),
     MAX_REQUEST_BYTES: Number(source.MAX_REQUEST_BYTES || 20 * 1024 * 1024),
     RATE_LIMIT_WINDOW_MS: Number(source.RATE_LIMIT_WINDOW_MS || 60_000),
     RATE_LIMIT_CHAT: Number(source.RATE_LIMIT_CHAT || 30),
@@ -101,6 +113,12 @@ export function validateRuntimeEnv(env, { migration = false } = {}) {
     if (!env.R2_ACCESS_KEY_ID) errors.push('R2_ACCESS_KEY_ID is required');
     if (!env.R2_SECRET_ACCESS_KEY) errors.push('R2_SECRET_ACCESS_KEY is required');
     if (!env.R2_BUCKET_NAME) errors.push('R2_BUCKET_NAME is required');
+  }
+  if (env.CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED) {
+    if (!env.CLOUDFLARE_API_TOKEN) errors.push('CLOUDFLARE_API_TOKEN is required when custom hostnames are enabled');
+    if (!env.CLOUDFLARE_ZONE_ID) errors.push('CLOUDFLARE_ZONE_ID is required when custom hostnames are enabled');
+    if (!env.CLOUDFLARE_SAAS_CNAME_TARGET) errors.push('CLOUDFLARE_SAAS_CNAME_TARGET is required when custom hostnames are enabled');
+    if (!['txt','http','email'].includes(String(env.CLOUDFLARE_CUSTOM_HOSTNAME_VALIDATION_METHOD).toLowerCase())) errors.push('CLOUDFLARE_CUSTOM_HOSTNAME_VALIDATION_METHOD must be txt, http, or email');
   }
   if (migration && !env.ADMIN_PASSWORD) errors.push('ADMIN_PASSWORD is required for owner bootstrap');
   if (errors.length) {

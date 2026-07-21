@@ -1,12 +1,12 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
-import api, { closeDatabasePools, readiness } from './core.js';
+import api, { closeDatabasePools, isActiveCustomHostnameOrigin, readiness } from './core.js';
 import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } from './env.js';
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.12.2-chat-platform-route-propagation-fix';
-const API_FEATURES = ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','platform-admin-users','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','multi-platform-support-router','ticket-capability-guard','ai-knowledge-orchestrator-v3','backend-keyword-scoring-disabled','multilingual-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-buttons','durable-site-content-delete','unified-content-versions','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','r2-s3-api','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','qualified-membership-permissions','owner-scoped-support-platform','arbitrary-platform-locales','local-brand-uploads','chat-start-preview-controls','one-platform-guard','strict-public-platform-route','neutral-route-presentation','quick-reply-one-time','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection'];
+const API_VERSION = '1.13.0-bring-your-own-domain-cloudflare-custom-hostnames';
+const API_FEATURES = ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','platform-admin-users','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','multi-platform-support-router','ticket-capability-guard','ai-knowledge-orchestrator-v3','backend-keyword-scoring-disabled','multilingual-visual-knowledge','structured-rich-response-v2','visual-guide-studio','action-buttons','durable-site-content-delete','unified-content-versions','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','r2-s3-api','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','qualified-membership-permissions','owner-scoped-support-platform','arbitrary-platform-locales','local-brand-uploads','chat-start-preview-controls','one-platform-guard','strict-public-platform-route','neutral-route-presentation','quick-reply-one-time','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors'];
 validateRuntimeEnv(env);
 env.GUIDE_IMAGES = createR2Adapter(env);
 
@@ -80,10 +80,13 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(requestUrl(req));
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const origin = String(req.headers.origin || '');
-  const corsOrigin = allowedOrigin(env, origin);
+  let corsOrigin = allowedOrigin(env, origin);
 
   try {
-    if (origin && !corsOrigin) return jsonResponse(res, 403, { ok: false, error: 'Origin is not allowed', request_id: requestId }, { 'X-Request-ID': requestId });
+    if (origin && !corsOrigin) {
+      if (await isActiveCustomHostnameOrigin(env, origin)) corsOrigin = origin;
+      else return jsonResponse(res, 403, { ok: false, error: 'Origin is not allowed', request_id: requestId }, { 'X-Request-ID': requestId });
+    }
     const retryAfter = rateLimit(req, path);
     if (retryAfter) return jsonResponse(res, 429, { ok: false, error: 'Too many requests', request_id: requestId }, { 'Retry-After': String(retryAfter), 'X-Request-ID': requestId, ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });
 

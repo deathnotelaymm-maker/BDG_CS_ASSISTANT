@@ -768,6 +768,18 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, generated: {}, custom_domains: [], dns_instructions: [] });
     return request("/admin/domain-mapping");
   },
+  createDomainMappingDomain: async (data: { hostname: string; site_kind: "chat" | "guide" | "admin" }) => {
+    if (MOCK_MODE) return delay({ ok: true, domain: { id: Date.now(), ...data, provisioning_status: "planned" } });
+    return request("/admin/domain-mapping/domains", { method: "POST", body: JSON.stringify(data) });
+  },
+  provisionMappedDomain: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, synced: false, domain: { id, provisioning_status: "pending_dns" } });
+    return request(`/admin/domain-mapping/domains/${id}/provision`, { method: "POST", body: JSON.stringify({}) });
+  },
+  syncMappedDomain: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, synced: true, domain: { id, provisioning_status: "pending_dns" } });
+    return request(`/admin/domain-mapping/domains/${id}/sync`, { method: "POST", body: JSON.stringify({}) });
+  },
   generateDomainMapping: async () => {
     if (MOCK_MODE) return delay({ ok: true, generated: {} });
     return request("/admin/domain-mapping/generate", { method: "POST", body: JSON.stringify({}) });
@@ -775,6 +787,10 @@ export const api = {
   verifyMappedDomain: async (id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true, domain: { id, status: "pending_dns" } });
     return request(`/admin/domain-mapping/domains/${id}/verify`, { method: "POST", body: JSON.stringify({}) });
+  },
+  deleteMappedDomain: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, id });
+    return request(`/admin/domain-mapping/domains/${id}`, { method: "DELETE", body: JSON.stringify({}) });
   },
   getAiReliability: async () => {
     if (MOCK_MODE) return delay({ ok: true, settings: { enabled: true, confidence_floor: 70, max_retries: 2, timeout_ms: 12000, fallback_mode: "neutral", unknown_reply: "I could not find a verified answer yet.", provider_error_reply: "Support is temporarily unavailable.", handoff_url: "" } });
