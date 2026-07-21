@@ -764,8 +764,6 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, message, locale: locale || "en", candidate_catalog_size: 0, source_counts: {}, candidates: [] });
     return request("/admin/ai-source-router/preview", { method: "POST", body: JSON.stringify({ message, locale }) });
   },
-<<<<<<< Updated upstream
-=======
   getDomainMapping: async () => {
     if (MOCK_MODE) return delay({ ok: true, generated: {}, custom_domains: [], dns_instructions: [] });
     return request("/admin/domain-mapping");
@@ -790,7 +788,6 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, test: { status: "pass", checks: [] } });
     return request("/admin/ai/reliability/test", { method: "POST", body: JSON.stringify(data) });
   },
->>>>>>> Stashed changes
 
   previewKnowledgeImport: async (file: File, platform_key: string) => {
     if (MOCK_MODE) return delay({ id: Date.now(), filename: file.name, platform_key, status: "review", total_rows: 1, valid_rows: 1, error_rows: 0, preview_rows: [] });

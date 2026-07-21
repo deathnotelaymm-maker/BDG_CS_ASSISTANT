@@ -1,18 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import type { Key } from "react";
-<<<<<<< Updated upstream
-import { Alert, Button, Card, Drawer, Form, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Upload, message } from "antd";
-import { DeleteOutlined, EditOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
-import RichKnowledgeEditor from "@/components/RichKnowledgeEditor";
-import { api } from "@/lib/api";
-=======
 import { Button, Card, Drawer, Form, Input, InputNumber, Popconfirm, Select, Space, Table, Tag, Upload, message } from "antd";
 import { DeleteOutlined, EditOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import RichKnowledgeEditor from "@/components/RichKnowledgeEditor";
 import { api } from "@/lib/api";
 import LocalizedHelp from "@/components/LocalizedHelp";
->>>>>>> Stashed changes
 
 export const Route = createFileRoute("/_admin/ai-qa")({ component: AiQaPage });
 const blankDoc = JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] });
@@ -92,15 +85,11 @@ function AiQaPage() {
   ], []);
 
   return <>
-<<<<<<< Updated upstream
-    <Alert showIcon type="info" message="AI Q&A knowledge source" description="Imported questions become editable tenant-scoped Q&A drafts. Approve and publish an item before the AI can use its answer or visual steps. Locale fields are independent, so a platform only shows languages it supports." style={{ marginBottom: 12 }} />
-=======
     <LocalizedHelp copies={{
       en: { title: "AI Q&A knowledge source", body: "Imported questions become editable tenant-scoped Q&A drafts. Approve and publish an item before the AI can use its answer or visual steps. Locale fields are independent, so a platform only shows languages it supports.", bullets: ["Use Name for the searchable content label; use Question and Intent for matching.", "Publish only after the rich answer and every image step has been reviewed."] },
       zh: { title: "AI 问答知识来源", body: "导入的问题会变成当前租户的可编辑问答草稿。必须先批准并发布，AI 才能使用答案和视觉步骤。每种语言独立保存，平台只显示已启用的语言。", bullets: ["Name 用于搜索内容名称；Question 和 Intent 用于匹配用户问题。", "检查富文本答案和每个图片步骤后再发布。"] },
       my: { title: "AI Q&A အသိပညာရင်းမြစ်", body: "တင်သွင်းထားသော မေးခွန်းများသည် tenant အလိုက် ပြင်ဆင်နိုင်သော Q&A draft ဖြစ်လာသည်။ AI အသုံးပြုနိုင်ရန် အတည်ပြုပြီး ထုတ်ဝေရမည်။ Locale တစ်ခုချင်းစီ သီးခြားသိမ်းဆည်းထားပြီး platform တွင် ဖွင့်ထားသော ဘာသာများသာ ပြမည်။", bullets: ["Name သည် ရှာဖွေရန် အမည်ဖြစ်ပြီး Question နှင့် Intent သည် ကိုက်ညီမှုအတွက် ဖြစ်သည်။", "Rich answer နှင့် ပုံအဆင့်တိုင်းကို စစ်ဆေးပြီးမှ ထုတ်ဝေပါ။"] },
     }} />
->>>>>>> Stashed changes
     <Card size="small" style={{ marginBottom: 12 }}><Space wrap style={{ width: "100%" }}><Input.Search allowClear value={filters.q} onChange={(e) => setFilters((v) => ({ ...v, q: e.target.value }))} placeholder="Search name, question, intent" style={{ width: 280 }} /><Select allowClear placeholder="Locale" value={filters.locale || undefined} onChange={(v) => setFilters((x) => ({ ...x, locale: v || "" }))} options={localeOptions} style={{ width: 150 }} /><Select allowClear placeholder="Status" value={filters.status || undefined} onChange={(v) => setFilters((x) => ({ ...x, status: v || "" }))} options={["draft", "published", "archived"].map((v) => ({ value: v, label: v }))} /><Select allowClear placeholder="Approval" value={filters.approval || undefined} onChange={(v) => setFilters((x) => ({ ...x, approval: v || "" }))} options={["draft", "approved", "archived"].map((v) => ({ value: v, label: v }))} /><Select allowClear placeholder="Images" value={filters.has_images || undefined} onChange={(v) => setFilters((x) => ({ ...x, has_images: v || "" }))} options={[{ value: "true", label: "Has images" }]} /><Button onClick={() => void load()}>Refresh</Button><Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>New AI Q&A</Button></Space></Card>
     <Space style={{ marginBottom: 12 }} wrap><Button disabled={!selectedKeys.length} onClick={() => void runBatch("approve")}>Approve selected</Button><Button disabled={!selectedKeys.length} type="primary" onClick={() => void runBatch("publish")}>Publish selected</Button><Button disabled={!selectedKeys.length} danger onClick={() => void runBatch("delete")}>Archive selected</Button>{selectedKeys.length ? <Tag>{selectedKeys.length} selected</Tag> : null}</Space>
     <Table rowKey="id" loading={loading} dataSource={rows} rowSelection={{ selectedRowKeys: selectedKeys, onChange: setSelectedKeys }} columns={columns as any} pagination={{ pageSize: 20 }} />

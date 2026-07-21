@@ -301,15 +301,11 @@ function VisualGuideStudio() {
       <Button icon={<ReloadOutlined />} onClick={() => void load()}>Refresh</Button>
       <Button type="primary" icon={<PlusOutlined />} onClick={() => void openEditor()}>Create visual guide</Button>
     </div>
-<<<<<<< Updated upstream
-    <Alert showIcon type="info" style={{ marginBottom: 12 }} message="Languages come from this platform's Locale Studio" description="There is no English/Hindi special case. Add Indonesian, Burmese, Chinese, or any other BCP-47 locale in Locale Studio, then create and publish its guide variant here. A missing translation is never replaced with another platform's content." />
-=======
     <LocalizedHelp copies={{
       en: { title: "Guide Locale Studio", body: "Guide content is independent for every enabled platform language. Add any BCP-47 locale in Locale Studio, then create, edit, and publish that guide variant here. A missing translation is never replaced with Hindi, another platform, or BDG content.", bullets: ["Each locale has its own title, rich text, images, SEO fields, and publication state.", "Publishing one language does not publish another language."] },
       zh: { title: "指南语言工作室", body: "每个平台语言的指南内容独立保存。先在语言工作室添加 BCP-47 语言代码，再在这里创建、编辑和发布对应的指南版本。缺少翻译时不会回退到印地语、其他平台或 BDG 内容。", bullets: ["每种语言都有独立的标题、富文本、图片、SEO 字段和发布状态。", "发布一种语言不会自动发布其他语言。"] },
       my: { title: "Guide Locale Studio", body: "Platform တွင် ဖွင့်ထားသော ဘာသာတိုင်းအတွက် Guide အကြောင်းအရာကို သီးခြားသိမ်းဆည်းသည်။ Locale Studio တွင် BCP-47 locale code ထည့်ပြီး ဤနေရာတွင် သက်ဆိုင်ရာ Guide variant ကို ဖန်တီး၊ ပြင်ဆင်၊ ထုတ်ဝေပါ။ ဘာသာပြန်မရှိလျှင် Hindi၊ အခြား platform သို့မဟုတ် BDG အကြောင်းအရာသို့ fallback မလုပ်ပါ။", bullets: ["ဘာသာတစ်ခုချင်းစီတွင် title၊ rich text၊ ပုံ၊ SEO field နှင့် publish state သီးခြားရှိသည်။", "ဘာသာတစ်ခုကို ထုတ်ဝေခြင်းသည် အခြားဘာသာကို အလိုအလျောက် မထုတ်ဝေပါ။"] },
     }} />
->>>>>>> Stashed changes
     <Table rowKey="id" loading={loading} dataSource={rows} pagination={{ pageSize: 20 }} columns={[
       { title: "Guide", render: (_: any, row: any) => <div><b>{row.title}</b><div style={{ color: "#8ea0bd", fontSize: 12 }}>{row.slug}</div></div> },
       { title: "Available locales", dataIndex: "locale_coverage", render: (coverage: any) => <Space wrap>{Object.entries(coverage || {}).map(([code, status]: any) => <Tag key={code} color={status === "published" ? "green" : "gold"}>{code} · {status}</Tag>)}</Space> },

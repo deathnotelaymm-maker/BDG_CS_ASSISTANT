@@ -7,11 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-<<<<<<< Updated upstream
-const VERSION = '1.11.0-batch-import-approval-publishing-rollback';
-=======
 const VERSION = '1.12.0-production-domain-mapping-ai-reliability-foundation';
->>>>>>> Stashed changes
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -80,22 +76,6 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-<<<<<<< Updated upstream
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing'] }, 200, env);
-  if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
-
-  // Public API
-  if (method === 'GET' && (path === '/settings' || path === '/public/theme')) return json(await getTheme(env, await resolvePublicPlatformScope(env, url.searchParams.get('platform') || 'default')), 200, env);
-  if (method === 'GET' && (path === '/guide/content' || path === '/public/guide-content')) return json(await getGuideContent(env, url.searchParams.get('platform') || 'default'), 200, env);
-  if (method === 'GET' && (path === '/popular-help' || path === '/public/popular-help')) return json(await listPopularHelp(env, false, await resolvePublicPlatformScope(env, url.searchParams.get('platform') || 'default')), 200, env);
-  if (method === 'GET' && (path === '/navigation' || path === '/public/navigation')) return json(await listNavigation(env, false, await resolvePublicPlatformScope(env, url.searchParams.get('platform') || 'default')), 200, env);
-  if (method === 'GET' && (path === '/categories' || path === '/public/categories')) return json(await listCategories(env, await resolvePublicPlatformScope(env, url.searchParams.get('platform') || 'default')), 200, env);
-  if (method === 'GET' && (path === '/guides' || path === '/public/guides')) return json(await listGuides(env, url.searchParams), 200, env);
-  if (method === 'GET' && path.startsWith('/guides/')) return json(await getGuide(env, decodeURIComponent(path.split('/').pop()), url.searchParams.get('language') || url.searchParams.get('lang') || 'en', url.searchParams.get('platform') || 'default'), 200, env);
-  if (method === 'GET' && (path === '/faqs' || path === '/public/faqs')) return json(await listFaqs(env, false, await resolvePublicPlatformScope(env, url.searchParams.get('platform') || 'default'), url.searchParams.get('language') || url.searchParams.get('lang') || 'en'), 200, env);
-  if (method === 'GET' && (path === '/action-buttons' || path === '/public/action-buttons')) return json(await listActionButtons(env, false, url.searchParams.get('language') || 'en', url.searchParams.get('platform') || 'default'), 200, env);
-  if (method === 'GET' && (path === '/chat/content' || path === '/public/chat-content')) return json(await getChatContent(env, url.searchParams.get('platform') || 'default'), 200, env);
-=======
   if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
@@ -112,7 +92,6 @@ async function route(request, env, url) {
   if (method === 'GET' && (path === '/action-buttons' || path === '/public/action-buttons')) return json(await listActionButtons(env, false, url.searchParams.get('language') || 'en', publicReference), 200, env);
   if (method === 'GET' && (path === '/chat/content' || path === '/public/chat-content')) return json(await getChatContent(env, publicReference), 200, env);
   if (method === 'GET' && path === '/public/platform-context') return json(await getPublicPlatformMapping(env, publicReference), 200, env);
->>>>>>> Stashed changes
   if (method === 'GET' && /^\/platform-access\/[a-z0-9-]+$/i.test(path)) return json(await getPublicPlatformAccess(env, decodeURIComponent(path.split('/').pop())), 200, env);
   if (method === 'POST' && path === '/chat') return json(finalizeChatResponse(await runAiChat(env, { ...(await readJson(request)), platform_key: publicReference }, false)), 200, env);
   if (method === 'POST' && path === '/chat/uploads') return uploadToR2(request, env, 'chat');
@@ -512,10 +491,7 @@ async function ensureBootstrap(env) {
   await ensureGuideLocaleStudio(env);
   await ensureAiSourceRouter(env);
   await ensureV111BatchPublishing(env);
-<<<<<<< Updated upstream
-=======
   await ensureV112ProductionFoundation(env);
->>>>>>> Stashed changes
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -2206,8 +2182,6 @@ async function ensureV111BatchPublishing(env) {
   await q(env, `CREATE INDEX IF NOT EXISTS idx_knowledge_import_releases_scope ON knowledge_import_releases(tenant_id,platform_id,batch_id)`);
   await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.11.0_batch_import_approval_publishing_rollback','Named workbook rows, source filters, batch approval/publishing, and release rollback.') ON CONFLICT(migration_key) DO NOTHING`);
 }
-<<<<<<< Updated upstream
-=======
 async function ensureV112ProductionFoundation(env) {
   await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS domain_mode VARCHAR(20) DEFAULT 'custom'`);
   await q(env, `ALTER TABLE saas_platform_domains ADD COLUMN IF NOT EXISTS route_prefix VARCHAR(180) DEFAULT ''`);
@@ -2317,7 +2291,6 @@ async function getPublicPlatformMapping(env, reference) {
   const scope = await resolvePublicPlatformScope(env, reference);
   return { ok:true, version:VERSION, platform:scope, links:domainRouteLinks(env, scope), custom_domains:(await q(env, `SELECT site_kind,hostname,provisioning_status FROM saas_platform_domains WHERE platform_id=$1::integer AND archived_at IS NULL AND provisioning_status IN ('verified','active')`, [scope.platform_id])).rows };
 }
->>>>>>> Stashed changes
 async function getAiSourceRouter(env, scope) {
   const row = (await q(env, `SELECT * FROM ai_source_router_settings WHERE tenant_id=$1::integer AND platform_id=$2::integer LIMIT 1`, [scope.tenant_id, scope.platform_id])).rows[0];
   if (!row) { await ensureAiSourceRouter(env); return getAiSourceRouter(env, scope); }
@@ -4090,10 +4063,7 @@ async function runAiChat(env, payload, adminTest) {
   const uploaded = Array.isArray(payload.image_urls) ? payload.image_urls : [];
   const platformKey = normalizePlatformKey(payload.platform_key || payload.platform || 'default');
   const publicScope = await resolvePublicPlatformScope(env, platformKey);
-<<<<<<< Updated upstream
-=======
   const reliability = await getAiReliability(env, publicScope);
->>>>>>> Stashed changes
   const languagePolicy = localePolicy(publicScope);
   const requestedLocale = normalizeLocale(payload.language || payload.lang || languagePolicy.default_locale, languagePolicy.default_locale);
   const lang = languagePolicy.supported_languages.find((candidate) => localeMatches(requestedLocale, candidate)) || languagePolicy.default_locale;
@@ -4297,10 +4267,7 @@ async function adminFoundationDiagnostics(env) {
 async function aiDiagnostics(env, scope) {
   const settings = await getAiSettings(env);
   const source_router = await getAiSourceRouter(env, scope);
-<<<<<<< Updated upstream
-=======
   const reliability = await getAiReliability(env, scope);
->>>>>>> Stashed changes
   const counts = {};
   for (const [key, table] of Object.entries({ categories:'categories', guides:'guides', faqs:'faqs', knowledge:'knowledge_items', prompts:'ai_prompt_sections', prompt_versions:'ai_prompt_versions', ai_content:'ai_content_items', action_buttons:'action_buttons', knowledge_import_batches:'knowledge_import_batches', content_versions:'content_versions', sessions:'chat_sessions', logs:'chat_logs', unmatched:'unmatched_questions', content_blocks:'site_content_blocks', content_tombstones:'site_content_tombstones', popular_help:'popular_help_cards', nav:'navigation_items', audit:'admin_audit_logs' })) {
     try { counts[key] = Number((await q(env, `SELECT COUNT(*)::int AS count FROM ${table} WHERE tenant_id=$1 AND platform_id=$2`,[scope.tenant_id,scope.platform_id])).rows[0]?.count || 0); }
@@ -4316,11 +4283,7 @@ async function aiDiagnostics(env, scope) {
   } catch (err) {
     recent_errors = [{ error_type:'diagnostics_query_failed', error_detail:err?.message || String(err) }];
   }
-<<<<<<< Updated upstream
-  return { ok:true,version:VERSION,routing_engine:'unified-ai-source-router',backend_keyword_scoring:false,two_stage_ai:true,images_are_routing_input:false,guide_attachments:'removed',knowledge_import_mode:'draft-review-approve-publish',platform_router:'capability-guarded',source_router,deepseek_key_present:!!env.DEEPSEEK_API_KEY,deepseek_api_base:settings?.api_base || env.DEEPSEEK_API_BASE || 'https://api.deepseek.com',model:settings?.model || env.DEEPSEEK_MODEL || 'deepseek-chat',ai_enabled_in_db:!!settings?.enabled,require_approved_context:!!settings?.require_approved_context,memory_enabled:!!settings?.memory_enabled,counts,recent_errors,provider_summary };
-=======
   return { ok:true,version:VERSION,routing_engine:'unified-ai-source-router',backend_keyword_scoring:false,two_stage_ai:true,images_are_routing_input:false,guide_attachments:'removed',knowledge_import_mode:'draft-review-approve-publish',platform_router:'capability-guarded',source_router,reliability,deepseek_key_present:!!env.DEEPSEEK_API_KEY,deepseek_api_base:settings?.api_base || env.DEEPSEEK_API_BASE || 'https://api.deepseek.com',model:settings?.model || env.DEEPSEEK_MODEL || 'deepseek-chat',ai_enabled_in_db:!!settings?.enabled,require_approved_context:!!settings?.require_approved_context,memory_enabled:!!settings?.memory_enabled,counts,recent_errors,provider_summary };
->>>>>>> Stashed changes
 }
 async function listSessions(env,scope) { const { rows } = await q(env, 'SELECT * FROM chat_sessions WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id DESC LIMIT 100',[scope.tenant_id,scope.platform_id]); return rows.map(x => ({ id: x.id, session_id: x.session_id, memory_summary: x.memory_summary, message_count: x.message_count, created_at: String(x.created_at), updated_at: String(x.updated_at) })); }
 async function clearSession(env, sessionId,scope) { await q(env, 'UPDATE chat_sessions SET memory_summary=$2, message_count=0, updated_at=NOW() WHERE session_id=$1 AND tenant_id=$3 AND platform_id=$4', [sessionId, '',scope.tenant_id,scope.platform_id]); await q(env, 'DELETE FROM chat_memory_messages WHERE session_id=$1 AND EXISTS (SELECT 1 FROM chat_sessions WHERE session_id=$1 AND tenant_id=$2 AND platform_id=$3)', [sessionId,scope.tenant_id,scope.platform_id]); return { ok: true }; }

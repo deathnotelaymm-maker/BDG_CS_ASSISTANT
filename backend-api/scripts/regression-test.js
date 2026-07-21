@@ -9,36 +9,23 @@ const expect = (name, condition) => checks.push({ name, ok: Boolean(condition) }
 const core = read("backend-api/src/core.js");
 const server = read("backend-api/src/server.js");
 const importer = read("backend-api/src/knowledge-import.js");
-<<<<<<< Updated upstream
-const migration = read("backend-api/migrations/025_v1.11.0_batch_import_approval_publishing_rollback.sql");
-=======
 const migration = read("backend-api/migrations/026_v1.12.0_production_domain_mapping_ai_reliability_foundation.sql");
->>>>>>> Stashed changes
 const adminApi = read("admin-pro/src/lib/api.ts");
 const adminLayout = read("admin-pro/src/components/AdminLayout.tsx");
 const importPage = read("admin-pro/src/routes/_admin.ai-knowledge-import.tsx");
 const qaPage = read("admin-pro/src/routes/_admin.ai-qa.tsx");
 const routerPage = read("admin-pro/src/routes/_admin.ai-source-router.tsx");
-<<<<<<< Updated upstream
-
-expect("Backend and server expose the same v1.11.0 release", core.includes("1.11.0-batch-import-approval-publishing-rollback") && server.includes("1.11.0-batch-import-approval-publishing-rollback"));
-=======
 const localizedHelp = read("admin-pro/src/components/LocalizedHelp.tsx");
 const domainPage = read("admin-pro/src/routes/_admin.domain-mapping.tsx");
 const reliabilityPage = read("admin-pro/src/routes/_admin.ai-reliability.tsx");
 
 expect("Backend and server expose the same v1.12.0 release", core.includes("1.12.0-production-domain-mapping-ai-reliability-foundation") && server.includes("1.12.0-production-domain-mapping-ai-reliability-foundation"));
->>>>>>> Stashed changes
 expect("Backend source remains syntax-safe", core.includes("async function ensureBootstrap") && server.includes("createServer"));
 expect("Workbook parser requires Question and Answer", importer.includes("Could not find both Question and How to reply / Answer columns."));
 expect("Workbook parser accepts the named Name column", importer.includes("name: ['name'") && importer.includes("content_name: name"));
 expect("Workbook parser supports image roles and placement", importer.includes("image_role") && importer.includes("image_placement") && importer.includes("image_urls"));
 expect("Named import template is downloadable", core.includes("knowledgeImportTemplateResponse") && core.includes("['Name','Question','How to reply / Answer'"));
-<<<<<<< Updated upstream
-expect("v1.11 migration is additive and idempotent", migration.includes("ADD COLUMN IF NOT EXISTS") && migration.includes("CREATE TABLE IF NOT EXISTS") && migration.includes("ON CONFLICT (migration_key) DO NOTHING"));
-=======
 expect("v1.12 migration is additive and idempotent", migration.includes("ADD COLUMN IF NOT EXISTS") && migration.includes("CREATE TABLE IF NOT EXISTS") && migration.includes("ON CONFLICT (migration_key) DO NOTHING"));
->>>>>>> Stashed changes
 expect("AI content names are stored and returned", core.includes("content_name") && core.includes("aiContentOut"));
 expect("Knowledge import batch approval is scoped", core.includes("approveKnowledgeImportBatch") && core.includes("tenant_id=$2 AND platform_id=$3"));
 expect("Knowledge import batch publishing creates a release snapshot", core.includes("publishKnowledgeImportBatch") && core.includes("knowledge_import_releases") && core.includes("previous_snapshot_json"));
@@ -52,12 +39,6 @@ expect("Admin import has template, progress, approval, publishing, and rollback 
 expect("Admin API exposes batch operations", ["approveKnowledgeImportBatch", "publishKnowledgeImportBatch", "batchApproveAiQa", "batchPublishAiQa", "batchDeleteAiQa"].every((item) => adminApi.includes(item)));
 expect("Admin navigation exposes AI Knowledge Import", adminLayout.includes("AI Knowledge Import"));
 expect("Platform locale routing remains dynamic", core.includes("assertSupportedLocaleFromRegistry") && core.includes("GUIDE_TRANSLATION_UNAVAILABLE"));
-<<<<<<< Updated upstream
-
-for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
-const failed = checks.filter((check) => !check.ok);
-console.log(`\n${checks.length - failed.length}/${checks.length} v1.11.0 regression checks passed`);
-=======
 expect("Generated platform links are route-scoped and custom domains require verification", core.includes("publicPlatformReference") && core.includes("/p/${scope.public_route_key}") && core.includes("pending_dns") && core.includes("verifyMappedDomain"));
 expect("AI reliability settings are platform-scoped and diagnostics are persisted", core.includes("ai_reliability_settings") && core.includes("failure_stage") && core.includes("retry_count") && core.includes("testAiReliability"));
 expect("Admin domain mapping and reliability controls are visible", adminLayout.includes("Domain Mapping") && adminLayout.includes("AI Reliability") && domainPage.includes("Generate links") && reliabilityPage.includes("Run safety test"));
@@ -66,5 +47,4 @@ expect("Key AI workflows provide English, Chinese, and Burmese explanations", lo
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
 console.log(`\n${checks.length - failed.length}/${checks.length} v1.12.0 regression checks passed`);
->>>>>>> Stashed changes
 if (failed.length) process.exitCode = 1;
