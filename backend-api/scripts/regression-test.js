@@ -19,13 +19,13 @@ const localizedHelp = read("admin-pro/src/components/LocalizedHelp.tsx");
 const domainPage = read("admin-pro/src/routes/_admin.domain-mapping.tsx");
 const reliabilityPage = read("admin-pro/src/routes/_admin.ai-reliability.tsx");
 
-expect("Backend and server expose the same v1.12.1 release", core.includes("1.12.1-ai-platform-context-lock-domain-mapping-sql-repair") && server.includes("1.12.1-ai-platform-context-lock-domain-mapping-sql-repair"));
+expect("Backend and server expose the same v1.12.2 release", core.includes("1.12.2-chat-platform-route-propagation-fix") && server.includes("1.12.2-chat-platform-route-propagation-fix"));
 expect("Backend source remains syntax-safe", core.includes("async function ensureBootstrap") && server.includes("createServer"));
 expect("Workbook parser requires Question and Answer", importer.includes("Could not find both Question and How to reply / Answer columns."));
 expect("Workbook parser accepts the named Name column", importer.includes("name: ['name'") && importer.includes("content_name: name"));
 expect("Workbook parser supports image roles and placement", importer.includes("image_role") && importer.includes("image_placement") && importer.includes("image_urls"));
 expect("Named import template is downloadable", core.includes("knowledgeImportTemplateResponse") && core.includes("['Name','Question','How to reply / Answer'"));
-expect("v1.12.1 migration is additive and idempotent", migration.includes("ADD COLUMN IF NOT EXISTS") && migration.includes("CREATE INDEX IF NOT EXISTS") && migration.includes("ON CONFLICT (migration_key) DO NOTHING"));
+expect("v1.12.1 migration remains additive and idempotent", migration.includes("ADD COLUMN IF NOT EXISTS") && migration.includes("CREATE INDEX IF NOT EXISTS") && migration.includes("ON CONFLICT (migration_key) DO NOTHING"));
 expect("AI content names are stored and returned", core.includes("content_name") && core.includes("aiContentOut"));
 expect("Knowledge import batch approval is scoped", core.includes("approveKnowledgeImportBatch") && core.includes("tenant_id=$2 AND platform_id=$3"));
 expect("Knowledge import batch publishing creates a release snapshot", core.includes("publishKnowledgeImportBatch") && core.includes("knowledge_import_releases") && core.includes("previous_snapshot_json"));
@@ -51,9 +51,13 @@ expect("Admin AI tests use the active SaaS platform scope", core.includes("testA
 expect("AI judge accepts the active scope directly", core.includes("activeScope = null") && core.includes("const scope = activeScope || await resolvePublicPlatformScope(env, platformKey)") && core.includes("platform_resolution: platformResolutionDiagnostics(scope, scope.platform_context)"));
 expect("Chat logs record context source and resolved route", core.includes("platform_context_source,platform_context_reference") && core.includes("logMeta.platform_context_source") && core.includes("platform_context_reference:x.platform_context_reference"));
 expect("Admin platform context exposes resolution diagnostics", core.includes("platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context)"));
-expect("Admin release marker is v1.12.1", adminLayout.includes('const ADMIN_VERSION = "v1.12.1"'));
+expect("Chat accepts the deployed JSON platform_key as context", core.includes("function platformContextFromPayload") && core.includes("const chatReference = chatContext.reference || chatContext.raw_reference || ''") && core.includes("platform_key: chatReference"));
+expect("Chat body context is strict and never silently defaults", core.includes("function mergePlatformContexts") && core.includes("PLATFORM_CONTEXT_MISMATCH") && core.includes("chat-body-platform-context") && !core.includes("platform_key: publicReference }, false"));
+expect("Chat context diagnostics identify the body source on errors", core.includes("err.platform_context = bodyContext") && core.includes("err?.platform_context || platformContextFromRequest"));
+expect("v1.12.2 bootstrap marker is idempotent", core.includes("v1.12.2_chat_platform_route_propagation_fix") && core.includes("ON CONFLICT(migration_key) DO NOTHING"));
+expect("Admin release marker is v1.12.2", adminLayout.includes('const ADMIN_VERSION = "v1.12.2"'));
 
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
-console.log(`\n${checks.length - failed.length}/${checks.length} v1.12.1 regression checks passed`);
+console.log(`\n${checks.length - failed.length}/${checks.length} v1.12.2 regression checks passed`);
 if (failed.length) process.exitCode = 1;

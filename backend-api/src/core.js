@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.12.1-ai-platform-context-lock-domain-mapping-sql-repair';
+const VERSION = '1.12.2-chat-platform-route-propagation-fix';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -60,7 +60,7 @@ export default {
       const publicMessage = status >= 500
         ? (err?.publicMessage || 'Service temporarily unavailable')
         : (err?.message || 'Request failed');
-      const platformContext = platformContextFromRequest(request, url, { allowQuery: true });
+      const platformContext = err?.platform_context || platformContextFromRequest(request, url, { allowQuery: true });
       return json({
         ok: false,
         error: publicMessage,
@@ -78,7 +78,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -96,7 +96,18 @@ async function route(request, env, url) {
   if (method === 'GET' && (path === '/chat/content' || path === '/public/chat-content')) return json(await getChatContent(env, publicReference, publicContext), 200, env);
   if (method === 'GET' && path === '/public/platform-context') return json(await getPublicPlatformMapping(env, publicReference, publicContext), 200, env);
   if (method === 'GET' && /^\/platform-access\/[a-z0-9-]+$/i.test(path)) return json(await getPublicPlatformAccess(env, decodeURIComponent(path.split('/').pop())), 200, env);
-  if (method === 'POST' && path === '/chat') return json(finalizeChatResponse(await runAiChat(env, { ...(await readJson(request)), platform_key: publicReference }, false, null, publicContext)), 200, env);
+  if (method === 'POST' && path === '/chat') {
+    const chatPayload = await readJson(request);
+    const bodyContext = platformContextFromPayload(chatPayload);
+    try {
+      const chatContext = mergePlatformContexts(publicContext, chatPayload);
+      const chatReference = chatContext.reference || chatContext.raw_reference || '';
+      return json(finalizeChatResponse(await runAiChat(env, { ...chatPayload, platform_key: chatReference }, false, null, chatContext)), 200, env);
+    } catch (err) {
+      err.platform_context = bodyContext;
+      throw err;
+    }
+  }
   if (method === 'POST' && path === '/chat/uploads') return uploadToR2(request, env, 'chat');
 
   if (method === 'POST' && (path === '/auth/login' || path === '/login' || path === '/api/login')) return login(request, env);
@@ -496,6 +507,7 @@ async function ensureBootstrap(env) {
   await ensureV111BatchPublishing(env);
   await ensureV112ProductionFoundation(env);
   await ensureV121ContextLock(env);
+  await ensureV122ChatRoutePropagation(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -1739,6 +1751,24 @@ function platformContextFromRequest(request, url, { allowQuery = true } = {}) {
   }
   return { source:'missing', raw_reference:'', reference:'', status:'missing' };
 }
+function platformContextFromPayload(payload = {}) {
+  const raw = String(payload?.platform_key || payload?.platform_route || payload?.public_route_key || payload?.platform || '').trim();
+  if (!raw) return { source:'missing', raw_reference:'', reference:'', status:'missing' };
+  const reference = normalizePublicRouteKey(raw, '');
+  return { source:'body', raw_reference:raw, reference, status:reference ? 'provided' : 'invalid' };
+}
+function mergePlatformContexts(requestContext = {}, payload = {}) {
+  const bodyContext = platformContextFromPayload(payload);
+  const requestReference = String(requestContext?.reference || '').trim();
+  if (requestContext?.status === 'invalid') bad('Platform context is invalid. Use the generated /p/<platform-route> link.', 400, 'PLATFORM_CONTEXT_INVALID');
+  if (bodyContext.status === 'missing') return requestContext?.status ? requestContext : { source:'missing', raw_reference:'', reference:'', status:'missing' };
+  if (bodyContext.status === 'invalid') {
+    if (requestReference) bad('Chat platform context does not match the public link.', 400, 'PLATFORM_CONTEXT_MISMATCH');
+    return bodyContext;
+  }
+  if (requestReference && requestReference !== bodyContext.reference) bad('Chat platform context does not match the public link.', 400, 'PLATFORM_CONTEXT_MISMATCH');
+  return requestReference ? requestContext : bodyContext;
+}
 function platformResolutionDiagnostics(scope = null, context = {}, status = '') {
   return {
     status: status || (scope ? 'resolved' : (context?.status === 'invalid' ? 'invalid' : 'missing')),
@@ -2262,6 +2292,9 @@ async function ensureV121ContextLock(env) {
   await q(env, `CREATE INDEX IF NOT EXISTS idx_chat_logs_platform_context ON chat_logs(tenant_id,platform_id,created_at DESC)`);
   await q(env, `CREATE INDEX IF NOT EXISTS idx_saas_platform_domains_platform_scope ON saas_platform_domains(platform_id,archived_at)`);
   await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.12.1_ai_platform_context_lock_domain_mapping_sql_repair','Rejects missing/invalid platform context, removes silent default-platform routing, binds AI tests to the active platform, repairs domain tenant scoping through saas_platforms, and persists resolution diagnostics.') ON CONFLICT(migration_key) DO NOTHING`);
+}
+async function ensureV122ChatRoutePropagation(env) {
+  await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.12.2_chat_platform_route_propagation_fix','Accepts the already-deployed Chat JSON platform_key as explicit context, rejects mismatches, preserves strict platform resolution, and never falls back to the BDG platform.') ON CONFLICT(migration_key) DO NOTHING`);
 }
 function reliabilityOut(row, scope) {
   return {
