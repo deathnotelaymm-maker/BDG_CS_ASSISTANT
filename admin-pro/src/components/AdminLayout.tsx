@@ -40,7 +40,7 @@ import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-rout
 import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
-const ADMIN_VERSION = "v1.13.1";
+const ADMIN_VERSION = "v1.14.0";
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
   {
@@ -121,6 +121,13 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     to: "/ai-source-router",
     label: "AI Source Router",
     icon: <ShareAltOutlined />,
+    group: "AI",
+  },
+  {
+    key: "/ai-response-quality",
+    to: "/ai-response-quality",
+    label: "AI Response Quality Center",
+    icon: <SafetyCertificateOutlined />,
     group: "AI",
   },
   {
@@ -215,6 +222,7 @@ const ZH: Record<string, string> = {
   "AI Knowledge Import": "AI 知识导入",
   "AI Q&A": "AI 问答",
   "AI Source Router": "AI 来源路由",
+  "AI Response Quality Center": "AI 回复质量中心",
   "Prompt Version History": "提示词版本历史",
   "Buttons Configuration": "按钮配置",
   "AI Diagnostics": "AI 诊断",
@@ -238,7 +246,7 @@ const ZH: Record<string, string> = {
   "My Profile": "我的资料",
 };
 const MY: Record<string, string> = {
-  Dashboard: "ဒက်ရှ်ဘုတ်", "Platform Control Center": "ပလက်ဖောင်းထိန်းချုပ်မှု", "Domain Mapping": "ဒိုမိန်းချိတ်ဆက်မှု", "Site Content": "ဆိုက်အကြောင်းအရာ", Categories: "အမျိုးအစားများ", Guide: "လမ်းညွှန်", FAQ: "အမေးများ", "AI Prompt Manager": "AI Prompt စီမံခန့်ခွဲမှု", "AI Prompt & Image": "AI Prompt နှင့် ပုံ", "AI Knowledge Import": "AI အသိပညာ တင်သွင်းရန်", "AI Q&A": "AI အမေးအဖြေ", "AI Source Router": "AI ရင်းမြစ် လမ်းကြောင်း", "AI Reliability": "AI ယုံကြည်စိတ်ချရမှု", "Prompt Version History": "Prompt ဗားရှင်းမှတ်တမ်း", "Buttons Configuration": "ခလုတ်ပြင်ဆင်မှု", "AI Diagnostics": "AI စစ်ဆေးမှု", "Chat Quick Replies": "Chat အမြန်ဖြေ", "Chat Logs": "Chat မှတ်တမ်း", "Unmatched Questions": "မကိုက်ညီသောမေးခွန်းများ", "Theme Settings": "အပြင်အဆင်", "Audit Logs": "စစ်ဆေးမှတ်တမ်း", "Admin Users": "စီမံသူများ", PLATFORM: "ပလက်ဖောင်း", OVERVIEW: "အနှစ်ချုပ်", CONTENT: "အကြောင်းအရာ", AI: "AI", CHAT: "Chat", SETTINGS: "ဆက်တင်များ", Console: "ကွန်ဆိုလ်", "Sign out": "ထွက်ရန်", "My Profile": "ကိုယ်ရေးအချက်အလက်"
+  Dashboard: "ဒက်ရှ်ဘုတ်", "Platform Control Center": "ပလက်ဖောင်းထိန်းချုပ်မှု", "Domain Mapping": "ဒိုမိန်းချိတ်ဆက်မှု", "Site Content": "ဆိုက်အကြောင်းအရာ", Categories: "အမျိုးအစားများ", Guide: "လမ်းညွှန်", FAQ: "အမေးများ", "AI Prompt Manager": "AI Prompt စီမံခန့်ခွဲမှု", "AI Prompt & Image": "AI Prompt နှင့် ပုံ", "AI Knowledge Import": "AI အသိပညာ တင်သွင်းရန်", "AI Q&A": "AI အမေးအဖြေ", "AI Source Router": "AI ရင်းမြစ် လမ်းကြောင်း", "AI Response Quality Center": "AI အဖြေ အရည်အသွေးစင်တာ", "AI Reliability": "AI ယုံကြည်စိတ်ချရမှု", "Prompt Version History": "Prompt ဗားရှင်းမှတ်တမ်း", "Buttons Configuration": "ခလုတ်ပြင်ဆင်မှု", "AI Diagnostics": "AI စစ်ဆေးမှု", "Chat Quick Replies": "Chat အမြန်ဖြေ", "Chat Logs": "Chat မှတ်တမ်း", "Unmatched Questions": "မကိုက်ညီသောမေးခွန်းများ", "Theme Settings": "အပြင်အဆင်", "Audit Logs": "စစ်ဆေးမှတ်တမ်း", "Admin Users": "စီမံသူများ", PLATFORM: "ပလက်ဖောင်း", OVERVIEW: "အနှစ်ချုပ်", CONTENT: "အကြောင်းအရာ", AI: "AI", CHAT: "Chat", SETTINGS: "ဆက်တင်များ", Console: "ကွန်ဆိုလ်", "Sign out": "ထွက်ရန်", "My Profile": "ကိုယ်ရေးအချက်အလက်"
 };
 function langNow() {
   try {
