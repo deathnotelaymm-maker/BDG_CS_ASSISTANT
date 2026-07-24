@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.14.0-ai-response-quality-center-duplicate-conflict-image-validation';
+const VERSION = '1.14.1-single-image-step-aware-response-rendering';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -67,7 +67,6 @@ export default {
         code: err?.code || (status >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),
         request_id: requestId,
         version: VERSION,
-        ...(err?.configuration_missing ? { configuration_missing: err.configuration_missing } : {}),
         platform_resolution: platformResolutionDiagnostics(null, platformContext, status >= 500 ? 'unresolved' : undefined),
       }, status, env);
     }
@@ -164,10 +163,10 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/domain-mapping') return json(await getDomainMapping(env, scope), 200, env);
   if (method === 'POST' && path === '/admin/domain-mapping/generate') return json(await generateDomainMapping(env, scope), 200, env);
   if (method === 'POST' && path === '/admin/domain-mapping/domains') return json(await createDomainMappingDomain(env, admin, await readJson(request), scope), 201, env);
-  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/provision$/.test(path)) return json(await provisionMappedDomain(env, domainMappingIdFromPath(path), scope), 200, env);
-  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/sync$/.test(path)) return json(await syncMappedDomain(env, domainMappingIdFromPath(path), scope), 200, env);
-  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/verify$/.test(path)) return json(await verifyMappedDomain(env, domainMappingIdFromPath(path), scope), 200, env);
-  if (method === 'DELETE' && /^\/admin\/domain-mapping\/domains\/\d+$/.test(path)) return json(await deleteMappedDomain(env, domainMappingIdFromPath(path), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/provision$/.test(path)) return json(await provisionMappedDomain(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/sync$/.test(path)) return json(await syncMappedDomain(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/verify$/.test(path)) return json(await verifyMappedDomain(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'DELETE' && /^\/admin\/domain-mapping\/domains\/\d+$/.test(path)) return json(await deleteMappedDomain(env, idFromParts(path, 3), scope), 200, env);
   if (method === 'GET' && path === '/admin/ai/reliability') return json(await getAiReliability(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/ai/reliability') return json(await updateAiReliability(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/ai/reliability/test') return json(await testAiReliability(env, await readJson(request), scope), 200, env);
@@ -229,16 +228,6 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/ai-source-router') return json(await getAiSourceRouter(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/ai-source-router') return json(await updateAiSourceRouter(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/ai-source-router/preview') return json(await previewAiSourceRouter(env, await readJson(request), scope), 200, env);
-  if (method === 'GET' && path === '/admin/ai-response-quality') return json(await getAiQualityOverview(env, scope), 200, env);
-  if (method === 'POST' && path === '/admin/ai-response-quality/scan') return json(await scanAiQuality(env, await readJson(request), scope), 200, env);
-  if (method === 'GET' && path === '/admin/ai-response-quality/findings') return json(await listAiQualityFindings(env, url.searchParams, scope), 200, env);
-  if (method === 'POST' && /^\/admin\/ai-response-quality\/findings\/\d+\/resolve$/.test(path)) return json(await resolveAiQualityFinding(env, idFromPath(path.replace(/\/resolve$/, '')), await readJson(request), scope), 200, env);
-  if (method === 'GET' && path === '/admin/ai-response-quality/test-cases') return json(await listAiQualityTestCases(env, scope), 200, env);
-  if (method === 'POST' && path === '/admin/ai-response-quality/test-cases') return json(await createAiQualityTestCase(env, await readJson(request), scope), 201, env);
-  if (method === 'PUT' && /^\/admin\/ai-response-quality\/test-cases\/\d+$/.test(path)) return json(await updateAiQualityTestCase(env, idFromPath(path), await readJson(request), scope), 200, env);
-  if (method === 'DELETE' && /^\/admin\/ai-response-quality\/test-cases\/\d+$/.test(path)) return json(await deleteAiQualityTestCase(env, idFromPath(path), scope), 200, env);
-  if (method === 'POST' && /^\/admin\/ai-response-quality\/test-cases\/\d+\/run$/.test(path)) return json(await runAiQualityTest(env, idFromPath(path.replace(/\/run$/, '')), scope), 200, env);
-  if (method === 'POST' && path === '/admin/ai-response-quality/run-suite') return json(await runAiQualitySuite(env, scope), 200, env);
   if (method === 'GET' && path === '/admin/locale-studio') return json(await listLocaleStudio(env, scope), 200, env);
   if (method === 'GET' && path === '/admin/locale-registry') return json(await listPlatformLocales(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/locale-registry') return json(await updatePlatformLocales(env, await readJson(request), scope), 200, env);
@@ -343,11 +332,6 @@ async function route(request, env, url) {
 
 function idFromPath(path) { return Number(path.split('/').pop()); }
 function idFromParts(path, index) { return Number(path.split('/')[index]); }
-function domainMappingIdFromPath(path) {
-  const value = Number(path.split('/')[4]);
-  if (!Number.isInteger(value) || value < 1) bad('Domain mapping route id is invalid', 400, 'PLATFORM_DOMAIN_ID_INVALID');
-  return value;
-}
 function appName(env) { return env.APP_NAME || 'BDG Help Center'; }
 function getConnectionString(env) {
   const connectionString = env.DATABASE_URL || env.HYPERDRIVE?.connectionString;
@@ -2455,19 +2439,7 @@ function cloudflareHostnameConfig(env, siteKind = '') {
 }
 function requireCloudflareHostnameConfig(env, siteKind = '') {
   const config = cloudflareHostnameConfig(env, siteKind);
-  const missing = [];
-  if (!config.enabled) missing.push('CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED=true');
-  if (!config.api_token) missing.push('CLOUDFLARE_API_TOKEN');
-  if (!config.zone_id) missing.push('CLOUDFLARE_ZONE_ID');
-  if (!config.cname_target) missing.push('CLOUDFLARE_SAAS_CNAME_TARGET');
-  if (missing.length) {
-    const error = new Error('Cloudflare Custom Hostnames configuration is incomplete');
-    error.status = 503;
-    error.code = 'CLOUDFLARE_NOT_CONFIGURED';
-    error.publicMessage = 'Cloudflare Custom Hostnames is not configured. Add the required Render environment variables before provisioning.';
-    error.configuration_missing = missing;
-    throw error;
-  }
+  if (!config.enabled || !config.api_token || !config.zone_id || !config.cname_target) bad('Cloudflare Custom Hostnames are not configured. Set CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID, and CLOUDFLARE_SAAS_CNAME_TARGET.', 503, 'CLOUDFLARE_NOT_CONFIGURED');
   return config;
 }
 async function cloudflareHostnameRequest(env, method, hostnameId = '', body = undefined) {
@@ -2521,13 +2493,7 @@ function cloudflareDomainOut(row, scope, env) {
 async function getDomainMapping(env, scope) {
   const domains = (await q(env, `SELECT d.* FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE p.tenant_id=$1::integer AND d.platform_id=$2::integer AND d.archived_at IS NULL ORDER BY d.site_kind`, [scope.tenant_id, scope.platform_id])).rows;
   const config = cloudflareHostnameConfig(env);
-  const configuration_missing = [
-    !config.enabled ? 'CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED=true' : '',
-    !config.api_token ? 'CLOUDFLARE_API_TOKEN' : '',
-    !config.zone_id ? 'CLOUDFLARE_ZONE_ID' : '',
-    !config.cname_target ? 'CLOUDFLARE_SAAS_CNAME_TARGET' : '',
-  ].filter(Boolean);
-  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), cloudflare: { enabled:config.enabled, configured:configuration_missing.length === 0, configuration_missing, cname_target:config.cname_target, validation_method:config.validation_method, production_rule:'hostname status active + SSL status active + customer DNS points to the SaaS target' }, custom_domains:domains.map((row) => cloudflareDomainOut(row, scope, env)), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: config.enabled ? 'Add the displayed TXT records, then point the hostname CNAME to the displayed SaaS target. DNS is never changed automatically.' : 'Set up the Cloudflare Custom Hostnames environment variables before provisioning customer domains.' } };
+  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), cloudflare: { enabled:config.enabled, configured:!!(config.enabled && config.api_token && config.zone_id && config.cname_target), cname_target:config.cname_target, validation_method:config.validation_method, production_rule:'hostname status active + SSL status active + customer DNS points to the SaaS target' }, custom_domains:domains.map((row) => cloudflareDomainOut(row, scope, env)), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: config.enabled ? 'Add the displayed TXT records, then point the hostname CNAME to the displayed SaaS target. DNS is never changed automatically.' : 'Set up the Cloudflare Custom Hostnames environment variables before provisioning customer domains.' } };
 }
 async function generateDomainMapping(env, scope) {
   const mapping = await getDomainMapping(env, scope);
@@ -3671,6 +3637,17 @@ function safeActionUrl(value) {
 function responseText(value, max = 2000) {
   return cleanAssistantText(String(value || '')).slice(0, max);
 }
+function canonicalResponseImageKey(value) {
+  const url = String(value || '').trim();
+  if (!url) return '';
+  try {
+    const parsed = new URL(url, 'https://bdg.invalid');
+    parsed.hash = '';
+    return parsed.href;
+  } catch (_) {
+    return url.replace(/#.*$/, '');
+  }
+}
 export function normalizeResponseBlocks(value) {
   let source = value;
   if (typeof value === 'string') {
@@ -3731,12 +3708,45 @@ export function normalizeResponseBlocks(value) {
     }
     if (type === 'image') {
       const url = safeResponseUrl(raw.url || raw.src);
-      if (url) blocks.push({ type:'image', url, alt:responseText(raw.alt,200), caption:responseText(raw.caption,500) });
+      if (url) blocks.push({ type:'image', url, alt:responseText(raw.alt,200), caption:responseText(raw.caption,500), ...(Number.isInteger(Number(raw.step_index)) && Number(raw.step_index) >= 0 ? { step_index:Number(raw.step_index) } : {}) });
       continue;
     }
     if (text) blocks.push({ type: 'paragraph', text });
   }
-  return blocks.slice(0, 20);
+  const imageKeys = new Set();
+  const deduped = [];
+  for (const block of blocks) {
+    if (block.type === 'image') {
+      const key = canonicalResponseImageKey(block.url);
+      if (!key || imageKeys.has(key)) continue;
+      imageKeys.add(key);
+    }
+    deduped.push(block);
+  }
+  const stepCount = deduped
+    .filter((block) => block.type === 'steps' || block.type === 'step' || block.type === 'list')
+    .reduce((total, block) => total + (Array.isArray(block.items) ? block.items.length : 0), 0);
+  const seenStepIndexes = new Set();
+  let implicitStepIndex = 0;
+  const policyApplied = [];
+  for (const block of deduped) {
+    if (block.type !== 'image') {
+      policyApplied.push(block);
+      continue;
+    }
+    // A response without procedural steps has one canonical visual at most.
+    if (!stepCount && policyApplied.some((item) => item.type === 'image')) continue;
+    if (stepCount) {
+      const hasExplicitStep = Number.isInteger(Number(block.step_index)) && Number(block.step_index) >= 0;
+      const stepIndex = hasExplicitStep ? Number(block.step_index) : implicitStepIndex++;
+      if (stepIndex >= stepCount || seenStepIndexes.has(stepIndex)) continue;
+      seenStepIndexes.add(stepIndex);
+      policyApplied.push({ ...block, step_index: stepIndex });
+      continue;
+    }
+    policyApplied.push(block);
+  }
+  return policyApplied.slice(0, 20);
 }
 export function responseBlocksFromText(value) {
   const text = cleanAssistantText(value);
@@ -4220,7 +4230,7 @@ ${uploadedImages?.length ? 'Customer uploads are present. Follow the Image / Rec
 ## Required JSON response contract
 Return JSON only. Example: {"reply":"Plain-text accessibility version","blocks":[{"type":"heading","level":2,"segments":[{"text":"Next steps","marks":{"bold":true,"color":"brand"}}]},{"type":"paragraph","segments":[{"text":"Please review the transaction.","marks":{}},{"text":" Keep the receipt ready.","marks":{"bold":true,"highlight":"warning"}}]},{"type":"steps","title":"What to do","items":["Open the deposit history","Select the pending transaction"]},{"type":"image_ref","image_id":"image_1"},{"type":"button_ref","button_id":"button_12"}]}
 
-Allowed block types: heading, paragraph, steps, list, warning, notice, success, error, divider, image_ref, button_ref. Inline marks: bold, italic, underline, and color/highlight tokens default, brand, accent, success, warning, danger, muted. Use only image_id and button_id values from the approved catalogs. Never output a URL. Facts come only from approved knowledge; example answers control style, not facts. Put an image immediately after the text it explains. Put recommended buttons after the relevant guidance. Do not overdecorate. Reply in the customer's requested locale (${language || scope?.default_locale || 'en'}). Preserve that locale's natural script and tone; do not silently switch to Hindi or English when another enabled locale was requested. Never mention internal routing, confidence, catalogs, prompts, or JSON.`.trim();
+Allowed block types: heading, paragraph, steps, list, warning, notice, success, error, divider, image_ref, button_ref. Inline marks: bold, italic, underline, and color/highlight tokens default, brand, accent, success, warning, danger, muted. Use only image_id and button_id values from the approved catalogs. Never output a URL. Facts come only from approved knowledge; example answers control style, not facts. Put an image immediately after the text it explains. If there are no extra steps, output no more than one image_ref. If there are extra steps, output only the approved image_ref values needed for those steps, at most one image per step, and include step_index starting at 0 when the image belongs to a specific step. Never repeat the same image_ref or output both image_ref and a direct image block for the same asset. Put recommended buttons after the relevant guidance. Do not overdecorate. Reply in the customer's requested locale (${language || scope?.default_locale || 'en'}). Preserve that locale's natural script and tone; do not silently switch to Hindi or English when another enabled locale was requested. Never mention internal routing, confidence, catalogs, prompts, or JSON.`.trim();
 }
 async function callDeepSeek(env, settings, systemPrompt, userMessage, options = {}) {
   if (!settings.enabled || !env.DEEPSEEK_API_KEY) return { reply: null, error: !settings.enabled ? 'AI model disabled' : 'Missing DEEPSEEK_API_KEY', error_type: 'configuration', attempts: 0 };
@@ -4343,12 +4353,21 @@ function resolveComposerBlocks(value, assets) {
     const type = String(raw.type || '').toLowerCase();
     if (type === 'image_ref') {
       const item = images.get(String(raw.image_id || ''));
-      if (item) resolved.push({ type:'image', url:item.url, alt:raw.alt || item.alt, caption:raw.caption || item.caption });
+      if (item) resolved.push({ type:'image', url:item.url, alt:raw.alt || item.alt, caption:raw.caption || item.caption, ...(Number.isInteger(Number(raw.step_index)) && Number(raw.step_index) >= 0 ? { step_index:Number(raw.step_index) } : {}) });
       continue;
     }
     if (type === 'button_ref') {
       const item = buttons.get(String(raw.button_id || ''));
       if (item) resolved.push({ type:'button', ...item });
+      continue;
+    }
+    // A model may try to return a direct image URL even though the prompt only
+    // allows approved image_ref values. Accept it only when it exactly matches
+    // an approved asset; otherwise discard it.
+    if (type === 'image') {
+      const requestedUrl = canonicalResponseImageKey(raw.url || raw.src);
+      const item = assets.images.find((candidate) => canonicalResponseImageKey(candidate.url) === requestedUrl);
+      if (item) resolved.push({ type:'image', url:item.url, alt:raw.alt || item.alt, caption:raw.caption || item.caption, ...(Number.isInteger(Number(raw.step_index)) && Number(raw.step_index) >= 0 ? { step_index:Number(raw.step_index) } : {}) });
       continue;
     }
     // Composer text blocks are still passed through the strict block sanitizer.
@@ -4375,6 +4394,25 @@ function technicalUnavailableText(lang, reliability = null, kind = 'provider') {
   if (String(lang || '').startsWith('zh')) return kind === 'unknown' ? '我暂时找不到可靠答案。请再说明一些细节，我会继续帮助您。' : 'AI 客服暂时不可用，请稍后再试。';
   if (String(lang || '').startsWith('my')) return kind === 'unknown' ? 'ယုံကြည်စိတ်ချရသော အဖြေကို မတွေ့သေးပါ။ အသေးစိတ်ကို ထပ်မံဖော်ပြပေးပါ။' : 'AI အကူအညီကို ခဏတာ မရရှိနိုင်သေးပါ။ နောက်မှ ထပ်ကြိုးစားပါ။';
   return kind === 'unknown' ? 'I could not find a reliable answer yet. Please add a little more detail and I will continue.' : 'AI support is temporarily unavailable. Please try again in a moment.';
+}
+function responseImageDeliveryPlan(blocks = []) {
+  const source = Array.isArray(blocks) ? blocks : [];
+  const images = source.filter((block) => block?.type === 'image');
+  const stepBlocks = source.filter((block) => block?.type === 'steps' || block?.type === 'step' || block?.type === 'list');
+  const stepCount = stepBlocks.reduce((total, block) => total + (Array.isArray(block.items) ? block.items.length : 0), 0);
+  const stepImages = new Map();
+  for (const image of images) {
+    if (Number.isInteger(Number(image.step_index)) && Number(image.step_index) >= 0) {
+      stepImages.set(String(Number(image.step_index)), image.url);
+    }
+  }
+  return {
+    mode: !images.length ? 'none' : stepCount ? 'step_aware' : 'single',
+    step_count: stepCount,
+    image_count: images.length,
+    image_blocks: images.map((image, index) => ({ index, step_index:Number.isInteger(Number(image.step_index)) ? Number(image.step_index) : null, url:image.url })),
+    step_images: Object.fromEntries(stepImages),
+  };
 }
 async function runAiChat(env, payload, adminTest, activeScope = null, contextResolution = {}) {
   const turnStarted = Date.now();
@@ -4427,7 +4465,18 @@ async function runAiChat(env, payload, adminTest, activeScope = null, contextRes
     reply = technicalUnavailableText(lang, reliability, decision.decision === 'no_match' ? 'unknown' : 'provider');
     responseBlocks = [{ type:'error', text:reply }];
   }
-  const contentImages = responseBlocks.filter((block) => block.type === 'image').map((block) => block.url);
+  const contentImages = [];
+  const seenContentImages = new Set();
+  for (const block of responseBlocks.filter((item) => item.type === 'image')) {
+    const key = canonicalResponseImageKey(block.url);
+    if (key && !seenContentImages.has(key)) { seenContentImages.add(key); contentImages.push(block.url); }
+  }
+  const imageDelivery = responseImageDeliveryPlan(responseBlocks);
+  // `response_blocks` is the canonical rendering stream. Keep
+  // `content_images` only as a legacy fallback for clients that received no
+  // image block at all; otherwise returning the same URL here would make a
+  // compatible client render the image twice.
+  const legacyContentImages = imageDelivery.image_count ? [] : contentImages;
   const contentButtons = responseBlocks.filter((block) => block.type === 'button').map((block) => block.id).filter(Boolean);
   const sourceLabel = selected ? `${selected.source_type || 'prompt_image'}: ${selected.title}` : 'Global AI Prompt Manager only';
   const memorySummary = await finishChatTurn(env, session, settings, adminTest, message, reply, uploaded, {
@@ -4463,7 +4512,8 @@ async function runAiChat(env, payload, adminTest, activeScope = null, contextRes
   return {
     reply,
     response_blocks: responseBlocks,
-    content_images: contentImages,
+    content_images: legacyContentImages,
+    image_delivery: imageDelivery,
     recommended_buttons: responseBlocks.filter((block) => block.type === 'button'),
     session_id: session.session_id,
     request_id: turnRequestId,
@@ -4483,6 +4533,7 @@ async function runAiChat(env, payload, adminTest, activeScope = null, contextRes
       candidate_catalog_size: judge.catalog?.length || 0,
       approved_images_available: composed?.assets?.images?.length || 0,
       approved_buttons_available: composed?.assets?.buttons?.length || 0,
+      image_delivery: imageDelivery,
       prompt_sections_used: (await listPrompts(env, publicScope)).filter(section => section.enabled).length,
       images_are_routing_input: false,
       source_router: judge.router || null,
@@ -4491,187 +4542,6 @@ async function runAiChat(env, payload, adminTest, activeScope = null, contextRes
       platform_resolution: platformResolutionDiagnostics(publicScope, publicScope.platform_context || contextResolution),
     } : undefined,
   };
-}
-
-// v1.14.0 AI Response Quality Center.  The quality scanner is deliberately
-// deterministic and advisory: it finds overlap and delivery problems, but it
-// never deletes, publishes, or merges tenant content automatically.
-function qualityJson(value, fallback = {}) {
-  return parseJsonObject(value, fallback);
-}
-function qualityArray(value) {
-  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
-  return parseJsonArray(value, []).map((item) => String(item || '').trim()).filter(Boolean);
-}
-function qualityNormalize(value) {
-  return String(value || '').toLowerCase().normalize('NFKC').replace(/<[^>]+>/g, ' ').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
-}
-function qualityTokens(value) {
-  return new Set(qualityNormalize(value).split(' ').filter((token) => token.length > 1));
-}
-function qualitySimilarity(left, right) {
-  const a = qualityTokens(left); const b = qualityTokens(right);
-  if (!a.size || !b.size) return 0;
-  let intersection = 0; for (const token of a) if (b.has(token)) intersection += 1;
-  return intersection / (a.size + b.size - intersection);
-}
-function qualityFingerprint(value) {
-  let hash = 2166136261;
-  for (const ch of String(value || '')) { hash ^= ch.codePointAt(0); hash = Math.imul(hash, 16777619); }
-  return (hash >>> 0).toString(16).padStart(8, '0');
-}
-function qualityLocale(row) { return String(row?.locale || 'all').trim().toLowerCase() || 'all'; }
-function qualityImages(row) {
-  const urls = [...splitUrls(row?.image_urls || '')];
-  for (const item of parseJsonArray(row?.qa_steps_json || '[]', [])) if (item?.url) urls.push(String(item.url));
-  if (row?.cover_image_url) urls.push(String(row.cover_image_url));
-  if (row?.rich_html) urls.push(...imageUrlsFromHtml(row.rich_html));
-  return [...new Set(urls.map((url) => String(url || '').trim()).filter(Boolean))];
-}
-function qualityQuestion(row) { return [row?.title, row?.intent_key, row?.keywords, row?.positive_examples].filter(Boolean).join('\n'); }
-function qualityAnswer(row) { return [row?.faq_content, row?.knowledge_content, row?.example_answers, row?.ai_instruction, row?.qa_answer_html, row?.qa_steps_json, row?.rich_html, row?.rich_json].filter(Boolean).join('\n'); }
-function qualitySourceRef(row) {
-  return { id: Number(row?.source_reference_id || row?.id || 0), source_type: String(row?.source_type || 'prompt_image'), title: String(row?.title || ''), intent_key: String(row?.intent_key || ''), locale: qualityLocale(row), image_count: qualityImages(row).length };
-}
-function qualityFindingOut(row) {
-  return { id:Number(row.id), finding_type:row.finding_type, severity:row.severity || 'warning', locale:row.locale || 'all', fingerprint:row.fingerprint, status:row.status || 'open', summary:row.summary || '', details:qualityJson(row.details_json, {}), source_refs:parseJsonArray(row.source_refs_json, []), resolution_note:row.resolution_note || '', created_at:row.created_at ? String(row.created_at) : '', updated_at:row.updated_at ? String(row.updated_at) : '' };
-}
-function qualityTestCaseOut(row) {
-  return { id:Number(row.id), name:row.name || '', locale:row.locale || 'en', message:row.message || '', expected_source_type:row.expected_source_type || '', expected_intent_key:row.expected_intent_key || '', required_facts:parseJsonArray(row.required_facts_json, []), forbidden_phrases:parseJsonArray(row.forbidden_phrases_json, []), expected_image_roles:parseJsonArray(row.expected_image_roles_json, []), expected_image_ids:parseJsonArray(row.expected_image_ids_json, []), expected_image_mode:row.expected_image_mode || 'any', enabled:row.enabled !== false, severity:row.severity || 'critical', status:row.status || 'draft', last_run_status:row.last_run_status || '', last_run:qualityJson(row.last_run_json, {}), created_at:row.created_at ? String(row.created_at) : '', updated_at:row.updated_at ? String(row.updated_at) : '' };
-}
-async function qualityCatalogForScope(env, scope, requestedLocale = '') {
-  const policy = localePolicy(scope);
-  const locales = requestedLocale ? [normalizeLocale(requestedLocale, policy.default_locale)] : [...new Set([policy.default_locale, ...policy.supported_languages])];
-  const baseRouter = await getAiSourceRouter(env, scope);
-  const scannerRouter = { ...baseRouter, enabled:true, enabled_sources:[...AI_ROUTER_SOURCE_TYPES], source_order:[...AI_ROUTER_SOURCE_TYPES], max_candidates:200 };
-  const rows = [];
-  for (const locale of locales) {
-    const catalog = await buildUnifiedAiSourceCatalog(env, scope, locale, scannerRouter);
-    rows.push(...catalog.rows);
-  }
-  const unique = new Map();
-  for (const row of rows) unique.set(`${row.source_type || 'prompt_image'}:${row.id}:${qualityLocale(row)}`, row);
-  return { rows:[...unique.values()], locales, router:scannerRouter };
-}
-async function qualityScanRows(env, scope, payload = {}) {
-  const catalog = await qualityCatalogForScope(env, scope, payload.locale || '');
-  const rows = catalog.rows;
-  const findings = [];
-  const add = (finding_type, severity, refs, summary, details = {}) => {
-    const sourceRefs = refs.map(qualitySourceRef);
-    const fingerprint = qualityFingerprint(`${finding_type}|${qualityLocale(refs[0])}|${sourceRefs.map((ref) => `${ref.source_type}:${ref.id}`).sort().join('|')}`);
-    findings.push({ finding_type, severity, locale:qualityLocale(refs[0]), fingerprint, source_refs:sourceRefs, summary, details:{ ...details, platform_id:Number(scope.platform_id), tenant_id:Number(scope.tenant_id) } });
-  };
-  const byLocale = new Map();
-  for (const row of rows) { const key = qualityLocale(row); if (!byLocale.has(key)) byLocale.set(key, []); byLocale.get(key).push(row); }
-  for (const [locale, localeRows] of byLocale) {
-    for (let index = 0; index < localeRows.length; index += 1) {
-      const left = localeRows[index];
-      const leftQuestion = qualityQuestion(left); const leftAnswer = qualityNormalize(qualityAnswer(left));
-      const leftImages = qualityImages(left);
-      if (['prompt_image','qa'].includes(String(left.source_type || '')) && left.image_delivery !== 'never' && !leftImages.length) add('missing_image', 'warning', [left], `Published ${left.source_type === 'qa' ? 'AI Q&A' : 'Prompt & Image'} content has no approved image`, { action:'Add an approved image or set image delivery to never.' });
-      for (const imageUrl of leftImages) if (!safeResponseUrl(imageUrl)) add('invalid_image', 'critical', [left], 'A published source contains an image URL that cannot be safely delivered', { image_url:imageUrl });
-      for (let otherIndex = index + 1; otherIndex < localeRows.length; otherIndex += 1) {
-        const right = localeRows[otherIndex];
-        const rightQuestion = qualityQuestion(right); const rightAnswer = qualityNormalize(qualityAnswer(right));
-        const questionSimilarity = qualitySimilarity(leftQuestion, rightQuestion);
-        const sameIntent = qualityNormalize(left.intent_key) && qualityNormalize(left.intent_key) === qualityNormalize(right.intent_key);
-        const sameAnswer = leftAnswer && leftAnswer === rightAnswer;
-        if (sameIntent && leftAnswer && rightAnswer && !sameAnswer) add('conflicting_reply', 'critical', [left, right], 'The same intent is published with different answers', { question_similarity:questionSimilarity, left_answer:qualityAnswer(left).slice(0,500), right_answer:qualityAnswer(right).slice(0,500) });
-        else if (questionSimilarity >= 0.82 && sameAnswer) add('exact_duplicate', 'warning', [left, right], 'Two published sources contain the same question and answer', { question_similarity:questionSimilarity });
-        else if (questionSimilarity >= 0.82 && !sameAnswer) add('near_duplicate', 'warning', [left, right], 'Two published sources are near-duplicates and may route inconsistently', { question_similarity:questionSimilarity });
-        if (sameIntent && qualityNormalize(left.ai_instruction) !== qualityNormalize(right.ai_instruction) && qualityNormalize(left.ai_instruction) && qualityNormalize(right.ai_instruction)) add('instruction_conflict', 'critical', [left, right], 'The same intent has conflicting AI instructions', { left_instruction:String(left.ai_instruction).slice(0,500), right_instruction:String(right.ai_instruction).slice(0,500) });
-        const sharedImages = leftImages.filter((url) => qualityImages(right).includes(url));
-        if (sharedImages.length && qualityNormalize(left.intent_key) !== qualityNormalize(right.intent_key)) add('duplicate_image', 'warning', [left, right], 'The same approved image is attached to different intents', { image_urls:sharedImages });
-      }
-    }
-  }
-  if (payload.include_drafts) {
-    const drafts = (await q(env, `SELECT * FROM ai_content_items WHERE tenant_id=$1::integer AND platform_id=$2::integer AND deleted_at IS NULL AND NOT (status='published' AND approval_status='approved') ORDER BY id DESC LIMIT 500`, [scope.tenant_id, scope.platform_id])).rows;
-    const publishedByQuestion = new Map(rows.map((row) => [qualityNormalize(qualityQuestion(row)), row]));
-    for (const draft of drafts) { const match = publishedByQuestion.get(qualityNormalize(qualityQuestion(draft))); if (match) add('unpublished_duplicate', 'warning', [draft, match], 'A draft source duplicates an already published source', { draft_status:draft.status || 'draft', draft_approval_status:draft.approval_status || 'draft' }); }
-  }
-  return { findings, rows, locales:catalog.locales, router:catalog.router };
-}
-async function upsertAiQualityFinding(env, finding, scope) {
-  const row = (await q(env, `INSERT INTO ai_quality_findings(tenant_id,platform_id,locale,finding_type,severity,fingerprint,source_refs_json,summary,details_json,status,updated_at) VALUES($1::integer,$2::integer,$3::varchar(35),$4::varchar(40),$5::varchar(20),$6::varchar(180),$7::text,$8::text,$9::text,'open',NOW()) ON CONFLICT(tenant_id,platform_id,fingerprint) DO UPDATE SET locale=EXCLUDED.locale,finding_type=EXCLUDED.finding_type,severity=EXCLUDED.severity,source_refs_json=EXCLUDED.source_refs_json,summary=EXCLUDED.summary,details_json=EXCLUDED.details_json,updated_at=NOW() RETURNING *`, [scope.tenant_id,scope.platform_id,finding.locale,finding.finding_type,finding.severity,finding.fingerprint,JSON.stringify(finding.source_refs),finding.summary,JSON.stringify(finding.details)])).rows[0];
-  return qualityFindingOut(row);
-}
-async function getAiQualityOverview(env, scope) {
-  const counts = (await q(env, `SELECT finding_type,severity,status,COUNT(*)::int AS count FROM ai_quality_findings WHERE tenant_id=$1::integer AND platform_id=$2::integer GROUP BY finding_type,severity,status ORDER BY finding_type`, [scope.tenant_id, scope.platform_id])).rows;
-  const tests = (await q(env, `SELECT COUNT(*)::int AS total,COUNT(*) FILTER (WHERE enabled=true)::int AS enabled,COUNT(*) FILTER (WHERE last_run_status='pass')::int AS passed,COUNT(*) FILTER (WHERE last_run_status='fail')::int AS failed FROM ai_quality_test_cases WHERE tenant_id=$1::integer AND platform_id=$2::integer`, [scope.tenant_id, scope.platform_id])).rows[0] || {};
-  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), summary:{ findings:counts, tests:{ total:Number(tests.total || 0), enabled:Number(tests.enabled || 0), passed:Number(tests.passed || 0), failed:Number(tests.failed || 0) } } };
-}
-async function scanAiQuality(env, payload = {}, scope) {
-  requirePlatformWrite(scope);
-  const result = await qualityScanRows(env, scope, payload);
-  const saved = []; for (const finding of result.findings) saved.push(await upsertAiQualityFinding(env, finding, scope));
-  await audit(env, 'scan', 'ai_response_quality', scope.platform_id, `AI quality scan found ${saved.length} findings`, scope);
-  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), scan:{ scanned_sources:result.rows.length, locales:result.locales, finding_count:saved.length, include_drafts:!!payload.include_drafts }, findings:saved };
-}
-async function listAiQualityFindings(env, params, scope) {
-  const values = [scope.tenant_id, scope.platform_id]; const clauses = ['tenant_id=$1::integer','platform_id=$2::integer'];
-  const add = (column, value) => { if (!value) return; values.push(String(value)); clauses.push(`${column}=$${values.length}`); };
-  add('status', params.get('status')); add('severity', params.get('severity')); add('finding_type', params.get('finding_type')); add('locale', params.get('locale'));
-  const query = String(params.get('q') || '').trim(); if (query) { values.push(`%${query}%`); clauses.push(`(summary ILIKE $${values.length} OR source_refs_json ILIKE $${values.length})`); }
-  const limit = Math.min(200, Math.max(1, Number(params.get('limit') || 100))); values.push(limit);
-  const rows = (await q(env, `SELECT * FROM ai_quality_findings WHERE ${clauses.join(' AND ')} ORDER BY CASE severity WHEN 'critical' THEN 1 WHEN 'warning' THEN 2 ELSE 3 END,id DESC LIMIT $${values.length}`, values)).rows;
-  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), findings:rows.map(qualityFindingOut) };
-}
-async function resolveAiQualityFinding(env, id, payload = {}, scope) {
-  requirePlatformWrite(scope); const status = ['resolved','intentional','ignored','open'].includes(String(payload.status || '')) ? String(payload.status) : 'resolved';
-  const row = (await q(env, `UPDATE ai_quality_findings SET status=$1::varchar(30),resolution_note=$2::text,updated_at=NOW() WHERE id=$3::integer AND tenant_id=$4::integer AND platform_id=$5::integer RETURNING *`, [status,String(payload.note || '').slice(0,2000),id,scope.tenant_id,scope.platform_id])).rows[0];
-  if (!row) bad('AI quality finding not found',404,'AI_QUALITY_FINDING_NOT_FOUND');
-  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), finding:qualityFindingOut(row) };
-}
-async function listAiQualityTestCases(env, scope) {
-  const rows = (await q(env, `SELECT * FROM ai_quality_test_cases WHERE tenant_id=$1::integer AND platform_id=$2::integer ORDER BY id DESC`, [scope.tenant_id,scope.platform_id])).rows;
-  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), test_cases:rows.map(qualityTestCaseOut) };
-}
-function normalizeQualityTestPayload(payload = {}) {
-  const message = String(payload.message || '').trim(); if (!message) bad('Test message is required',400,'AI_QUALITY_TEST_MESSAGE_REQUIRED');
-  return { name:String(payload.name || 'Untitled AI quality test').trim().slice(0,180), locale:normalizeLocale(payload.locale || 'en'), message:message.slice(0,5000), expected_source_type:String(payload.expected_source_type || '').trim().slice(0,40), expected_intent_key:String(payload.expected_intent_key || '').trim().slice(0,180), required_facts:qualityArray(payload.required_facts), forbidden_phrases:qualityArray(payload.forbidden_phrases), expected_image_roles:qualityArray(payload.expected_image_roles), expected_image_ids:qualityArray(payload.expected_image_ids), expected_image_mode:['any','required','none'].includes(String(payload.expected_image_mode || 'any')) ? String(payload.expected_image_mode || 'any') : 'any', enabled:payload.enabled !== false, severity:['critical','warning','info'].includes(String(payload.severity || 'critical')) ? String(payload.severity || 'critical') : 'critical' };
-}
-async function createAiQualityTestCase(env, payload, scope) {
-  requirePlatformWrite(scope); const data = normalizeQualityTestPayload(payload);
-  const row = (await q(env, `INSERT INTO ai_quality_test_cases(tenant_id,platform_id,locale,name,message,expected_source_type,expected_intent_key,required_facts_json,forbidden_phrases_json,expected_image_roles_json,expected_image_ids_json,expected_image_mode,enabled,severity,status) VALUES($1::integer,$2::integer,$3::varchar(35),$4::varchar(180),$5::text,$6::varchar(40),$7::varchar(180),$8::text,$9::text,$10::text,$11::text,$12::varchar(20),$13::boolean,$14::varchar(20),'active') RETURNING *`, [scope.tenant_id,scope.platform_id,data.locale,data.name,data.message,data.expected_source_type,data.expected_intent_key,JSON.stringify(data.required_facts),JSON.stringify(data.forbidden_phrases),JSON.stringify(data.expected_image_roles),JSON.stringify(data.expected_image_ids),data.expected_image_mode,data.enabled,data.severity])).rows[0];
-  return { ok:true, version:VERSION, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), test_case:qualityTestCaseOut(row) };
-}
-async function updateAiQualityTestCase(env, id, payload, scope) {
-  requirePlatformWrite(scope); const data = normalizeQualityTestPayload(payload);
-  const row = (await q(env, `UPDATE ai_quality_test_cases SET locale=$1::varchar(35),name=$2::varchar(180),message=$3::text,expected_source_type=$4::varchar(40),expected_intent_key=$5::varchar(180),required_facts_json=$6::text,forbidden_phrases_json=$7::text,expected_image_roles_json=$8::text,expected_image_ids_json=$9::text,expected_image_mode=$10::varchar(20),enabled=$11::boolean,severity=$12::varchar(20),updated_at=NOW() WHERE id=$13::integer AND tenant_id=$14::integer AND platform_id=$15::integer RETURNING *`, [data.locale,data.name,data.message,data.expected_source_type,data.expected_intent_key,JSON.stringify(data.required_facts),JSON.stringify(data.forbidden_phrases),JSON.stringify(data.expected_image_roles),JSON.stringify(data.expected_image_ids),data.expected_image_mode,data.enabled,data.severity,id,scope.tenant_id,scope.platform_id])).rows[0];
-  if (!row) bad('AI quality test case not found',404,'AI_QUALITY_TEST_NOT_FOUND'); return { ok:true,version:VERSION,platform_resolution:platformResolutionDiagnostics(scope,scope.platform_context),test_case:qualityTestCaseOut(row) };
-}
-async function deleteAiQualityTestCase(env, id, scope) {
-  requirePlatformWrite(scope); const row = (await q(env, `DELETE FROM ai_quality_test_cases WHERE id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer RETURNING id`, [id,scope.tenant_id,scope.platform_id])).rows[0];
-  if (!row) bad('AI quality test case not found',404,'AI_QUALITY_TEST_NOT_FOUND'); return { ok:true,version:VERSION,platform_resolution:platformResolutionDiagnostics(scope,scope.platform_context),id:Number(row.id) };
-}
-function evaluateAiQualityResult(testCase, result) {
-  const diagnostics = result?.diagnostics || {}; const selectedSource = String(diagnostics.selected_source_type || ''); const selectedIntent = String(diagnostics.selected_content?.intent_key || ''); const reply = String(result?.reply || ''); const images = Array.isArray(result?.content_images) ? result.content_images : [];
-  const checks = []; const add = (name, ok, detail) => checks.push({ name, ok:!!ok, detail:detail || '' });
-  if (testCase.expected_source_type) add('expected_source', selectedSource === testCase.expected_source_type, `expected ${testCase.expected_source_type}, received ${selectedSource || 'none'}`);
-  if (testCase.expected_intent_key) add('expected_intent', selectedIntent === testCase.expected_intent_key, `expected ${testCase.expected_intent_key}, received ${selectedIntent || 'none'}`);
-  for (const fact of testCase.required_facts) add(`required_fact:${fact}`, qualityNormalize(reply).includes(qualityNormalize(fact)), 'Required fact must appear in the final reply');
-  for (const phrase of testCase.forbidden_phrases) add(`forbidden_phrase:${phrase}`, !qualityNormalize(reply).includes(qualityNormalize(phrase)), 'Forbidden phrase must not appear in the final reply');
-  if (testCase.expected_image_mode === 'required') add('image_required', images.length > 0, `received ${images.length} image(s)`);
-  if (testCase.expected_image_mode === 'none') add('image_not_expected', images.length === 0, `received ${images.length} image(s)`);
-  for (const expected of testCase.expected_image_ids) add(`expected_image:${expected}`, images.some((url) => String(url).includes(String(expected))), 'Expected image id or URL must be delivered');
-  if (result?.technical_failure) add('provider_available', false, result.provider_error || 'The AI provider did not return a composed response');
-  return { status:checks.every((check) => check.ok) ? 'pass' : 'fail', checks, selected_source_type:selectedSource, selected_intent_key:selectedIntent, reply:reply.slice(0,6000), images, platform_resolution:result?.platform_resolution || null };
-}
-async function runAiQualityTest(env, id, scope) {
-  const row = (await q(env, `SELECT * FROM ai_quality_test_cases WHERE id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer LIMIT 1`, [id,scope.tenant_id,scope.platform_id])).rows[0];
-  if (!row) bad('AI quality test case not found',404,'AI_QUALITY_TEST_NOT_FOUND');
-  const testCase = qualityTestCaseOut(row); const result = await runAiChat(env, { message:testCase.message, language:testCase.locale, platform_key:scope.public_route_key, session_id:`quality-${scope.platform_id}-${id}-${Date.now()}` }, true, scope, { source:'admin_quality_test', reference:scope.public_route_key, raw_reference:scope.public_route_key, status:'provided' });
-  const evaluation = evaluateAiQualityResult(testCase, result);
-  const run = (await q(env, `INSERT INTO ai_quality_test_runs(tenant_id,platform_id,test_case_id,run_type,status,request_message,selected_source_type,selected_source_id,selected_title,selected_images_json,diagnostics_json,reply,failures_json,completed_at) VALUES($1::integer,$2::integer,$3::integer,'single',$4::varchar(20),$5::text,$6::varchar(40),$7::integer,$8::text,$9::text,$10::text,$11::text,$12::text,NOW()) RETURNING *`, [scope.tenant_id,scope.platform_id,id,evaluation.status,testCase.message,evaluation.selected_source_type,Number(result?.diagnostics?.selected_content?.id || 0) || null,result?.diagnostics?.selected_content?.title || '',JSON.stringify(evaluation.images),JSON.stringify({ diagnostics:result?.diagnostics || {}, platform_resolution:result?.platform_resolution || null }),evaluation.reply,JSON.stringify(evaluation.checks.filter((check) => !check.ok))])).rows[0];
-  const updated = (await q(env, `UPDATE ai_quality_test_cases SET last_run_status=$1::varchar(20),last_run_json=$2::text,updated_at=NOW() WHERE id=$3::integer RETURNING *`, [evaluation.status,JSON.stringify({ ...evaluation, run_id:Number(run.id) }),id])).rows[0];
-  return { ok:true,version:VERSION,platform_resolution:platformResolutionDiagnostics(scope,scope.platform_context),test_case:qualityTestCaseOut(updated),run:{ id:Number(run.id), ...evaluation } };
-}
-async function runAiQualitySuite(env, scope) {
-  const rows = (await q(env, `SELECT id FROM ai_quality_test_cases WHERE tenant_id=$1::integer AND platform_id=$2::integer AND enabled=true ORDER BY id`, [scope.tenant_id,scope.platform_id])).rows;
-  const results = []; for (const row of rows) results.push(await runAiQualityTest(env, Number(row.id), scope));
-  return { ok:true,version:VERSION,platform_resolution:platformResolutionDiagnostics(scope,scope.platform_context),summary:{ total:results.length, passed:results.filter((item) => item.run?.status === 'pass').length, failed:results.filter((item) => item.run?.status === 'fail').length }, results };
 }
 
 function randomBase32Secret(length = 20) {

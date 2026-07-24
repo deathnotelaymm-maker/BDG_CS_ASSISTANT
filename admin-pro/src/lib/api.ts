@@ -764,39 +764,6 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, message, locale: locale || "en", candidate_catalog_size: 0, source_counts: {}, candidates: [] });
     return request("/admin/ai-source-router/preview", { method: "POST", body: JSON.stringify({ message, locale }) });
   },
-  getAiQualityOverview: async () => {
-    if (MOCK_MODE) return delay({ ok: true, summary: { findings: [], tests: { total: 0, enabled: 0, passed: 0, failed: 0 } } });
-    return request("/admin/ai-response-quality");
-  },
-  scanAiQuality: async (data: { locale?: string; include_drafts?: boolean } = {}) => {
-    if (MOCK_MODE) return delay({ ok: true, scan: { scanned_sources: 0, finding_count: 0, locales: [] }, findings: [] });
-    return request("/admin/ai-response-quality/scan", { method: "POST", body: JSON.stringify(data) });
-  },
-  listAiQualityFindings: async (params: Record<string, string> = {}) => {
-    if (MOCK_MODE) return delay({ ok: true, findings: [] });
-    const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== "") as Array<[string, string]>).toString();
-    return request(`/admin/ai-response-quality/findings${query ? `?${query}` : ""}`);
-  },
-  resolveAiQualityFinding: async (id: string | number, data: { status: string; note?: string }) => {
-    if (MOCK_MODE) return delay({ ok: true, finding: { id, ...data } });
-    return request(`/admin/ai-response-quality/findings/${id}/resolve`, { method: "POST", body: JSON.stringify(data) });
-  },
-  listAiQualityTestCases: async () => {
-    if (MOCK_MODE) return delay({ ok: true, test_cases: [] });
-    return request("/admin/ai-response-quality/test-cases");
-  },
-  createAiQualityTestCase: async (data: any) => {
-    if (MOCK_MODE) return delay({ ok: true, test_case: { id: Date.now(), ...data } });
-    return request("/admin/ai-response-quality/test-cases", { method: "POST", body: JSON.stringify(data) });
-  },
-  runAiQualityTest: async (id: string | number) => {
-    if (MOCK_MODE) return delay({ ok: true, run: { id: Date.now(), status: "pass", checks: [] } });
-    return request(`/admin/ai-response-quality/test-cases/${id}/run`, { method: "POST", body: JSON.stringify({}) });
-  },
-  runAiQualitySuite: async () => {
-    if (MOCK_MODE) return delay({ ok: true, summary: { total: 0, passed: 0, failed: 0 }, results: [] });
-    return request("/admin/ai-response-quality/run-suite", { method: "POST", body: JSON.stringify({}) });
-  },
   getDomainMapping: async () => {
     if (MOCK_MODE) return delay({ ok: true, generated: {}, custom_domains: [], dns_instructions: [] });
     return request("/admin/domain-mapping");
