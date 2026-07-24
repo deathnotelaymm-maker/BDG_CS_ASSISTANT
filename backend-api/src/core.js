@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.13.0-bring-your-own-domain-cloudflare-custom-hostnames';
+const VERSION = '1.13.1-domain-mapping-route-id-fix-cloudflare-configuration-guard';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -67,6 +67,7 @@ export default {
         code: err?.code || (status >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST'),
         request_id: requestId,
         version: VERSION,
+        ...(err?.configuration_missing ? { configuration_missing: err.configuration_missing } : {}),
         platform_resolution: platformResolutionDiagnostics(null, platformContext, status >= 500 ? 'unresolved' : undefined),
       }, status, env);
     }
@@ -163,10 +164,10 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/domain-mapping') return json(await getDomainMapping(env, scope), 200, env);
   if (method === 'POST' && path === '/admin/domain-mapping/generate') return json(await generateDomainMapping(env, scope), 200, env);
   if (method === 'POST' && path === '/admin/domain-mapping/domains') return json(await createDomainMappingDomain(env, admin, await readJson(request), scope), 201, env);
-  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/provision$/.test(path)) return json(await provisionMappedDomain(env, idFromParts(path, 3), scope), 200, env);
-  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/sync$/.test(path)) return json(await syncMappedDomain(env, idFromParts(path, 3), scope), 200, env);
-  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/verify$/.test(path)) return json(await verifyMappedDomain(env, idFromParts(path, 3), scope), 200, env);
-  if (method === 'DELETE' && /^\/admin\/domain-mapping\/domains\/\d+$/.test(path)) return json(await deleteMappedDomain(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/provision$/.test(path)) return json(await provisionMappedDomain(env, domainMappingIdFromPath(path), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/sync$/.test(path)) return json(await syncMappedDomain(env, domainMappingIdFromPath(path), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/verify$/.test(path)) return json(await verifyMappedDomain(env, domainMappingIdFromPath(path), scope), 200, env);
+  if (method === 'DELETE' && /^\/admin\/domain-mapping\/domains\/\d+$/.test(path)) return json(await deleteMappedDomain(env, domainMappingIdFromPath(path), scope), 200, env);
   if (method === 'GET' && path === '/admin/ai/reliability') return json(await getAiReliability(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/ai/reliability') return json(await updateAiReliability(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/ai/reliability/test') return json(await testAiReliability(env, await readJson(request), scope), 200, env);
@@ -332,6 +333,11 @@ async function route(request, env, url) {
 
 function idFromPath(path) { return Number(path.split('/').pop()); }
 function idFromParts(path, index) { return Number(path.split('/')[index]); }
+function domainMappingIdFromPath(path) {
+  const value = Number(path.split('/')[4]);
+  if (!Number.isInteger(value) || value < 1) bad('Domain mapping route id is invalid', 400, 'PLATFORM_DOMAIN_ID_INVALID');
+  return value;
+}
 function appName(env) { return env.APP_NAME || 'BDG Help Center'; }
 function getConnectionString(env) {
   const connectionString = env.DATABASE_URL || env.HYPERDRIVE?.connectionString;
@@ -2439,7 +2445,19 @@ function cloudflareHostnameConfig(env, siteKind = '') {
 }
 function requireCloudflareHostnameConfig(env, siteKind = '') {
   const config = cloudflareHostnameConfig(env, siteKind);
-  if (!config.enabled || !config.api_token || !config.zone_id || !config.cname_target) bad('Cloudflare Custom Hostnames are not configured. Set CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID, and CLOUDFLARE_SAAS_CNAME_TARGET.', 503, 'CLOUDFLARE_NOT_CONFIGURED');
+  const missing = [];
+  if (!config.enabled) missing.push('CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED=true');
+  if (!config.api_token) missing.push('CLOUDFLARE_API_TOKEN');
+  if (!config.zone_id) missing.push('CLOUDFLARE_ZONE_ID');
+  if (!config.cname_target) missing.push('CLOUDFLARE_SAAS_CNAME_TARGET');
+  if (missing.length) {
+    const error = new Error('Cloudflare Custom Hostnames configuration is incomplete');
+    error.status = 503;
+    error.code = 'CLOUDFLARE_NOT_CONFIGURED';
+    error.publicMessage = 'Cloudflare Custom Hostnames is not configured. Add the required Render environment variables before provisioning.';
+    error.configuration_missing = missing;
+    throw error;
+  }
   return config;
 }
 async function cloudflareHostnameRequest(env, method, hostnameId = '', body = undefined) {
@@ -2493,7 +2511,13 @@ function cloudflareDomainOut(row, scope, env) {
 async function getDomainMapping(env, scope) {
   const domains = (await q(env, `SELECT d.* FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE p.tenant_id=$1::integer AND d.platform_id=$2::integer AND d.archived_at IS NULL ORDER BY d.site_kind`, [scope.tenant_id, scope.platform_id])).rows;
   const config = cloudflareHostnameConfig(env);
-  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), cloudflare: { enabled:config.enabled, configured:!!(config.enabled && config.api_token && config.zone_id && config.cname_target), cname_target:config.cname_target, validation_method:config.validation_method, production_rule:'hostname status active + SSL status active + customer DNS points to the SaaS target' }, custom_domains:domains.map((row) => cloudflareDomainOut(row, scope, env)), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: config.enabled ? 'Add the displayed TXT records, then point the hostname CNAME to the displayed SaaS target. DNS is never changed automatically.' : 'Set up the Cloudflare Custom Hostnames environment variables before provisioning customer domains.' } };
+  const configuration_missing = [
+    !config.enabled ? 'CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED=true' : '',
+    !config.api_token ? 'CLOUDFLARE_API_TOKEN' : '',
+    !config.zone_id ? 'CLOUDFLARE_ZONE_ID' : '',
+    !config.cname_target ? 'CLOUDFLARE_SAAS_CNAME_TARGET' : '',
+  ].filter(Boolean);
+  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), cloudflare: { enabled:config.enabled, configured:configuration_missing.length === 0, configuration_missing, cname_target:config.cname_target, validation_method:config.validation_method, production_rule:'hostname status active + SSL status active + customer DNS points to the SaaS target' }, custom_domains:domains.map((row) => cloudflareDomainOut(row, scope, env)), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: config.enabled ? 'Add the displayed TXT records, then point the hostname CNAME to the displayed SaaS target. DNS is never changed automatically.' : 'Set up the Cloudflare Custom Hostnames environment variables before provisioning customer domains.' } };
 }
 async function generateDomainMapping(env, scope) {
   const mapping = await getDomainMapping(env, scope);
