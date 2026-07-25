@@ -18,6 +18,7 @@ function DomainMappingPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [form] = Form.useForm();
+  const cloudflareReady = data?.cloudflare?.configured === true;
 
   const load = async () => {
     setLoading(true);
@@ -58,7 +59,7 @@ function DomainMappingPage() {
     { title: "Provisioning", dataIndex: "provisioning_status", render: (value: string) => <Tag color={statusColor(value)}>{value || "planned"}</Tag> },
     { title: "Cloudflare", render: (_: any, row: any) => <Space direction="vertical" size={0}><span>Hostname: <Tag color={statusColor(row.cloudflare_status)}>{row.cloudflare_status || "not created"}</Tag></span><span>SSL: <Tag color={statusColor(row.cloudflare_ssl_status)}>{row.cloudflare_ssl_status || "not checked"}</Tag></span></Space> },
     { title: "Ready", render: (_: any, row: any) => row.ready ? <Tag color="green">Ready</Tag> : <Tag color="gold">DNS / SSL pending</Tag> },
-    { title: "Action", render: (_: any, row: any) => <Space wrap><Button size="small" type="primary" icon={<SafetyCertificateOutlined />} loading={busy} onClick={() => void runDomainAction(row.cloudflare_hostname_id ? "sync" : "provision", row.id)}>{row.cloudflare_hostname_id ? "Refresh status" : "Provision"}</Button><Popconfirm title="Archive this domain mapping?" description="Cloudflare will be asked to remove the hostname when configured." onConfirm={() => void runDomainAction("delete", row.id)}><Button size="small" danger icon={<DeleteOutlined />} loading={busy}>Remove</Button></Popconfirm></Space> },
+    { title: "Action", render: (_: any, row: any) => <Space wrap><Button size="small" type="primary" icon={<SafetyCertificateOutlined />} loading={busy} disabled={!cloudflareReady} title={cloudflareReady ? undefined : "Configure Cloudflare in Render first"} onClick={() => void runDomainAction(row.cloudflare_hostname_id ? "sync" : "provision", row.id)}>{row.cloudflare_hostname_id ? "Refresh status" : "Provision"}</Button><Popconfirm title="Archive this domain mapping?" description="Cloudflare will be asked to remove the hostname when configured." onConfirm={() => void runDomainAction("delete", row.id)}><Button size="small" danger icon={<DeleteOutlined />} loading={busy}>Remove</Button></Popconfirm></Space> },
   ];
 
   return <>
@@ -73,7 +74,7 @@ function DomainMappingPage() {
     </Card>
 
     <Card title="Cloudflare Custom Hostnames" style={{ marginTop: 12 }}>
-      <Alert showIcon type={data?.cloudflare?.configured ? "success" : "warning"} message={data?.cloudflare?.configured ? "Cloudflare provisioning is configured" : "Cloudflare provisioning is not configured"} description={data?.cloudflare?.configured ? `SaaS CNAME target: ${data.cloudflare.cname_target || "—"}. Provisioning still does not change customer DNS.` : "Set the backend Cloudflare environment variables in Render before clicking Provision."} style={{ marginBottom: 12 }} />
+      <Alert showIcon type={data?.cloudflare?.configured ? "success" : "warning"} message={data?.cloudflare?.configured ? "Cloudflare provisioning is configured" : "Cloudflare provisioning is not configured"} description={data?.cloudflare?.configured ? `SaaS CNAME target: ${data.cloudflare.cname_target || "—"}. Provisioning still does not change customer DNS.` : `Set these Render variables before provisioning: ${(data?.cloudflare?.missing_env || ["CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ZONE_ID", "CLOUDFLARE_SAAS_CNAME_TARGET"]).join(", ")}. Provision is disabled until they are configured.`} style={{ marginBottom: 12 }} />
       <Form form={form} layout="inline" onFinish={addDomain} initialValues={{ site_kind: "guide" }}>
         <Form.Item name="hostname" rules={[{ required: true, message: "Enter a hostname" }, { pattern: /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i, message: "Use a hostname without https:// or a path" }]}><Input placeholder="support.example.com" style={{ width: 260 }} /></Form.Item>
         <Form.Item name="site_kind"><Select style={{ width: 130 }} options={[{ value: "guide", label: "Guide" }, { value: "chat", label: "Chat" }, { value: "admin", label: "Admin" }]} /></Form.Item>

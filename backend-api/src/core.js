@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.14.1-single-image-step-aware-response-rendering';
+const VERSION = '1.14.2-domain-provisioning-id-cloudflare-guard-hotfix';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -78,7 +78,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','domain-id-validation','cloudflare-configuration-guard'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -163,10 +163,10 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/domain-mapping') return json(await getDomainMapping(env, scope), 200, env);
   if (method === 'POST' && path === '/admin/domain-mapping/generate') return json(await generateDomainMapping(env, scope), 200, env);
   if (method === 'POST' && path === '/admin/domain-mapping/domains') return json(await createDomainMappingDomain(env, admin, await readJson(request), scope), 201, env);
-  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/provision$/.test(path)) return json(await provisionMappedDomain(env, idFromParts(path, 3), scope), 200, env);
-  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/sync$/.test(path)) return json(await syncMappedDomain(env, idFromParts(path, 3), scope), 200, env);
-  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/verify$/.test(path)) return json(await verifyMappedDomain(env, idFromParts(path, 3), scope), 200, env);
-  if (method === 'DELETE' && /^\/admin\/domain-mapping\/domains\/\d+$/.test(path)) return json(await deleteMappedDomain(env, idFromParts(path, 3), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/provision$/.test(path)) return json(await provisionMappedDomain(env, domainIdFromPath(path), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/sync$/.test(path)) return json(await syncMappedDomain(env, domainIdFromPath(path), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/verify$/.test(path)) return json(await verifyMappedDomain(env, domainIdFromPath(path), scope), 200, env);
+  if (method === 'DELETE' && /^\/admin\/domain-mapping\/domains\/\d+$/.test(path)) return json(await deleteMappedDomain(env, domainIdFromPath(path), scope), 200, env);
   if (method === 'GET' && path === '/admin/ai/reliability') return json(await getAiReliability(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/ai/reliability') return json(await updateAiReliability(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/ai/reliability/test') return json(await testAiReliability(env, await readJson(request), scope), 200, env);
@@ -332,6 +332,12 @@ async function route(request, env, url) {
 
 function idFromPath(path) { return Number(path.split('/').pop()); }
 function idFromParts(path, index) { return Number(path.split('/')[index]); }
+function domainIdFromPath(path) {
+  const raw = String(path).match(/^\/admin\/domain-mapping\/domains\/(\d+)(?:\/|$)/)?.[1] || '';
+  const id = Number(raw);
+  if (!raw || !Number.isSafeInteger(id) || id < 1) bad('The domain mapping ID is invalid.', 400, 'DOMAIN_ID_INVALID');
+  return id;
+}
 function appName(env) { return env.APP_NAME || 'BDG Help Center'; }
 function getConnectionString(env) {
   const connectionString = env.DATABASE_URL || env.HYPERDRIVE?.connectionString;
@@ -2437,9 +2443,20 @@ function cloudflareHostnameConfig(env, siteKind = '') {
     metadata_enabled: env.CLOUDFLARE_CUSTOM_METADATA_ENABLED === true || String(env.CLOUDFLARE_CUSTOM_METADATA_ENABLED).toLowerCase() === 'true',
   };
 }
+function cloudflareConfigurationStatus(env, siteKind = '') {
+  const config = cloudflareHostnameConfig(env, siteKind);
+  const required = ['CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ZONE_ID', 'CLOUDFLARE_SAAS_CNAME_TARGET'];
+  const missing = [];
+  if (!config.enabled) missing.push('CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED');
+  if (!config.api_token) missing.push('CLOUDFLARE_API_TOKEN');
+  if (!config.zone_id) missing.push('CLOUDFLARE_ZONE_ID');
+  if (!config.cname_target) missing.push('CLOUDFLARE_SAAS_CNAME_TARGET');
+  return { configured: missing.length === 0, enabled: config.enabled, required_env: required, missing_env: missing, site_kind: String(siteKind || '').toLowerCase() || 'all', cname_target: config.cname_target, validation_method: config.validation_method };
+}
 function requireCloudflareHostnameConfig(env, siteKind = '') {
   const config = cloudflareHostnameConfig(env, siteKind);
-  if (!config.enabled || !config.api_token || !config.zone_id || !config.cname_target) bad('Cloudflare Custom Hostnames are not configured. Set CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ZONE_ID, and CLOUDFLARE_SAAS_CNAME_TARGET.', 503, 'CLOUDFLARE_NOT_CONFIGURED');
+  const status = cloudflareConfigurationStatus(env, siteKind);
+  if (!status.configured) bad(`Cloudflare Custom Hostnames are not configured. Missing Render variables: ${status.missing_env.join(', ')}.`, 503, 'CLOUDFLARE_NOT_CONFIGURED');
   return config;
 }
 async function cloudflareHostnameRequest(env, method, hostnameId = '', body = undefined) {
@@ -2492,8 +2509,8 @@ function cloudflareDomainOut(row, scope, env) {
 }
 async function getDomainMapping(env, scope) {
   const domains = (await q(env, `SELECT d.* FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE p.tenant_id=$1::integer AND d.platform_id=$2::integer AND d.archived_at IS NULL ORDER BY d.site_kind`, [scope.tenant_id, scope.platform_id])).rows;
-  const config = cloudflareHostnameConfig(env);
-  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), cloudflare: { enabled:config.enabled, configured:!!(config.enabled && config.api_token && config.zone_id && config.cname_target), cname_target:config.cname_target, validation_method:config.validation_method, production_rule:'hostname status active + SSL status active + customer DNS points to the SaaS target' }, custom_domains:domains.map((row) => cloudflareDomainOut(row, scope, env)), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: config.enabled ? 'Add the displayed TXT records, then point the hostname CNAME to the displayed SaaS target. DNS is never changed automatically.' : 'Set up the Cloudflare Custom Hostnames environment variables before provisioning customer domains.' } };
+  const cloudflare = { ...cloudflareConfigurationStatus(env), production_rule:'hostname status active + SSL status active + customer DNS points to the SaaS target' };
+  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), cloudflare, custom_domains:domains.map((row) => cloudflareDomainOut(row, scope, env)), dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: cloudflare.configured ? 'Add the displayed TXT records, then point the hostname CNAME to the displayed SaaS target. DNS is never changed automatically.' : `Set up the missing Render variables: ${cloudflare.missing_env.join(', ')}.` } };
 }
 async function generateDomainMapping(env, scope) {
   const mapping = await getDomainMapping(env, scope);
