@@ -21,11 +21,15 @@ import { Route as AdminLocaleStudioRouteImport } from './routes/_admin.locale-st
 import { Route as AdminHelpCardsRouteImport } from './routes/_admin.help-cards'
 import { Route as AdminGuideImagesRouteImport } from './routes/_admin.guide-images'
 import { Route as AdminFaqRouteImport } from './routes/_admin.faq'
+import { Route as AdminDomainMappingRouteImport } from './routes/_admin.domain-mapping'
 import { Route as AdminDashboardRouteImport } from './routes/_admin.dashboard'
 import { Route as AdminChatQuickRepliesRouteImport } from './routes/_admin.chat-quick-replies'
 import { Route as AdminChatLogsRouteImport } from './routes/_admin.chat-logs'
 import { Route as AdminCategoriesRouteImport } from './routes/_admin.categories'
 import { Route as AdminAuditLogsRouteImport } from './routes/_admin.audit-logs'
+import { Route as AdminAiSourceRouterRouteImport } from './routes/_admin.ai-source-router'
+import { Route as AdminAiResponseQualityRouteImport } from './routes/_admin.ai-response-quality'
+import { Route as AdminAiReliabilityRouteImport } from './routes/_admin.ai-reliability'
 import { Route as AdminAiQaRouteImport } from './routes/_admin.ai-qa'
 import { Route as AdminAiPromptManagerRouteImport } from './routes/_admin.ai-prompt-manager'
 import { Route as AdminAiKnowledgeImportRouteImport } from './routes/_admin.ai-knowledge-import'
@@ -95,6 +99,11 @@ const AdminFaqRoute = AdminFaqRouteImport.update({
   path: '/faq',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminDomainMappingRoute = AdminDomainMappingRouteImport.update({
+  id: '/domain-mapping',
+  path: '/domain-mapping',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -118,6 +127,21 @@ const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
 const AdminAuditLogsRoute = AdminAuditLogsRouteImport.update({
   id: '/audit-logs',
   path: '/audit-logs',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAiSourceRouterRoute = AdminAiSourceRouterRouteImport.update({
+  id: '/ai-source-router',
+  path: '/ai-source-router',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAiResponseQualityRoute = AdminAiResponseQualityRouteImport.update({
+  id: '/ai-response-quality',
+  path: '/ai-response-quality',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAiReliabilityRoute = AdminAiReliabilityRouteImport.update({
+  id: '/ai-reliability',
+  path: '/ai-reliability',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAiQaRoute = AdminAiQaRouteImport.update({
@@ -172,11 +196,15 @@ export interface FileRoutesByFullPath {
   '/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
   '/ai-prompt-manager': typeof AdminAiPromptManagerRoute
   '/ai-qa': typeof AdminAiQaRoute
+  '/ai-reliability': typeof AdminAiReliabilityRoute
+  '/ai-response-quality': typeof AdminAiResponseQualityRoute
+  '/ai-source-router': typeof AdminAiSourceRouterRoute
   '/audit-logs': typeof AdminAuditLogsRoute
   '/categories': typeof AdminCategoriesRoute
   '/chat-logs': typeof AdminChatLogsRoute
   '/chat-quick-replies': typeof AdminChatQuickRepliesRoute
   '/dashboard': typeof AdminDashboardRoute
+  '/domain-mapping': typeof AdminDomainMappingRoute
   '/faq': typeof AdminFaqRoute
   '/guide-images': typeof AdminGuideImagesRoute
   '/help-cards': typeof AdminHelpCardsRoute
@@ -198,11 +226,15 @@ export interface FileRoutesByTo {
   '/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
   '/ai-prompt-manager': typeof AdminAiPromptManagerRoute
   '/ai-qa': typeof AdminAiQaRoute
+  '/ai-reliability': typeof AdminAiReliabilityRoute
+  '/ai-response-quality': typeof AdminAiResponseQualityRoute
+  '/ai-source-router': typeof AdminAiSourceRouterRoute
   '/audit-logs': typeof AdminAuditLogsRoute
   '/categories': typeof AdminCategoriesRoute
   '/chat-logs': typeof AdminChatLogsRoute
   '/chat-quick-replies': typeof AdminChatQuickRepliesRoute
   '/dashboard': typeof AdminDashboardRoute
+  '/domain-mapping': typeof AdminDomainMappingRoute
   '/faq': typeof AdminFaqRoute
   '/guide-images': typeof AdminGuideImagesRoute
   '/help-cards': typeof AdminHelpCardsRoute
@@ -226,11 +258,15 @@ export interface FileRoutesById {
   '/_admin/ai-knowledge-import': typeof AdminAiKnowledgeImportRoute
   '/_admin/ai-prompt-manager': typeof AdminAiPromptManagerRoute
   '/_admin/ai-qa': typeof AdminAiQaRoute
+  '/_admin/ai-reliability': typeof AdminAiReliabilityRoute
+  '/_admin/ai-response-quality': typeof AdminAiResponseQualityRoute
+  '/_admin/ai-source-router': typeof AdminAiSourceRouterRoute
   '/_admin/audit-logs': typeof AdminAuditLogsRoute
   '/_admin/categories': typeof AdminCategoriesRoute
   '/_admin/chat-logs': typeof AdminChatLogsRoute
   '/_admin/chat-quick-replies': typeof AdminChatQuickRepliesRoute
   '/_admin/dashboard': typeof AdminDashboardRoute
+  '/_admin/domain-mapping': typeof AdminDomainMappingRoute
   '/_admin/faq': typeof AdminFaqRoute
   '/_admin/guide-images': typeof AdminGuideImagesRoute
   '/_admin/help-cards': typeof AdminHelpCardsRoute
@@ -254,11 +290,15 @@ export interface FileRouteTypes {
     | '/ai-knowledge-import'
     | '/ai-prompt-manager'
     | '/ai-qa'
+    | '/ai-reliability'
+    | '/ai-response-quality'
+    | '/ai-source-router'
     | '/audit-logs'
     | '/categories'
     | '/chat-logs'
     | '/chat-quick-replies'
     | '/dashboard'
+    | '/domain-mapping'
     | '/faq'
     | '/guide-images'
     | '/help-cards'
@@ -280,11 +320,15 @@ export interface FileRouteTypes {
     | '/ai-knowledge-import'
     | '/ai-prompt-manager'
     | '/ai-qa'
+    | '/ai-reliability'
+    | '/ai-response-quality'
+    | '/ai-source-router'
     | '/audit-logs'
     | '/categories'
     | '/chat-logs'
     | '/chat-quick-replies'
     | '/dashboard'
+    | '/domain-mapping'
     | '/faq'
     | '/guide-images'
     | '/help-cards'
@@ -307,11 +351,15 @@ export interface FileRouteTypes {
     | '/_admin/ai-knowledge-import'
     | '/_admin/ai-prompt-manager'
     | '/_admin/ai-qa'
+    | '/_admin/ai-reliability'
+    | '/_admin/ai-response-quality'
+    | '/_admin/ai-source-router'
     | '/_admin/audit-logs'
     | '/_admin/categories'
     | '/_admin/chat-logs'
     | '/_admin/chat-quick-replies'
     | '/_admin/dashboard'
+    | '/_admin/domain-mapping'
     | '/_admin/faq'
     | '/_admin/guide-images'
     | '/_admin/help-cards'
@@ -415,6 +463,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFaqRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/domain-mapping': {
+      id: '/_admin/domain-mapping'
+      path: '/domain-mapping'
+      fullPath: '/domain-mapping'
+      preLoaderRoute: typeof AdminDomainMappingRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/dashboard': {
       id: '/_admin/dashboard'
       path: '/dashboard'
@@ -448,6 +503,27 @@ declare module '@tanstack/react-router' {
       path: '/audit-logs'
       fullPath: '/audit-logs'
       preLoaderRoute: typeof AdminAuditLogsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/ai-source-router': {
+      id: '/_admin/ai-source-router'
+      path: '/ai-source-router'
+      fullPath: '/ai-source-router'
+      preLoaderRoute: typeof AdminAiSourceRouterRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/ai-response-quality': {
+      id: '/_admin/ai-response-quality'
+      path: '/ai-response-quality'
+      fullPath: '/ai-response-quality'
+      preLoaderRoute: typeof AdminAiResponseQualityRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/ai-reliability': {
+      id: '/_admin/ai-reliability'
+      path: '/ai-reliability'
+      fullPath: '/ai-reliability'
+      preLoaderRoute: typeof AdminAiReliabilityRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/ai-qa': {
@@ -518,11 +594,15 @@ interface AdminRouteChildren {
   AdminAiKnowledgeImportRoute: typeof AdminAiKnowledgeImportRoute
   AdminAiPromptManagerRoute: typeof AdminAiPromptManagerRoute
   AdminAiQaRoute: typeof AdminAiQaRoute
+  AdminAiReliabilityRoute: typeof AdminAiReliabilityRoute
+  AdminAiResponseQualityRoute: typeof AdminAiResponseQualityRoute
+  AdminAiSourceRouterRoute: typeof AdminAiSourceRouterRoute
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminChatLogsRoute: typeof AdminChatLogsRoute
   AdminChatQuickRepliesRoute: typeof AdminChatQuickRepliesRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminDomainMappingRoute: typeof AdminDomainMappingRoute
   AdminFaqRoute: typeof AdminFaqRoute
   AdminGuideImagesRoute: typeof AdminGuideImagesRoute
   AdminHelpCardsRoute: typeof AdminHelpCardsRoute
@@ -543,11 +623,15 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAiKnowledgeImportRoute: AdminAiKnowledgeImportRoute,
   AdminAiPromptManagerRoute: AdminAiPromptManagerRoute,
   AdminAiQaRoute: AdminAiQaRoute,
+  AdminAiReliabilityRoute: AdminAiReliabilityRoute,
+  AdminAiResponseQualityRoute: AdminAiResponseQualityRoute,
+  AdminAiSourceRouterRoute: AdminAiSourceRouterRoute,
   AdminAuditLogsRoute: AdminAuditLogsRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminChatLogsRoute: AdminChatLogsRoute,
   AdminChatQuickRepliesRoute: AdminChatQuickRepliesRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminDomainMappingRoute: AdminDomainMappingRoute,
   AdminFaqRoute: AdminFaqRoute,
   AdminGuideImagesRoute: AdminGuideImagesRoute,
   AdminHelpCardsRoute: AdminHelpCardsRoute,

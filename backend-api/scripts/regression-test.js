@@ -11,8 +11,11 @@ const server = read("backend-api/src/server.js");
 const env = read("backend-api/src/env.js");
 const adminLayout = read("admin-pro/src/components/AdminLayout.tsx");
 const domainPage = read("admin-pro/src/routes/_admin.domain-mapping.tsx");
+const guidePage = read("admin-pro/src/routes/_admin.guide-images.tsx");
+const adminApi = read("admin-pro/src/lib/api.ts");
+const migration = read("backend-api/migrations/031_v1.14.3_guide_publishing_state_repair_platform_self_service_upload.sql");
 
-expect("Backend and server expose the v1.14.2 release", core.includes("1.14.2-domain-provisioning-id-cloudflare-guard-hotfix") && server.includes("1.14.2-domain-provisioning-id-cloudflare-guard-hotfix"));
+expect("Backend and server expose the v1.14.3 release", core.includes("1.14.3-guide-publishing-state-repair-platform-self-service-upload") && server.includes("1.14.3-guide-publishing-state-repair-platform-self-service-upload"));
 expect("Domain route IDs are extracted from the numeric path segment", core.includes("function domainIdFromPath") && core.includes("Number.isSafeInteger(id)") && core.includes("DOMAIN_ID_INVALID"));
 expect("Provision uses the validated domain ID", core.includes("provisionMappedDomain(env, domainIdFromPath(path), scope)") && !core.includes("provisionMappedDomain(env, idFromParts(path, 3), scope)"));
 expect("Sync, verify, and delete use the validated domain ID", ["syncMappedDomain(env, domainIdFromPath(path), scope)", "verifyMappedDomain(env, domainIdFromPath(path), scope)", "deleteMappedDomain(env, domainIdFromPath(path), scope)"].every((item) => core.includes(item)));
@@ -23,12 +26,22 @@ expect("Domain mapping exposes missing configuration names", core.includes("cons
 expect("Render environment validation covers Cloudflare prerequisites", env.includes("CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED") && env.includes("CLOUDFLARE_API_TOKEN") && env.includes("CLOUDFLARE_ZONE_ID") && env.includes("CLOUDFLARE_SAAS_CNAME_TARGET"));
 expect("Admin disables Provision until Cloudflare is configured", domainPage.includes("const cloudflareReady = data?.cloudflare?.configured === true") && domainPage.includes("disabled={!cloudflareReady}"));
 expect("Admin displays the exact missing Render variables", domainPage.includes("data?.cloudflare?.missing_env") && domainPage.includes("Set these Render variables before provisioning"));
-expect("Admin release marker is v1.14.2", adminLayout.includes('const ADMIN_VERSION = "v1.14.2"'));
+expect("Admin release marker is v1.14.3", adminLayout.includes('const ADMIN_VERSION = "v1.14.3"'));
 expect("v1.14.1 single-image contract remains present", core.includes("const legacyContentImages = imageDelivery.image_count ? [] : contentImages") && core.includes("A response without procedural steps has one canonical visual at most"));
 expect("Platform context remains strict with no fallback", core.includes("PLATFORM_CONTEXT_REQUIRED") && core.includes("fallback_applied: false") && !core.includes("publicReference || 'default'"));
-expect("No new database migration is required", !fs.existsSync(path.join(root, "backend-api/migrations/029_v1.14.2_domain_provisioning_id_cloudflare_guard.sql")));
+expect("v1.14.3 migration repairs existing parent Guide drafts", migration.includes("UPDATE guides g") && migration.includes("gt.status = 'published'"));
+expect("Guide publish activates the translation and parent atomically", core.includes("WITH published AS (") && core.includes("UPDATE guides g SET status='published'"));
+expect("Batch publish activates every affected parent Guide", core.includes("guides_activated") && core.includes("SELECT DISTINCT guide_id FROM published"));
+expect("Guide reads expose derived publication state", core.includes("publication_status") && core.includes("published_locale_count") && core.includes("enabled_locale_count"));
+expect("Saving legacy Guide fields cannot silently demote a published locale", core.includes("cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,updated_at=NOW()"));
+expect("Guide owner permissions are enforced by the backend", core.includes("GUIDE_UPLOAD_DENIED") && core.includes("GUIDE_PUBLISH_DENIED") && core.includes("requireGuidePublish(scope)"));
+expect("Guide UI reads platform upload and publish capabilities", guidePage.includes("can_upload_guides") && guidePage.includes("can_publish_guides"));
+expect("Guide UI uses the dedicated self-service upload route", adminApi.includes('uploadAdminFile(file, "/admin/guide-uploads")') && guidePage.includes("api.uploadGuide(file)"));
+expect("Guide media keys are tenant and platform scoped", core.includes("tenant-${Number(scope.tenant_id)}/platform-${Number(scope.platform_id)}"));
+expect("Guide upload validates image signatures", core.includes("detectImageContentType") && core.includes("UPLOAD_CONTENT_SIGNATURE_MISMATCH"));
+expect("Guide media ownership and audit records are durable", migration.includes("guide_media_assets") && core.includes("Guide image uploaded"));
 
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
-console.log(`\n${checks.length - failed.length}/${checks.length} v1.14.2 regression checks passed`);
+console.log(`\n${checks.length - failed.length}/${checks.length} v1.14.3 regression checks passed`);
 if (failed.length) process.exitCode = 1;

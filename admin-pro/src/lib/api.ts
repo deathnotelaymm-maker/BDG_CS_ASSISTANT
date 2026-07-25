@@ -400,6 +400,32 @@ function diagnosticsOut(d: any) {
   };
 }
 
+async function uploadAdminFile(file: File, path: string) {
+  const token = getToken();
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...platformHeaders() },
+    body: fd,
+  });
+  const text = await res.text();
+  let payload: any = null;
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    payload = text;
+  }
+  if (!res.ok) {
+    const requestId = payload?.request_id || res.headers.get("x-request-id");
+    const reason = payload?.error || payload?.message || res.statusText || "Upload failed";
+    const code = payload?.code ? ` [${payload.code}]` : "";
+    const trace = requestId ? ` (Request ID: ${requestId})` : "";
+    throw new Error(`Upload failed: ${reason}${code}${trace}`);
+  }
+  return payload as { url: string; filename?: string; content_type?: string; size_bytes?: number; media_id?: number };
+}
+
 export const api = {
   login: async (email: string, password: string, twofa_code?: string) => {
     if (MOCK_MODE)
@@ -670,29 +696,12 @@ export const api = {
 
   upload: async (file: File) => {
     if (MOCK_MODE) return delay({ url: URL.createObjectURL(file) });
-    const token = getToken();
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(`${API_BASE_URL}/admin/uploads`, {
-      method: "POST",
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...platformHeaders() },
-      body: fd,
-    });
-    const text = await res.text();
-    let payload: any = null;
-    try {
-      payload = text ? JSON.parse(text) : null;
-    } catch {
-      payload = text;
-    }
-    if (!res.ok) {
-      const requestId = payload?.request_id || res.headers.get("x-request-id");
-      const reason = payload?.error || payload?.message || res.statusText || "Upload failed";
-      const code = payload?.code ? ` [${payload.code}]` : "";
-      const trace = requestId ? ` (Request ID: ${requestId})` : "";
-      throw new Error(`Upload failed: ${reason}${code}${trace}`);
-    }
-    return payload as { url: string; filename?: string; content_type?: string; size_bytes?: number };
+    return uploadAdminFile(file, "/admin/uploads");
+  },
+
+  uploadGuide: async (file: File) => {
+    if (MOCK_MODE) return delay({ url: URL.createObjectURL(file), media_id: Date.now() });
+    return uploadAdminFile(file, "/admin/guide-uploads");
   },
 
   testAiContent: async (message: string, language = "en", platform_key = "default") => {

@@ -96,6 +96,7 @@ function VisualGuideStudio() {
   const [categories, setCategories] = useState<any[]>([]);
   const [buttons, setButtons] = useState<any[]>([]);
   const [locales, setLocales] = useState<Locale[]>([]);
+  const [access, setAccess] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [translations, setTranslations] = useState<Record<string, any>>({});
@@ -109,19 +110,23 @@ function VisualGuideStudio() {
     [locales],
   );
   const activeDocument = translations[activeLocale] || emptyTranslation({ code: activeLocale || defaultLocale });
+  const canUploadGuides = access?.can_upload_guides === true;
+  const canPublishGuides = access?.can_publish_guides === true;
 
   const load = async () => {
     setLoading(true);
     try {
-      const [guides, categoryRows, actionRows, registry] = await Promise.all([
+      const [guides, categoryRows, actionRows, registry, context] = await Promise.all([
         api.list("guide-images"),
         api.list("categories"),
         api.list("action-buttons"),
         api.getGuideLocaleStudio(),
+        api.getPlatformContext(),
       ]);
       setRows(guides as any[]);
       setCategories(categoryRows as any[]);
       setButtons(actionRows as any[]);
+      setAccess((context as any)?.access || {});
       const registryLocales = Array.isArray((registry as any)?.locales) ? (registry as any).locales : [];
       setLocales(registryLocales);
       if (registryLocales.length && !activeLocale) setActiveLocale((registry as any).platform?.default_locale || registryLocales[0].code);
@@ -195,7 +200,10 @@ function VisualGuideStudio() {
     }));
   };
 
-  const uploadImage = async (file: File) => (await api.upload(file)).url;
+  const uploadImage = async (file: File) => {
+    if (!canUploadGuides) throw new Error("Platform owner or platform admin permission is required to upload Guide media");
+    return (await api.uploadGuide(file)).url;
+  };
   const uploadCover = async (file: File) => {
     try {
       const url = await uploadImage(file);
@@ -207,6 +215,7 @@ function VisualGuideStudio() {
   };
 
   const save = async () => {
+    if (!canUploadGuides) { message.error("Platform owner or platform admin permission is required to save Guides"); return; }
     const values = await form.validateFields();
     const document = {
       ...(translations[activeLocale] || emptyTranslation({ code: activeLocale })),
@@ -277,6 +286,7 @@ function VisualGuideStudio() {
   };
 
   const publish = async () => {
+    if (!canPublishGuides) { message.error("Platform owner or platform admin permission is required to publish Guides"); return; }
     const document = translations[activeLocale];
     if (!document?.id) { message.info("Save this locale before publishing it"); return; }
     try {
@@ -288,6 +298,7 @@ function VisualGuideStudio() {
   };
 
   const remove = async (id: number) => {
+    if (!canPublishGuides) { message.error("Platform owner or platform admin permission is required to delete Guides"); return; }
     try { await api.remove("guide-images", id); message.success("Guide deleted"); await load(); }
     catch (error: any) { message.error(error?.message || "Delete failed"); }
   };
@@ -299,21 +310,26 @@ function VisualGuideStudio() {
         <div style={{ color: "#8ea0bd", fontSize: 12 }}>Create and publish independent rich guide variants for every language enabled by this platform.</div>
       </div>
       <Button icon={<ReloadOutlined />} onClick={() => void load()}>Refresh</Button>
-      <Button type="primary" icon={<PlusOutlined />} onClick={() => void openEditor()}>Create visual guide</Button>
+      <Button disabled={!canUploadGuides} type="primary" icon={<PlusOutlined />} onClick={() => void openEditor()}>Create visual guide</Button>
     </div>
+    {access && !canUploadGuides && <Alert showIcon type="warning" style={{ marginBottom: 12 }} message="Guide editing is read-only for this account" description="Ask a tenant owner, tenant admin, platform owner, or platform admin to upload, edit, publish, or remove Guide content." />}
     <LocalizedHelp copies={{
-      en: { title: "Guide Locale Studio", body: "Guide content is independent for every enabled platform language. Add any BCP-47 locale in Locale Studio, then create, edit, and publish that guide variant here. A missing translation is never replaced with Hindi, another platform, or BDG content.", bullets: ["Each locale has its own title, rich text, images, SEO fields, and publication state.", "Publishing one language does not publish another language."] },
-      zh: { title: "指南语言工作室", body: "每个平台语言的指南内容独立保存。先在语言工作室添加 BCP-47 语言代码，再在这里创建、编辑和发布对应的指南版本。缺少翻译时不会回退到印地语、其他平台或 BDG 内容。", bullets: ["每种语言都有独立的标题、富文本、图片、SEO 字段和发布状态。", "发布一种语言不会自动发布其他语言。"] },
-      my: { title: "Guide Locale Studio", body: "Platform တွင် ဖွင့်ထားသော ဘာသာတိုင်းအတွက် Guide အကြောင်းအရာကို သီးခြားသိမ်းဆည်းသည်။ Locale Studio တွင် BCP-47 locale code ထည့်ပြီး ဤနေရာတွင် သက်ဆိုင်ရာ Guide variant ကို ဖန်တီး၊ ပြင်ဆင်၊ ထုတ်ဝေပါ။ ဘာသာပြန်မရှိလျှင် Hindi၊ အခြား platform သို့မဟုတ် BDG အကြောင်းအရာသို့ fallback မလုပ်ပါ။", bullets: ["ဘာသာတစ်ခုချင်းစီတွင် title၊ rich text၊ ပုံ၊ SEO field နှင့် publish state သီးခြားရှိသည်။", "ဘာသာတစ်ခုကို ထုတ်ဝေခြင်းသည် အခြားဘာသာကို အလိုအလျောက် မထုတ်ဝေပါ။"] },
+      en: { title: "Guide Locale Studio", body: "Guide content is independent for every enabled platform language. Add any BCP-47 locale in Locale Studio, then create, edit, and publish that guide variant here. A missing translation is never replaced with Hindi, another platform, or BDG content.", bullets: ["Each locale has its own title, rich text, images, SEO fields, and publication state.", "Publishing the first locale activates the parent Guide automatically; the table shows partial or complete publication.", "Tenant owners/admins and platform owners/admins can upload their own Guide images safely inside this platform."] },
+      zh: { title: "指南语言工作室", body: "每个平台语言的指南内容独立保存。先在语言工作室添加 BCP-47 语言代码，再在这里创建、编辑和发布对应的指南版本。缺少翻译时不会回退到印地语、其他平台或 BDG 内容。", bullets: ["每种语言都有独立的标题、富文本、图片、SEO 字段和发布状态。", "发布第一个语言版本后，系统会自动启用父级指南；列表会显示部分发布或全部发布。", "租户所有者/管理员和平台所有者/管理员可在当前平台内安全上传指南图片。"] },
+      my: { title: "Guide Locale Studio", body: "Platform တွင် ဖွင့်ထားသော ဘာသာတိုင်းအတွက် Guide အကြောင်းအရာကို သီးခြားသိမ်းဆည်းသည်။ Locale Studio တွင် BCP-47 locale code ထည့်ပြီး ဤနေရာတွင် သက်ဆိုင်ရာ Guide variant ကို ဖန်တီး၊ ပြင်ဆင်၊ ထုတ်ဝေပါ။ ဘာသာပြန်မရှိလျှင် Hindi၊ အခြား platform သို့မဟုတ် BDG အကြောင်းအရာသို့ fallback မလုပ်ပါ။", bullets: ["ဘာသာတစ်ခုချင်းစီတွင် title၊ rich text၊ ပုံ၊ SEO field နှင့် publish state သီးခြားရှိသည်။", "ပထမ locale ကို publish လုပ်သည်နှင့် parent Guide ကို အလိုအလျောက် ဖွင့်ပေးပြီး partial သို့မဟုတ် complete publication ကို စာရင်းတွင် ပြမည်။", "Tenant owner/admin နှင့် platform owner/admin များသည် ဤ platform အတွင်း Guide ပုံများကို လုံခြုံစွာ upload လုပ်နိုင်သည်။"] },
     }} />
     <Table rowKey="id" loading={loading} dataSource={rows} pagination={{ pageSize: 20 }} columns={[
       { title: "Guide", render: (_: any, row: any) => <div><b>{row.title}</b><div style={{ color: "#8ea0bd", fontSize: 12 }}>{row.slug}</div></div> },
       { title: "Available locales", dataIndex: "locale_coverage", render: (coverage: any) => <Space wrap>{Object.entries(coverage || {}).map(([code, status]: any) => <Tag key={code} color={status === "published" ? "green" : "gold"}>{code} · {status}</Tag>)}</Space> },
       { title: "Category", dataIndex: "category_name", width: 150 },
-      { title: "Status", dataIndex: "status", width: 110, render: (value: string) => <Tag color={value === "published" ? "green" : "gold"}>{value}</Tag> },
-      { title: "Actions", width: 145, render: (_: any, row: any) => <Space><Button size="small" icon={<EditOutlined />} onClick={() => void openEditor(row)}>Edit</Button><Popconfirm title="Delete this guide?" onConfirm={() => void remove(row.id)}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm></Space> },
+      { title: "Status", dataIndex: "publication_status", width: 190, render: (value: string, row: any) => {
+        const status = value || row.status || "draft";
+        const color = status === "published" ? "green" : status === "partially_published" ? "blue" : status === "archived" ? "default" : "gold";
+        return <div><Tag color={color}>{status.replaceAll("_", " ")}</Tag><div style={{ color: "#8ea0bd", fontSize: 11 }}>{Number(row.published_locale_count || 0)}/{Number(row.enabled_locale_count || 0)} locales published</div></div>;
+      } },
+      { title: "Actions", width: 145, render: (_: any, row: any) => <Space><Button disabled={!canUploadGuides} size="small" icon={<EditOutlined />} onClick={() => void openEditor(row)}>Edit</Button><Popconfirm title="Delete this guide?" onConfirm={() => void remove(row.id)}><Button disabled={!canPublishGuides} size="small" danger icon={<DeleteOutlined />} /></Popconfirm></Space> },
     ]} />
-    <Drawer open={!!editing} onClose={close} width="min(1220px, 97vw)" title={editing?.id ? `Edit visual guide — ${editing.title}` : "Create visual guide"} extra={<Space><Button onClick={close}>Cancel</Button><Button icon={<SaveOutlined />} type="primary" onClick={() => void save()}>Save locale</Button><Button disabled={!activeDocument.id || activeDocument.status === "published"} onClick={() => void publish()}>Publish locale</Button></Space>}>
+    <Drawer open={!!editing} onClose={close} width="min(1220px, 97vw)" title={editing?.id ? `Edit visual guide — ${editing.title}` : "Create visual guide"} extra={<Space><Button onClick={close}>Cancel</Button><Button disabled={!canUploadGuides} icon={<SaveOutlined />} type="primary" onClick={() => void save()}>Save locale</Button><Button disabled={!canPublishGuides || !activeDocument.id || activeDocument.status === "published"} onClick={() => void publish()}>Publish locale</Button></Space>}>
       <Form form={form} layout="vertical">
         <Alert showIcon type="info" icon={<GlobalOutlined />} style={{ marginBottom: 14 }} message="Each locale is an independent guide document" description="Write the title, summary, rich content, images, SEO fields, and cover image for the selected locale. Publishing English does not publish Indonesian, and vice versa." />
         <Row gutter={12}>
@@ -328,7 +344,7 @@ function VisualGuideStudio() {
         <RichKnowledgeEditor value={editorJson} onChange={(json, html) => { setEditorJson(json); setEditorHtml(html); updateActiveDocument({ rich_json: json, rich_html: html, body: plainText(html) }); }} uploadImage={uploadImage} />
         <Row gutter={12} style={{ marginTop: 14 }}>
           <Col xs={24} md={12}><Form.Item name="keywords" label="Search keywords"><Input placeholder="deposit, pending, recharge" onChange={(event) => updateActiveDocument({ keywords: event.target.value })} /></Form.Item></Col>
-          <Col xs={24} md={12}><Form.Item name="cover_image_url" label={`${localeName(locales.find((locale) => locale.code === activeLocale) || { code: activeLocale })} cover image`}><Input addonAfter={<Upload showUploadList={false} beforeUpload={uploadCover}><Button size="small" icon={<UploadOutlined />}>Upload</Button></Upload>} onChange={(event) => updateActiveDocument({ cover_image_url: event.target.value })} /></Form.Item>{activeDocument.cover_image_url && <Image src={activeDocument.cover_image_url} width={220} />}</Col>
+          <Col xs={24} md={12}><Form.Item name="cover_image_url" label={`${localeName(locales.find((locale) => locale.code === activeLocale) || { code: activeLocale })} cover image`}><Input addonAfter={<Upload disabled={!canUploadGuides} showUploadList={false} beforeUpload={uploadCover}><Button disabled={!canUploadGuides} size="small" icon={<UploadOutlined />}>Upload</Button></Upload>} onChange={(event) => updateActiveDocument({ cover_image_url: event.target.value })} /></Form.Item>{activeDocument.cover_image_url && <Image src={activeDocument.cover_image_url} width={220} />}</Col>
         </Row>
         <Row gutter={12}>
           <Col xs={24} md={8}><Form.Item name="status" label="Locale status"><Select options={["draft", "published", "archived"].map((value) => ({ value, label: value }))} onChange={(value) => updateActiveDocument({ status: value })} /></Form.Item></Col>

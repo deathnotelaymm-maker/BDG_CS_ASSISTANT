@@ -7,7 +7,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.14.2-domain-provisioning-id-cloudflare-guard-hotfix';
+const VERSION = '1.14.3-guide-publishing-state-repair-platform-self-service-upload';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -78,7 +78,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','domain-id-validation','cloudflare-configuration-guard'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','guide-parent-publication-sync','guide-derived-publication-status','guide-platform-self-service-upload','guide-publish-role-guard','guide-media-ownership-audit','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','domain-id-validation','cloudflare-configuration-guard'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -233,10 +233,22 @@ async function route(request, env, url) {
   if (method === 'PUT' && path === '/admin/locale-registry') return json(await updatePlatformLocales(env, await readJson(request), scope), 200, env);
   if (method === 'GET' && path === '/admin/guide-locale-studio') return json(await listGuideLocaleStudio(env, scope), 200, env);
   if (method === 'GET' && /^\/admin\/guides\/\d+\/translations$/.test(path)) return json(await listGuideTranslations(env, idFromParts(path, 3), scope), 200, env);
-  if (method === 'POST' && /^\/admin\/guides\/\d+\/translations$/.test(path)) return json(await upsertGuideTranslation(env, idFromParts(path, 3), await readJson(request), scope), 200, env);
-  if (method === 'PUT' && /^\/admin\/guide-translations\/\d+$/.test(path)) return json(await updateGuideTranslation(env, idFromPath(path), await readJson(request), scope), 200, env);
-  if (method === 'POST' && /^\/admin\/guide-translations\/\d+\/publish$/.test(path)) return json(await publishGuideTranslation(env, idFromParts(path, 3), scope), 200, env);
-  if (method === 'POST' && path === '/admin/guide-translations/batch-publish') return json(await batchPublishGuideTranslations(env, await readJson(request), scope), 200, env);
+  if (method === 'POST' && /^\/admin\/guides\/\d+\/translations$/.test(path)) {
+    requireGuideUpload(scope);
+    return json(await upsertGuideTranslation(env, idFromParts(path, 3), await readJson(request), scope), 200, env);
+  }
+  if (method === 'PUT' && /^\/admin\/guide-translations\/\d+$/.test(path)) {
+    requireGuideUpload(scope);
+    return json(await updateGuideTranslation(env, idFromPath(path), await readJson(request), scope), 200, env);
+  }
+  if (method === 'POST' && /^\/admin\/guide-translations\/\d+\/publish$/.test(path)) {
+    requireGuidePublish(scope);
+    return json(await publishGuideTranslation(env, idFromParts(path, 3), scope), 200, env);
+  }
+  if (method === 'POST' && path === '/admin/guide-translations/batch-publish') {
+    requireGuidePublish(scope);
+    return json(await batchPublishGuideTranslations(env, await readJson(request), scope), 200, env);
+  }
   if (method === 'POST' && path === '/admin/locale-studio/translations') return json(await createLocaleTranslation(env, await readJson(request), scope), 201, env);
   if (method === 'POST' && path === '/admin/ai-qa') return json(await createAiContent(env, { ...(await readJson(request)), source_type: 'qa' }, scope), 201, env);
   if (method === 'POST' && path === '/admin/ai-qa/batch-approve') return json(await batchApproveAiQa(env, (await readJson(request)).ids, scope), 200, env);
@@ -261,8 +273,17 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/content-versions') return json(await listContentVersions(env, url.searchParams, scope), 200, env);
   if (method === 'POST' && /^\/admin\/content-versions\/\d+\/restore$/.test(path)) return json(await restoreContentVersion(env, idFromParts(path, 3), admin, scope), 200, env);
 
+  // Guide uploads require Guide-owner permission. Other content studios keep
+  // their existing scoped upload endpoint and write permission.
+  if (method === 'POST' && path === '/admin/guide-uploads') {
+    requireGuideUpload(scope);
+    return uploadToR2(request, env, 'guide', scope, admin, { recordGuideAsset:true });
+  }
+
   // Admin uploads
-  if (method === 'POST' && path === '/admin/uploads') return uploadToR2(request, env, 'guide');
+  if (method === 'POST' && path === '/admin/uploads') {
+    return uploadToR2(request, env, 'guide', scope, admin);
+  }
 
   // Existing admin CRUD
   if (method === 'GET' && path === '/admin/categories') return json(await listCategories(env, scope), 200, env);
@@ -271,12 +292,24 @@ async function route(request, env, url) {
   if (method === 'DELETE' && /^\/admin\/categories\/\d+$/.test(path)) return json(await deleteById(env, 'categories', idFromPath(path), scope), 200, env);
 
   if (method === 'GET' && path === '/admin/guides') return json(await listAdminGuides(env, scope), 200, env);
-  if (method === 'POST' && path === '/admin/guides') return json(await createGuide(env, await readJson(request), scope), 200, env);
+  if (method === 'POST' && path === '/admin/guides') {
+    requireGuideUpload(scope);
+    return json(await createGuide(env, await readJson(request), scope), 200, env);
+  }
   if (method === 'POST' && path === '/admin/guides/ai-layout') return json(await generateAiGuideLayout(env, await readJson(request)), 200, env);
   if (method === 'POST' && path === '/admin/guides/ai-copy-layout') return json(await copyGuideLayoutForLanguage(env, await readJson(request)), 200, env);
-  if (method === 'PUT' && /^\/admin\/guides\/\d+$/.test(path)) return json(await updateGuide(env, idFromPath(path), await readJson(request), scope), 200, env);
-  if (method === 'POST' && path === '/admin/guides/batch-delete') return json(await batchDeleteByIds(env, 'guides', (await readJson(request)).ids, scope), 200, env);
-  if (method === 'DELETE' && /^\/admin\/guides\/\d+$/.test(path)) return json(await deleteGuide(env, idFromPath(path), admin, scope), 200, env);
+  if (method === 'PUT' && /^\/admin\/guides\/\d+$/.test(path)) {
+    requireGuideUpload(scope);
+    return json(await updateGuide(env, idFromPath(path), await readJson(request), scope), 200, env);
+  }
+  if (method === 'POST' && path === '/admin/guides/batch-delete') {
+    requireGuidePublish(scope);
+    return json(await batchDeleteByIds(env, 'guides', (await readJson(request)).ids, scope), 200, env);
+  }
+  if (method === 'DELETE' && /^\/admin\/guides\/\d+$/.test(path)) {
+    requireGuidePublish(scope);
+    return json(await deleteGuide(env, idFromPath(path), admin, scope), 200, env);
+  }
 
   if (method === 'GET' && path === '/admin/faqs') return json(await listFaqs(env, true, scope), 200, env);
   if (method === 'POST' && path === '/admin/faqs') return json(await createFaq(env, await readJson(request), scope), 200, env);
@@ -533,6 +566,7 @@ async function ensureBootstrap(env) {
   await ensureV121ContextLock(env);
   await ensureV122ChatRoutePropagation(env);
   await ensureV113BringYourOwnDomain(env);
+  await ensureV143GuidePublishingRepair(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -1150,7 +1184,15 @@ async function listAdminGuides(env, scope) {
   return Promise.all(rows.map(async (g) => {
     const result = await listGuideTranslations(env, g.id, scope);
     const localeCoverage = Object.fromEntries((result.translations || []).map((translation) => [translation.locale, translation.status]));
-    return { ...guideOut(g, registry.default_locale), locale_coverage: localeCoverage, supported_locales: registry.supported_languages };
+    return {
+      ...guideOut({ ...g, status:result.publication?.parent_status || g.status }, registry.default_locale),
+      locale_coverage: localeCoverage,
+      supported_locales: registry.supported_languages,
+      publication_status: result.publication?.publication_status || g.status,
+      parent_status: result.publication?.parent_status || g.status,
+      published_locale_count: Number(result.publication?.published_locale_count || 0),
+      enabled_locale_count: Number(result.publication?.enabled_locale_count || registry.supported_languages.length),
+    };
   }));
 }
 async function getGuide(env, slug, lang='en', platformKey='') {
@@ -1745,6 +1787,8 @@ function scopeOut(row, access = {}, resolution = {}) {
     platform_role: access.platform_role || '',
     can_write: access.can_write === true,
     can_manage_platform: access.can_manage_platform === true,
+    can_upload_guides: access.can_upload_guides === true,
+    can_publish_guides: access.can_publish_guides === true,
     operator: access.operator === true,
     platform_context: {
       required: true,
@@ -1883,7 +1927,7 @@ async function resolveAdminPlatformScope(env, request, admin) {
   const requested = resolution.reference || resolution.raw_reference || '';
   if (!requested) bad('Open the platform-specific Admin URL to manage this platform', 403, 'PLATFORM_CONTEXT_REQUIRED');
   const scope = await resolvePublicPlatformScope(env, requested, resolution);
-  if (isPlatformOperator(admin)) return { ...scope, access_role:'operator', can_write:true, can_manage_platform:true, operator:true };
+  if (isPlatformOperator(admin)) return { ...scope, access_role:'operator', can_write:true, can_manage_platform:true, can_upload_guides:true, can_publish_guides:true, operator:true };
   const tenantMembership = (await q(env, `SELECT tm.role AS membership_role FROM saas_tenant_memberships tm
     JOIN admin_users u ON u.id=tm.admin_user_id
     WHERE tm.tenant_id=$1 AND lower(u.email)=lower($2) LIMIT 1`, [scope.tenant_id, admin.email])).rows[0];
@@ -1895,14 +1939,21 @@ async function resolveAdminPlatformScope(env, request, admin) {
   if (!tenantRole && !platformRole) bad('You do not have access to this client platform', 403, 'PLATFORM_ACCESS_DENIED');
   const canManagePlatform = ['tenant_owner','tenant_admin'].includes(tenantRole) || ['platform_owner','platform_admin'].includes(platformRole);
   const canWrite = canManagePlatform || ['content_manager','ai_manager'].includes(platformRole);
-  return { ...scope, tenant_role:tenantRole, platform_role:platformRole, access_role:tenantRole || platformRole || 'viewer', can_write:canWrite, can_manage_platform:canManagePlatform, operator:false };
+  const canUploadGuides = canManagePlatform;
+  return { ...scope, tenant_role:tenantRole, platform_role:platformRole, access_role:tenantRole || platformRole || 'viewer', can_write:canWrite, can_manage_platform:canManagePlatform, can_upload_guides:canUploadGuides, can_publish_guides:canManagePlatform, operator:false };
 }
 async function getAdminPlatformContext(env, request, admin) {
   const scope = await resolveAdminPlatformScope(env, request, admin);
-  return { ok:true, version:VERSION, platform:scope, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), access: { role:scope.access_role, can_write:scope.can_write, can_manage_platform:scope.can_manage_platform } };
+  return { ok:true, version:VERSION, platform:scope, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), access: { role:scope.access_role, can_write:scope.can_write, can_manage_platform:scope.can_manage_platform, can_upload_guides:scope.can_upload_guides, can_publish_guides:scope.can_publish_guides } };
 }
 function requirePlatformWrite(scope) {
   if (!scope?.can_write) bad('This platform membership is read-only', 403, 'PLATFORM_WRITE_DENIED');
+}
+function requireGuideUpload(scope) {
+  if (!scope?.can_upload_guides) bad('Guide upload permission is required for this platform', 403, 'GUIDE_UPLOAD_DENIED');
+}
+function requireGuidePublish(scope) {
+  if (!scope?.can_publish_guides) bad('Platform owner or platform admin permission is required to publish guides', 403, 'GUIDE_PUBLISH_DENIED');
 }
 async function assertTenantManager(env, admin, tenantId) {
   if (isPlatformOperator(admin)) return;
@@ -2374,6 +2425,41 @@ async function ensureV113BringYourOwnDomain(env) {
   await q(env, `CREATE INDEX IF NOT EXISTS idx_platform_domains_provisioning ON saas_platform_domains(provisioning_status,archived_at)`);
   await q(env, `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.13.0_bring_your_own_domain_cloudflare_custom_hostnames','Adds platform-scoped Cloudflare Custom Hostname provisioning, ownership/TLS validation records, DNS target instructions, custom-hostname readiness, and hostname-based platform resolution without changing DNS automatically.') ON CONFLICT(migration_key) DO NOTHING`);
 }
+async function ensureV143GuidePublishingRepair(env) {
+  await q(env, `CREATE TABLE IF NOT EXISTS guide_media_assets (
+    id SERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL REFERENCES saas_tenants(id) ON DELETE CASCADE,
+    platform_id INTEGER NOT NULL REFERENCES saas_platforms(id) ON DELETE CASCADE,
+    storage_key TEXT NOT NULL,
+    public_url TEXT NOT NULL,
+    original_name VARCHAR(255) DEFAULT '',
+    content_type VARCHAR(100) NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    uploaded_by VARCHAR(255) DEFAULT '',
+    status VARCHAR(30) DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(platform_id,storage_key)
+  )`);
+  await q(env, `CREATE INDEX IF NOT EXISTS idx_guide_media_assets_scope ON guide_media_assets(tenant_id,platform_id,status,created_at DESC)`);
+  await q(env, `UPDATE guides g SET status='published',updated_at=NOW()
+    WHERE g.status='draft' AND g.deleted_at IS NULL
+      AND EXISTS (
+        SELECT 1 FROM guide_translations gt
+        WHERE gt.guide_id=g.id AND gt.tenant_id=g.tenant_id
+          AND gt.platform_id=g.platform_id AND gt.status='published'
+      )`);
+  await q(env, `UPDATE guides g SET status='draft',updated_at=NOW()
+    WHERE g.status='published' AND g.deleted_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM guide_translations gt
+        WHERE gt.guide_id=g.id AND gt.tenant_id=g.tenant_id
+          AND gt.platform_id=g.platform_id AND gt.status='published'
+      )`);
+  await q(env, `INSERT INTO system_migrations(migration_key,notes)
+    VALUES('v1.14.3_guide_publishing_state_repair_platform_self_service_upload','Synchronizes parent Guide publication with locale variants and records tenant-scoped owner/admin media uploads.')
+    ON CONFLICT(migration_key) DO NOTHING`);
+}
 function reliabilityOut(row, scope) {
   return {
     ok: true, version: VERSION, tenant_id: Number(scope?.tenant_id || row?.tenant_id || 0), platform_id: Number(scope?.platform_id || row?.platform_id || 0),
@@ -2682,11 +2768,50 @@ async function guideRowForScope(env, guideId, scope) {
   return row;
 }
 
+async function guidePublicationState(env, guideId, scope, { synchronize = false } = {}) {
+  const guide = await guideRowForScope(env, guideId, scope);
+  const registry = await listPlatformLocales(env, scope);
+  const enabledLocales = (registry.supported_languages || []).map((locale) => normalizeLocale(locale, '')).filter(Boolean);
+  const translations = (await q(env, `SELECT locale,status FROM guide_translations
+    WHERE guide_id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer`,
+    [guideId,scope.tenant_id,scope.platform_id])).rows;
+  const publishedLocales = new Set();
+  for (const translation of translations) {
+    if (translation.status !== 'published') continue;
+    const matchedLocale = enabledLocales.find((candidate) => localeMatches(translation.locale, candidate));
+    if (matchedLocale) publishedLocales.add(matchedLocale);
+  }
+  const enabledLocaleCount = enabledLocales.length;
+  const publishedLocaleCount = publishedLocales.size;
+  const nextParentStatus = guide.status === 'archived'
+    ? 'archived'
+    : publishedLocaleCount > 0 ? 'published' : 'draft';
+  if (synchronize && guide.status !== nextParentStatus) {
+    await q(env, `UPDATE guides SET status=$1::varchar(30),updated_at=NOW()
+      WHERE id=$2::integer AND tenant_id=$3::integer AND platform_id=$4::integer`,
+      [nextParentStatus,guideId,scope.tenant_id,scope.platform_id]);
+  }
+  const publicationStatus = nextParentStatus === 'archived'
+    ? 'archived'
+    : publishedLocaleCount === 0
+      ? 'draft'
+      : enabledLocaleCount > 0 && publishedLocaleCount >= enabledLocaleCount
+        ? 'published'
+        : 'partially_published';
+  return {
+    publication_status: publicationStatus,
+    parent_status: nextParentStatus,
+    published_locale_count: publishedLocaleCount,
+    enabled_locale_count: enabledLocaleCount,
+  };
+}
+
 async function listGuideTranslations(env, guideId, scope) {
   await guideRowForScope(env, guideId, scope);
   const rows = (await q(env, `SELECT * FROM guide_translations WHERE guide_id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer ORDER BY locale ASC`, [guideId, scope.tenant_id, scope.platform_id])).rows;
   const registry = await listPlatformLocales(env, scope);
-  return { ok:true, version:VERSION, guide_id:guideId, default_locale:registry.default_locale, locales:registry.locales, translations:rows.map(guideTranslationOut) };
+  const publication = await guidePublicationState(env, guideId, scope);
+  return { ok:true, version:VERSION, guide_id:guideId, default_locale:registry.default_locale, locales:registry.locales, publication, translations:rows.map(guideTranslationOut) };
 }
 
 function normalizeGuideTranslationPayload(p = {}, localeFallback = 'en') {
@@ -2720,8 +2845,9 @@ async function upsertGuideTranslation(env, guideId, p, scope) {
     VALUES($1::integer,$2::integer,$3::integer,$4::varchar(35),$5::varchar(180),$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::text,$13::varchar(180),$14::varchar(255),$15::text,$16::varchar(30))
     ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,seo_title=EXCLUDED.seo_title,seo_description=EXCLUDED.seo_description,alt_text=EXCLUDED.alt_text,status=EXCLUDED.status,updated_at=NOW()
     RETURNING *`, [scope.tenant_id,scope.platform_id,guide.id,data.locale,data.title,data.summary,data.body,data.rich_json,data.rich_html,data.image_urls,data.cover_image_url,data.keywords,data.seo_title,data.seo_description,data.alt_text,data.status]);
+  const publication = await guidePublicationState(env, guideId, scope, { synchronize:true });
   await audit(env,'update','guide_translations',rows[0].id,`Guide ${guideId} ${data.locale} translation saved`,scope);
-  return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]) };
+  return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]), publication };
 }
 
 async function updateGuideTranslation(env, id, p, scope) {
@@ -2731,24 +2857,59 @@ async function updateGuideTranslation(env, id, p, scope) {
   data.locale = await assertSupportedLocaleFromRegistry(env, scope, data.locale, 'Guide locale');
   if (!data.title) bad('Guide translation title is required');
   const { rows } = await q(env, `UPDATE guide_translations SET locale=$1::varchar(35),title=$2::varchar(180),summary=$3::text,body=$4::text,rich_json=$5::text,rich_html=$6::text,image_urls=$7::text,cover_image_url=$8::text,keywords=$9::text,seo_title=$10::varchar(180),seo_description=$11::varchar(255),alt_text=$12::text,status=$13::varchar(30),updated_at=NOW() WHERE id=$14::integer AND tenant_id=$15::integer AND platform_id=$16::integer RETURNING *`, [data.locale,data.title,data.summary,data.body,data.rich_json,data.rich_html,data.image_urls,data.cover_image_url,data.keywords,data.seo_title,data.seo_description,data.alt_text,data.status,id,scope.tenant_id,scope.platform_id]);
+  const publication = await guidePublicationState(env, current.guide_id, scope, { synchronize:true });
   await audit(env,'update','guide_translations',id,`Guide translation ${data.locale} updated`,scope);
-  return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]) };
+  return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]), publication };
 }
 
 async function publishGuideTranslation(env, id, scope) {
-  const { rows } = await q(env, `UPDATE guide_translations SET status='published',updated_at=NOW() WHERE id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer RETURNING *`, [id,scope.tenant_id,scope.platform_id]);
+  const { rows } = await q(env, `WITH published AS (
+      UPDATE guide_translations gt SET status='published',updated_at=NOW()
+      FROM guides g
+      WHERE gt.id=$1::integer AND gt.tenant_id=$2::integer AND gt.platform_id=$3::integer
+        AND g.id=gt.guide_id AND g.tenant_id=gt.tenant_id AND g.platform_id=gt.platform_id
+        AND g.status<>'archived'
+      RETURNING gt.*
+    ), parent_update AS (
+      UPDATE guides g SET status='published',updated_at=NOW()
+      FROM published p
+      WHERE g.id=p.guide_id AND g.tenant_id=$2::integer AND g.platform_id=$3::integer
+      RETURNING g.id
+    )
+    SELECT * FROM published`, [id,scope.tenant_id,scope.platform_id]);
   if (!rows[0]) bad('Guide translation not found',404);
+  const publication = await guidePublicationState(env, rows[0].guide_id, scope, { synchronize:true });
   await audit(env,'publish','guide_translations',id,`Guide translation ${rows[0].locale} published`,scope);
-  return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]) };
+  return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]), publication };
 }
 
 async function batchPublishGuideTranslations(env, payload = {}, scope) {
   const ids = (Array.isArray(payload.ids) ? payload.ids : []).map(Number).filter((id) => Number.isInteger(id) && id > 0);
   if (!ids.length) return { ok:true, version:VERSION, published:0 };
   const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
-  const result = await q(env, `UPDATE guide_translations SET status='published',updated_at=NOW() WHERE id IN (${placeholders}) AND tenant_id=$${ids.length + 1}::integer AND platform_id=$${ids.length + 2}::integer`, [...ids,scope.tenant_id,scope.platform_id]);
-  await audit(env,'publish','guide_translations',ids.join(','),`Batch published ${result.rowCount || 0} guide translations`,scope);
-  return { ok:true, version:VERSION, published:result.rowCount || 0 };
+  const tenantParam = ids.length + 1;
+  const platformParam = ids.length + 2;
+  const result = await q(env, `WITH published AS (
+      UPDATE guide_translations gt SET status='published',updated_at=NOW()
+      FROM guides g
+      WHERE gt.id IN (${placeholders})
+        AND gt.tenant_id=$${tenantParam}::integer AND gt.platform_id=$${platformParam}::integer
+        AND g.id=gt.guide_id AND g.tenant_id=gt.tenant_id AND g.platform_id=gt.platform_id
+        AND g.status<>'archived'
+      RETURNING gt.id,gt.guide_id
+    ), activated AS (
+      UPDATE guides g SET status='published',updated_at=NOW()
+      WHERE g.tenant_id=$${tenantParam}::integer AND g.platform_id=$${platformParam}::integer
+        AND g.id IN (SELECT DISTINCT guide_id FROM published)
+      RETURNING g.id
+    )
+    SELECT (SELECT COUNT(*)::int FROM published) AS published,
+      (SELECT COUNT(*)::int FROM activated) AS guides_activated`,
+    [...ids,scope.tenant_id,scope.platform_id]);
+  const published = Number(result.rows[0]?.published || 0);
+  const guidesActivated = Number(result.rows[0]?.guides_activated || 0);
+  await audit(env,'publish','guide_translations',ids.join(','),`Batch published ${published} guide translations and activated ${guidesActivated} guides`,scope);
+  return { ok:true, version:VERSION, published, guides_activated:guidesActivated };
 }
 
 async function listGuideLocaleStudio(env, scope) {
@@ -2758,7 +2919,20 @@ async function listGuideLocaleStudio(env, scope) {
     COALESCE(json_agg(json_build_object('id',gt.id,'locale',gt.locale,'status',gt.status) ORDER BY gt.locale) FILTER (WHERE gt.id IS NOT NULL),'[]'::json) AS variants
     FROM guides g LEFT JOIN guide_translations gt ON gt.guide_id=g.id AND gt.tenant_id=g.tenant_id AND gt.platform_id=g.platform_id
     WHERE g.tenant_id=$1::integer AND g.platform_id=$2::integer GROUP BY g.id ORDER BY g.priority ASC,g.updated_at DESC,g.id DESC`, [scope.tenant_id,scope.platform_id])).rows;
-  return { ok:true, version:VERSION, platform:{ id:scope.platform_id,name:scope.platform_name,default_locale:registry.default_locale,supported_languages:registry.supported_languages }, locales:registry.locales, guides:rows.map((row) => ({ ...row, id:Number(row.id), variant_count:Number(row.variant_count || 0), published_variant_count:Number(row.published_variant_count || 0), variants:Array.isArray(row.variants) ? row.variants : [] })) };
+  const enabledLocaleCount = registry.supported_languages.length;
+  return { ok:true, version:VERSION, platform:{ id:scope.platform_id,name:scope.platform_name,default_locale:registry.default_locale,supported_languages:registry.supported_languages }, locales:registry.locales, guides:rows.map((row) => {
+    const variants = Array.isArray(row.variants) ? row.variants : [];
+    const publishedLocaleCount = registry.supported_languages.filter((locale) =>
+      variants.some((variant) => variant.status === 'published' && localeMatches(variant.locale, locale))).length;
+    const publicationStatus = row.status === 'archived'
+      ? 'archived'
+      : publishedLocaleCount === 0
+        ? 'draft'
+        : enabledLocaleCount > 0 && publishedLocaleCount >= enabledLocaleCount
+          ? 'published'
+          : 'partially_published';
+    return { ...row, id:Number(row.id), status:publishedLocaleCount > 0 && row.status !== 'archived' ? 'published' : row.status, publication_status:publicationStatus, parent_status:publishedLocaleCount > 0 && row.status !== 'archived' ? 'published' : row.status, variant_count:Number(row.variant_count || 0), published_variant_count:publishedLocaleCount, published_locale_count:publishedLocaleCount, enabled_locale_count:enabledLocaleCount, variants };
+  }) };
 }
 
 async function listPlatformLocales(env, scope) {
@@ -3547,18 +3721,22 @@ async function createGuide(env, p, scope) {
   const categoryId = await resolveGuideCategoryId(env, p, scope); const gp = normalizeGuidePayload(p);
   const { rows } = await q(env, 'INSERT INTO guides(title,slug,summary,body,image_urls,keywords,language,priority,status,category_id,title_hi,summary_hi,body_hi,body_html,body_blocks_json,cover_image_url,body_html_hi,body_blocks_json_hi,image_urls_hi,cover_image_url_hi,button_ids,version_number,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,1,$22,$23) RETURNING *', [gp.title,gp.slug,gp.summary,gp.body,gp.image_urls,gp.keywords,gp.language,gp.priority,gp.status,categoryId,gp.title_hi,gp.summary_hi,gp.body_hi,gp.body_html,gp.body_blocks_json,gp.cover_image_url,gp.body_html_hi,gp.body_blocks_json_hi,gp.image_urls_hi,gp.cover_image_url_hi,gp.button_ids,scope.tenant_id,scope.platform_id]);
   await syncDefaultGuideTranslation(env, rows[0], gp, scope);
+  const publication = await guidePublicationState(env, rows[0].id, scope, { synchronize:true });
   await syncContentButtons(env, 'guide', rows[0].id, numericIds(gp.button_ids), scope);
   await snapshotContentVersion(env, 'guide', rows[0].id, gp.title, guideOut(rows[0], gp.language), 'created', 'admin', scope);
-  await audit(env,'create','guides',rows[0].id,'Visual guide created',scope); return guideOut(rows[0], gp.language);
+  await audit(env,'create','guides',rows[0].id,'Visual guide created',scope);
+  return { ...guideOut({ ...rows[0], status:publication.parent_status }, gp.language), ...publication };
 }
 async function updateGuide(env, id, p, scope) {
   const categoryId = await resolveGuideCategoryId(env, p, scope); const gp = normalizeGuidePayload(p);
   const { rows } = await q(env, 'UPDATE guides SET title=$1,slug=$2,summary=$3,body=$4,image_urls=$5,keywords=$6,language=$7,priority=$8,status=$9,category_id=$10,title_hi=$11,summary_hi=$12,body_hi=$13,body_html=$14,body_blocks_json=$15,cover_image_url=$16,body_html_hi=$17,body_blocks_json_hi=$18,image_urls_hi=$19,cover_image_url_hi=$20,button_ids=$21,version_number=COALESCE(version_number,1)+1,updated_at=NOW() WHERE id=$22 AND tenant_id=$23 AND platform_id=$24 RETURNING *', [gp.title,gp.slug,gp.summary,gp.body,gp.image_urls,gp.keywords,gp.language,gp.priority,gp.status,categoryId,gp.title_hi,gp.summary_hi,gp.body_hi,gp.body_html,gp.body_blocks_json,gp.cover_image_url,gp.body_html_hi,gp.body_blocks_json_hi,gp.image_urls_hi,gp.cover_image_url_hi,gp.button_ids,id,scope.tenant_id,scope.platform_id]);
   if (!rows[0]) bad('Guide not found', 404);
   await syncDefaultGuideTranslation(env, rows[0], gp, scope);
+  const publication = await guidePublicationState(env, id, scope, { synchronize:true });
   await syncContentButtons(env, 'guide', id, numericIds(gp.button_ids), scope);
   await snapshotContentVersion(env, 'guide', id, gp.title, guideOut(rows[0], gp.language), p.change_note || 'updated', 'admin', scope);
-  await audit(env,'update','guides',id,'Visual guide updated',scope); return guideOut(rows[0], gp.language);
+  await audit(env,'update','guides',id,'Visual guide updated',scope);
+  return { ...guideOut({ ...rows[0], status:publication.parent_status }, gp.language), ...publication };
 }
 async function deleteGuide(env, id, admin, scope) {
   const current=(await q(env,`SELECT * FROM guides WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 LIMIT 1`,[id,scope.tenant_id,scope.platform_id])).rows[0];
@@ -3848,13 +4026,13 @@ async function syncDefaultGuideTranslation(env, guide, gp, scope) {
   const locale = normalizeLocale(gp.language || registry.default_locale, registry.default_locale);
   await q(env, `INSERT INTO guide_translations(tenant_id,platform_id,guide_id,locale,title,summary,body,rich_json,rich_html,image_urls,cover_image_url,keywords,status)
     VALUES($1::integer,$2::integer,$3::integer,$4::varchar(35),$5::varchar(180),$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::text,$13::varchar(30))
-    ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,status=EXCLUDED.status,updated_at=NOW()`,
+    ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,updated_at=NOW()`,
     [scope.tenant_id,scope.platform_id,guide.id,locale,gp.title,gp.summary,gp.body,gp.body_blocks_json,gp.body_html,gp.image_urls,gp.cover_image_url,gp.keywords,gp.status]);
   if (gp.title_hi || gp.body_hi || gp.body_blocks_json_hi || gp.body_html_hi) {
     const supportsHindi = registry.supported_languages.some((candidate) => localeMatches(candidate, 'hi'));
     if (supportsHindi) await q(env, `INSERT INTO guide_translations(tenant_id,platform_id,guide_id,locale,title,summary,body,rich_json,rich_html,image_urls,cover_image_url,keywords,status)
       VALUES($1::integer,$2::integer,$3::integer,'hi',$4::varchar(180),$5::text,$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::varchar(30))
-      ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,status=EXCLUDED.status,updated_at=NOW()`,
+      ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,updated_at=NOW()`,
       [scope.tenant_id,scope.platform_id,guide.id,gp.title_hi || gp.title,gp.summary_hi || '',gp.body_hi || '',gp.body_blocks_json_hi || '',gp.body_html_hi || '',gp.image_urls_hi || '',gp.cover_image_url_hi || '',gp.keywords,gp.status]);
   }
 }
@@ -4053,7 +4231,7 @@ async function verifyPassword(password, hash) {
     return given.length === expected.length && given.every((b, i) => b === expected[i]);
   } catch { return false; }
 }
-export async function uploadToR2(request, env, prefix) {
+export async function uploadToR2(request, env, prefix, scope = null, admin = null, options = {}) {
   if (!env.GUIDE_IMAGES) bad('Image storage is not configured', 503, 'UPLOAD_STORAGE_NOT_CONFIGURED');
   const form = await request.formData();
   const file = form.get('file');
@@ -4082,7 +4260,14 @@ export async function uploadToR2(request, env, prefix) {
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (bytes.byteLength !== file.size) bad('Image upload body is incomplete', 400, 'UPLOAD_BODY_INCOMPLETE');
-  const key = `${prefix}/${Date.now()}-${crypto.randomUUID()}${ext}`;
+  const detectedType = detectImageContentType(bytes);
+  if (!detectedType || detectedType !== contentType) {
+    bad('The uploaded file content does not match the selected image type', 400, 'UPLOAD_CONTENT_SIGNATURE_MISMATCH');
+  }
+  const scopedPrefix = scope
+    ? `tenant-${Number(scope.tenant_id)}/platform-${Number(scope.platform_id)}/${prefix}`
+    : prefix;
+  const key = `${scopedPrefix}/${Date.now()}-${crypto.randomUUID()}${ext}`;
   try {
     await env.GUIDE_IMAGES.put(key, bytes, {
       httpMetadata: { contentType },
@@ -4097,7 +4282,30 @@ export async function uploadToR2(request, env, prefix) {
     throw error;
   }
   const origin = new URL(request.url).origin;
-  return json({ ok: true, filename: key, url: `${origin}/uploads/${key}`, content_type: contentType, size_bytes: bytes.byteLength }, 200, env);
+  const publicUrl = `${origin}/uploads/${key}`;
+  let mediaId = null;
+  if (scope && options.recordGuideAsset) {
+    const originalName = String(file.name || 'image')
+      .replace(/[^\p{L}\p{N}._ -]/gu, '_')
+      .slice(0, 255);
+    const inserted = await q(env, `INSERT INTO guide_media_assets(
+        tenant_id,platform_id,storage_key,public_url,original_name,content_type,size_bytes,uploaded_by,status
+      ) VALUES($1::integer,$2::integer,$3::text,$4::text,$5::varchar(255),$6::varchar(100),$7::integer,$8::varchar(255),'active')
+      RETURNING id`, [scope.tenant_id,scope.platform_id,key,publicUrl,originalName,contentType,bytes.byteLength,String(admin?.email || 'admin').slice(0,255)]);
+    mediaId = Number(inserted.rows[0]?.id || 0) || null;
+    await audit(env,'upload','guide_media_assets',mediaId || key,`Guide image uploaded: ${originalName}`,scope);
+  }
+  return json({ ok: true, media_id:mediaId, tenant_id:scope ? Number(scope.tenant_id) : null, platform_id:scope ? Number(scope.platform_id) : null, filename: key, url: publicUrl, content_type: contentType, size_bytes: bytes.byteLength }, 200, env);
+}
+function detectImageContentType(bytes) {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) return 'image/png';
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes.length >= 12 && String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP') return 'image/webp';
+  if (bytes.length >= 6) {
+    const signature = String.fromCharCode(...bytes.slice(0, 6));
+    if (signature === 'GIF87a' || signature === 'GIF89a') return 'image/gif';
+  }
+  return '';
 }
 function safeExt(name) {
   const ext = (name.match(/\.[a-z0-9]+$/i)?.[0] || '.png').toLowerCase();

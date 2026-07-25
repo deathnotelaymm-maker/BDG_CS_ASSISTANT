@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import api, { uploadToR2 } from '../src/core.js';
 import { createR2Adapter } from '../src/r2-adapter.js';
 
-const version = '1.9.0-locale-aware-knowledge-studio';
+const version = '1.14.3-guide-publishing-state-repair-platform-self-service-upload';
 const env = {
   R2_ACCOUNT_ID: 'test-account',
   R2_ACCESS_KEY_ID: 'test-access-key',
@@ -83,6 +83,24 @@ await test('upload handler rejects a MIME and extension mismatch before storage'
   );
 });
 
+await test('upload handler rejects a forged image body before storage', async () => {
+  const forged = new File([new TextEncoder().encode('not a real PNG')], 'forged.png', { type: 'image/png' });
+  await assert.rejects(
+    () => uploadToR2(uploadRequest('/admin/uploads', forged), { ...env, GUIDE_IMAGES: { put: async () => {} } }, 'guide'),
+    (error) => error.status === 400 && error.code === 'UPLOAD_CONTENT_SIGNATURE_MISMATCH',
+  );
+});
+
+await test('platform-scoped upload keys cannot collide across tenants', async () => {
+  let storedKey = '';
+  const response = await uploadToR2(uploadRequest(), {
+    ...env,
+    GUIDE_IMAGES: { async put(key) { storedKey = key; } },
+  }, 'guide', { tenant_id: 2, platform_id: 56 });
+  assert.equal(response.status, 200);
+  assert.match(storedKey, /^tenant-2\/platform-56\/guide\//);
+});
+
 await test('storage failures return safe diagnostics with the generated request ID', async () => {
   const logs = [];
   const originalError = console.error;
@@ -108,4 +126,4 @@ await test('storage failures return safe diagnostics with the generated request 
   }
 });
 
-console.log(`Upload regression tests passed: ${passed}/4`);
+console.log(`Upload regression tests passed: ${passed}/6`);
