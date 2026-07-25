@@ -7,13 +7,16 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.14.3-guide-publishing-state-repair-platform-self-service-upload';
+const VERSION = '1.15.0-advanced-visual-guide-studio-motion-media';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
 const CHAT_LAYOUT_MODES = new Set(['standard', 'compact', 'centered']);
 const CHAT_BUBBLE_STYLES = new Set(['soft', 'sharp', 'minimal']);
 const CHAT_INPUT_STYLES = new Set(['rounded', 'square', 'minimal']);
+const GUIDE_COVER_MEDIA_TYPES = new Set(['image', 'gif', 'video']);
+const GUIDE_ANIMATION_PRESETS = new Set(['none', 'typewriter', 'fade_blur', 'slide_bounce', 'glitch_flicker', 'scribble_draw']);
+const GUIDE_MOTION_INTENSITIES = new Set(['subtle', 'standard']);
 const OWNER_EMAIL = 'owner@example.invalid';
 const STOPWORDS = new Set(['the','a','an','and','or','to','of','in','on','for','with','is','are','am','i','you','we','they','how','what','why','can','do','does','did','please','my','me','your','sir','madam','boss','babe','want','need','help']);
 const SYNONYMS = {
@@ -78,7 +81,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','guide-parent-publication-sync','guide-derived-publication-status','guide-platform-self-service-upload','guide-publish-role-guard','guide-media-ownership-audit','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','domain-id-validation','cloudflare-configuration-guard'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','guide-parent-publication-sync','guide-derived-publication-status','guide-platform-self-service-upload','guide-publish-role-guard','guide-media-ownership-audit','guide-motion-media','guide-gif-covers','guide-video-autoplay-loop','guide-safe-text-animation-presets','guide-reduced-motion','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','domain-id-validation','cloudflare-configuration-guard'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -278,6 +281,10 @@ async function route(request, env, url) {
   if (method === 'POST' && path === '/admin/guide-uploads') {
     requireGuideUpload(scope);
     return uploadToR2(request, env, 'guide', scope, admin, { recordGuideAsset:true });
+  }
+  if (method === 'POST' && path === '/admin/guide-motion-uploads') {
+    requireGuideUpload(scope);
+    return uploadToR2(request, env, 'guide-motion', scope, admin, { recordGuideAsset:true, allowMotionMedia:true });
   }
 
   // Admin uploads
@@ -567,6 +574,7 @@ async function ensureBootstrap(env) {
   await ensureV122ChatRoutePropagation(env);
   await ensureV113BringYourOwnDomain(env);
   await ensureV143GuidePublishingRepair(env);
+  await ensureV150AdvancedVisualGuideStudio(env);
   bootstrapped = true;
 }
 async function createTables(env) {
@@ -793,6 +801,54 @@ function tokenize(text) { const source = String(text || '').toLowerCase(); const
 function scoreMatch(message, fields = [], keywords = '') { const msg = tokenize(message); if (!msg.length) return 0; const hay = tokenize([...fields, keywords].join(' ')); const hset = new Set(hay); let score = 0; for (const w of msg) if (hset.has(w)) score += 5; const k = String(keywords || '').toLowerCase().split(',').map(x => x.trim()).filter(Boolean); for (const phrase of k) if (String(message || '').toLowerCase().includes(phrase)) score += 18; return score; }
 function parseRichDocument(value) { try { const doc = typeof value === 'string' ? JSON.parse(value || '{}') : value; return doc?.type === 'doc' && Array.isArray(doc.content) ? doc : null; } catch { return null; } }
 function categoryOut(row) { return { id: row.id, name: row.name, slug: row.slug, description: row.description, icon: row.icon || 'target', icon_url: row.icon_url || '', sort_order: row.sort_order ?? 100 }; }
+function guideAnimationPreset(value) {
+  const preset = String(value || 'none').trim().toLowerCase();
+  return GUIDE_ANIMATION_PRESETS.has(preset) ? preset : 'none';
+}
+function guideCoverMediaType(value, imageUrl = '', videoUrl = '') {
+  const requested = String(value || '').trim().toLowerCase();
+  if (GUIDE_COVER_MEDIA_TYPES.has(requested)) return requested;
+  if (String(videoUrl || '').trim()) return 'video';
+  return /\.gif(?:$|\?)/i.test(String(imageUrl || '')) ? 'gif' : 'image';
+}
+function guideMotionIntensity(value) {
+  const intensity = String(value || 'subtle').trim().toLowerCase();
+  return GUIDE_MOTION_INTENSITIES.has(intensity) ? intensity : 'subtle';
+}
+function payloadBoolean(value, fallback = false) {
+  if (value == null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
+}
+function guideMotionOut(row = {}) {
+  const coverImageUrl = String(row.cover_image_url || '').trim();
+  const coverVideoUrl = String(row.cover_video_url || '').trim();
+  const type = guideCoverMediaType(row.cover_media_type, coverImageUrl, coverVideoUrl);
+  const autoplay = type === 'video' && row.video_autoplay === true;
+  const muted = autoplay ? true : row.video_muted !== false;
+  return {
+    cover_media: {
+      type,
+      url: type === 'video' ? coverVideoUrl : coverImageUrl,
+      image_url: coverImageUrl,
+      video_url: coverVideoUrl,
+      poster_url: String(row.cover_video_poster_url || '').trim(),
+      autoplay,
+      loop: type === 'video' && row.video_loop === true,
+      muted,
+      controls: row.video_controls !== false,
+      plays_inline: true,
+    },
+    motion: {
+      enabled: row.motion_enabled !== false,
+      title_animation: guideAnimationPreset(row.title_animation),
+      summary_animation: guideAnimationPreset(row.summary_animation),
+      content_animation: guideAnimationPreset(row.content_animation),
+      intensity: guideMotionIntensity(row.motion_intensity),
+      reduced_motion_safe: true,
+    },
+  };
+}
 function guideOut(row, lang='en') {
   const useHi = String(lang || '').toLowerCase().startsWith('hi');
   const imageUrlsEn = splitUrls(row.image_urls);
@@ -803,6 +859,7 @@ function guideOut(row, lang='en') {
   const bodyText = useHi && row.body_hi ? row.body_hi : row.body;
   const title = useHi && row.title_hi ? row.title_hi : row.title;
   const summary = useHi && row.summary_hi ? row.summary_hi : row.summary;
+  const motion = guideMotionOut(row);
   return {
     id: row.id,
     title,
@@ -822,6 +879,20 @@ function guideOut(row, lang='en') {
     image_urls_hi: imageUrlsHi,
     cover_image_url: (useHi && row.cover_image_url_hi) ? row.cover_image_url_hi : (row.cover_image_url || imageUrls[0] || ''),
     cover_image_url_hi: row.cover_image_url_hi || imageUrlsHi[0] || '',
+    cover_media_type: motion.cover_media.type,
+    cover_video_url: motion.cover_media.video_url,
+    cover_video_poster_url: motion.cover_media.poster_url,
+    video_autoplay: motion.cover_media.autoplay,
+    video_loop: motion.cover_media.loop,
+    video_muted: motion.cover_media.muted,
+    video_controls: motion.cover_media.controls,
+    motion_enabled: motion.motion.enabled,
+    title_animation: motion.motion.title_animation,
+    summary_animation: motion.motion.summary_animation,
+    content_animation: motion.motion.content_animation,
+    motion_intensity: motion.motion.intensity,
+    cover_media: motion.cover_media,
+    motion: motion.motion,
     keywords: row.keywords || '',
     language: lang || row.language || 'en',
     priority: row.priority ?? 100,
@@ -1141,26 +1212,58 @@ async function updateTheme(env, p = {}, scope = null) {
 async function listCategories(env, scope = null) { const { rows } = await q(env, scope ? 'SELECT * FROM categories WHERE tenant_id=$1 AND platform_id=$2 AND deleted_at IS NULL ORDER BY sort_order ASC, name ASC' : 'SELECT * FROM categories ORDER BY sort_order ASC, name ASC', scope ? [scope.tenant_id, scope.platform_id] : []); return rows.map(categoryOut); }
 async function applyGuideLocale(env, row, scope, requestedLocale, { requirePublished = true } = {}) {
   const registry = await listPlatformLocales(env, scope);
-  const locale = await assertSupportedLocaleFromRegistry(env, scope, requestedLocale || registry.default_locale, 'Guide locale');
+  let locale = await assertSupportedLocaleFromRegistry(env, scope, requestedLocale || registry.default_locale, 'Guide locale');
   const defaultLocale = normalizeLocale(registry.default_locale, 'en');
-  if (locale === 'all' || localeMatches(locale, defaultLocale)) {
-    const output = guideOut(row, locale);
-    output.locale = defaultLocale;
-    output.translation_id = null;
-    output.translation_status = row.status || 'published';
+  if (locale === 'all') locale = defaultLocale;
+  const translation = (await q(env, `SELECT * FROM guide_translations WHERE guide_id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer AND (LOWER(locale)=LOWER($4) OR LOWER(split_part(locale,'-',1))=LOWER(split_part($4,'-',1))) ${requirePublished ? "AND status='published'" : ''} ORDER BY (LOWER(locale)=LOWER($4)) DESC,id DESC LIMIT 1`, [row.id,scope.tenant_id,scope.platform_id,locale])).rows[0];
+  if (translation) {
+    const merged = {
+      ...row,
+      title:translation.title,
+      summary:translation.summary,
+      body:translation.body,
+      body_html:translation.rich_html,
+      body_blocks_json:translation.rich_json,
+      image_urls:translation.image_urls,
+      cover_image_url:translation.cover_image_url,
+      keywords:translation.keywords,
+      language:translation.locale,
+      cover_media_type:translation.cover_media_type,
+      cover_video_url:translation.cover_video_url,
+      cover_video_poster_url:translation.cover_video_poster_url,
+      video_autoplay:translation.video_autoplay,
+      video_loop:translation.video_loop,
+      video_muted:translation.video_muted,
+      video_controls:translation.video_controls,
+      motion_enabled:translation.motion_enabled,
+      title_animation:translation.title_animation,
+      summary_animation:translation.summary_animation,
+      content_animation:translation.content_animation,
+      motion_intensity:translation.motion_intensity,
+    };
+    const output = guideOut(merged, translation.locale);
+    output.locale = translation.locale;
+    output.translation_id = Number(translation.id);
+    output.translation_status = translation.status || 'draft';
+    output.translation = guideTranslationOut(translation);
     output.available_locales = registry.supported_languages;
     return output;
   }
-  const translation = (await q(env, `SELECT * FROM guide_translations WHERE guide_id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer AND (LOWER(locale)=LOWER($4) OR LOWER(split_part(locale,'-',1))=LOWER(split_part($4,'-',1))) ${requirePublished ? "AND status='published'" : ''} ORDER BY (LOWER(locale)=LOWER($4)) DESC,id DESC LIMIT 1`, [row.id,scope.tenant_id,scope.platform_id,locale])).rows[0];
-  if (!translation) bad(`Guide translation is not published for locale "${locale}"`, 404, 'GUIDE_TRANSLATION_UNAVAILABLE');
-  const merged = { ...row, title:translation.title, summary:translation.summary, body:translation.body, body_html:translation.rich_html, body_blocks_json:translation.rich_json, image_urls:translation.image_urls, cover_image_url:translation.cover_image_url, keywords:translation.keywords, language:translation.locale };
-  const output = guideOut(merged, translation.locale);
-  output.locale = translation.locale;
-  output.translation_id = Number(translation.id);
-  output.translation_status = translation.status || 'draft';
-  output.translation = guideTranslationOut(translation);
-  output.available_locales = registry.supported_languages;
-  return output;
+  if (localeMatches(locale, defaultLocale)) {
+    const hasLocaleRow = (await q(env, `SELECT 1 FROM guide_translations
+      WHERE guide_id=$1::integer AND tenant_id=$2::integer AND platform_id=$3::integer
+        AND (LOWER(locale)=LOWER($4) OR LOWER(split_part(locale,'-',1))=LOWER(split_part($4,'-',1)))
+      LIMIT 1`, [row.id,scope.tenant_id,scope.platform_id,locale])).rows[0];
+    if (!hasLocaleRow) {
+      const output = guideOut(row, locale);
+      output.locale = defaultLocale;
+      output.translation_id = null;
+      output.translation_status = row.status || 'published';
+      output.available_locales = registry.supported_languages;
+      return output;
+    }
+  }
+  bad(`Guide translation is not published for locale "${locale}"`, 404, 'GUIDE_TRANSLATION_UNAVAILABLE');
 }
 async function listGuides(env, params = new URLSearchParams()) {
   const scope = await resolvePublicPlatformScope(env, params.get?.('platform') || '');
@@ -2460,6 +2563,27 @@ async function ensureV143GuidePublishingRepair(env) {
     VALUES('v1.14.3_guide_publishing_state_repair_platform_self_service_upload','Synchronizes parent Guide publication with locale variants and records tenant-scoped owner/admin media uploads.')
     ON CONFLICT(migration_key) DO NOTHING`);
 }
+async function ensureV150AdvancedVisualGuideStudio(env) {
+  for (const statement of [
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS cover_media_type VARCHAR(20) DEFAULT 'image'`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS cover_video_url TEXT DEFAULT ''`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS cover_video_poster_url TEXT DEFAULT ''`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS video_autoplay BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS video_loop BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS video_muted BOOLEAN DEFAULT TRUE`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS video_controls BOOLEAN DEFAULT TRUE`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS motion_enabled BOOLEAN DEFAULT TRUE`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS title_animation VARCHAR(40) DEFAULT 'none'`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS summary_animation VARCHAR(40) DEFAULT 'none'`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS content_animation VARCHAR(40) DEFAULT 'none'`,
+    `ALTER TABLE guide_translations ADD COLUMN IF NOT EXISTS motion_intensity VARCHAR(20) DEFAULT 'subtle'`,
+    `ALTER TABLE guide_media_assets ADD COLUMN IF NOT EXISTS media_kind VARCHAR(20) DEFAULT 'image'`,
+    `CREATE INDEX IF NOT EXISTS idx_guide_media_assets_kind ON guide_media_assets(tenant_id,platform_id,media_kind,status,created_at DESC)`,
+    `UPDATE guide_translations SET cover_media_type='gif' WHERE LOWER(COALESCE(cover_image_url,'')) ~ '\\.gif($|\\?)' AND COALESCE(cover_media_type,'image')='image'`,
+    `UPDATE guide_media_assets SET media_kind=CASE WHEN content_type IN ('video/mp4','video/webm') THEN 'video' WHEN content_type='image/gif' THEN 'gif' ELSE 'image' END WHERE media_kind IS NULL OR media_kind=''`,
+    `INSERT INTO system_migrations(migration_key,notes) VALUES('v1.15.0_advanced_visual_guide_studio_motion_media','Adds locale-scoped GIF/video covers, autoplay/loop controls, allowlisted text motion presets, reduced-motion-safe public rendering, and tenant-owned motion media.') ON CONFLICT(migration_key) DO NOTHING`,
+  ]) await q(env, statement);
+}
 function reliabilityOut(row, scope) {
   return {
     ok: true, version: VERSION, tenant_id: Number(scope?.tenant_id || row?.tenant_id || 0), platform_id: Number(scope?.platform_id || row?.platform_id || 0),
@@ -2748,11 +2872,26 @@ async function previewAiSourceRouter(env, payload = {}, scope) {
 }
 
 function guideTranslationOut(row) {
+  const motion = guideMotionOut(row);
   return {
     id: Number(row.id), guide_id: Number(row.guide_id), locale: row.locale,
     title: row.title || '', summary: row.summary || '', body: row.body || '',
     rich_json: row.rich_json || '', rich_html: row.rich_html || '',
     image_urls: splitUrls(row.image_urls), cover_image_url: row.cover_image_url || '',
+    cover_media_type: motion.cover_media.type,
+    cover_video_url: motion.cover_media.video_url,
+    cover_video_poster_url: motion.cover_media.poster_url,
+    video_autoplay: motion.cover_media.autoplay,
+    video_loop: motion.cover_media.loop,
+    video_muted: motion.cover_media.muted,
+    video_controls: motion.cover_media.controls,
+    motion_enabled: motion.motion.enabled,
+    title_animation: motion.motion.title_animation,
+    summary_animation: motion.motion.summary_animation,
+    content_animation: motion.motion.content_animation,
+    motion_intensity: motion.motion.intensity,
+    cover_media: motion.cover_media,
+    motion: motion.motion,
     keywords: row.keywords || '', seo_title: row.seo_title || '',
     seo_description: row.seo_description || '', alt_text: row.alt_text || '',
     status: row.status || 'draft', updated_at: row.updated_at ? String(row.updated_at) : '',
@@ -2817,6 +2956,12 @@ async function listGuideTranslations(env, guideId, scope) {
 function normalizeGuideTranslationPayload(p = {}, localeFallback = 'en') {
   const blocks = Array.isArray(p.blocks) ? p.blocks : parseBlocks(p.rich_json || p.body_blocks_json || '');
   const html = String(p.rich_html || p.body_html || '').slice(0, 200000);
+  const coverMedia = p.cover_media && typeof p.cover_media === 'object' ? p.cover_media : {};
+  const motion = p.motion && typeof p.motion === 'object' ? p.motion : {};
+  const coverImageUrl = String(p.cover_image_url || p.cover || coverMedia.image_url || '').trim().slice(0, 2000);
+  const coverVideoUrl = String(p.cover_video_url || coverMedia.video_url || '').trim().slice(0, 2000);
+  const coverMediaType = guideCoverMediaType(p.cover_media_type || coverMedia.type, coverImageUrl, coverVideoUrl);
+  const videoAutoplay = coverMediaType === 'video' && payloadBoolean(p.video_autoplay ?? coverMedia.autoplay, false);
   return {
     locale: normalizeLocale(p.locale || p.language, localeFallback),
     title: String(p.title || '').trim().slice(0, 180),
@@ -2825,12 +2970,24 @@ function normalizeGuideTranslationPayload(p = {}, localeFallback = 'en') {
     rich_json: blocks.length ? JSON.stringify(blocks) : String(p.rich_json || p.body_blocks_json || ''),
     rich_html: html,
     image_urls: joinUrls(Array.isArray(p.image_urls) ? p.image_urls : splitUrls(p.image_urls || p.images || '')),
-    cover_image_url: String(p.cover_image_url || p.cover || '').trim().slice(0, 2000),
+    cover_image_url: coverImageUrl,
     keywords: Array.isArray(p.keywords) ? p.keywords.join(', ') : String(p.keywords || '').slice(0, 2000),
     seo_title: String(p.seo_title || '').trim().slice(0, 180),
     seo_description: String(p.seo_description || '').trim().slice(0, 255),
     alt_text: String(p.alt_text || '').trim().slice(0, 2000),
     status: ['draft','published','archived'].includes(String(p.status || '').toLowerCase()) ? String(p.status).toLowerCase() : 'draft',
+    cover_media_type: coverMediaType,
+    cover_video_url: coverVideoUrl,
+    cover_video_poster_url: String(p.cover_video_poster_url || coverMedia.poster_url || '').trim().slice(0, 2000),
+    video_autoplay: videoAutoplay,
+    video_loop: coverMediaType === 'video' && payloadBoolean(p.video_loop ?? coverMedia.loop, false),
+    video_muted: videoAutoplay ? true : payloadBoolean(p.video_muted ?? coverMedia.muted, true),
+    video_controls: payloadBoolean(p.video_controls ?? coverMedia.controls, true),
+    motion_enabled: payloadBoolean(p.motion_enabled ?? motion.enabled, true),
+    title_animation: guideAnimationPreset(p.title_animation || motion.title_animation),
+    summary_animation: guideAnimationPreset(p.summary_animation || motion.summary_animation),
+    content_animation: guideAnimationPreset(p.content_animation || motion.content_animation),
+    motion_intensity: guideMotionIntensity(p.motion_intensity || motion.intensity),
   };
 }
 
@@ -2841,10 +2998,26 @@ async function upsertGuideTranslation(env, guideId, p, scope) {
   data.locale = await assertSupportedLocaleFromRegistry(env, scope, data.locale, 'Guide locale');
   if (data.locale === 'all') bad('Guide translation must use a specific locale');
   if (!data.title) bad('Guide translation title is required');
-  const { rows } = await q(env, `INSERT INTO guide_translations(tenant_id,platform_id,guide_id,locale,title,summary,body,rich_json,rich_html,image_urls,cover_image_url,keywords,seo_title,seo_description,alt_text,status)
-    VALUES($1::integer,$2::integer,$3::integer,$4::varchar(35),$5::varchar(180),$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::text,$13::varchar(180),$14::varchar(255),$15::text,$16::varchar(30))
-    ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,seo_title=EXCLUDED.seo_title,seo_description=EXCLUDED.seo_description,alt_text=EXCLUDED.alt_text,status=EXCLUDED.status,updated_at=NOW()
-    RETURNING *`, [scope.tenant_id,scope.platform_id,guide.id,data.locale,data.title,data.summary,data.body,data.rich_json,data.rich_html,data.image_urls,data.cover_image_url,data.keywords,data.seo_title,data.seo_description,data.alt_text,data.status]);
+  const { rows } = await q(env, `INSERT INTO guide_translations(
+      tenant_id,platform_id,guide_id,locale,title,summary,body,rich_json,rich_html,image_urls,cover_image_url,keywords,seo_title,seo_description,alt_text,status,
+      cover_media_type,cover_video_url,cover_video_poster_url,video_autoplay,video_loop,video_muted,video_controls,motion_enabled,title_animation,summary_animation,content_animation,motion_intensity
+    ) VALUES(
+      $1::integer,$2::integer,$3::integer,$4::varchar(35),$5::varchar(180),$6::text,$7::text,$8::text,$9::text,$10::text,$11::text,$12::text,$13::varchar(180),$14::varchar(255),$15::text,$16::varchar(30),
+      $17::varchar(20),$18::text,$19::text,$20::boolean,$21::boolean,$22::boolean,$23::boolean,$24::boolean,$25::varchar(40),$26::varchar(40),$27::varchar(40),$28::varchar(20)
+    )
+    ON CONFLICT(platform_id,guide_id,locale) DO UPDATE SET
+      title=EXCLUDED.title,summary=EXCLUDED.summary,body=EXCLUDED.body,rich_json=EXCLUDED.rich_json,rich_html=EXCLUDED.rich_html,image_urls=EXCLUDED.image_urls,
+      cover_image_url=EXCLUDED.cover_image_url,keywords=EXCLUDED.keywords,seo_title=EXCLUDED.seo_title,seo_description=EXCLUDED.seo_description,alt_text=EXCLUDED.alt_text,status=EXCLUDED.status,
+      cover_media_type=EXCLUDED.cover_media_type,cover_video_url=EXCLUDED.cover_video_url,cover_video_poster_url=EXCLUDED.cover_video_poster_url,
+      video_autoplay=EXCLUDED.video_autoplay,video_loop=EXCLUDED.video_loop,video_muted=EXCLUDED.video_muted,video_controls=EXCLUDED.video_controls,
+      motion_enabled=EXCLUDED.motion_enabled,title_animation=EXCLUDED.title_animation,summary_animation=EXCLUDED.summary_animation,
+      content_animation=EXCLUDED.content_animation,motion_intensity=EXCLUDED.motion_intensity,updated_at=NOW()
+    RETURNING *`, [
+      scope.tenant_id,scope.platform_id,guide.id,data.locale,data.title,data.summary,data.body,data.rich_json,data.rich_html,data.image_urls,
+      data.cover_image_url,data.keywords,data.seo_title,data.seo_description,data.alt_text,data.status,data.cover_media_type,data.cover_video_url,
+      data.cover_video_poster_url,data.video_autoplay,data.video_loop,data.video_muted,data.video_controls,data.motion_enabled,data.title_animation,
+      data.summary_animation,data.content_animation,data.motion_intensity,
+    ]);
   const publication = await guidePublicationState(env, guideId, scope, { synchronize:true });
   await audit(env,'update','guide_translations',rows[0].id,`Guide ${guideId} ${data.locale} translation saved`,scope);
   return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]), publication };
@@ -2856,7 +3029,18 @@ async function updateGuideTranslation(env, id, p, scope) {
   const data = normalizeGuideTranslationPayload({ ...current, ...p }, current.locale);
   data.locale = await assertSupportedLocaleFromRegistry(env, scope, data.locale, 'Guide locale');
   if (!data.title) bad('Guide translation title is required');
-  const { rows } = await q(env, `UPDATE guide_translations SET locale=$1::varchar(35),title=$2::varchar(180),summary=$3::text,body=$4::text,rich_json=$5::text,rich_html=$6::text,image_urls=$7::text,cover_image_url=$8::text,keywords=$9::text,seo_title=$10::varchar(180),seo_description=$11::varchar(255),alt_text=$12::text,status=$13::varchar(30),updated_at=NOW() WHERE id=$14::integer AND tenant_id=$15::integer AND platform_id=$16::integer RETURNING *`, [data.locale,data.title,data.summary,data.body,data.rich_json,data.rich_html,data.image_urls,data.cover_image_url,data.keywords,data.seo_title,data.seo_description,data.alt_text,data.status,id,scope.tenant_id,scope.platform_id]);
+  const { rows } = await q(env, `UPDATE guide_translations SET
+      locale=$1::varchar(35),title=$2::varchar(180),summary=$3::text,body=$4::text,rich_json=$5::text,rich_html=$6::text,image_urls=$7::text,
+      cover_image_url=$8::text,keywords=$9::text,seo_title=$10::varchar(180),seo_description=$11::varchar(255),alt_text=$12::text,status=$13::varchar(30),
+      cover_media_type=$14::varchar(20),cover_video_url=$15::text,cover_video_poster_url=$16::text,video_autoplay=$17::boolean,video_loop=$18::boolean,
+      video_muted=$19::boolean,video_controls=$20::boolean,motion_enabled=$21::boolean,title_animation=$22::varchar(40),summary_animation=$23::varchar(40),
+      content_animation=$24::varchar(40),motion_intensity=$25::varchar(20),updated_at=NOW()
+    WHERE id=$26::integer AND tenant_id=$27::integer AND platform_id=$28::integer RETURNING *`, [
+      data.locale,data.title,data.summary,data.body,data.rich_json,data.rich_html,data.image_urls,data.cover_image_url,data.keywords,data.seo_title,
+      data.seo_description,data.alt_text,data.status,data.cover_media_type,data.cover_video_url,data.cover_video_poster_url,data.video_autoplay,
+      data.video_loop,data.video_muted,data.video_controls,data.motion_enabled,data.title_animation,data.summary_animation,data.content_animation,
+      data.motion_intensity,id,scope.tenant_id,scope.platform_id,
+    ]);
   const publication = await guidePublicationState(env, current.guide_id, scope, { synchronize:true });
   await audit(env,'update','guide_translations',id,`Guide translation ${data.locale} updated`,scope);
   return { ok:true, version:VERSION, translation:guideTranslationOut(rows[0]), publication };
@@ -4232,16 +4416,23 @@ async function verifyPassword(password, hash) {
   } catch { return false; }
 }
 export async function uploadToR2(request, env, prefix, scope = null, admin = null, options = {}) {
-  if (!env.GUIDE_IMAGES) bad('Image storage is not configured', 503, 'UPLOAD_STORAGE_NOT_CONFIGURED');
+  const allowMotionMedia = options.allowMotionMedia === true;
+  const assetLabel = allowMotionMedia ? 'Guide media' : 'Image';
+  if (!env.GUIDE_IMAGES) bad(`${assetLabel} storage is not configured`, 503, 'UPLOAD_STORAGE_NOT_CONFIGURED');
   const form = await request.formData();
   const file = form.get('file');
-  if (!file || typeof file === 'string') bad('Image file is required', 400, 'UPLOAD_FILE_REQUIRED');
+  if (!file || typeof file === 'string') bad(`${assetLabel} file is required`, 400, 'UPLOAD_FILE_REQUIRED');
 
-  const ext = safeExt(file.name || 'image.png');
+  const ext = safeExt(file.name || 'image.png', allowMotionMedia);
   const contentType = String(file.type || '').toLowerCase();
-  const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+  const allowedTypes = new Set([
+    'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+    ...(allowMotionMedia ? ['video/mp4', 'video/webm'] : []),
+  ]);
   if (!allowedTypes.has(contentType)) {
-    bad('Only PNG, JPG, JPEG, WebP, and GIF images are allowed', 415, 'UPLOAD_TYPE_NOT_ALLOWED');
+    bad(allowMotionMedia
+      ? 'Only PNG, JPG, JPEG, WebP, GIF, MP4, and WebM Guide media is allowed'
+      : 'Only PNG, JPG, JPEG, WebP, and GIF images are allowed', 415, 'UPLOAD_TYPE_NOT_ALLOWED');
   }
   const expectedTypes = ext === '.png'
     ? new Set(['image/png'])
@@ -4249,21 +4440,31 @@ export async function uploadToR2(request, env, prefix, scope = null, admin = nul
       ? new Set(['image/jpeg'])
       : ext === '.webp'
         ? new Set(['image/webp'])
-        : new Set(['image/gif']);
+        : ext === '.gif'
+          ? new Set(['image/gif'])
+          : ext === '.mp4'
+            ? new Set(['video/mp4'])
+            : new Set(['video/webm']);
   if (!expectedTypes.has(contentType)) {
-    bad('Image filename extension does not match its content type', 400, 'UPLOAD_TYPE_MISMATCH');
+    bad(`${assetLabel} filename extension does not match its content type`, 400, 'UPLOAD_TYPE_MISMATCH');
   }
 
-  const maxBytes = Math.min(Number(env.MAX_REQUEST_BYTES || 20 * 1024 * 1024), 10 * 1024 * 1024);
-  if (!Number.isFinite(file.size) || file.size < 1) bad('Image file is empty', 400, 'UPLOAD_FILE_EMPTY');
-  if (file.size > maxBytes) bad(`Image exceeds the ${Math.floor(maxBytes / 1024 / 1024)} MB upload limit`, 413, 'UPLOAD_FILE_TOO_LARGE');
+  const isVideo = contentType.startsWith('video/');
+  const requestLimit = Number(env.MAX_REQUEST_BYTES || 20 * 1024 * 1024);
+  const configuredVideoLimit = Number(env.GUIDE_VIDEO_MAX_BYTES || 50 * 1024 * 1024);
+  const maxBytes = isVideo
+    ? Math.min(requestLimit, configuredVideoLimit)
+    : Math.min(requestLimit, 10 * 1024 * 1024);
+  if (!Number.isFinite(file.size) || file.size < 1) bad(`${assetLabel} file is empty`, 400, 'UPLOAD_FILE_EMPTY');
+  if (file.size > maxBytes) bad(`${assetLabel} exceeds the ${Math.floor(maxBytes / 1024 / 1024)} MB upload limit`, 413, 'UPLOAD_FILE_TOO_LARGE');
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (bytes.byteLength !== file.size) bad('Image upload body is incomplete', 400, 'UPLOAD_BODY_INCOMPLETE');
-  const detectedType = detectImageContentType(bytes);
+  if (bytes.byteLength !== file.size) bad(`${assetLabel} upload body is incomplete`, 400, 'UPLOAD_BODY_INCOMPLETE');
+  const detectedType = detectGuideMediaContentType(bytes);
   if (!detectedType || detectedType !== contentType) {
-    bad('The uploaded file content does not match the selected image type', 400, 'UPLOAD_CONTENT_SIGNATURE_MISMATCH');
+    bad(`The uploaded file content does not match the selected ${isVideo ? 'video' : 'image'} type`, 400, 'UPLOAD_CONTENT_SIGNATURE_MISMATCH');
   }
+  const mediaKind = isVideo ? 'video' : contentType === 'image/gif' ? 'gif' : 'image';
   const scopedPrefix = scope
     ? `tenant-${Number(scope.tenant_id)}/platform-${Number(scope.platform_id)}/${prefix}`
     : prefix;
@@ -4274,10 +4475,10 @@ export async function uploadToR2(request, env, prefix, scope = null, admin = nul
       contentLength: bytes.byteLength,
     });
   } catch (cause) {
-    const error = new Error('R2 image upload failed');
+    const error = new Error(`R2 ${isVideo ? 'video' : 'image'} upload failed`);
     error.status = 502;
     error.code = 'UPLOAD_STORAGE_WRITE_FAILED';
-    error.publicMessage = 'Image storage is temporarily unavailable';
+    error.publicMessage = `${assetLabel} storage is temporarily unavailable`;
     error.cause = cause;
     throw error;
   }
@@ -4285,17 +4486,17 @@ export async function uploadToR2(request, env, prefix, scope = null, admin = nul
   const publicUrl = `${origin}/uploads/${key}`;
   let mediaId = null;
   if (scope && options.recordGuideAsset) {
-    const originalName = String(file.name || 'image')
+    const originalName = String(file.name || mediaKind)
       .replace(/[^\p{L}\p{N}._ -]/gu, '_')
       .slice(0, 255);
     const inserted = await q(env, `INSERT INTO guide_media_assets(
-        tenant_id,platform_id,storage_key,public_url,original_name,content_type,size_bytes,uploaded_by,status
-      ) VALUES($1::integer,$2::integer,$3::text,$4::text,$5::varchar(255),$6::varchar(100),$7::integer,$8::varchar(255),'active')
-      RETURNING id`, [scope.tenant_id,scope.platform_id,key,publicUrl,originalName,contentType,bytes.byteLength,String(admin?.email || 'admin').slice(0,255)]);
+        tenant_id,platform_id,storage_key,public_url,original_name,content_type,size_bytes,uploaded_by,status,media_kind
+      ) VALUES($1::integer,$2::integer,$3::text,$4::text,$5::varchar(255),$6::varchar(100),$7::integer,$8::varchar(255),'active',$9::varchar(20))
+      RETURNING id`, [scope.tenant_id,scope.platform_id,key,publicUrl,originalName,contentType,bytes.byteLength,String(admin?.email || 'admin').slice(0,255),mediaKind]);
     mediaId = Number(inserted.rows[0]?.id || 0) || null;
-    await audit(env,'upload','guide_media_assets',mediaId || key,`Guide image uploaded: ${originalName}`,scope);
+    await audit(env,'upload','guide_media_assets',mediaId || key,`Guide ${mediaKind} uploaded: ${originalName}`,scope);
   }
-  return json({ ok: true, media_id:mediaId, tenant_id:scope ? Number(scope.tenant_id) : null, platform_id:scope ? Number(scope.platform_id) : null, filename: key, url: publicUrl, content_type: contentType, size_bytes: bytes.byteLength }, 200, env);
+  return json({ ok: true, media_id:mediaId, media_kind:mediaKind, tenant_id:scope ? Number(scope.tenant_id) : null, platform_id:scope ? Number(scope.platform_id) : null, filename: key, url: publicUrl, content_type: contentType, size_bytes: bytes.byteLength }, 200, env);
 }
 function detectImageContentType(bytes) {
   if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) return 'image/png';
@@ -4307,14 +4508,42 @@ function detectImageContentType(bytes) {
   }
   return '';
 }
-function safeExt(name) {
+function detectGuideMediaContentType(bytes) {
+  const imageType = detectImageContentType(bytes);
+  if (imageType) return imageType;
+  if (bytes.length >= 12 && String.fromCharCode(...bytes.slice(4, 8)) === 'ftyp') return 'video/mp4';
+  if (bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return 'video/webm';
+  return '';
+}
+function safeExt(name, allowMotionMedia = false) {
   const ext = (name.match(/\.[a-z0-9]+$/i)?.[0] || '.png').toLowerCase();
-  if (!['.png','.jpg','.jpeg','.webp','.gif'].includes(ext)) {
-    bad('Only PNG, JPG, JPEG, WebP, and GIF images are allowed', 415, 'UPLOAD_EXTENSION_NOT_ALLOWED');
+  const allowed = ['.png','.jpg','.jpeg','.webp','.gif', ...(allowMotionMedia ? ['.mp4','.webm'] : [])];
+  if (!allowed.includes(ext)) {
+    bad(allowMotionMedia
+      ? 'Only PNG, JPG, JPEG, WebP, GIF, MP4, and WebM Guide media is allowed'
+      : 'Only PNG, JPG, JPEG, WebP, and GIF images are allowed', 415, 'UPLOAD_EXTENSION_NOT_ALLOWED');
   }
   return ext;
 }
-async function serveUpload(request, env, path) { const key = decodeURIComponent(path.replace('/uploads/', '')); const obj = await env.GUIDE_IMAGES.get(key); if (!obj) return new Response('Not found', { status: 404, headers: corsHeaders(env) }); return new Response(obj.body, { headers: { ...corsHeaders(env), 'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000' } }); }
+async function serveUpload(request, env, path) {
+  const key = decodeURIComponent(path.replace('/uploads/', ''));
+  const requestedRange = String(request.headers.get('range') || '');
+  const validRange = /^bytes=\d*-\d*$/.test(requestedRange) ? requestedRange : '';
+  const obj = await env.GUIDE_IMAGES.get(
+    key,
+    validRange && env.GUIDE_IMAGES.supportsHttpRange ? { rangeHeader:validRange } : undefined,
+  );
+  if (!obj) return new Response('Not found', { status: 404, headers: corsHeaders(env) });
+  const headers = {
+    ...corsHeaders(env),
+    'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Accept-Ranges': 'bytes',
+  };
+  if (Number.isFinite(Number(obj.contentLength))) headers['Content-Length'] = String(obj.contentLength);
+  if (obj.contentRange) headers['Content-Range'] = String(obj.contentRange);
+  return new Response(obj.body, { status:obj.contentRange ? 206 : 200, headers });
+}
 
 
 function normalizeForMatch(text) { return String(text || '').toLowerCase().replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[^\p{L}\p{N}\s]+/gu, ' ').replace(/\s+/g,' ').trim(); }

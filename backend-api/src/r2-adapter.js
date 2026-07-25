@@ -25,6 +25,7 @@ export function createR2Adapter(env, options = {}) {
   });
 
   return {
+    supportsHttpRange: true,
     async put(key, body, options = {}) {
       const payload = await toNodeBody(body);
       const contentLength = Number.isFinite(Number(options.contentLength))
@@ -40,14 +41,20 @@ export function createR2Adapter(env, options = {}) {
       }));
       return { key };
     },
-    async get(key) {
+    async get(key, options = {}) {
       try {
-        const result = await client.send(new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: key }));
+        const range = /^bytes=\d*-\d*$/.test(String(options?.rangeHeader || ''))
+          ? String(options.rangeHeader)
+          : undefined;
+        const result = await client.send(new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME, Key: key, Range: range }));
         const body = result.Body?.transformToWebStream ? result.Body.transformToWebStream() : result.Body;
         return {
           body,
           httpMetadata: { contentType: result.ContentType || 'application/octet-stream' },
           etag: result.ETag,
+          contentLength: Number(result.ContentLength),
+          contentRange: result.ContentRange || '',
+          acceptRanges: result.AcceptRanges || 'bytes',
         };
       } catch (error) {
         const status = error?.$metadata?.httpStatusCode;

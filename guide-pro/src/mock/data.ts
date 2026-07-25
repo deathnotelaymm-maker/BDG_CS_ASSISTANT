@@ -67,6 +67,24 @@ export type Guide = {
   summary: string;
   category: string;
   cover: string;
+  coverMedia?: {
+    type: "image" | "gif" | "video";
+    url: string;
+    imageUrl?: string;
+    videoUrl?: string;
+    posterUrl?: string;
+    autoplay?: boolean;
+    loop?: boolean;
+    muted?: boolean;
+    controls?: boolean;
+  };
+  motion?: {
+    enabled: boolean;
+    titleAnimation: string;
+    summaryAnimation: string;
+    contentAnimation: string;
+    intensity: "subtle" | "standard";
+  };
   updatedAt: string;
   status: "draft" | "published" | "archived";
   priority: number;

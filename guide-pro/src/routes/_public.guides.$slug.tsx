@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Calendar, Info, AlertTriangle, LifeBuoy, ArrowRight, Loader2, ExternalLink } from "lucide-react";
 import { api, getPlatformCacheKey, getPublicLanguage } from "@/lib/api";
 import type { GuideBlock } from "@/mock/data";
@@ -30,10 +31,28 @@ export const Route = createFileRoute("/_public/guides/$slug")({
   },
 });
 
+const SAFE_MOTION_PRESETS = new Set(["typewriter", "fade_blur", "slide_bounce", "glitch_flicker", "scribble_draw"]);
+function motionClass(preset: string | undefined, enabled: boolean, intensity: "subtle" | "standard" = "subtle") {
+  const safePreset = SAFE_MOTION_PRESETS.has(String(preset || "")) ? String(preset) : "";
+  return enabled && safePreset ? `guide-motion guide-motion-${safePreset} guide-motion-${intensity}` : "";
+}
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(query.matches);
+    update();
+    query.addEventListener?.("change", update);
+    return () => query.removeEventListener?.("change", update);
+  }, []);
+  return reduced;
+}
+
 function GuideDetail() {
   const { slug } = Route.useParams();
   const lang = getPublicLanguage();
   const platformKey = getPlatformCacheKey();
+  const prefersReducedMotion = useReducedMotion();
   const copy = lang === "hi"
     ? {
         all: "सभी गाइड",
@@ -85,15 +104,48 @@ function GuideDetail() {
 
   const related = allGuides?.filter((g) => guide.relatedGuides?.includes(g.slug) && g.slug !== guide.slug) ?? [];
   const faqs = allFaqs?.filter((f) => guide.relatedFaqs?.includes(f.id)) ?? [];
+  const motionEnabled = guide.motion?.enabled !== false && !prefersReducedMotion;
+  const motionIntensity = guide.motion?.intensity || "subtle";
+  const coverMedia = guide.coverMedia;
 
   return (
     <article className="mx-auto max-w-4xl space-y-7 pb-12">
+      <style>{`
+        .guide-motion { --guide-motion-distance: 12px; animation-duration: .82s; animation-fill-mode: both; animation-timing-function: cubic-bezier(.2,.78,.2,1); }
+        .guide-motion-standard { --guide-motion-distance: 24px; animation-duration: 1s; }
+        .guide-motion-typewriter { animation-name: guide-typewriter; overflow: hidden; }
+        .guide-motion-fade_blur { animation-name: guide-fade-blur; }
+        .guide-motion-slide_bounce { animation-name: guide-slide-bounce; }
+        .guide-motion-glitch_flicker { animation-name: guide-glitch-flicker; animation-duration: 1.8s; }
+        .guide-motion-scribble_draw { animation-name: guide-scribble-draw; }
+        @keyframes guide-typewriter { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+        @keyframes guide-fade-blur { from { opacity: 0; filter: blur(10px); transform: translateY(6px); } to { opacity: 1; filter: blur(0); transform: none; } }
+        @keyframes guide-slide-bounce { 0% { opacity: 0; transform: translateY(var(--guide-motion-distance)); } 70% { opacity: 1; transform: translateY(-4px); } 100% { transform: none; } }
+        @keyframes guide-glitch-flicker { 0% { opacity: 0; transform: translateX(-3px); text-shadow: 2px 0 #d8b235; } 42% { opacity: 1; transform: none; } 48% { opacity: .88; transform: translateX(2px); text-shadow: -2px 0 #d8b235; } 58%, 100% { opacity: 1; transform: none; text-shadow: none; } }
+        @keyframes guide-scribble-draw { from { opacity: .25; clip-path: inset(0 100% 0 0); text-shadow: 0 0 8px currentColor; } to { opacity: 1; clip-path: inset(0); text-shadow: none; } }
+        @media (prefers-reduced-motion: reduce) { .guide-motion { animation: none !important; filter: none !important; transform: none !important; clip-path: none !important; } }
+      `}</style>
       <Link to="/guides" className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> {copy.all}
       </Link>
 
       <header className="overflow-hidden rounded-[2rem] border border-border bg-card shadow-[var(--shadow-card)]">
-        {guide.cover && (
+        {coverMedia?.type === "video" && coverMedia.videoUrl ? (
+          <div className="aspect-[16/7] w-full overflow-hidden bg-black">
+            <video
+              key={coverMedia.videoUrl}
+              src={coverMedia.videoUrl}
+              poster={coverMedia.posterUrl || undefined}
+              autoPlay={coverMedia.autoplay === true && !prefersReducedMotion}
+              loop={coverMedia.loop === true}
+              muted={coverMedia.autoplay === true || coverMedia.muted !== false}
+              controls={coverMedia.controls !== false || prefersReducedMotion}
+              playsInline
+              preload="metadata"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : guide.cover && (
           <div className="aspect-[16/7] w-full overflow-hidden bg-muted">
             <button type="button" className="h-full w-full cursor-zoom-in" onClick={()=>openGuideImage(guide.cover,guide.title)}><img src={guide.cover} alt={guide.title} className="h-full w-full object-cover" /></button>
           </div>
@@ -101,8 +153,8 @@ function GuideDetail() {
         <div className="space-y-4 p-5 md:p-7">
           <Badge className="bg-[color:var(--bdg-navy)] text-white uppercase tracking-wide">{guide.category}</Badge>
           <div>
-            <h1 className="font-display text-3xl font-black leading-tight tracking-tight md:text-5xl">{guide.title}</h1>
-            {guide.summary && <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground md:text-lg">{guide.summary}</p>}
+            <h1 className={`font-display text-3xl font-black leading-tight tracking-tight md:text-5xl ${motionClass(guide.motion?.titleAnimation, motionEnabled, motionIntensity)}`}>{guide.title}</h1>
+            {guide.summary && <p className={`mt-3 max-w-3xl text-base leading-7 text-muted-foreground md:text-lg ${motionClass(guide.motion?.summaryAnimation, motionEnabled, motionIntensity)}`}>{guide.summary}</p>}
           </div>
           <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Calendar className="h-3.5 w-3.5" /> {copy.updated} {guide.updatedAt || ""}
@@ -110,7 +162,7 @@ function GuideDetail() {
         </div>
       </header>
 
-      <section className="rounded-[2rem] border border-border bg-card p-5 shadow-[var(--shadow-card)] md:p-8">
+      <section className={`rounded-[2rem] border border-border bg-card p-5 shadow-[var(--shadow-card)] md:p-8 ${motionClass(guide.motion?.contentAnimation, motionEnabled, motionIntensity)}`}>
         <div className="space-y-5">
           {guide.richDocument ? <RichDocumentView document={guide.richDocument} /> : guide.blocks.map((b, i) => <BlockView key={i} block={b} />)}
         </div>

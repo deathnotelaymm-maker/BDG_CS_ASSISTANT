@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Button,
+  Card,
   Col,
+  Divider,
   Drawer,
   Form,
   Image,
@@ -13,6 +15,7 @@ import {
   Row,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Upload,
@@ -26,6 +29,7 @@ import {
   ReloadOutlined,
   SaveOutlined,
   UploadOutlined,
+  VideoCameraOutlined,
 } from "@ant-design/icons";
 import RichKnowledgeEditor from "@/components/RichKnowledgeEditor";
 import LocalizedHelp from "@/components/LocalizedHelp";
@@ -34,6 +38,14 @@ import { api } from "@/lib/api";
 export const Route = createFileRoute("/_admin/guide-images")({ component: VisualGuideStudio });
 
 const EMPTY_DOC = JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] });
+const ANIMATION_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "typewriter", label: "Typewriter" },
+  { value: "fade_blur", label: "Fade & blur" },
+  { value: "slide_bounce", label: "Slide & bounce" },
+  { value: "glitch_flicker", label: "Glitch & flicker" },
+  { value: "scribble_draw", label: "Scribble & draw" },
+];
 
 function plainText(html: string) {
   if (typeof document === "undefined") return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -72,6 +84,18 @@ function emptyTranslation(locale: Locale) {
     rich_html: "",
     image_urls: [],
     cover_image_url: "",
+    cover_media_type: "image",
+    cover_video_url: "",
+    cover_video_poster_url: "",
+    video_autoplay: false,
+    video_loop: false,
+    video_muted: true,
+    video_controls: true,
+    motion_enabled: true,
+    title_animation: "none",
+    summary_animation: "none",
+    content_animation: "none",
+    motion_intensity: "subtle",
     keywords: "",
     seo_title: "",
     seo_description: "",
@@ -152,6 +176,18 @@ function VisualGuideStudio() {
       seo_description: document.seo_description,
       alt_text: document.alt_text,
       cover_image_url: document.cover_image_url,
+      cover_media_type: document.cover_media_type || "image",
+      cover_video_url: document.cover_video_url || "",
+      cover_video_poster_url: document.cover_video_poster_url || "",
+      video_autoplay: document.video_autoplay === true,
+      video_loop: document.video_loop === true,
+      video_muted: document.video_muted !== false,
+      video_controls: document.video_controls !== false,
+      motion_enabled: document.motion_enabled !== false,
+      title_animation: document.title_animation || "none",
+      summary_animation: document.summary_animation || "none",
+      content_animation: document.content_animation || "none",
+      motion_intensity: document.motion_intensity || "subtle",
       status: document.status || "draft",
     });
   }, [activeLocale, editing, translations, form]);
@@ -181,6 +217,18 @@ function VisualGuideStudio() {
         rich_html: row.body_html,
         image_urls: row.image_urls,
         cover_image_url: row.cover_image_url,
+        cover_media_type: row.cover_media_type || "image",
+        cover_video_url: row.cover_video_url || "",
+        cover_video_poster_url: row.cover_video_poster_url || "",
+        video_autoplay: row.video_autoplay === true,
+        video_loop: row.video_loop === true,
+        video_muted: row.video_muted !== false,
+        video_controls: row.video_controls !== false,
+        motion_enabled: row.motion_enabled !== false,
+        title_animation: row.title_animation || "none",
+        summary_animation: row.summary_animation || "none",
+        content_animation: row.content_animation || "none",
+        motion_intensity: row.motion_intensity || "subtle",
         keywords: row.keywords,
         status: row.status,
       }, locales.find((locale) => locale.code === selected) || { code: selected });
@@ -206,11 +254,27 @@ function VisualGuideStudio() {
   };
   const uploadCover = async (file: File) => {
     try {
-      const url = await uploadImage(file);
-      updateActiveDocument({ cover_image_url: url });
-      form.setFieldValue("cover_image_url", url);
-      message.success("Cover image uploaded");
+      if (!canUploadGuides) throw new Error("Platform owner or platform admin permission is required to upload Guide media");
+      const uploaded: any = await api.uploadGuideMotion(file);
+      if (uploaded.media_kind === "video") {
+        updateActiveDocument({ cover_media_type: "video", cover_video_url: uploaded.url, video_autoplay: true, video_loop: true, video_muted: true });
+        form.setFieldsValue({ cover_media_type: "video", cover_video_url: uploaded.url, video_autoplay: true, video_loop: true, video_muted: true });
+      } else {
+        const type = uploaded.media_kind === "gif" ? "gif" : "image";
+        updateActiveDocument({ cover_media_type: type, cover_image_url: uploaded.url });
+        form.setFieldsValue({ cover_media_type: type, cover_image_url: uploaded.url });
+      }
+      message.success(`${uploaded.media_kind === "video" ? "Video" : uploaded.media_kind === "gif" ? "GIF" : "Image"} cover uploaded`);
     } catch (error: any) { message.error(error?.message || "Upload failed"); }
+    return false;
+  };
+  const uploadPoster = async (file: File) => {
+    try {
+      const url = await uploadImage(file);
+      updateActiveDocument({ cover_video_poster_url: url });
+      form.setFieldValue("cover_video_poster_url", url);
+      message.success("Video poster uploaded");
+    } catch (error: any) { message.error(error?.message || "Poster upload failed"); }
     return false;
   };
 
@@ -314,9 +378,9 @@ function VisualGuideStudio() {
     </div>
     {access && !canUploadGuides && <Alert showIcon type="warning" style={{ marginBottom: 12 }} message="Guide editing is read-only for this account" description="Ask a tenant owner, tenant admin, platform owner, or platform admin to upload, edit, publish, or remove Guide content." />}
     <LocalizedHelp copies={{
-      en: { title: "Guide Locale Studio", body: "Guide content is independent for every enabled platform language. Add any BCP-47 locale in Locale Studio, then create, edit, and publish that guide variant here. A missing translation is never replaced with Hindi, another platform, or BDG content.", bullets: ["Each locale has its own title, rich text, images, SEO fields, and publication state.", "Publishing the first locale activates the parent Guide automatically; the table shows partial or complete publication.", "Tenant owners/admins and platform owners/admins can upload their own Guide images safely inside this platform."] },
-      zh: { title: "指南语言工作室", body: "每个平台语言的指南内容独立保存。先在语言工作室添加 BCP-47 语言代码，再在这里创建、编辑和发布对应的指南版本。缺少翻译时不会回退到印地语、其他平台或 BDG 内容。", bullets: ["每种语言都有独立的标题、富文本、图片、SEO 字段和发布状态。", "发布第一个语言版本后，系统会自动启用父级指南；列表会显示部分发布或全部发布。", "租户所有者/管理员和平台所有者/管理员可在当前平台内安全上传指南图片。"] },
-      my: { title: "Guide Locale Studio", body: "Platform တွင် ဖွင့်ထားသော ဘာသာတိုင်းအတွက် Guide အကြောင်းအရာကို သီးခြားသိမ်းဆည်းသည်။ Locale Studio တွင် BCP-47 locale code ထည့်ပြီး ဤနေရာတွင် သက်ဆိုင်ရာ Guide variant ကို ဖန်တီး၊ ပြင်ဆင်၊ ထုတ်ဝေပါ။ ဘာသာပြန်မရှိလျှင် Hindi၊ အခြား platform သို့မဟုတ် BDG အကြောင်းအရာသို့ fallback မလုပ်ပါ။", bullets: ["ဘာသာတစ်ခုချင်းစီတွင် title၊ rich text၊ ပုံ၊ SEO field နှင့် publish state သီးခြားရှိသည်။", "ပထမ locale ကို publish လုပ်သည်နှင့် parent Guide ကို အလိုအလျောက် ဖွင့်ပေးပြီး partial သို့မဟုတ် complete publication ကို စာရင်းတွင် ပြမည်။", "Tenant owner/admin နှင့် platform owner/admin များသည် ဤ platform အတွင်း Guide ပုံများကို လုံခြုံစွာ upload လုပ်နိုင်သည်။"] },
+      en: { title: "Advanced Visual Guide Studio", body: "Guide content and motion settings are independent for every enabled platform language. Upload images, playable GIF covers, or MP4/WebM video covers, then select safe text-animation presets. A missing translation is never replaced with another platform or BDG content.", bullets: ["Autoplay video is always muted so modern browsers can play it; loop and player controls are independent options.", "Typewriter, fade & blur, slide & bounce, glitch & flicker, and scribble & draw are allowlisted presets—custom scripts are never accepted.", "Visitors who prefer reduced motion receive a still, accessible experience while the Guide content remains available."] },
+      zh: { title: "高级可视化指南工作室", body: "每个平台语言的指南内容和动态设置都独立保存。您可以上传图片、可播放的 GIF 封面或 MP4/WebM 视频封面，并选择安全的文字动画预设。缺少翻译时绝不会回退到其他平台或 BDG 内容。", bullets: ["自动播放视频会强制静音，以符合现代浏览器规则；循环播放和播放器控制可分别设置。", "打字机、淡入模糊、滑入弹跳、故障闪烁、手写绘制均为安全白名单预设，不接受自定义脚本。", "当访客启用“减少动态效果”时，页面会自动使用静态、可访问的显示方式。"] },
+      my: { title: "အဆင့်မြင့် Visual Guide Studio", body: "Platform တွင် ဖွင့်ထားသော ဘာသာတစ်ခုချင်းစီအတွက် Guide အကြောင်းအရာနှင့် motion setting များကို သီးခြားသိမ်းဆည်းသည်။ ပုံ၊ လှုပ်ရှားသည့် GIF cover သို့မဟုတ် MP4/WebM video cover တင်ပြီး လုံခြုံသော စာသား animation preset ကို ရွေးနိုင်သည်။ ဘာသာပြန်မရှိလျှင် အခြား platform သို့မဟုတ် BDG အကြောင်းအရာသို့ fallback မလုပ်ပါ။", bullets: ["Browser များတွင် autoplay အလုပ်လုပ်စေရန် video ကို muted အဖြစ် အလိုအလျောက်ထားပြီး loop နှင့် controls ကို သီးခြားရွေးနိုင်သည်။", "Typewriter၊ fade & blur၊ slide & bounce၊ glitch & flicker နှင့် scribble & draw တို့သည် ခွင့်ပြုထားသော preset များသာဖြစ်ပြီး custom script များကို လက်မခံပါ။", "Reduced motion ကို သုံးသော visitor များအတွက် animation ကို ရပ်ပြီး Guide အကြောင်းအရာကို ရှင်းလင်းစွာ ဆက်လက်ပြသမည်။"] },
     }} />
     <Table rowKey="id" loading={loading} dataSource={rows} pagination={{ pageSize: 20 }} columns={[
       { title: "Guide", render: (_: any, row: any) => <div><b>{row.title}</b><div style={{ color: "#8ea0bd", fontSize: 12 }}>{row.slug}</div></div> },
@@ -344,8 +408,41 @@ function VisualGuideStudio() {
         <RichKnowledgeEditor value={editorJson} onChange={(json, html) => { setEditorJson(json); setEditorHtml(html); updateActiveDocument({ rich_json: json, rich_html: html, body: plainText(html) }); }} uploadImage={uploadImage} />
         <Row gutter={12} style={{ marginTop: 14 }}>
           <Col xs={24} md={12}><Form.Item name="keywords" label="Search keywords"><Input placeholder="deposit, pending, recharge" onChange={(event) => updateActiveDocument({ keywords: event.target.value })} /></Form.Item></Col>
-          <Col xs={24} md={12}><Form.Item name="cover_image_url" label={`${localeName(locales.find((locale) => locale.code === activeLocale) || { code: activeLocale })} cover image`}><Input addonAfter={<Upload disabled={!canUploadGuides} showUploadList={false} beforeUpload={uploadCover}><Button disabled={!canUploadGuides} size="small" icon={<UploadOutlined />}>Upload</Button></Upload>} onChange={(event) => updateActiveDocument({ cover_image_url: event.target.value })} /></Form.Item>{activeDocument.cover_image_url && <Image src={activeDocument.cover_image_url} width={220} />}</Col>
         </Row>
+        <Divider orientation="left">Motion media cover</Divider>
+        <Card size="small" style={{ marginBottom: 16 }}>
+          <Alert showIcon type="info" style={{ marginBottom: 14 }} message="Image, animated GIF, or video cover" description="GIF covers play naturally. Video accepts MP4 or WebM. When Autoplay is enabled, Muted is locked on to satisfy browser autoplay rules." />
+          <Row gutter={12}>
+            <Col xs={24} md={8}><Form.Item name="cover_media_type" label="Cover media type"><Select options={[{ value: "image", label: "Image" }, { value: "gif", label: "Animated GIF" }, { value: "video", label: "Video" }]} onChange={(value) => updateActiveDocument({ cover_media_type: value })} /></Form.Item></Col>
+            {activeDocument.cover_media_type === "video" ? <>
+              <Col xs={24} md={16}><Form.Item name="cover_video_url" label="Video URL"><Input addonAfter={<Upload accept="video/mp4,video/webm" disabled={!canUploadGuides} showUploadList={false} beforeUpload={uploadCover}><Button disabled={!canUploadGuides} size="small" icon={<VideoCameraOutlined />}>Upload video</Button></Upload>} onChange={(event) => updateActiveDocument({ cover_video_url: event.target.value })} /></Form.Item></Col>
+              <Col xs={24} md={12}><Form.Item name="cover_video_poster_url" label="Video poster image"><Input addonAfter={<Upload accept="image/png,image/jpeg,image/webp" disabled={!canUploadGuides} showUploadList={false} beforeUpload={uploadPoster}><Button disabled={!canUploadGuides} size="small" icon={<UploadOutlined />}>Upload poster</Button></Upload>} onChange={(event) => updateActiveDocument({ cover_video_poster_url: event.target.value })} /></Form.Item></Col>
+              <Col xs={24} md={12}>
+                {activeDocument.cover_video_url && <video key={activeDocument.cover_video_url} src={activeDocument.cover_video_url} poster={activeDocument.cover_video_poster_url || undefined} autoPlay={activeDocument.video_autoplay === true} loop={activeDocument.video_loop === true} muted playsInline controls style={{ width: "100%", maxHeight: 260, borderRadius: 12, background: "#050a13" }} />}
+              </Col>
+            </> : <>
+              <Col xs={24} md={16}><Form.Item name="cover_image_url" label={activeDocument.cover_media_type === "gif" ? "Animated GIF URL" : "Cover image URL"}><Input addonAfter={<Upload accept={activeDocument.cover_media_type === "gif" ? "image/gif" : "image/png,image/jpeg,image/webp,image/gif"} disabled={!canUploadGuides} showUploadList={false} beforeUpload={uploadCover}><Button disabled={!canUploadGuides} size="small" icon={<UploadOutlined />}>Upload</Button></Upload>} onChange={(event) => updateActiveDocument({ cover_image_url: event.target.value })} /></Form.Item></Col>
+              <Col xs={24}>{activeDocument.cover_image_url && <Image src={activeDocument.cover_image_url} width={320} preview />}</Col>
+            </>}
+          </Row>
+          {activeDocument.cover_media_type === "video" && <Row gutter={12}>
+            <Col xs={12} md={6}><Form.Item name="video_autoplay" label="Autoplay" valuePropName="checked"><Switch onChange={(checked) => { updateActiveDocument({ video_autoplay: checked, ...(checked ? { video_muted: true } : {}) }); if (checked) form.setFieldValue("video_muted", true); }} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item name="video_loop" label="Loop" valuePropName="checked"><Switch onChange={(checked) => updateActiveDocument({ video_loop: checked })} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item name="video_muted" label="Muted" valuePropName="checked"><Switch disabled={activeDocument.video_autoplay === true} onChange={(checked) => updateActiveDocument({ video_muted: checked })} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item name="video_controls" label="Player controls" valuePropName="checked"><Switch onChange={(checked) => updateActiveDocument({ video_controls: checked })} /></Form.Item></Col>
+          </Row>}
+        </Card>
+        <Divider orientation="left">Text motion</Divider>
+        <Card size="small" style={{ marginBottom: 16 }}>
+          <Row gutter={12}>
+            <Col xs={24} md={6}><Form.Item name="motion_enabled" label="Enable text motion" valuePropName="checked"><Switch onChange={(checked) => updateActiveDocument({ motion_enabled: checked })} /></Form.Item></Col>
+            <Col xs={24} md={6}><Form.Item name="motion_intensity" label="Motion intensity"><Select options={[{ value: "subtle", label: "Subtle · recommended" }, { value: "standard", label: "Standard" }]} onChange={(value) => updateActiveDocument({ motion_intensity: value })} /></Form.Item></Col>
+            <Col xs={24} md={6}><Form.Item name="title_animation" label="Title animation"><Select options={ANIMATION_OPTIONS} onChange={(value) => updateActiveDocument({ title_animation: value })} /></Form.Item></Col>
+            <Col xs={24} md={6}><Form.Item name="summary_animation" label="Summary animation"><Select options={ANIMATION_OPTIONS} onChange={(value) => updateActiveDocument({ summary_animation: value })} /></Form.Item></Col>
+            <Col xs={24} md={6}><Form.Item name="content_animation" label="Guide content animation"><Select options={ANIMATION_OPTIONS} onChange={(value) => updateActiveDocument({ content_animation: value })} /></Form.Item></Col>
+          </Row>
+          <div style={{ color: "#8ea0bd", fontSize: 12 }}>Animations run once when the Guide opens. Reduced-motion visitors receive no text animation, and the glitch preset uses a restrained, low-frequency effect.</div>
+        </Card>
         <Row gutter={12}>
           <Col xs={24} md={8}><Form.Item name="status" label="Locale status"><Select options={["draft", "published", "archived"].map((value) => ({ value, label: value }))} onChange={(value) => updateActiveDocument({ status: value })} /></Form.Item></Col>
           <Col xs={24} md={8}><Form.Item name="priority" label="Sort order"><InputNumber min={1} max={9999} style={{ width: "100%" }} /></Form.Item></Col>

@@ -372,6 +372,16 @@ function normalizeGuide(row: any): mock.Guide {
   );
   const bodyHtml = tr?.body_html || row?.body_html || "";
   const bodyText = tr?.body || row?.body || row?.content || bodyHtml || "";
+  const coverMediaRaw = tr?.cover_media || row?.cover_media || {};
+  const coverMediaType = ["image", "gif", "video"].includes(String(coverMediaRaw.type || row?.cover_media_type))
+    ? String(coverMediaRaw.type || row?.cover_media_type) as "image" | "gif" | "video"
+    : /\.gif(?:$|\?)/i.test(String(tr?.cover_image_url || row?.cover_image_url || ""))
+      ? "gif"
+      : "image";
+  const coverImageUrl = text(coverMediaRaw.image_url || tr?.cover_image_url || row?.cover_image_url || row?.cover || row?.thumbnail || imgs[0], "");
+  const coverVideoUrl = text(coverMediaRaw.video_url || tr?.cover_video_url || row?.cover_video_url, "");
+  const posterUrl = text(coverMediaRaw.poster_url || tr?.cover_video_poster_url || row?.cover_video_poster_url, "");
+  const motionRaw = tr?.motion || row?.motion || {};
   return {
     id: String(row?.id ?? slug),
     slug,
@@ -381,10 +391,25 @@ function normalizeGuide(row: any): mock.Guide {
       "Step-by-step official guide.",
     ),
     category: text(row?.category || row?.category_name || row?.category_slug, "Guide"),
-    cover: text(
-      tr?.cover_image_url || row?.cover || row?.cover_image_url || row?.thumbnail || imgs[0],
-      "",
-    ),
+    cover: coverMediaType === "video" ? posterUrl : coverImageUrl,
+    coverMedia: {
+      type: coverMediaType,
+      url: coverMediaType === "video" ? coverVideoUrl : coverImageUrl,
+      imageUrl: coverImageUrl,
+      videoUrl: coverVideoUrl,
+      posterUrl,
+      autoplay: coverMediaType === "video" && (coverMediaRaw.autoplay === true || row?.video_autoplay === true),
+      loop: coverMediaType === "video" && (coverMediaRaw.loop === true || row?.video_loop === true),
+      muted: coverMediaRaw.muted !== false && row?.video_muted !== false,
+      controls: coverMediaRaw.controls !== false && row?.video_controls !== false,
+    },
+    motion: {
+      enabled: motionRaw.enabled !== false && row?.motion_enabled !== false,
+      titleAnimation: text(motionRaw.title_animation || row?.title_animation, "none"),
+      summaryAnimation: text(motionRaw.summary_animation || row?.summary_animation, "none"),
+      contentAnimation: text(motionRaw.content_animation || row?.content_animation, "none"),
+      intensity: (motionRaw.intensity || row?.motion_intensity) === "standard" ? "standard" : "subtle",
+    },
     updatedAt: text(row?.updatedAt || row?.updated_at || row?.created_at, ""),
     status: row?.status === "draft" || row?.status === "archived" ? row.status : "published",
     priority: Number(row?.priority ?? row?.sort_order ?? 100),

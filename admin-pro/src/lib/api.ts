@@ -704,6 +704,14 @@ export const api = {
     return uploadAdminFile(file, "/admin/guide-uploads");
   },
 
+  uploadGuideMotion: async (file: File) => {
+    if (MOCK_MODE) {
+      const media_kind = file.type.startsWith("video/") ? "video" : file.type === "image/gif" ? "gif" : "image";
+      return delay({ url: URL.createObjectURL(file), media_id: Date.now(), media_kind, content_type: file.type, size_bytes: file.size });
+    }
+    return uploadAdminFile(file, "/admin/guide-motion-uploads");
+  },
+
   testAiContent: async (message: string, language = "en", platform_key = "default") => {
     if (MOCK_MODE)
       return delay({ ok: true, selected_content: null, candidates: [], greeting_bypass: false });
