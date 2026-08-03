@@ -1,0 +1,4 @@
+BDG CS ASSISTANT
+v1.15.4-r2 Admin Prompt Manager Typecheck Hotfix
+
+This marker confirms that the corrected Prompt Manager TypeScript runtime-snapshot typing was copied into this source tree.

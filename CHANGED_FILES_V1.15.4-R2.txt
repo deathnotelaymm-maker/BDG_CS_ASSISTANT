@@ -1,0 +1,17 @@
+v1.15.4-r2 — Admin Prompt Manager Typecheck Hotfix
+
+Application source
+- admin-pro/src/routes/_admin.ai-prompt-manager.tsx
+
+Release package and repository documentation
+- CHANGED_FILES_V1.15.4-R2.txt
+- DEPLOYMENT_CHECKLIST_V1.15.4-R2.md
+- INSTALL-V1.15.4-R2-ADMIN-TYPECHECK-HOTFIX.cmd
+- MANIFEST_V1.15.4-R2.json
+- README-V1.15.4-R2.txt
+- RELEASE_NOTES_V1.15.4-R2.md
+- START-HERE-V1.15.4-R2-ADMIN-TYPECHECK-HOTFIX.bat
+- START-HERE-WINDOWS.bat
+- TECHNICAL_ANALYSIS_V1.15.4-R2.md
+- TEST_RESULT_V1.15.4-R2.md
+- V1.15.4_R2_ADMIN_TYPECHECK_HOTFIX_INSTALLED.txt

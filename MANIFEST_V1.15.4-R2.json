@@ -1,0 +1,26 @@
+{
+  "release": "v1.15.4-r2",
+  "application_version": "1.15.4",
+  "title": "Admin Prompt Manager Typecheck Hotfix",
+  "supersedes": "BDG-v1154-prompt-runtime-versioning-repair.zip",
+  "requires": "v1.15.4 Prompt Runtime and Versioning Repair",
+  "migration": null,
+  "source_change_count": 1,
+  "source_changes": [
+    "admin-pro/src/routes/_admin.ai-prompt-manager.tsx"
+  ],
+  "fixed_errors": [
+    "TS2339: Property 'clipped' does not exist on type '{}'.",
+    "TS2339: Property 'hash' does not exist on type '{}'."
+  ],
+  "verification": {
+    "old_inference_reproduction": "2/2 expected TS2339 errors reproduced",
+    "corrected_inference_typecheck": "passed with TypeScript 5.8.3",
+    "changed_tsx_syntax_transpile": "passed with TypeScript 5.8.3",
+    "full_admin_dependency_build": "deferred to GitHub Actions because the local npm registry returned EAI_AGAIN",
+    "backend_syntax": "passed",
+    "source_regressions": "62/62 passed",
+    "ai_reliability": "6/6 passed",
+    "prompt_runtime": "5/5 passed"
+  }
+}

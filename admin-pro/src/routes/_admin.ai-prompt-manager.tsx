@@ -35,6 +35,16 @@ export const Route = createFileRoute("/_admin/ai-prompt-manager")({
   component: PromptManagerPage,
 });
 
+type PromptRuntimeSectionSnapshot = {
+  id: number;
+  section_key: string;
+  title: string;
+  content: string;
+  priority: number;
+  clipped: boolean;
+  hash: string;
+};
+
 const DEFAULT_SECTIONS = [
   "Role",
   "Job",
@@ -110,10 +120,14 @@ function PromptManagerPage() {
 
   const runtime = runtimeData?.runtime;
   const warningCount = runtime?.warnings?.filter((item: any) => item.severity === "warning").length || 0;
-  const sectionRuntime = useMemo(
-    () => new Map((runtime?.section_snapshot || []).map((item: any) => [Number(item.id), item])),
-    [runtime],
-  );
+  const sectionRuntime = useMemo(() => {
+    const snapshot: PromptRuntimeSectionSnapshot[] = Array.isArray(runtime?.section_snapshot)
+      ? runtime.section_snapshot
+      : [];
+    return new Map<number, PromptRuntimeSectionSnapshot>(
+      snapshot.map((item) => [Number(item.id), item]),
+    );
+  }, [runtime]);
 
   const openEdit = (section: any) => {
     setEditing(section);
