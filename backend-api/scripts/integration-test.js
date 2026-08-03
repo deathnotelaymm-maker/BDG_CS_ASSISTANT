@@ -123,7 +123,7 @@ try {
   const isolatedTenant = (await database.query(`INSERT INTO saas_tenants(tenant_key,name,status,default_locale)
     VALUES('integration-isolated','Integration Isolated','active','en') RETURNING id`)).rows[0];
   const isolatedPlatform = (await database.query(`INSERT INTO saas_platforms(tenant_id,platform_key,public_route_key,name,default_locale,supported_languages,support_mode,legacy_support_platform_key,status)
-    VALUES($1,'isolated','integration-isolated-route','Integration Isolated','en','["en"]','none','integration-isolated','active') RETURNING public_route_key`, [isolatedTenant.id])).rows[0];
+    VALUES($1,'isolated','p-integration-isolated-1a2b3c4d5e','Integration Isolated','en','["en"]','none','integration-isolated','active') RETURNING public_route_key`, [isolatedTenant.id])).rows[0];
   const isolatedFaqs = expectStatus(await call('/admin/faqs', { platformRoute:isolatedPlatform.public_route_key }), 200, 'Read isolated platform FAQs');
   assert.equal(isolatedFaqs.some((row) => Number(row.id) === Number(createdFaq.id)), false, 'Platform-scoped API must not leak FAQ rows');
 
