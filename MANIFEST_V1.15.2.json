@@ -2,6 +2,7 @@
   "release": "v1.15.2",
   "marker": "1.15.2-ai-response-reliability-repair",
   "title": "AI Response Reliability Repair",
+  "package_revision": "r2",
   "previous_release": "v1.15.1",
   "migration": "backend-api/migrations/034_v1.15.2_ai_response_reliability_repair.sql",
   "installer_target": "C:\\Users\\LENOVO\\Documents\\cloud-projects\\BDG_CS_ASSISTANT",
@@ -12,7 +13,7 @@
     "database_or_network_outage_can_be_guaranteed": false
   },
   "verification": {
-    "source_regressions": "49/49",
+    "source_regressions": "50/50",
     "chat_reliability": "4/4",
     "upload": "9/9",
     "typecheck_apps": 3,
