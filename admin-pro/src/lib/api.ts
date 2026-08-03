@@ -770,7 +770,7 @@ export const api = {
     return request("/admin/locale-studio/translations", { method: "POST", body: JSON.stringify({ source_id, target_locale }) });
   },
   getAiSourceRouter: async () => {
-    if (MOCK_MODE) return delay({ ok: true, enabled: true, prompt_manager_enabled: true, source_order: ["prompt_image", "qa", "faq", "guide", "knowledge"], locale_strategy: "exact_then_base", max_candidates: 80, source_counts: {} });
+    if (MOCK_MODE) return delay({ ok: true, enabled: true, prompt_manager_enabled: true, source_order: ["prompt_image", "qa", "faq", "guide", "knowledge"], locale_strategy: "exact_then_default", max_candidates: 80, source_counts: {} });
     return request("/admin/ai-source-router");
   },
   updateAiSourceRouter: async (data: { enabled: boolean; prompt_manager_enabled: boolean; source_order: string[]; enabled_sources?: string[]; locale_strategy: string; max_candidates: number }) => {

@@ -113,14 +113,16 @@ function ChatLogsPage() {
                 </Typography.Text>
                 <Tag
                   color={
-                    row.provider_status === "success"
+                    row.response_status === "degraded"
+                      ? "warning"
+                      : row.provider_status === "success"
                       ? "success"
                       : row.provider_status === "error"
                         ? "error"
                         : "warning"
                   }
                 >
-                  {row.provider_status === "success" ? "AI Success" : row.provider_status === "fallback" ? "Local Fallback" : row.provider_status === "error" ? "Provider Error" : row.provider_status}
+                  {row.response_status === "degraded" ? `Degraded · ${row.resolution_path || "safe fallback"}` : row.provider_status === "success" ? "AI Success" : row.provider_status === "fallback" ? "Local Response" : row.provider_status === "error" ? "Provider Error" : row.provider_status}
                 </Tag>
                 <Typography.Text type="secondary">{row.created_at}</Typography.Text>
               </Space>
@@ -154,6 +156,9 @@ function ChatLogsPage() {
                       <Tag>Intent: {row.user_intent || row.intent_id || "—"}</Tag>
                       <Tag>Confidence: {row.confidence == null ? "—" : `${row.confidence}%`}</Tag>
                       <Tag color="purple">Platform: {row.platform_key || "default"}</Tag>
+                      <Tag color={row.response_status === "degraded" ? "orange" : "green"}>Response: {row.response_status || "success"}</Tag>
+                      <Tag>Path: {row.resolution_path || "—"}</Tag>
+                      <Tag>Provider attempts: {row.provider_attempts || 0}</Tag>
                       {row.import_batch_id ? <Tag color="cyan">Import batch: {row.import_batch_id}</Tag> : null}
                     </div>
                     {row.desired_outcome && <Typography.Paragraph style={{marginTop:8,marginBottom:0}}><b>Desired outcome:</b> {row.desired_outcome}</Typography.Paragraph>}

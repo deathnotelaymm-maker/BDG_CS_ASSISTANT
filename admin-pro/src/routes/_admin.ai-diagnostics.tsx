@@ -63,13 +63,15 @@ function DiagnosticsPage() {
         <Card className="bdg-card" title="Recent AI Errors & Fallbacks" size="small">
           <Table rowKey={(r:any)=>r.id || r.request_id || r.error_type} className="bdg-table" size="small" dataSource={d.recentErrors || []} pagination={{pageSize:10}} columns={[
             {title:"Time",dataIndex:"created_at",width:190},
-            {title:"Result",render:(_:any,r:any)=><Tag color={r.provider_status === "error" ? "error" : "warning"}>{r.provider_status || r.error_type || "warning"}</Tag>},
+            {title:"Result",render:(_:any,r:any)=><Tag color={r.response_status === "degraded" ? "warning" : r.provider_status === "error" ? "error" : "success"}>{r.response_status || r.provider_status || r.error_type || "unknown"}</Tag>},
+            {title:"Resolution path",dataIndex:"resolution_path",render:(v:string)=>v || "—"},
+            {title:"Attempts",dataIndex:"provider_attempts",render:(v:number)=>Number(v || 0)},
             {title:"Member asked",dataIndex:"customer_message",ellipsis:true},
             {title:"Intent",dataIndex:"intent_id",render:(v:string)=>v || "—"},
             {title:"Platform",dataIndex:"platform_key",render:(v:string)=>v || "default"},
             {title:"Import",dataIndex:"import_batch_id",render:(v:number)=>v || "—"},
             {title:"Confidence",dataIndex:"confidence",render:(v:number)=>v == null ? "—" : `${v}%`},
-            {title:"Error",render:(_:any,r:any)=><Typography.Text copyable={{text:r.error_detail || r.error_type || ""}}>{r.error_type || r.error_detail || "—"}</Typography.Text>},
+            {title:"Reason",render:(_:any,r:any)=><Typography.Text copyable={{text:r.degraded_reason || r.error_type || r.error_detail || ""}}>{r.degraded_reason || r.error_type || r.error_detail || "—"}</Typography.Text>},
             {title:"Request ID",dataIndex:"request_id",ellipsis:true,render:(v:string)=><Typography.Text copyable>{v || "—"}</Typography.Text>},
           ]}/>
         </Card>

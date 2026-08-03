@@ -81,6 +81,7 @@ jobs:
           npm --prefix backend-api run test:regression
           npm --prefix backend-api run test:knowledge-import
           npm --prefix backend-api run test:security
+          npm --prefix backend-api run test:chat-reliability
           npm --prefix backend-api run test:structured
           npm --prefix backend-api run test:upload
           npm --prefix backend-api run test:integration

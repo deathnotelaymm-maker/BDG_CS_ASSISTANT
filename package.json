@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-center-business-platform",
-  "version": "1.15.1",
+  "version": "1.15.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
     "typecheck:all": "npm run typecheck:admin && npm run typecheck:chat && npm run typecheck:guide",
     "check:backend": "npm --prefix backend-api run check",
     "test:regression": "npm --prefix backend-api run test:regression",
+    "test:chat-reliability": "npm --prefix backend-api run test:chat-reliability",
     "test:integration": "npm --prefix backend-api run test:integration"
   }
 }

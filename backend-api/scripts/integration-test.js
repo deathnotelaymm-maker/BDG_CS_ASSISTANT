@@ -6,6 +6,9 @@ import api, { closeDatabasePools, runMigrations } from '../src/core.js';
 const { Pool } = pg;
 const ADMIN_ORIGIN = 'https://admin.example.test';
 const SHARED_CHAT_ORIGIN = 'https://bdg-chat-pages.pages.dev';
+const originalFetch = globalThis.fetch;
+let providerMode = 'success';
+let selectedSourceId = 0;
 const connectionString = String(process.env.TEST_DATABASE_URL || '').trim();
 if (!connectionString) throw new Error('TEST_DATABASE_URL is required. Integration tests never fall back to DATABASE_URL.');
 
@@ -28,13 +31,31 @@ const env = {
   ADMIN_PASSWORD: 'Integration-Test-Password-2026!',
   JWT_SECRET: 'integration-test-jwt-secret-at-least-32-characters-long',
   ALLOWED_ORIGINS: ADMIN_ORIGIN,
-  AI_MODE_ENABLED: 'false',
-  DEEPSEEK_API_KEY: '',
+  AI_MODE_ENABLED: 'true',
+  DEEPSEEK_API_KEY: 'integration-test-provider-key',
+  DEEPSEEK_API_BASE: 'https://deepseek.integration.test',
   R2_REQUIRED: false,
   GUIDE_IMAGES: null,
   RATE_LIMIT_WINDOW_MS: 60_000,
   RATE_LIMIT_CHAT: 10_000,
   RATE_LIMIT_LOGIN: 10_000,
+};
+
+globalThis.fetch = async (input, init = {}) => {
+  const url = typeof input === 'string' ? input : input?.url;
+  if (!String(url || '').startsWith('https://deepseek.integration.test/')) return originalFetch(input, init);
+  if (providerMode === 'outage') return new Response(JSON.stringify({ error:{ message:'simulated provider outage' } }), { status:503, headers:{ 'Content-Type':'application/json' } });
+  const request = JSON.parse(String(init.body || '{}'));
+  const systemPrompt = String(request.messages?.[0]?.content || '');
+  if (systemPrompt.includes('AI Meaning Judge')) {
+    return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ decision:'match', item_id:selectedSourceId, confidence:96, user_intent:'integration test', desired_outcome:'verified answer', clarification_question:'', reason:'Matched the integration source', tool_call:null }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
+  }
+  if (providerMode === 'composer_fail') return new Response(JSON.stringify({ error:{ message:'simulated composer outage' } }), { status:503, headers:{ 'Content-Type':'application/json' } });
+  const userMessage = String(request.messages?.[1]?.content || '');
+  const localizedReply = userMessage.includes('Customer message: Integration duplicate intent') && systemPrompt.includes('requested locale (id)')
+    ? 'Jawaban terverifikasi'
+    : 'Verified answer';
+  return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ reply:localizedReply, blocks:[{ type:'paragraph', text:localizedReply }] }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
 };
 
 let database;
@@ -96,6 +117,10 @@ try {
   platform = (await database.query(`SELECT id,tenant_id,public_route_key FROM saas_platforms
     WHERE archived_at IS NULL AND status='active' ORDER BY id LIMIT 1`)).rows[0];
   assert.ok(platform?.public_route_key, 'Bootstrap must create an active routed platform');
+  await database.query(`UPDATE saas_platforms SET supported_languages='["en","id"]' WHERE id=$1`, [platform.id]);
+  await database.query(`INSERT INTO platform_locales(tenant_id,platform_id,locale,display_name,native_name,direction,is_default,is_enabled)
+    VALUES($1,$2,'id','Indonesian','Bahasa Indonesia','ltr',FALSE,TRUE)
+    ON CONFLICT(platform_id,locale) DO UPDATE SET is_enabled=TRUE`, [platform.tenant_id,platform.id]);
 
   const unsafeHtml = '<p>Verified answer</p><img src="https://cdn.example.test/help.png" onerror="alert(1)"><a href="javascript:alert(2)">bad</a><script>alert(3)</script>';
   const createdFaq = expectStatus(await call('/admin/faqs', {
@@ -103,6 +128,7 @@ try {
     body:{ question:'Integration duplicate intent', answer:'Verified answer', answer_html:unsafeHtml, locale:'en', status:'published' },
   }), 200, 'Create sanitized FAQ');
   assert.ok(createdFaq.id);
+  selectedSourceId = -(1000000 + Number(createdFaq.id));
   assert.doesNotMatch(createdFaq.answer_html, /script|onerror|javascript:/i);
   const storedFaq = (await database.query('SELECT answer_html FROM faqs WHERE id=$1', [createdFaq.id])).rows[0];
   assert.doesNotMatch(storedFaq.answer_html, /script|onerror|javascript:/i);
@@ -127,6 +153,39 @@ try {
   const isolatedFaqs = expectStatus(await call('/admin/faqs', { platformRoute:isolatedPlatform.public_route_key }), 200, 'Read isolated platform FAQs');
   assert.equal(isolatedFaqs.some((row) => Number(row.id) === Number(createdFaq.id)), false, 'Platform-scoped API must not leak FAQ rows');
 
+  const localGreeting = expectStatus(await call('/chat', {
+    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
+    body:{ message:'halo', language:'id', platform_key:platform.public_route_key, session_id:'integration-local-greeting' },
+  }), 200, 'Return an Indonesian local greeting without provider dependency');
+  assert.equal(localGreeting.response_status, 'success');
+  assert.equal(localGreeting.resolution_path, 'local_conversation');
+  assert.match(localGreeting.reply, /Halo/i);
+  assert.equal(localGreeting.response_blocks.some((block) => block.type === 'error'), false);
+
+  const localizedAiAnswer = expectStatus(await call('/chat', {
+    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
+    body:{ message:'Integration duplicate intent', language:'id', platform_key:platform.public_route_key, session_id:'integration-id-answer' },
+  }), 200, 'Use default-locale verified content for an Indonesian AI answer');
+  assert.equal(localizedAiAnswer.response_status, 'success');
+  assert.equal(localizedAiAnswer.language, 'id');
+  assert.match(localizedAiAnswer.reply, /Jawaban terverifikasi/);
+
+  providerMode = 'composer_fail';
+  const verifiedFallback = expectStatus(await call('/chat', {
+    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
+    body:{ message:'Integration duplicate intent', language:'en', platform_key:platform.public_route_key, session_id:'integration-provider-fallback' },
+  }), 200, 'Return verified source content when the composer provider fails');
+  assert.equal(verifiedFallback.response_status, 'degraded');
+  assert.equal(verifiedFallback.resolution_path, 'verified_source_fallback');
+  assert.match(verifiedFallback.reply, /Verified answer/);
+  assert.equal(verifiedFallback.response_blocks.some((block) => block.type === 'error'), false);
+  assert.equal(Object.hasOwn(verifiedFallback, 'provider_error'), false, 'Public chat must not expose provider details');
+  const fallbackLog = (await database.query(`SELECT response_status,resolution_path,degraded_reason,provider_attempts FROM chat_logs WHERE session_id='integration-provider-fallback' ORDER BY id DESC LIMIT 1`)).rows[0];
+  assert.equal(fallbackLog.response_status, 'degraded');
+  assert.equal(fallbackLog.resolution_path, 'verified_source_fallback');
+  assert.ok(Number(fallbackLog.provider_attempts) >= 3, 'Configured provider retries must execute and be recorded');
+  providerMode = 'success';
+
   const blockedConnector = await call('/admin/connector', {
     method:'PUT',
     body:{ enabled:true, allowed_actions:['game_status'], game_status_url:'https://127.0.0.1/private' },
@@ -134,7 +193,7 @@ try {
   const blockedBody = expectStatus(blockedConnector, 400, 'Reject private connector target');
   assert.match(blockedBody.code, /^CONNECTOR_/);
 
-  expectStatus(await call('/admin/ai-content', {
+  const createdAiSource = expectStatus(await call('/admin/ai-content', {
     method:'POST',
     body:{
       content_name:'Integration duplicate intent', title:'Integration duplicate intent',
@@ -143,6 +202,7 @@ try {
       ai_instruction:'Use only the approved content.',
     },
   }), 200, 'Create approved AI source');
+  selectedSourceId = Number(createdAiSource.id);
   const scan = expectStatus(await call('/admin/ai-quality/scan', { method:'POST', body:{} }), 200, 'Run AI quality scan');
   assert.ok(scan.findings.some((finding) => finding.finding_type === 'duplicate_intent'));
   assert.ok(scan.findings.some((finding) => finding.finding_type === 'conflicting_answer'));
@@ -159,8 +219,10 @@ try {
   console.log('PASS Real login, scoped CRUD, shared-host public read, hostname guard, and tenant-isolation paths');
   console.log('PASS Rich HTML is sanitized in the API response and PostgreSQL row');
   console.log('PASS Private connector targets are rejected through the authenticated API');
+  console.log('PASS Local conversation, locale fallback, provider retry, and verified-source fallback paths');
   console.log('PASS AI quality findings and live-router test runs persist in PostgreSQL');
 } finally {
+  globalThis.fetch = originalFetch;
   if (database) await database.end();
   await closeDatabasePools();
 }

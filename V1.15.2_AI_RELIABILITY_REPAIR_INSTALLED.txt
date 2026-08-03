@@ -1,0 +1,5 @@
+BDG v1.15.2 AI Response Reliability Repair
+Release marker: 1.15.2-ai-response-reliability-repair
+
+This visible file confirms that the installer copied the patch into the GitHub
+Desktop repository. Review every change before committing and pushing.

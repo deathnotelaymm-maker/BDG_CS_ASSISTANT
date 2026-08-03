@@ -76,6 +76,10 @@ export interface ChatResponse {
   sources?: ChatSource[];
   memory_note?: string;
   technical_failure?: boolean;
+  response_status?: "success" | "degraded" | string;
+  resolution_path?: string;
+  degraded?: boolean;
+  degraded_reason?: string;
   response_format?: "structured-v1" | "structured-v2" | string;
   response_blocks?: ResponseBlock[];
   resolution_state?: "open" | "confirmed_by_user" | string;

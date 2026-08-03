@@ -169,13 +169,21 @@ export default function App() {
 
       try {
         const res = await sendChatMessage(trimmed, effectiveLanguage, platformKey);
+        // During a rolling deployment an older API may still return a usable
+        // fallback as an `error` block. Treat that as information, not as a
+        // false red network failure.
+        const safeBlocks = (res.response_blocks || []).map((block) =>
+          res.technical_failure && block.type === "error"
+            ? ({ ...block, type: "notice" } as ResponseBlock)
+            : block,
+        );
         setMessages((m) => [
           ...m,
           {
             id: uid(),
             role: "assistant",
             content: cleanDisplayText(res.reply || chatConfig.fallbackMessage),
-            blocks: res.response_blocks || [],
+            blocks: safeBlocks,
             images: res.content_images || [],
           },
         ]);

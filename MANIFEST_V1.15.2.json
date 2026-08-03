@@ -1,0 +1,23 @@
+{
+  "release": "v1.15.2",
+  "marker": "1.15.2-ai-response-reliability-repair",
+  "title": "AI Response Reliability Repair",
+  "previous_release": "v1.15.1",
+  "migration": "backend-api/migrations/034_v1.15.2_ai_response_reliability_repair.sql",
+  "installer_target": "C:\\Users\\LENOVO\\Documents\\cloud-projects\\BDG_CS_ASSISTANT",
+  "customer_contract": {
+    "provider_failure_returns_safe_response": true,
+    "raw_provider_error_is_public": false,
+    "tenant_platform_isolation_preserved": true,
+    "database_or_network_outage_can_be_guaranteed": false
+  },
+  "verification": {
+    "source_regressions": "49/49",
+    "chat_reliability": "4/4",
+    "upload": "9/9",
+    "typecheck_apps": 3,
+    "production_builds": 3,
+    "known_npm_vulnerabilities": 0,
+    "postgres_integration_runner": ".github/workflows/bdg-production-release.yml"
+  }
+}

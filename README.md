@@ -1,98 +1,121 @@
-# v1.15.1 — Stabilization & Security Repair
+# v1.15.2 — AI Response Reliability Repair
 
-This release finishes the v1.15 line without changing the production architecture:
-Cloudflare Pages hosts Guide Pro, Chat Pro, and Admin Pro; Render runs the Node.js
-API; Neon remains the PostgreSQL database; Cloudflare R2 stores media; and
-DeepSeek remains the optional AI provider.
+v1.15.2 keeps the v1.15.1 security and stabilization work and repairs the live
+Chat behavior that could return a red connection-style card even though Render
+successfully returned HTTP 200.
 
-The API release marker is:
+Release marker:
 
-`1.15.1-stabilization-security-repair`
+`1.15.2-ai-response-reliability-repair`
 
-## What is repaired
+## What was actually wrong
 
-- The **AI Response Quality Center** is complete and visible in Admin. Its
-  platform-scoped APIs scan duplicate intents, conflicting answers, missing
-  instructions, and missing image mappings. Saved response tests execute the
-  same live router used by Chat and persist their results.
-- Rich HTML uses an allowlist sanitizer in the API and DOMPurify in Guide Pro.
-  Old rows are sanitized on output; new and edited rows are sanitized on write.
-- Cloudflare Pages receives CSP, content-type, referrer, permissions, and frame
-  protection headers. Chat remains embeddable by HTTPS parent pages.
-- Operations Connector URLs must be HTTPS, resolve only to public addresses,
-  cannot redirect, and use a DNS-pinned socket to prevent rebinding into private
-  or cloud-metadata networks.
-- The vulnerable `xlsx` dependency is removed. Workbook import/export now uses
-  ExcelJS, `sanitize-html` is updated, transitive UUID is overridden to a fixed
-  release, and all four npm dependency trees report zero known vulnerabilities.
-- Admin, Chat, and Guide pass `tsc --noEmit`. Type-checking is required by CI and
-  the production release workflow before any Pages deployment.
-- The migration command applies every numbered SQL file in order, stores its
-  SHA-256 checksum, refuses edited historical migrations, and safely skips files
-  already applied with the same checksum.
-- PostgreSQL 16 integration tests exercise migrations, login, API CRUD, tenant
-  isolation, stored sanitization, connector rejection, shared Pages routing,
-  custom-hostname mismatch rejection, quality scans, and live router test-run
-  persistence.
+- A normal support answer required two sequential DeepSeek calls: a meaning
+  judge and a response composer. Either call could fail the whole turn.
+- Admin exposed retry and timeout settings, but the live calls hard-coded one
+  attempt and shorter timeouts, so those controls did not protect production.
+- The judge could serialize up to 60 large records into one prompt. Large
+  source catalogs could make requests slow or exceed a practical prompt budget.
+- Indonesian could be enabled for Chat while the live source query admitted
+  only Indonesian or universal records. Platforms whose verified content was
+  still in English presented an empty catalog to the judge.
+- `no_match`, provider failure, and composer failure all became an `error`
+  response block. Chat rendered that as the red card seen by customers.
+- An old saved provider-error sentence blamed the customer's internet even
+  when the request reached Render and completed successfully.
+- The Quality Center could report a test as passed when it had no expectations,
+  even if the AI provider was disabled and the response was degraded.
+
+## Reliability behavior now
+
+- Greetings, thanks, goodbyes, laughter, basic help, and abusive language are
+  handled by a deterministic multilingual conversation layer. These turns do
+  not depend on DeepSeek and do not consume model latency or quota.
+- Saved `max_retries` and `provider_timeout_ms` settings now drive both model
+  stages. Every turn also has a 20-second provider deadline so the browser has
+  time to receive a safe application response.
+- The judge catalog is limited to 40 records and 52,000 serialized characters.
+  Truncation, eligible count, prompt size, attempts, latency, and the final
+  resolution path are written to structured Render logs and Chat Logs.
+- The default source policy is now **exact/base locale, then platform default**.
+  It never crosses tenant or platform boundaries. Strict exact-locale policies
+  remain available in Admin.
+- If the judge selects verified content but the composer fails, the API sends
+  the approved source text, media, and buttons directly.
+- If no verified source matches, Chat sends a neutral localized notice and an
+  optional configured support handoff—not a red network error.
+- Raw provider errors remain in protected diagnostics only. Public Chat gets a
+  safe `response_status`, `resolution_path`, and request ID.
+- English, Indonesian, Hindi, Chinese, and Burmese customer-safe UI and fallback
+  copy are included.
+- Quality Center tests fail when the response is degraded, even when no source,
+  fact, or image expectation was configured.
+
+No application can promise a reply during a total database, Render, DNS, or
+browser-network outage. v1.15.2 guarantees a usable application-level response
+when the AI provider, JSON formatting, source match, or composer stage fails
+while the API and database remain reachable.
 
 ## Local verification
 
 ```bash
-npm --prefix backend-api ci
+npm --prefix backend-api ci --omit=dev
 npm --prefix backend-api run check
 npm --prefix backend-api run test:regression
 npm --prefix backend-api run test:knowledge-import
 npm --prefix backend-api run test:security
+npm --prefix backend-api run test:chat-reliability
+npm --prefix backend-api run test:structured
+npm --prefix backend-api run test:upload
 npm run typecheck:all
 npm run build:all
 ```
 
-The database suite intentionally requires a disposable database whose name
-contains `test`:
+The database suite requires a disposable PostgreSQL database whose name contains
+`test`:
 
 ```bash
 TEST_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/bdg_integration_test npm run test:integration
 ```
 
-The test refuses to use `DATABASE_URL` and refuses to reset a database whose
-name does not contain `test`. It invokes the backend handler directly and does
-not call Render or Cloudflare; the simulated shared Pages origin is intentionally
-different from an unmapped custom hostname.
+It resets only that disposable database, applies every migration twice, calls
+the real API handler, persists rows, and uses a deterministic fake DeepSeek HTTP
+service for success and outage cases. It never calls production Render,
+Cloudflare, Neon, or DeepSeek.
 
 ## Production deployment
 
-1. Review [RELEASE_NOTES_V1.15.1.md](RELEASE_NOTES_V1.15.1.md) and
-   [DEPLOYMENT_CHECKLIST_V1.15.1.md](DEPLOYMENT_CHECKLIST_V1.15.1.md).
-2. Commit and push the reviewed files to `main`.
-3. Render runs `npm run migrate` with the direct Neon migration URL, then starts
-   the API with the pooled Neon URL.
-4. The production workflow waits for the matching API release, type-checks and
-   builds all three frontends, and publishes them to Cloudflare Pages.
-5. Confirm `/health/live` and `/health/ready` report the v1.15.1 marker, then
-   follow the functional checks in the deployment checklist.
+1. Install the release into the canonical GitHub Desktop repository.
+2. Review [RELEASE_NOTES_V1.15.2.md](RELEASE_NOTES_V1.15.2.md) and
+   [DEPLOYMENT_CHECKLIST_V1.15.2.md](DEPLOYMENT_CHECKLIST_V1.15.2.md).
+3. Commit and push the reviewed changes to `main`.
+4. Render applies migration `034_v1.15.2_ai_response_reliability_repair.sql`
+   before starting the API.
+5. GitHub Actions runs backend checks and the disposable PostgreSQL integration
+   suite, waits for the matching Render marker, and then publishes all Pages
+   applications.
+6. Confirm `/health/live` and `/health/ready` report
+   `1.15.2-ai-response-reliability-repair`.
 
-No Render PostgreSQL database is created and no production data transfer is
-required.
+## Windows install
 
-## Short-path Windows install
+Extract `BDG-v1152-ai-response-reliability-repair.zip` into a short folder such
+as `C:\BDG-v1152`, then double-click:
 
-Extract `BDG-v1151-stabilization-security-repair.zip` into a short folder such
-as `C:\BDG-v1151`, then double-click:
+`START-HERE-V1.15.2-AI-RELIABILITY-REPAIR.bat`
 
-`INSTALL-V1.15.1-STABILIZATION-SECURITY-REPAIR.cmd`
+The installer writes only to:
 
-The installer copies the payload only into:
+`C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT`
 
-`%USERPROFILE%\Documents\cloud-projects\BDG_CS_ASSISTANT`
-
-It creates a rollback backup and does not run PowerShell, npm, Git, Render, or
-Cloudflare. After it succeeds, review the Changes tab in GitHub Desktop, commit,
-and choose **Push origin**.
+It verifies that the destination is a Git repository, creates a rollback backup,
+copies the patch, verifies the release marker, and prints `git status --short`.
+It never commits, pushes, deploys, or reads production secrets.
 
 ## Release documents
 
-- [Release notes](RELEASE_NOTES_V1.15.1.md)
-- [Verification result](TEST_RESULT_V1.15.1.md)
-- [Deployment checklist](DEPLOYMENT_CHECKLIST_V1.15.1.md)
-- [Changed files](CHANGED_FILES_V1.15.1.txt)
-- [Machine-readable manifest](MANIFEST_V1.15.1.json)
+- [Release notes](RELEASE_NOTES_V1.15.2.md)
+- [Verification result](TEST_RESULT_V1.15.2.md)
+- [Deployment checklist](DEPLOYMENT_CHECKLIST_V1.15.2.md)
+- [Changed files](CHANGED_FILES_V1.15.2.txt)
+- [Machine-readable manifest](MANIFEST_V1.15.2.json)

@@ -19,5 +19,10 @@ Migration `033_v1.15.1_stabilization_security_repair.sql` completes the quality
 center indexes and records the v1.15.1 stabilization marker. Migration `030`
 owns the AI quality tables.
 
+Migration `034_v1.15.2_ai_response_reliability_repair.sql` upgrades the locale
+router default, removes the known legacy network-blaming fallback, and adds
+durable AI response-path diagnostics. It is protected by the immutable checksum
+registry.
+
 The migration command runs during Render pre-deploy. Customer requests never
 run the file migration sequence.

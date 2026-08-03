@@ -1,6 +1,6 @@
 # BDG Render Backend with Neon PostgreSQL
 
-Version: `1.15.1-stabilization-security-repair`
+Version: `1.15.2-ai-response-reliability-repair`
 
 This Node.js service runs on Render and preserves the existing Neon PostgreSQL
 database. Runtime traffic uses the pooled `DATABASE_URL`; Render pre-deploy

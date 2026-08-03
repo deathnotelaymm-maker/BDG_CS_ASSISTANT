@@ -1,0 +1,53 @@
+v1.15.2 — AI Response Reliability Repair
+
+Release and installer
+- AI_FAILURE_ANALYSIS_V1.15.2.md
+- CHANGED_FILES_V1.15.2.txt
+- DEPLOYMENT_CHECKLIST_V1.15.2.md
+- INSTALL-V1.15.2-AI-RELIABILITY-REPAIR.cmd
+- MANIFEST_V1.15.2.json
+- README.md
+- README-V1.15.2.txt
+- RELEASE_NOTES_V1.15.2.md
+- START-HERE-WINDOWS.bat
+- START-HERE-V1.15.2-AI-RELIABILITY-REPAIR.bat
+- TEST_RESULT_V1.15.2.md
+- V1.15.2_AI_RELIABILITY_REPAIR_INSTALLED.txt
+
+Release workflow
+- .github/workflows/bdg-production-release.yml
+- package.json
+
+Backend
+- backend-api/README.md
+- backend-api/package.json
+- backend-api/package-lock.json
+- backend-api/migrations/README.md
+- backend-api/migrations/034_v1.15.2_ai_response_reliability_repair.sql
+- backend-api/scripts/chat-reliability-regression-test.js
+- backend-api/scripts/integration-test.js
+- backend-api/scripts/regression-test.js
+- backend-api/scripts/upload-regression-test.js
+- backend-api/src/chat-reliability.js
+- backend-api/src/core.js
+- backend-api/src/server.js
+
+Chat
+- chat-pro/package.json
+- chat-pro/package-lock.json
+- chat-pro/src/App.tsx
+- chat-pro/src/lib/api.ts
+- chat-pro/src/lib/chat-config.ts
+
+Admin
+- admin-pro/package.json
+- admin-pro/package-lock.json
+- admin-pro/src/components/AdminLayout.tsx
+- admin-pro/src/lib/api.ts
+- admin-pro/src/routes/_admin.ai-diagnostics.tsx
+- admin-pro/src/routes/_admin.ai-source-router.tsx
+- admin-pro/src/routes/_admin.chat-logs.tsx
+
+Guide version synchronization
+- guide-pro/package.json
+- guide-pro/package-lock.json
