@@ -21,6 +21,10 @@ const migration = read("backend-api/migrations/032_v1.15.0_advanced_visual_guide
 const stabilizationMigration = read("backend-api/migrations/033_v1.15.1_stabilization_security_repair.sql");
 const reliabilityMigration = read("backend-api/migrations/034_v1.15.2_ai_response_reliability_repair.sql");
 const promptFirstMigration = read("backend-api/migrations/035_v1.15.3_prompt_first_ai_repair.sql");
+const promptRuntimeMigration = read("backend-api/migrations/036_v1.15.4_prompt_runtime_versioning_repair.sql");
+const promptRuntimeModule = read("backend-api/src/prompt-runtime.js");
+const promptManagerPage = read("admin-pro/src/routes/_admin.ai-prompt-manager.tsx");
+const chatLogsPage = read("admin-pro/src/routes/_admin.chat-logs.tsx");
 const migrationRunner = read("backend-api/src/migration-files.js");
 const networkSafety = read("backend-api/src/network-safety.js");
 const richHtml = read("backend-api/src/rich-html.js");
@@ -32,7 +36,7 @@ const integrationTest = read("backend-api/scripts/integration-test.js");
 const chatApp = read("chat-pro/src/App.tsx");
 const chatConfig = read("chat-pro/src/lib/chat-config.ts");
 
-expect("Backend and server expose the v1.15.3 release", core.includes("1.15.3-prompt-first-ai-repair") && server.includes("1.15.3-prompt-first-ai-repair"));
+expect("Backend and server expose the v1.15.4 release", core.includes("1.15.4-prompt-runtime-versioning-repair") && server.includes("1.15.4-prompt-runtime-versioning-repair"));
 expect("Domain route IDs are extracted from the numeric path segment", core.includes("function domainIdFromPath") && core.includes("Number.isSafeInteger(id)") && core.includes("DOMAIN_ID_INVALID"));
 expect("Provision uses the validated domain ID", core.includes("provisionMappedDomain(env, domainIdFromPath(path), scope)") && !core.includes("provisionMappedDomain(env, idFromParts(path, 3), scope)"));
 expect("Sync, verify, and delete use the validated domain ID", ["syncMappedDomain(env, domainIdFromPath(path), scope)", "verifyMappedDomain(env, domainIdFromPath(path), scope)", "deleteMappedDomain(env, domainIdFromPath(path), scope)"].every((item) => core.includes(item)));
@@ -43,7 +47,7 @@ expect("Domain mapping exposes missing configuration names", core.includes("cons
 expect("Render environment validation covers Cloudflare prerequisites", env.includes("CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED") && env.includes("CLOUDFLARE_API_TOKEN") && env.includes("CLOUDFLARE_ZONE_ID") && env.includes("CLOUDFLARE_SAAS_CNAME_TARGET"));
 expect("Admin disables Provision until Cloudflare is configured", domainPage.includes("const cloudflareReady = data?.cloudflare?.configured === true") && domainPage.includes("disabled={!cloudflareReady}"));
 expect("Admin displays the exact missing Render variables", domainPage.includes("data?.cloudflare?.missing_env") && domainPage.includes("Set these Render variables before provisioning"));
-expect("Admin release marker is v1.15.3", adminLayout.includes('const ADMIN_VERSION = "v1.15.3"'));
+expect("Admin release marker is v1.15.4", adminLayout.includes('const ADMIN_VERSION = "v1.15.4"'));
 expect("v1.14.1 single-image contract remains present", core.includes("const legacyContentImages = imageDelivery.image_count ? [] : contentImages") && core.includes("A response without procedural steps has one canonical visual at most"));
 expect("Platform context remains strict with no fallback", core.includes("PLATFORM_CONTEXT_REQUIRED") && core.includes("fallback_applied: false") && !core.includes("publicReference || 'default'"));
 expect("v1.14.3 migration repairs existing parent Guide drafts", publishingMigration.includes("UPDATE guides g") && publishingMigration.includes("gt.status = 'published'"));
@@ -68,7 +72,7 @@ expect("Public Guide honors reduced-motion preferences", guidePublicPage.include
 expect("Only allowlisted motion presets reach the renderer", core.includes("GUIDE_ANIMATION_PRESETS") && guidePublicPage.includes("SAFE_MOTION_PRESETS"));
 expect("R2 media delivery supports HTTP byte ranges", r2Adapter.includes("supportsHttpRange: true") && r2Adapter.includes("Range: range") && core.includes("'Content-Range'"));
 expect("AI Response Quality Center has complete API wiring", ["getAiQualityOverview", "scanAiQuality", "listAiQualityFindings", "resolveAiQualityFinding", "createAiQualityTestCase", "runAiQualityTest", "runAiQualitySuite"].every((name) => core.includes(`function ${name}`) || core.includes(`async function ${name}`)) && adminApi.includes("getAiQualityOverview") && adminLayout.includes("AI Response Quality"));
-expect("Local conversation safety answers greetings and abuse without the provider", core.includes("localConversationReply(message, lang)") && core.includes("resolutionPath = 'local_conversation'") && core.includes("Local conversation safety layer"));
+expect("Only hard safety boundaries bypass the active Prompt Manager runtime", core.includes("localCandidate?.intent === 'boundary'") && core.includes("resolutionPath = 'local_conversation'") && core.includes("ordinary messages must flow"));
 expect("Saved reliability settings drive bounded provider retries", core.includes("attempts:1 + Number(reliability?.max_retries || 0)") && core.includes("deadline_at:deadlineAt") && core.includes("turnDeadlineAt = turnStarted + 20000"));
 expect("Prompt-first mode answers through one provider stage", core.includes("async function promptFirstAiResponse") && core.includes("prompt_first_grounded_answer") && core.includes("prompt_first_general_answer") && core.includes("workflow_mode !== 'advanced_two_stage'"));
 expect("Prompt-first answers attach only validated source assets", core.includes("const selected = Number.isFinite(requestedItemId) ? budgeted.rows.find") && core.includes("if (assets.images[0]) blocks.push") && core.includes("matched_source_images_are_attached:true"));
@@ -84,12 +88,18 @@ expect("Quality tests fail degraded AI responses", core.includes("AI response wa
 expect("Rich HTML is sanitized on both server and Guide client", richHtml.includes("sanitize-html") && core.includes("sanitizeRichHtml") && guideSanitizer.includes("DOMPurify.sanitize"));
 expect("Pages deployments include CSP and defensive headers", [guideHeaders, chatHeaders, adminHeaders].every((value) => value.includes("Content-Security-Policy:") && value.includes("object-src 'none'") && value.includes("X-Content-Type-Options: nosniff")));
 expect("Connector URLs use DNS-aware, rebinding-resistant HTTPS SSRF protection", networkSafety.includes("validatePublicHttpsUrl") && networkSafety.includes("isForbiddenNetworkAddress") && networkSafety.includes("pinned.address") && networkSafety.includes("Connector redirects are not allowed") && core.includes("fetchPublicHttpsText"));
-expect("SQL migration files are checksum tracked and applied", migrationRunner.includes("schema_migration_files") && migrationRunner.includes("checksum mismatch") && core.includes("applySqlMigrationFiles(client)") && stabilizationMigration.includes("v1.15.1_stabilization_security_repair") && reliabilityMigration.includes("v1.15.2_ai_response_reliability_repair") && promptFirstMigration.includes("v1.15.3_prompt_first_ai_repair"));
+expect("SQL migration files are checksum tracked and applied", migrationRunner.includes("schema_migration_files") && migrationRunner.includes("checksum mismatch") && core.includes("applySqlMigrationFiles(client)") && stabilizationMigration.includes("v1.15.1_stabilization_security_repair") && reliabilityMigration.includes("v1.15.2_ai_response_reliability_repair") && promptFirstMigration.includes("v1.15.3_prompt_first_ai_repair") && promptRuntimeMigration.includes("v1.15.4_prompt_runtime_versioning_repair"));
+expect("Prompt compiler includes every enabled section and generates deterministic hashes", promptRuntimeModule.includes("compilePromptRuntime") && promptRuntimeModule.includes("compiled_prompt_hash") && promptRuntimeModule.includes("section_hashes") && promptRuntimeModule.includes("SECTION_CLIPPED"));
+expect("Prompt saves, deletes, and restores publish immutable active runtimes", ["upsertPrompt", "updatePrompt", "deletePrompt", "restorePromptVersion"].every((name) => core.includes(`async function ${name}`)) && core.includes("publishPromptRuntime") && promptRuntimeMigration.includes("ai_prompt_runtime_versions") && promptRuntimeMigration.includes("ai_prompt_runtime_state"));
+expect("Prompt runtime drift and old session memory are repaired automatically", core.includes("synchronizeSessionPromptRuntime") && core.includes("prompt_runtime_changed:") && core.includes("automatic_runtime_drift_repair") && promptRuntimeMigration.includes("prompt_memory_reset_reason"));
+expect("Admin AI tests always use a fresh session", core.includes("admin-test-${crypto.randomUUID()}") && core.includes("testPayload.fresh_session = true") && core.includes("jsonNoStore(finalizeChatResponse"));
+expect("Prompt Manager previews the exact active runtime and compiler warnings", adminApi.includes("getPromptRuntime") && adminApi.includes("rebuildPromptRuntime") && promptManagerPage.includes("Preview exact runtime") && promptManagerPage.includes("Prompt compiler findings") && promptManagerPage.includes("compiled_prompt_hash"));
+expect("Chat Logs expose prompt version, hash, sections, and memory reset", chatLogsPage.includes("Prompt runtime:") && chatLogsPage.includes("Compiled Prompt SHA-256") && chatLogsPage.includes("memory_reset_reason"));
 expect("Integration tests distinguish shared Pages origins from custom hostnames", integrationTest.includes("SHARED_CHAT_ORIGIN") && integrationTest.includes("Read public FAQs through the shared Chat hostname") && integrationTest.includes("Reject a route that does not match the custom hostname") && !integrationTest.includes("SKIP_CLOUDFLARE_PLATFORM_CHECK"));
 expect("Integration locale fixture uses the schema tenant-platform-locale key", integrationTest.includes("ON CONFLICT(tenant_id,platform_id,locale)") && !integrationTest.includes("ON CONFLICT(platform_id,locale)"));
 expect("Integration fake provider distinguishes judge from composer prompts", integrationTest.includes("systemPrompt.startsWith('You are the AI Meaning Judge')") && !integrationTest.includes("systemPrompt.includes('AI Meaning Judge')"));
 
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
-console.log(`\n${checks.length - failed.length}/${checks.length} v1.15.3 regression checks passed`);
+console.log(`\n${checks.length - failed.length}/${checks.length} v1.15.4 regression checks passed`);
 if (failed.length) process.exitCode = 1;

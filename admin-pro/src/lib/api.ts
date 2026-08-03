@@ -742,6 +742,16 @@ export const api = {
     });
   },
 
+  getPromptRuntime: async () => {
+    if (MOCK_MODE) return delay({ ok: true, platform: { name: "Mock Platform", public_route_key: "mock" }, runtime: { version_number: 1, compiled_prompt_hash: "mock", compiled_prompt: "", section_ids: [], section_hashes: {}, warnings: [], prompt_characters: 0 }, versions: [] });
+    return request("/admin/ai/prompt-runtime");
+  },
+
+  rebuildPromptRuntime: async () => {
+    if (MOCK_MODE) return delay({ ok: true, runtime: { version_number: Date.now(), compiled_prompt_hash: "mock", compiled_prompt: "", warnings: [] } });
+    return request("/admin/ai/prompt-runtime/rebuild", { method: "POST", body: JSON.stringify({}) });
+  },
+
   restoreSiteContent: async (blockKey: string) => {
     return request(`/admin/site-content/blocks/${encodeURIComponent(blockKey)}/restore`, {
       method: "POST",

@@ -1,36 +1,83 @@
-# v1.15.3 — Prompt-First AI Repair
+# v1.15.4 — Prompt Runtime and Versioning Repair
 
-v1.15.3 changes live Chat from a mandatory judge-then-composer chain to one
-prompt-first DeepSeek request. The model follows the enabled Prompt Manager
-Role, Job, Output, Language, Safety, and Escalation sections for general
-questions. Approved tenant/platform content is preferred factual context, but
-it does not block a general response unless approved-only mode is enabled.
+v1.15.4 makes Prompt Manager changes observable, versioned, and immediately
+reliable. Every enabled Prompt Manager section is compiled in priority order
+into one active runtime. Every save, update, delete, restore, or manual rebuild
+creates an immutable runtime version with a SHA-256 hash.
 
-Release marker: `1.15.3-prompt-first-ai-repair`
+Release marker: `1.15.4-prompt-runtime-versioning-repair`
 
-## Live response contract
+## What this repairs
 
-- Greetings and respectful boundaries remain deterministic and provider-free.
-- A normal turn uses one provider call in the default `prompt_first` workflow.
-- The model can select an approved catalog item by ID. The server validates the
-  ID before adding its approved buttons and at most one approved image.
-- A no-match question can receive a prompt-governed general answer when
-  **Require an approved source for every answer** is off.
-- Empty model output is retried within the saved retry and deadline limits.
-- During a provider outage, a conservative matched-source fallback can still
-  return approved text and its image.
-- The previous two-stage judge/composer workflow remains available as the
-  optional `advanced_two_stage` mode.
-- Provider errors and keys are never returned to public Chat.
+- All enabled prompt sections are compiled into one exact runtime rather than
+  behaving like unrelated cards.
+- The active runtime records section IDs, section hashes, compiled prompt hash,
+  character count, warnings, creation time, and change note.
+- Prompt reads and runtime previews use `Cache-Control: no-store`.
+- Chat sessions store the prompt runtime version and hash they last used.
+- Old assistant memory is cleared automatically when the active prompt hash
+  changes, including existing sessions created before prompt versioning.
+- Admin AI tests always use a new session with fresh memory.
+- Chat Logs show the exact prompt runtime and memory-reset reason used for each
+  response.
+- Greetings, thanks, help requests, and normal questions now pass through the
+  active Prompt Manager runtime. Only hard safety-boundary messages remain
+  deterministic and provider-free.
+- The existing one-call prompt-first workflow and validated approved-image
+  attachment remain intact.
 
-No application can generate a general AI answer during a total provider, API,
-database, DNS, or browser-network outage. The verified-source fallback only
-works when the API and database remain available and an approved source clearly
-matches the question.
+## Runtime workflow
 
-## Required production configuration
+```text
+Prompt Manager save / update / delete / restore
+                    ↓
+Compile every enabled section by priority
+                    ↓
+Validate limits and create warnings
+                    ↓
+Create immutable runtime version + SHA-256
+                    ↓
+Atomically activate that runtime for the platform
+                    ↓
+Next chat request compares session hash to active hash
+                    ↓
+Clear incompatible old assistant memory when different
+                    ↓
+Send exact compiled runtime to DeepSeek once
+                    ↓
+Validate selected approved source and image
+                    ↓
+Log runtime version, hash, sections, and reset reason
+```
 
-Set these Render environment values:
+## Database migration
+
+Migration `036_v1.15.4_prompt_runtime_versioning_repair.sql` adds:
+
+- `ai_prompt_runtime_versions`
+- `ai_prompt_runtime_state`
+- prompt runtime fields on `chat_sessions`
+- prompt runtime diagnostics on `chat_logs`
+
+Migration 036 is immutable after deployment. Never edit it. The next database
+change must use migration 037.
+
+## Admin workflow
+
+1. Open **Admin → AI Prompt Manager** using the platform-specific Admin route.
+2. Confirm the displayed platform and `/p/<platform-route>` are correct.
+3. Edit or add Role, Job, Output, Language, Safety, and Escalation sections.
+4. Press **Save & activate runtime**.
+5. Confirm the active runtime version increases and the hash changes.
+6. Open **Preview exact runtime** and verify every enabled section is present.
+7. Review compiler warnings for empty, missing, duplicate-priority, or clipped
+   sections.
+8. Open **Admin → AI Diagnostics** and run a meaningful test question. The test
+   always receives a new session.
+9. Open **Admin → Chat Logs** and verify runtime version, hash, section count,
+   and any memory reset reason.
+
+## Recommended production AI settings
 
 ```text
 AI_MODE_ENABLED=true
@@ -39,64 +86,42 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 DEEPSEEK_API_KEY=<secret current key with available quota>
 ```
 
-Migration `035_v1.15.3_prompt_first_ai_repair.sql` changes the default workflow
-to prompt-first, repairs retired legacy model values, enables general
-prompt-governed answers by default, and preserves custom Prompt Manager text.
+In **Admin → AI Reliability**, use **Prompt-first, one AI call** and keep
+**Require an approved source for every answer** off when the assistant should
+answer general questions under its Role and Job.
 
-After deployment, open **Admin → AI Reliability**. Save both the Provider and
-Policy cards with AI enabled, `deepseek-v4-flash`, Prompt-first, 2 retries, a
-12,000 ms timeout, and approved-only mode off. Then run the real provider test.
-Configure and enable the desired Role, Job, Response Policy, Language, Safety,
-and Escalation sections in Prompt Manager.
-
-## Image answers
-
-Publish and approve the FAQ, AI Q&A, or Guide for the active platform and
-attach an image to it. When the model selects that exact source, the API adds
-one validated approved image. The model cannot invent or inject an image URL.
-
-## Verification
+## Verification commands
 
 ```bash
-npm --prefix backend-api ci --omit=dev
 npm --prefix backend-api run check
+npm --prefix backend-api run test:prompt-runtime
+npm --prefix backend-api run test:chat-reliability
 npm --prefix backend-api run test:regression
 npm --prefix backend-api run test:knowledge-import
 npm --prefix backend-api run test:security
-npm --prefix backend-api run test:chat-reliability
 npm --prefix backend-api run test:structured
 npm --prefix backend-api run test:upload
 npm run typecheck:all
 npm run build:all
 ```
 
-The destructive integration suite requires a disposable PostgreSQL database
-whose database name contains `test`:
+The PostgreSQL/API integration suite requires a disposable database whose name
+contains `test`:
 
 ```bash
 TEST_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/bdg_integration_test npm run test:integration
 ```
 
-It applies all immutable migrations twice and uses a deterministic local fake
-provider. It does not contact production Render, Cloudflare, Neon, or DeepSeek.
-
 ## Windows installation
 
-1. Extract `BDG-v1153-prompt-first-ai-repair.zip` to `C:\BDG-v1153`.
-2. Double-click `START-HERE-V1.15.3-PROMPT-FIRST-AI-REPAIR.bat`.
-3. Wait for `V1.15.3 PROMPT-FIRST AI REPAIR INSTALLED AND VERIFIED`.
-4. Open GitHub Desktop, press `Ctrl+R`, review Changes, commit, and push `main`.
-5. Follow [DEPLOYMENT_CHECKLIST_V1.15.3.md](DEPLOYMENT_CHECKLIST_V1.15.3.md).
+1. Extract `BDG-v1154-prompt-runtime-versioning-repair.zip`.
+2. Double-click `START-HERE-V1.15.4-PROMPT-RUNTIME-VERSIONING-REPAIR.bat`.
+3. Wait for `V1.15.4 PROMPT RUNTIME AND VERSIONING REPAIR INSTALLED AND VERIFIED`.
+4. Open GitHub Desktop, review every changed file, commit, and push `main`.
+5. Follow `DEPLOYMENT_CHECKLIST_V1.15.4.md`.
 
-The installer writes only to
-`C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT`, creates a rollback
-backup, and never commits, pushes, deploys, or reads production secrets.
-
-## Release documents
-
-- [AI workflow analysis](AI_WORKFLOW_REPAIR_V1.15.3.md)
-- [Release notes](RELEASE_NOTES_V1.15.3.md)
-- [Verification result](TEST_RESULT_V1.15.3.md)
-- [Deployment checklist](DEPLOYMENT_CHECKLIST_V1.15.3.md)
-- [Changed files](CHANGED_FILES_V1.15.3.txt)
-- [Machine-readable manifest](MANIFEST_V1.15.3.json)
+The installer defaults to
+`C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT`. You may set the
+`BDG_TARGET` environment variable or pass another repository path as the first
+installer argument. It creates a rollback backup and never commits, pushes,
+deploys, or reads production secrets.

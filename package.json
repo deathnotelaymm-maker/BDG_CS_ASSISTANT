@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-center-business-platform",
-  "version": "1.15.3",
+  "version": "1.15.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,6 +15,7 @@
     "check:backend": "npm --prefix backend-api run check",
     "test:regression": "npm --prefix backend-api run test:regression",
     "test:chat-reliability": "npm --prefix backend-api run test:chat-reliability",
-    "test:integration": "npm --prefix backend-api run test:integration"
+    "test:integration": "npm --prefix backend-api run test:integration",
+    "test:prompt-runtime": "npm --prefix backend-api run test:prompt-runtime"
   }
 }

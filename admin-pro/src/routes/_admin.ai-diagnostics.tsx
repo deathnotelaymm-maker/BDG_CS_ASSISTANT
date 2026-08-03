@@ -26,7 +26,7 @@ function DiagnosticsPage() {
 
   const runTest = async () => {
     setLoading(true);
-    try { setReply(await api.testAI(msg || "Hello")); }
+    try { setReply(await api.testAI(msg || "What services can you help me with?")); }
     finally { setLoading(false); }
   };
 
@@ -39,6 +39,8 @@ function DiagnosticsPage() {
             <Col xs={12}><div style={{ color: "#8ea0bd", fontSize: 12 }}>AI ENABLED</div><Bool v={d.aiEnabled} /></Col>
             <Col xs={12}><div style={{ color: "#8ea0bd", fontSize: 12 }}>DEEPSEEK ENABLED</div><Bool v={d.deepSeekEnabled} /></Col>
             <Col xs={12}><Statistic title="Prompt count" value={d.promptCount} /></Col>
+            <Col xs={12}><Statistic title="Prompt runtime" value={d.prompt_runtime?.version_number || 0} prefix="v" /></Col>
+            <Col xs={12}><Statistic title="Compiled prompt" value={d.prompt_runtime?.prompt_characters || 0} suffix="chars" /></Col>
             <Col xs={12}><Statistic title="FAQ count" value={d.faqCount} /></Col>
             <Col xs={12}><Statistic title="Guide count" value={d.guideCount} /></Col>
             <Col xs={12}><Statistic title="Knowledge imports" value={d.counts?.knowledge_import_batches || 0} /></Col>
@@ -54,7 +56,17 @@ function DiagnosticsPage() {
           <Space direction="vertical" style={{ width: "100%" }}>
             <Input.TextArea rows={4} value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Type a test question for the assistant..." />
             <Button type="primary" icon={<SendOutlined />} onClick={runTest} loading={loading}>Send test</Button>
-            {reply && <div style={{ background: "var(--navy-700)", border: "1px solid var(--border-dim)", borderRadius: 6, padding: 12, color: "#c5d0e4" }}><div style={{ color: "#8ea0bd", fontSize: 11, marginBottom: 6 }}>REPLY · {reply.latencyMs} ms</div>{reply.reply}</div>}
+            {reply && <div style={{ background: "var(--navy-700)", border: "1px solid var(--border-dim)", borderRadius: 6, padding: 12, color: "#c5d0e4" }}>
+              <div style={{ color: "#8ea0bd", fontSize: 11, marginBottom: 6 }}>FRESH TEST SESSION · {reply.latencyMs} ms</div>
+              <Typography.Paragraph style={{ color: "#c5d0e4" }}>{reply.reply}</Typography.Paragraph>
+              <Space wrap>
+                <Tag color="green">Runtime v{reply.diagnostics?.prompt_runtime?.version_number || reply.prompt_runtime?.version_number || "—"}</Tag>
+                <Tag>Hash {(reply.diagnostics?.prompt_runtime?.hash || reply.prompt_runtime?.hash || "").slice(0, 12) || "—"}</Tag>
+                <Tag>{reply.diagnostics?.prompt_sections_used ?? "—"} sections</Tag>
+                <Tag>{reply.diagnostics?.prompt_runtime?.prompt_characters || reply.prompt_runtime?.prompt_characters || 0} chars</Tag>
+                <Tag color={reply.diagnostics?.memory_reset?.reset ? "warning" : "blue"}>Fresh memory</Tag>
+              </Space>
+            </div>}
           </Space>
         </Card>
       </Col>

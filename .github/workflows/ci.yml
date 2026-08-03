@@ -1,4 +1,4 @@
-name: v1.15.1 Stabilization and Security Checks
+name: v1.15.4 Prompt Runtime and Security Checks
 
 on:
   push:
@@ -55,6 +55,8 @@ jobs:
           npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
           npm run check
           npm run test:regression
+          npm run test:prompt-runtime
+          npm run test:chat-reliability
           npm run test:knowledge-import
           npm run test:security
           npm run test:structured

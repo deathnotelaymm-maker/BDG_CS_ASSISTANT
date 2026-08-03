@@ -1,0 +1,15 @@
+BDG CS Assistant v1.15.4 — Prompt Runtime and Versioning Repair
+Release marker: 1.15.4-prompt-runtime-versioning-repair
+Migration: backend-api/migrations/036_v1.15.4_prompt_runtime_versioning_repair.sql
+
+Installed capabilities:
+- immutable compiled prompt runtime versions;
+- exact compiled prompt and section SHA-256 diagnostics;
+- atomic tenant/platform active runtime;
+- prompt-aware chat-memory reset;
+- fresh Admin AI test sessions;
+- no-store Prompt Manager runtime endpoints;
+- runtime preview, warnings, and history in Admin;
+- runtime version/hash/sections/reset reason in Chat Logs;
+- normal greetings and help requests routed through Prompt Manager;
+- hard safety boundaries remain deterministic.

@@ -10,6 +10,7 @@ const originalFetch = globalThis.fetch;
 let providerMode = 'success';
 let selectedSourceId = 0;
 const providerRequestKinds = [];
+const providerSystemPrompts = [];
 const connectionString = String(process.env.TEST_DATABASE_URL || '').trim();
 if (!connectionString) throw new Error('TEST_DATABASE_URL is required. Integration tests never fall back to DATABASE_URL.');
 
@@ -54,12 +55,14 @@ globalThis.fetch = async (input, init = {}) => {
     : systemPrompt.startsWith('You are the prompt-first AI customer support assistant') ? 'prompt_first'
     : systemPrompt.startsWith('You are the AI Meaning Judge') ? 'judge' : 'composer';
   providerRequestKinds.push(requestKind);
+  providerSystemPrompts.push(systemPrompt);
   if (providerMode === 'outage') return new Response(JSON.stringify({ error:{ message:'simulated provider outage' } }), { status:503, headers:{ 'Content-Type':'application/json' } });
   const userMessage = String(request.messages?.[1]?.content || '');
   if (requestKind === 'connectivity') return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ ok:true }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
   if (requestKind === 'prompt_first') {
     const matched = userMessage.includes('Customer message: Integration duplicate intent');
-    const localizedReply = matched && systemPrompt.includes('requested locale (id)') ? 'Jawaban terverifikasi' : matched ? 'Verified answer' : 'I can help with general support questions under the configured role and instructions.';
+    const greeting = userMessage.includes('Customer message: halo');
+    const localizedReply = greeting ? 'Halo, saya mengikuti Prompt Manager.' : matched && systemPrompt.includes('requested locale (id)') ? 'Jawaban terverifikasi' : matched ? 'Verified answer' : 'I can help with general support questions under the configured role and instructions.';
     return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ reply:localizedReply, item_id:matched ? selectedSourceId : null, reason:matched ? 'Matched approved integration source' : 'General prompt answer' }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
   }
   // The composer prompt contains an "AI Meaning Judge decision" section.
@@ -122,6 +125,8 @@ try {
   assert.ok(registry.rows.every((row) => /^[a-f0-9]{64}$/.test(row.checksum_sha256)));
   const qualityTables = await database.query("SELECT COUNT(*)::integer AS count FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('ai_quality_findings','ai_quality_test_cases','ai_quality_test_runs')");
   assert.equal(qualityTables.rows[0].count, 3);
+  const promptRuntimeTables = await database.query("SELECT COUNT(*)::integer AS count FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('ai_prompt_runtime_versions','ai_prompt_runtime_state')");
+  assert.equal(promptRuntimeTables.rows[0].count, 2);
   const modelSettings = (await database.query('SELECT model,require_approved_context,max_tokens FROM ai_model_settings ORDER BY id LIMIT 1')).rows[0];
   assert.equal(modelSettings.model, 'deepseek-v4-flash');
   assert.equal(modelSettings.require_approved_context, false);
@@ -144,6 +149,22 @@ try {
   await database.query(`INSERT INTO platform_locales(tenant_id,platform_id,locale,display_name,native_name,direction,is_default,is_enabled)
     VALUES($1,$2,'id','Indonesian','Bahasa Indonesia','ltr',FALSE,TRUE)
     ON CONFLICT(tenant_id,platform_id,locale) DO UPDATE SET is_enabled=TRUE`, [platform.tenant_id,platform.id]);
+
+  const runtimeRole = expectStatus(await call('/admin/ai/prompts', {
+    method:'POST', body:{ section_key:'integration_runtime_role', title:'Integration Runtime Role', content:'INTEGRATION_ROLE_MARKER: You are the versioned integration assistant.', enabled:true, priority:5 },
+  }), 200, 'Publish integration runtime role section');
+  const runtimeOutput = expectStatus(await call('/admin/ai/prompts', {
+    method:'POST', body:{ section_key:'integration_runtime_output', title:'Integration Runtime Output', content:'INTEGRATION_OUTPUT_MARKER: Answer clearly and directly.', enabled:true, priority:6 },
+  }), 200, 'Publish integration runtime output section');
+  assert.ok(runtimeOutput.prompt_runtime.version_number > runtimeRole.prompt_runtime.version_number);
+  assert.notEqual(runtimeOutput.prompt_runtime.compiled_prompt_hash, runtimeRole.prompt_runtime.compiled_prompt_hash);
+  const runtimeResponse = await call('/admin/ai/prompt-runtime');
+  const runtimeAdmin = expectStatus(runtimeResponse, 200, 'Read exact active prompt runtime');
+  assert.match(runtimeResponse.response.headers.get('cache-control') || '', /no-store/i);
+  assert.match(runtimeAdmin.runtime.compiled_prompt, /INTEGRATION_ROLE_MARKER/);
+  assert.match(runtimeAdmin.runtime.compiled_prompt, /INTEGRATION_OUTPUT_MARKER/);
+  assert.ok(runtimeAdmin.runtime.section_ids.includes(Number(runtimeRole.id)));
+  assert.ok(runtimeAdmin.runtime.section_ids.includes(Number(runtimeOutput.id)));
 
   const providerTest = expectStatus(await call('/admin/ai/reliability/test', { method:'POST', body:{ message:'provider connectivity' } }), 200, 'Run a real provider connectivity test');
   assert.equal(providerTest.ok, true);
@@ -181,14 +202,18 @@ try {
   const isolatedFaqs = expectStatus(await call('/admin/faqs', { platformRoute:isolatedPlatform.public_route_key }), 200, 'Read isolated platform FAQs');
   assert.equal(isolatedFaqs.some((row) => Number(row.id) === Number(createdFaq.id)), false, 'Platform-scoped API must not leak FAQ rows');
 
-  const localGreeting = expectStatus(await call('/chat', {
+  const callsBeforeGreeting = providerRequestKinds.length;
+  const promptGreeting = expectStatus(await call('/chat', {
     method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
-    body:{ message:'halo', language:'id', platform_key:platform.public_route_key, session_id:'integration-local-greeting' },
-  }), 200, 'Return an Indonesian local greeting without provider dependency');
-  assert.equal(localGreeting.response_status, 'success');
-  assert.equal(localGreeting.resolution_path, 'local_conversation');
-  assert.match(localGreeting.reply, /Halo/i);
-  assert.equal(localGreeting.response_blocks.some((block) => block.type === 'error'), false);
+    body:{ message:'halo', language:'id', platform_key:platform.public_route_key, session_id:'integration-prompt-greeting' },
+  }), 200, 'Route an Indonesian greeting through the active Prompt Manager runtime');
+  assert.equal(promptGreeting.response_status, 'success');
+  assert.equal(promptGreeting.resolution_path, 'prompt_first_general_answer');
+  assert.match(promptGreeting.reply, /Halo/i);
+  assert.deepEqual(providerRequestKinds.slice(callsBeforeGreeting), ['prompt_first']);
+  assert.match(providerSystemPrompts.at(-1), /INTEGRATION_ROLE_MARKER/);
+  assert.match(providerSystemPrompts.at(-1), /INTEGRATION_OUTPUT_MARKER/);
+  assert.equal(promptGreeting.response_blocks.some((block) => block.type === 'error'), false);
 
   const localizedAiAnswer = expectStatus(await call('/chat', {
     method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
@@ -211,6 +236,25 @@ try {
   assert.equal(generalAnswer.resolution_path, 'prompt_first_general_answer');
   assert.match(generalAnswer.reply, /general support questions/i);
   assert.deepEqual(providerRequestKinds.slice(callsBeforeGeneral), ['prompt_first'], 'A general prompt answer must use exactly one provider call');
+
+  const runtimeBeforeEdit = generalAnswer.prompt_runtime.hash;
+  const editedRole = expectStatus(await call(`/admin/ai/prompts/${runtimeRole.id}`, {
+    method:'PUT', body:{ section_key:'integration_runtime_role', title:'Integration Runtime Role', content:'INTEGRATION_ROLE_MARKER_V2: You are the newly published integration assistant.', enabled:true, priority:5 },
+  }), 200, 'Publish a changed prompt runtime');
+  assert.notEqual(editedRole.prompt_runtime.compiled_prompt_hash, runtimeBeforeEdit);
+  const afterPromptChange = expectStatus(await call('/chat', {
+    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
+    body:{ message:'What changed in your instructions?', language:'en', platform_key:platform.public_route_key, session_id:'integration-general-answer' },
+  }), 200, 'Reset old conversation memory after a prompt runtime change');
+  assert.equal(afterPromptChange.memory_reset.reset, true);
+  assert.match(afterPromptChange.memory_reset.reason, /^prompt_runtime_changed:/);
+  assert.equal(afterPromptChange.prompt_runtime.hash, editedRole.prompt_runtime.compiled_prompt_hash);
+  assert.match(providerSystemPrompts.at(-1), /INTEGRATION_ROLE_MARKER_V2/);
+  assert.doesNotMatch(providerSystemPrompts.at(-1), /INTEGRATION_ROLE_MARKER: /);
+  const promptChangeLog = (await database.query(`SELECT prompt_runtime_hash,memory_reset_reason,prompt_section_ids_json FROM chat_logs WHERE session_id='integration-general-answer' ORDER BY id DESC LIMIT 1`)).rows[0];
+  assert.equal(promptChangeLog.prompt_runtime_hash, editedRole.prompt_runtime.compiled_prompt_hash);
+  assert.match(promptChangeLog.memory_reset_reason, /^prompt_runtime_changed:/);
+  assert.ok(JSON.parse(promptChangeLog.prompt_section_ids_json).includes(Number(runtimeRole.id)));
 
   providerMode = 'outage';
   const verifiedFallback = expectStatus(await call('/chat', {
@@ -262,7 +306,8 @@ try {
   console.log('PASS Real login, scoped CRUD, shared-host public read, hostname guard, and tenant-isolation paths');
   console.log('PASS Rich HTML is sanitized in the API response and PostgreSQL row');
   console.log('PASS Private connector targets are rejected through the authenticated API');
-  console.log('PASS Local conversation, one-call general and grounded answers, matched images, provider retry, and verified-source fallback paths');
+  console.log('PASS Prompt-managed greeting, one-call general and grounded answers, matched images, provider retry, and verified-source fallback paths');
+  console.log('PASS Prompt runtime versions, hashes, and prompt-aware memory reset persist in PostgreSQL');
   console.log('PASS AI quality findings and live-router test runs persist in PostgreSQL');
 } finally {
   globalThis.fetch = originalFetch;

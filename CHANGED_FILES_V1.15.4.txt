@@ -1,0 +1,47 @@
+v1.15.4 — Prompt Runtime and Versioning Repair
+
+Release and installer
+- CHANGED_FILES_V1.15.4.txt
+- DEPLOYMENT_CHECKLIST_V1.15.4.md
+- INSTALL-V1.15.4-PROMPT-RUNTIME-VERSIONING-REPAIR.cmd
+- MANIFEST_V1.15.4.json
+- PROMPT_RUNTIME_VERSIONING_REPAIR_V1.15.4.md
+- README-V1.15.4.txt
+- README.md
+- RELEASE_NOTES_V1.15.4.md
+- START-HERE-V1.15.4-PROMPT-RUNTIME-VERSIONING-REPAIR.bat
+- START-HERE-WINDOWS.bat
+- TEST_RESULT_V1.15.4.md
+- V1.15.4_PROMPT_RUNTIME_VERSIONING_REPAIR_INSTALLED.txt
+
+Backend runtime, database, tests, and deployment
+- .github/workflows/bdg-production-release.yml
+- .github/workflows/ci.yml
+- backend-api/README.md
+- backend-api/migrations/036_v1.15.4_prompt_runtime_versioning_repair.sql
+- backend-api/migrations/README.md
+- backend-api/package.json
+- backend-api/package-lock.json
+- backend-api/scripts/integration-test.js
+- backend-api/scripts/prompt-runtime-regression-test.js
+- backend-api/scripts/regression-test.js
+- backend-api/scripts/upload-regression-test.js
+- backend-api/src/core.js
+- backend-api/src/prompt-runtime.js
+- backend-api/src/server.js
+
+Admin diagnostics and Prompt Manager
+- admin-pro/package.json
+- admin-pro/package-lock.json
+- admin-pro/src/components/AdminLayout.tsx
+- admin-pro/src/lib/api.ts
+- admin-pro/src/routes/_admin.ai-diagnostics.tsx
+- admin-pro/src/routes/_admin.ai-prompt-manager.tsx
+- admin-pro/src/routes/_admin.chat-logs.tsx
+
+Version synchronization
+- package.json
+- chat-pro/package.json
+- chat-pro/package-lock.json
+- guide-pro/package.json
+- guide-pro/package-lock.json

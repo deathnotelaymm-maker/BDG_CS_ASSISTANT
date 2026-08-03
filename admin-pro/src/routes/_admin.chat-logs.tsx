@@ -159,6 +159,11 @@ function ChatLogsPage() {
                       <Tag color={row.response_status === "degraded" ? "orange" : "green"}>Response: {row.response_status || "success"}</Tag>
                       <Tag>Path: {row.resolution_path || "—"}</Tag>
                       <Tag>Provider attempts: {row.provider_attempts || 0}</Tag>
+                      <Tag color="geekblue">Prompt runtime: {row.prompt_runtime_version_number ? `v${row.prompt_runtime_version_number}` : row.prompt_runtime_version_id ? `ID ${row.prompt_runtime_version_id}` : "—"}</Tag>
+                      <Tag>Prompt hash: {row.prompt_runtime_hash?.slice(0, 12) || "—"}</Tag>
+                      <Tag>{row.prompt_characters || 0} prompt chars</Tag>
+                      <Tag>{row.prompt_section_ids?.length || 0} prompt sections</Tag>
+                      {row.memory_reset_reason ? <Tag color="warning">Memory reset: {row.memory_reset_reason}</Tag> : null}
                       {row.import_batch_id ? <Tag color="cyan">Import batch: {row.import_batch_id}</Tag> : null}
                     </div>
                     {row.desired_outcome && <Typography.Paragraph style={{marginTop:8,marginBottom:0}}><b>Desired outcome:</b> {row.desired_outcome}</Typography.Paragraph>}
@@ -171,6 +176,11 @@ function ChatLogsPage() {
                   {row.attachment_decision || "none"} · Latency: {row.latency_ms || 0} ms · Request:{" "}
                   {row.request_id || "—"}
                 </Typography.Text>
+                {row.prompt_runtime_hash && (
+                  <Typography.Text type="secondary" copyable={{ text: row.prompt_runtime_hash }}>
+                    Compiled Prompt SHA-256: {row.prompt_runtime_hash}
+                  </Typography.Text>
+                )}
                 {!!row.response_blocks?.length && (
                   <Typography.Text type="secondary">
                     Rich response: {row.response_format || "structured-v1"} ·{" "}

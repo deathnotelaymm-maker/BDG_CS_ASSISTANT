@@ -1,6 +1,6 @@
 # BDG Render Backend with Neon PostgreSQL
 
-Version: `1.15.3-prompt-first-ai-repair`
+Version: `1.15.4-prompt-runtime-versioning-repair`
 
 This Node.js service runs on Render and preserves the existing Neon PostgreSQL
 database. Runtime traffic uses the pooled `DATABASE_URL`; Render pre-deploy
@@ -12,6 +12,8 @@ migrations use the direct `MIGRATION_DATABASE_URL`.
 npm ci
 npm run check
 npm run test:regression
+npm run test:prompt-runtime
+npm run test:chat-reliability
 npm run test:knowledge-import
 npm run test:security
 npm run migrate
@@ -32,8 +34,11 @@ rejected with `PLATFORM_CONTEXT_MISMATCH`.
 
 ## AI workflow
 
-The default live workflow is `prompt_first`: one DeepSeek request follows the
-enabled Role, Job, Output, Language, Safety, and other Prompt Manager sections.
+The default live workflow is `prompt_first`: one DeepSeek request follows one
+immutable compiled runtime containing every enabled Role, Job, Output, Language,
+Safety, and other Prompt Manager section. Each runtime has a version, exact
+SHA-256 hash, section hashes, warnings, and an atomic tenant/platform active
+pointer. Sessions clear incompatible old assistant memory when that hash changes.
 It can answer general questions when approved-only mode is off. If the response
 selects a valid tenant/platform-scoped approved source, the backend attaches one
 approved source image automatically. `advanced_two_stage` remains optional.
@@ -47,7 +52,9 @@ remain in Render environment variables.
 `npm run migrate` takes advisory lock `701070`, completes the idempotent legacy
 bootstrap, then applies every numbered file in `migrations/` in order. Applied
 filenames and SHA-256 checksums are stored in `schema_migration_files`. A changed
-historical file stops deployment instead of silently mutating production.
+historical file stops deployment instead of silently mutating production. Migration
+`036_v1.15.4_prompt_runtime_versioning_repair.sql` owns the runtime version,
+active pointer, prompt-aware session, and exact Chat Log diagnostics schema.
 
 ## Security contract
 
