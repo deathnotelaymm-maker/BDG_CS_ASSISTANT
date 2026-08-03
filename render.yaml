@@ -55,7 +55,7 @@ services:
       - key: DEEPSEEK_API_BASE
         value: https://api.deepseek.com
       - key: DEEPSEEK_MODEL
-        value: deepseek-chat
+        value: deepseek-v4-flash
       - key: AI_MODE_ENABLED
         value: "true"
       - key: R2_REQUIRED

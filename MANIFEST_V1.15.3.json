@@ -1,0 +1,26 @@
+{
+  "release": "v1.15.3",
+  "marker": "1.15.3-prompt-first-ai-repair",
+  "title": "Prompt-First AI Repair",
+  "previous_release": "v1.15.2",
+  "migration": "backend-api/migrations/035_v1.15.3_prompt_first_ai_repair.sql",
+  "installer_target": "C:\\Users\\LENOVO\\Documents\\cloud-projects\\BDG_CS_ASSISTANT",
+  "ai_contract": {
+    "default_workflow": "prompt_first",
+    "provider_calls_per_normal_turn": 1,
+    "general_prompt_answers": true,
+    "matched_source_image": true,
+    "advanced_two_stage_optional": true,
+    "default_model": "deepseek-v4-flash",
+    "raw_provider_error_is_public": false
+  },
+  "verification": {
+    "source_regressions": "56/56",
+    "chat_reliability": "6/6",
+    "structured": "4/4",
+    "upload": "9/9",
+    "typecheck_apps": 3,
+    "production_builds": 3,
+    "postgres_integration_runner": ".github/workflows/bdg-production-release.yml"
+  }
+}

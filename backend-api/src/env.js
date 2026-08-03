@@ -44,7 +44,7 @@ export function getRuntimeEnv(source = process.env) {
     SUPPORT_LINK: source.SUPPORT_LINK || '',
     DEEPSEEK_API_KEY: source.DEEPSEEK_API_KEY || '',
     DEEPSEEK_API_BASE: source.DEEPSEEK_API_BASE || 'https://api.deepseek.com',
-    DEEPSEEK_MODEL: source.DEEPSEEK_MODEL || 'deepseek-chat',
+    DEEPSEEK_MODEL: source.DEEPSEEK_MODEL || 'deepseek-v4-flash',
     DEEPSEEK_TIMEOUT_MS: source.DEEPSEEK_TIMEOUT_MS || '15000',
     AI_MODE_ENABLED: source.AI_MODE_ENABLED || 'true',
     R2_ACCOUNT_ID: source.R2_ACCOUNT_ID || '',

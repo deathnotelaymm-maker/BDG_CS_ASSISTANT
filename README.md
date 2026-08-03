@@ -1,62 +1,61 @@
-# v1.15.2 — AI Response Reliability Repair
+# v1.15.3 — Prompt-First AI Repair
 
-v1.15.2 keeps the v1.15.1 security and stabilization work and repairs the live
-Chat behavior that could return a red connection-style card even though Render
-successfully returned HTTP 200.
+v1.15.3 changes live Chat from a mandatory judge-then-composer chain to one
+prompt-first DeepSeek request. The model follows the enabled Prompt Manager
+Role, Job, Output, Language, Safety, and Escalation sections for general
+questions. Approved tenant/platform content is preferred factual context, but
+it does not block a general response unless approved-only mode is enabled.
 
-Release marker:
+Release marker: `1.15.3-prompt-first-ai-repair`
 
-`1.15.2-ai-response-reliability-repair`
+## Live response contract
 
-## What was actually wrong
+- Greetings and respectful boundaries remain deterministic and provider-free.
+- A normal turn uses one provider call in the default `prompt_first` workflow.
+- The model can select an approved catalog item by ID. The server validates the
+  ID before adding its approved buttons and at most one approved image.
+- A no-match question can receive a prompt-governed general answer when
+  **Require an approved source for every answer** is off.
+- Empty model output is retried within the saved retry and deadline limits.
+- During a provider outage, a conservative matched-source fallback can still
+  return approved text and its image.
+- The previous two-stage judge/composer workflow remains available as the
+  optional `advanced_two_stage` mode.
+- Provider errors and keys are never returned to public Chat.
 
-- A normal support answer required two sequential DeepSeek calls: a meaning
-  judge and a response composer. Either call could fail the whole turn.
-- Admin exposed retry and timeout settings, but the live calls hard-coded one
-  attempt and shorter timeouts, so those controls did not protect production.
-- The judge could serialize up to 60 large records into one prompt. Large
-  source catalogs could make requests slow or exceed a practical prompt budget.
-- Indonesian could be enabled for Chat while the live source query admitted
-  only Indonesian or universal records. Platforms whose verified content was
-  still in English presented an empty catalog to the judge.
-- `no_match`, provider failure, and composer failure all became an `error`
-  response block. Chat rendered that as the red card seen by customers.
-- An old saved provider-error sentence blamed the customer's internet even
-  when the request reached Render and completed successfully.
-- The Quality Center could report a test as passed when it had no expectations,
-  even if the AI provider was disabled and the response was degraded.
+No application can generate a general AI answer during a total provider, API,
+database, DNS, or browser-network outage. The verified-source fallback only
+works when the API and database remain available and an approved source clearly
+matches the question.
 
-## Reliability behavior now
+## Required production configuration
 
-- Greetings, thanks, goodbyes, laughter, basic help, and abusive language are
-  handled by a deterministic multilingual conversation layer. These turns do
-  not depend on DeepSeek and do not consume model latency or quota.
-- Saved `max_retries` and `provider_timeout_ms` settings now drive both model
-  stages. Every turn also has a 20-second provider deadline so the browser has
-  time to receive a safe application response.
-- The judge catalog is limited to 40 records and 52,000 serialized characters.
-  Truncation, eligible count, prompt size, attempts, latency, and the final
-  resolution path are written to structured Render logs and Chat Logs.
-- The default source policy is now **exact/base locale, then platform default**.
-  It never crosses tenant or platform boundaries. Strict exact-locale policies
-  remain available in Admin.
-- If the judge selects verified content but the composer fails, the API sends
-  the approved source text, media, and buttons directly.
-- If no verified source matches, Chat sends a neutral localized notice and an
-  optional configured support handoff—not a red network error.
-- Raw provider errors remain in protected diagnostics only. Public Chat gets a
-  safe `response_status`, `resolution_path`, and request ID.
-- English, Indonesian, Hindi, Chinese, and Burmese customer-safe UI and fallback
-  copy are included.
-- Quality Center tests fail when the response is degraded, even when no source,
-  fact, or image expectation was configured.
+Set these Render environment values:
 
-No application can promise a reply during a total database, Render, DNS, or
-browser-network outage. v1.15.2 guarantees a usable application-level response
-when the AI provider, JSON formatting, source match, or composer stage fails
-while the API and database remain reachable.
+```text
+AI_MODE_ENABLED=true
+DEEPSEEK_API_BASE=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_API_KEY=<secret current key with available quota>
+```
 
-## Local verification
+Migration `035_v1.15.3_prompt_first_ai_repair.sql` changes the default workflow
+to prompt-first, repairs retired legacy model values, enables general
+prompt-governed answers by default, and preserves custom Prompt Manager text.
+
+After deployment, open **Admin → AI Reliability**. Save both the Provider and
+Policy cards with AI enabled, `deepseek-v4-flash`, Prompt-first, 2 retries, a
+12,000 ms timeout, and approved-only mode off. Then run the real provider test.
+Configure and enable the desired Role, Job, Response Policy, Language, Safety,
+and Escalation sections in Prompt Manager.
+
+## Image answers
+
+Publish and approve the FAQ, AI Q&A, or Guide for the active platform and
+attach an image to it. When the model selects that exact source, the API adds
+one validated approved image. The model cannot invent or inject an image URL.
+
+## Verification
 
 ```bash
 npm --prefix backend-api ci --omit=dev
@@ -71,51 +70,33 @@ npm run typecheck:all
 npm run build:all
 ```
 
-The database suite requires a disposable PostgreSQL database whose name contains
-`test`:
+The destructive integration suite requires a disposable PostgreSQL database
+whose database name contains `test`:
 
 ```bash
 TEST_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/bdg_integration_test npm run test:integration
 ```
 
-It resets only that disposable database, applies every migration twice, calls
-the real API handler, persists rows, and uses a deterministic fake DeepSeek HTTP
-service for success and outage cases. It never calls production Render,
-Cloudflare, Neon, or DeepSeek.
+It applies all immutable migrations twice and uses a deterministic local fake
+provider. It does not contact production Render, Cloudflare, Neon, or DeepSeek.
 
-## Production deployment
+## Windows installation
 
-1. Install the release into the canonical GitHub Desktop repository.
-2. Review [RELEASE_NOTES_V1.15.2.md](RELEASE_NOTES_V1.15.2.md) and
-   [DEPLOYMENT_CHECKLIST_V1.15.2.md](DEPLOYMENT_CHECKLIST_V1.15.2.md).
-3. Commit and push the reviewed changes to `main`.
-4. Render applies migration `034_v1.15.2_ai_response_reliability_repair.sql`
-   before starting the API.
-5. GitHub Actions runs backend checks and the disposable PostgreSQL integration
-   suite, waits for the matching Render marker, and then publishes all Pages
-   applications.
-6. Confirm `/health/live` and `/health/ready` report
-   `1.15.2-ai-response-reliability-repair`.
+1. Extract `BDG-v1153-prompt-first-ai-repair.zip` to `C:\BDG-v1153`.
+2. Double-click `START-HERE-V1.15.3-PROMPT-FIRST-AI-REPAIR.bat`.
+3. Wait for `V1.15.3 PROMPT-FIRST AI REPAIR INSTALLED AND VERIFIED`.
+4. Open GitHub Desktop, press `Ctrl+R`, review Changes, commit, and push `main`.
+5. Follow [DEPLOYMENT_CHECKLIST_V1.15.3.md](DEPLOYMENT_CHECKLIST_V1.15.3.md).
 
-## Windows install
-
-Extract `BDG-v1152-ai-response-reliability-repair-r3.zip` into a short folder such
-as `C:\BDG-v1152-r3`, then double-click:
-
-`START-HERE-V1.15.2-AI-RELIABILITY-REPAIR.bat`
-
-The installer writes only to:
-
-`C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT`
-
-It verifies that the destination is a Git repository, creates a rollback backup,
-copies the patch, verifies the release marker, and prints `git status --short`.
-It never commits, pushes, deploys, or reads production secrets.
+The installer writes only to
+`C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT`, creates a rollback
+backup, and never commits, pushes, deploys, or reads production secrets.
 
 ## Release documents
 
-- [Release notes](RELEASE_NOTES_V1.15.2.md)
-- [Verification result](TEST_RESULT_V1.15.2.md)
-- [Deployment checklist](DEPLOYMENT_CHECKLIST_V1.15.2.md)
-- [Changed files](CHANGED_FILES_V1.15.2.txt)
-- [Machine-readable manifest](MANIFEST_V1.15.2.json)
+- [AI workflow analysis](AI_WORKFLOW_REPAIR_V1.15.3.md)
+- [Release notes](RELEASE_NOTES_V1.15.3.md)
+- [Verification result](TEST_RESULT_V1.15.3.md)
+- [Deployment checklist](DEPLOYMENT_CHECKLIST_V1.15.3.md)
+- [Changed files](CHANGED_FILES_V1.15.3.txt)
+- [Machine-readable manifest](MANIFEST_V1.15.3.json)

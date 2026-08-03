@@ -9,6 +9,7 @@ const SHARED_CHAT_ORIGIN = 'https://bdg-chat-pages.pages.dev';
 const originalFetch = globalThis.fetch;
 let providerMode = 'success';
 let selectedSourceId = 0;
+const providerRequestKinds = [];
 const connectionString = String(process.env.TEST_DATABASE_URL || '').trim();
 if (!connectionString) throw new Error('TEST_DATABASE_URL is required. Integration tests never fall back to DATABASE_URL.');
 
@@ -34,6 +35,7 @@ const env = {
   AI_MODE_ENABLED: 'true',
   DEEPSEEK_API_KEY: 'integration-test-provider-key',
   DEEPSEEK_API_BASE: 'https://deepseek.integration.test',
+  DEEPSEEK_MODEL: 'deepseek-v4-flash',
   R2_REQUIRED: false,
   GUIDE_IMAGES: null,
   RATE_LIMIT_WINDOW_MS: 60_000,
@@ -44,9 +46,22 @@ const env = {
 globalThis.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : input?.url;
   if (!String(url || '').startsWith('https://deepseek.integration.test/')) return originalFetch(input, init);
-  if (providerMode === 'outage') return new Response(JSON.stringify({ error:{ message:'simulated provider outage' } }), { status:503, headers:{ 'Content-Type':'application/json' } });
   const request = JSON.parse(String(init.body || '{}'));
+  assert.equal(request.model, 'deepseek-v4-flash', 'Integration provider calls must use the current DeepSeek model');
   const systemPrompt = String(request.messages?.[0]?.content || '');
+  const requestKind = systemPrompt.startsWith('This is a provider connectivity test')
+    ? 'connectivity'
+    : systemPrompt.startsWith('You are the prompt-first AI customer support assistant') ? 'prompt_first'
+    : systemPrompt.startsWith('You are the AI Meaning Judge') ? 'judge' : 'composer';
+  providerRequestKinds.push(requestKind);
+  if (providerMode === 'outage') return new Response(JSON.stringify({ error:{ message:'simulated provider outage' } }), { status:503, headers:{ 'Content-Type':'application/json' } });
+  const userMessage = String(request.messages?.[1]?.content || '');
+  if (requestKind === 'connectivity') return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ ok:true }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
+  if (requestKind === 'prompt_first') {
+    const matched = userMessage.includes('Customer message: Integration duplicate intent');
+    const localizedReply = matched && systemPrompt.includes('requested locale (id)') ? 'Jawaban terverifikasi' : matched ? 'Verified answer' : 'I can help with general support questions under the configured role and instructions.';
+    return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ reply:localizedReply, item_id:matched ? selectedSourceId : null, reason:matched ? 'Matched approved integration source' : 'General prompt answer' }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
+  }
   // The composer prompt contains an "AI Meaning Judge decision" section.
   // Classify only the dedicated judge prompt by its authoritative prefix so
   // the fake provider cannot accidentally send judge JSON to the composer.
@@ -54,7 +69,6 @@ globalThis.fetch = async (input, init = {}) => {
     return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ decision:'match', item_id:selectedSourceId, confidence:96, user_intent:'integration test', desired_outcome:'verified answer', clarification_question:'', reason:'Matched the integration source', tool_call:null }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
   }
   if (providerMode === 'composer_fail') return new Response(JSON.stringify({ error:{ message:'simulated composer outage' } }), { status:503, headers:{ 'Content-Type':'application/json' } });
-  const userMessage = String(request.messages?.[1]?.content || '');
   const localizedReply = userMessage.includes('Customer message: Integration duplicate intent') && systemPrompt.includes('requested locale (id)')
     ? 'Jawaban terverifikasi'
     : 'Verified answer';
@@ -108,6 +122,10 @@ try {
   assert.ok(registry.rows.every((row) => /^[a-f0-9]{64}$/.test(row.checksum_sha256)));
   const qualityTables = await database.query("SELECT COUNT(*)::integer AS count FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('ai_quality_findings','ai_quality_test_cases','ai_quality_test_runs')");
   assert.equal(qualityTables.rows[0].count, 3);
+  const modelSettings = (await database.query('SELECT model,require_approved_context,max_tokens FROM ai_model_settings ORDER BY id LIMIT 1')).rows[0];
+  assert.equal(modelSettings.model, 'deepseek-v4-flash');
+  assert.equal(modelSettings.require_approved_context, false);
+  assert.ok(Number(modelSettings.max_tokens) >= 1200);
 
   const login = await call('/auth/login', {
     method:'POST', auth:false, platformRoute:'',
@@ -120,10 +138,17 @@ try {
   platform = (await database.query(`SELECT id,tenant_id,public_route_key FROM saas_platforms
     WHERE archived_at IS NULL AND status='active' ORDER BY id LIMIT 1`)).rows[0];
   assert.ok(platform?.public_route_key, 'Bootstrap must create an active routed platform');
+  const workflowMode = (await database.query('SELECT workflow_mode FROM ai_reliability_settings WHERE tenant_id=$1 AND platform_id=$2', [platform.tenant_id,platform.id])).rows[0]?.workflow_mode;
+  assert.equal(workflowMode, 'prompt_first');
   await database.query(`UPDATE saas_platforms SET supported_languages='["en","id"]' WHERE id=$1`, [platform.id]);
   await database.query(`INSERT INTO platform_locales(tenant_id,platform_id,locale,display_name,native_name,direction,is_default,is_enabled)
     VALUES($1,$2,'id','Indonesian','Bahasa Indonesia','ltr',FALSE,TRUE)
     ON CONFLICT(tenant_id,platform_id,locale) DO UPDATE SET is_enabled=TRUE`, [platform.tenant_id,platform.id]);
+
+  const providerTest = expectStatus(await call('/admin/ai/reliability/test', { method:'POST', body:{ message:'provider connectivity' } }), 200, 'Run a real provider connectivity test');
+  assert.equal(providerTest.ok, true);
+  assert.equal(providerTest.model, 'deepseek-v4-flash');
+  assert.equal(providerTest.checks.find((check) => check.name === 'provider connection')?.ok, true);
 
   const unsafeHtml = '<p>Verified answer</p><img src="https://cdn.example.test/help.png" onerror="alert(1)"><a href="javascript:alert(2)">bad</a><script>alert(3)</script>';
   const createdFaq = expectStatus(await call('/admin/faqs', {
@@ -172,15 +197,30 @@ try {
   assert.equal(localizedAiAnswer.response_status, 'success');
   assert.equal(localizedAiAnswer.language, 'id');
   assert.match(localizedAiAnswer.reply, /Jawaban terverifikasi/);
+  assert.equal(localizedAiAnswer.resolution_path, 'prompt_first_grounded_answer');
+  assert.equal(localizedAiAnswer.response_blocks.filter((block) => block.type === 'image').length, 1, 'A matched source must attach its approved image once');
+  assert.match(localizedAiAnswer.response_blocks.find((block) => block.type === 'image')?.url || '', /cdn\.example\.test\/help\.png/);
+  assert.deepEqual(providerRequestKinds.slice(-1), ['prompt_first'], 'A normal answer must use one provider call');
 
-  providerMode = 'composer_fail';
+  const callsBeforeGeneral = providerRequestKinds.length;
+  const generalAnswer = expectStatus(await call('/chat', {
+    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
+    body:{ message:'What can you help me with today?', language:'en', platform_key:platform.public_route_key, session_id:'integration-general-answer' },
+  }), 200, 'Answer a general question under Prompt Manager rules');
+  assert.equal(generalAnswer.response_status, 'success');
+  assert.equal(generalAnswer.resolution_path, 'prompt_first_general_answer');
+  assert.match(generalAnswer.reply, /general support questions/i);
+  assert.deepEqual(providerRequestKinds.slice(callsBeforeGeneral), ['prompt_first'], 'A general prompt answer must use exactly one provider call');
+
+  providerMode = 'outage';
   const verifiedFallback = expectStatus(await call('/chat', {
     method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
     body:{ message:'Integration duplicate intent', language:'en', platform_key:platform.public_route_key, session_id:'integration-provider-fallback' },
-  }), 200, 'Return verified source content when the composer provider fails');
+  }), 200, 'Return verified source content when the prompt-first provider fails');
   assert.equal(verifiedFallback.response_status, 'degraded');
   assert.equal(verifiedFallback.resolution_path, 'verified_source_fallback');
   assert.match(verifiedFallback.reply, /Verified answer/);
+  assert.equal(verifiedFallback.response_blocks.filter((block) => block.type === 'image').length, 1, 'Provider outage fallback must retain the matched approved image');
   assert.equal(verifiedFallback.response_blocks.some((block) => block.type === 'error'), false);
   assert.equal(Object.hasOwn(verifiedFallback, 'provider_error'), false, 'Public chat must not expose provider details');
   const fallbackLog = (await database.query(`SELECT response_status,resolution_path,degraded_reason,provider_attempts FROM chat_logs WHERE session_id='integration-provider-fallback' ORDER BY id DESC LIMIT 1`)).rows[0];
@@ -222,7 +262,7 @@ try {
   console.log('PASS Real login, scoped CRUD, shared-host public read, hostname guard, and tenant-isolation paths');
   console.log('PASS Rich HTML is sanitized in the API response and PostgreSQL row');
   console.log('PASS Private connector targets are rejected through the authenticated API');
-  console.log('PASS Local conversation, locale fallback, provider retry, and verified-source fallback paths');
+  console.log('PASS Local conversation, one-call general and grounded answers, matched images, provider retry, and verified-source fallback paths');
   console.log('PASS AI quality findings and live-router test runs persist in PostgreSQL');
 } finally {
   globalThis.fetch = originalFetch;

@@ -34,9 +34,15 @@ assert.match(core, /attempts:1 \+ Number\(reliability\?\.max_retries \|\| 0\)/, 
 assert.match(core, /deadline_at:deadlineAt/, 'Provider retries must stay inside the chat deadline');
 assert.match(core, /verified_source_fallback/, 'A matched approved source must survive composer failure');
 assert.doesNotMatch(core, /provider_error: usedDeepSeek/, 'Public responses must not expose raw provider failures');
+assert.match(core, /async function promptFirstAiResponse/, 'The default workflow must support one-call prompt-first answers');
+assert.match(core, /DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash'/, 'The runtime must not default to a retired DeepSeek model');
+assert.match(core, /if \(attempt < maxAttempts\) continue;/, 'Empty JSON-mode responses must use the bounded retry policy');
+assert.match(core, /if \(assets\.images\[0\]\) blocks\.push/, 'A selected approved source must attach its validated image');
 
 console.log('PASS Indonesian social and respectful-boundary responses are deterministic');
 console.log('PASS Legacy network-blaming fallbacks are rejected');
 console.log('PASS Model JSON receives narrow, non-executable repair');
 console.log('PASS Saved retries, deadline budget, and verified-source fallback are wired');
-console.log('\n4/4 AI response reliability checks passed');
+console.log('PASS One-call prompt-first answers use the current DeepSeek model');
+console.log('PASS Matched approved images survive provider and response validation');
+console.log('\n6/6 AI response reliability checks passed');

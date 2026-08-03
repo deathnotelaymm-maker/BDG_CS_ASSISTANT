@@ -26,3 +26,8 @@ registry.
 
 The migration command runs during Render pre-deploy. Customer requests never
 run the file migration sequence.
+
+Migration `035_v1.15.3_prompt_first_ai_repair.sql` switches the default live
+chat workflow to one prompt-first provider call, permits general answers under
+the configured Prompt Manager rules, and upgrades legacy DeepSeek model names
+to `deepseek-v4-flash`.

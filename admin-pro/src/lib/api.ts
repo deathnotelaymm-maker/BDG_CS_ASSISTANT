@@ -821,6 +821,14 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, test: { status: "pass", checks: [] } });
     return request("/admin/ai/reliability/test", { method: "POST", body: JSON.stringify(data) });
   },
+  getAiSettings: async () => {
+    if (MOCK_MODE) return delay({ enabled: true, provider: "deepseek", model: "deepseek-v4-flash", api_base: "https://api.deepseek.com", temperature: 0.2, max_tokens: 1200, require_approved_context: false, memory_enabled: true, memory_max_messages: 12, memory_ttl_days: 30, has_api_key: true });
+    return request("/admin/ai/settings");
+  },
+  updateAiSettings: async (data: any) => {
+    if (MOCK_MODE) return delay({ ...data, provider: "deepseek", has_api_key: true });
+    return request("/admin/ai/settings", { method: "PUT", body: JSON.stringify(data) });
+  },
 
   previewKnowledgeImport: async (file: File, platform_key: string) => {
     if (MOCK_MODE) return delay({ id: Date.now(), filename: file.name, platform_key, status: "review", total_rows: 1, valid_rows: 1, error_rows: 0, preview_rows: [] });

@@ -1,6 +1,6 @@
 # BDG Render Backend with Neon PostgreSQL
 
-Version: `1.15.2-ai-response-reliability-repair`
+Version: `1.15.3-prompt-first-ai-repair`
 
 This Node.js service runs on Render and preserves the existing Neon PostgreSQL
 database. Runtime traffic uses the pooled `DATABASE_URL`; Render pre-deploy
@@ -29,6 +29,18 @@ The suite invokes the backend handler in-process; it does not call Render or
 Cloudflare. Its public-route fixture uses the shared Chat Pages origin, and a
 separate negative assertion confirms that an unmapped custom hostname is still
 rejected with `PLATFORM_CONTEXT_MISMATCH`.
+
+## AI workflow
+
+The default live workflow is `prompt_first`: one DeepSeek request follows the
+enabled Role, Job, Output, Language, Safety, and other Prompt Manager sections.
+It can answer general questions when approved-only mode is off. If the response
+selects a valid tenant/platform-scoped approved source, the backend attaches one
+approved source image automatically. `advanced_two_stage` remains optional.
+
+The supported default model is `deepseek-v4-flash`. Admin → AI Reliability
+includes the model configuration and a real provider connectivity test; secrets
+remain in Render environment variables.
 
 ## Migration contract
 

@@ -1,0 +1,46 @@
+v1.15.3 — Prompt-First AI Repair
+
+Release and installer
+- AI_WORKFLOW_REPAIR_V1.15.3.md
+- CHANGED_FILES_V1.15.3.txt
+- DEPLOYMENT_CHECKLIST_V1.15.3.md
+- INSTALL-V1.15.3-PROMPT-FIRST-AI-REPAIR.cmd
+- MANIFEST_V1.15.3.json
+- README-V1.15.3.txt
+- README.md
+- RELEASE_NOTES_V1.15.3.md
+- START-HERE-V1.15.3-PROMPT-FIRST-AI-REPAIR.bat
+- START-HERE-WINDOWS.bat
+- TEST_RESULT_V1.15.3.md
+- V1.15.3_PROMPT_FIRST_AI_REPAIR_INSTALLED.txt
+
+Backend and deployment
+- backend-api/.env.example
+- backend-api/README.md
+- backend-api/migrations/035_v1.15.3_prompt_first_ai_repair.sql
+- backend-api/migrations/README.md
+- backend-api/package.json
+- backend-api/package-lock.json
+- backend-api/scripts/chat-reliability-regression-test.js
+- backend-api/scripts/integration-test.js
+- backend-api/scripts/regression-test.js
+- backend-api/scripts/upload-regression-test.js
+- backend-api/src/core.js
+- backend-api/src/env.js
+- backend-api/src/server.js
+- render.yaml
+- render.staging.example.yaml
+
+Admin
+- admin-pro/package.json
+- admin-pro/package-lock.json
+- admin-pro/src/components/AdminLayout.tsx
+- admin-pro/src/lib/api.ts
+- admin-pro/src/routes/_admin.ai-reliability.tsx
+
+Version synchronization
+- package.json
+- chat-pro/package.json
+- chat-pro/package-lock.json
+- guide-pro/package.json
+- guide-pro/package-lock.json

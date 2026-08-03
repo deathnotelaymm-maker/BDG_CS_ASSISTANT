@@ -1,0 +1,5 @@
+BDG v1.15.3 Prompt-First AI Repair
+Release marker: 1.15.3-prompt-first-ai-repair
+
+This visible file confirms that the installer copied the patch into the GitHub
+Desktop repository. Review every change before committing and pushing.
