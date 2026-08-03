@@ -99,8 +99,8 @@ Cloudflare, Neon, or DeepSeek.
 
 ## Windows install
 
-Extract `BDG-v1152-ai-response-reliability-repair-r2.zip` into a short folder such
-as `C:\BDG-v1152`, then double-click:
+Extract `BDG-v1152-ai-response-reliability-repair-r3.zip` into a short folder such
+as `C:\BDG-v1152-r3`, then double-click:
 
 `START-HERE-V1.15.2-AI-RELIABILITY-REPAIR.bat`
 

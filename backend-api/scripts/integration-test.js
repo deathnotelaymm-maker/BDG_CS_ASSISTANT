@@ -47,7 +47,10 @@ globalThis.fetch = async (input, init = {}) => {
   if (providerMode === 'outage') return new Response(JSON.stringify({ error:{ message:'simulated provider outage' } }), { status:503, headers:{ 'Content-Type':'application/json' } });
   const request = JSON.parse(String(init.body || '{}'));
   const systemPrompt = String(request.messages?.[0]?.content || '');
-  if (systemPrompt.includes('AI Meaning Judge')) {
+  // The composer prompt contains an "AI Meaning Judge decision" section.
+  // Classify only the dedicated judge prompt by its authoritative prefix so
+  // the fake provider cannot accidentally send judge JSON to the composer.
+  if (systemPrompt.startsWith('You are the AI Meaning Judge')) {
     return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ decision:'match', item_id:selectedSourceId, confidence:96, user_intent:'integration test', desired_outcome:'verified answer', clarification_question:'', reason:'Matched the integration source', tool_call:null }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
   }
   if (providerMode === 'composer_fail') return new Response(JSON.stringify({ error:{ message:'simulated composer outage' } }), { status:503, headers:{ 'Content-Type':'application/json' } });

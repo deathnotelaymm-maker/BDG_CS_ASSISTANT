@@ -1,6 +1,6 @@
 BDG HELP CENTER v1.15.2 - AI RESPONSE RELIABILITY REPAIR
 
-1. Extract BDG-v1152-ai-response-reliability-repair-r2.zip to C:\BDG-v1152.
+1. Extract BDG-v1152-ai-response-reliability-repair-r3.zip to C:\BDG-v1152-r3.
 2. Double-click START-HERE-V1.15.2-AI-RELIABILITY-REPAIR.bat.
 3. Wait for: V1.15.2 AI RESPONSE RELIABILITY REPAIR INSTALLED AND VERIFIED.
 4. Open GitHub Desktop and review the repository Changes tab.

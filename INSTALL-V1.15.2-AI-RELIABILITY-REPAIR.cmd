@@ -16,13 +16,13 @@ echo.
 set "TARGET=C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT"
 set "PAYLOAD=%~dp0payload"
 set "BACKUP=C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.15.2"
-if exist "%BACKUP%" set "BACKUP=C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.15.2-r2"
 if exist "%BACKUP%" set "BACKUP=C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.15.2-r3"
 
 if not exist "%PAYLOAD%\backend-api\src\chat-reliability.js" goto bad_release
 if not exist "%PAYLOAD%\backend-api\migrations\034_v1.15.2_ai_response_reliability_repair.sql" goto bad_release
 if not exist "%PAYLOAD%\chat-pro\src\lib\chat-config.ts" goto bad_release
 if not exist "%PAYLOAD%\RELEASE_NOTES_V1.15.2.md" goto bad_release
+if not exist "%PAYLOAD%\CI_AI_COMPOSER_FIX_V1.15.2.md" goto bad_release
 if not exist "%TARGET%\.git" goto bad_target
 if not exist "%TARGET%\backend-api\src\core.js" goto bad_target
 if not exist "%TARGET%\admin-pro" goto bad_target
@@ -70,7 +70,7 @@ goto done
 
 :bad_release
 echo ERROR: The release payload is incomplete or was not fully extracted.
-echo Extract the ZIP into C:\BDG-v1152 and run START-HERE again.
+echo Extract the ZIP into C:\BDG-v1152-r3 and run START-HERE again.
 goto done
 
 :bad_target

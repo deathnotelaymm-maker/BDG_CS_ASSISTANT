@@ -3,7 +3,7 @@
 ## Passed in this release workspace
 
 - Backend syntax checks: passed.
-- Source regression suite: passed, 50/50.
+- Source regression suite: passed, 51/51.
 - AI response reliability suite: passed, 4/4.
 - Workbook import regression: passed, 4 behavior groups.
 - Rich HTML and connector security regression: passed, 3 behavior groups.
@@ -29,8 +29,14 @@ vulnerability and the release does not force incompatible archive overrides.
 The updated suite is checked for JavaScript syntax and runs in GitHub Actions
 against its disposable PostgreSQL 16 service. It now covers:
 
-Package revision r2 also verifies that the Indonesian locale fixture uses the
-schema's full `UNIQUE(tenant_id, platform_id, locale)` conflict target.
+Package revision r3 verifies both CI fixture repairs:
+
+- the Indonesian locale fixture uses the schema's full
+  `UNIQUE(tenant_id, platform_id, locale)` conflict target; and
+- the fake provider identifies only prompts beginning with
+  `You are the AI Meaning Judge` as judge requests. The composer prompt contains
+  an informational "AI Meaning Judge decision" section and must receive the
+  composer response contract.
 
 - all 33 numbered SQL migration files and checksum re-run behavior;
 - real owner login, scoped FAQ CRUD, stored HTML sanitization, and isolation;

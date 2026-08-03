@@ -81,6 +81,7 @@ expect("Connector URLs use DNS-aware, rebinding-resistant HTTPS SSRF protection"
 expect("SQL migration files are checksum tracked and applied", migrationRunner.includes("schema_migration_files") && migrationRunner.includes("checksum mismatch") && core.includes("applySqlMigrationFiles(client)") && stabilizationMigration.includes("v1.15.1_stabilization_security_repair") && reliabilityMigration.includes("v1.15.2_ai_response_reliability_repair"));
 expect("Integration tests distinguish shared Pages origins from custom hostnames", integrationTest.includes("SHARED_CHAT_ORIGIN") && integrationTest.includes("Read public FAQs through the shared Chat hostname") && integrationTest.includes("Reject a route that does not match the custom hostname") && !integrationTest.includes("SKIP_CLOUDFLARE_PLATFORM_CHECK"));
 expect("Integration locale fixture uses the schema tenant-platform-locale key", integrationTest.includes("ON CONFLICT(tenant_id,platform_id,locale)") && !integrationTest.includes("ON CONFLICT(platform_id,locale)"));
+expect("Integration fake provider distinguishes judge from composer prompts", integrationTest.includes("systemPrompt.startsWith('You are the AI Meaning Judge')") && !integrationTest.includes("systemPrompt.includes('AI Meaning Judge')"));
 
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
