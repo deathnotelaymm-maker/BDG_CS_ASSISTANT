@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/accordion";
 import { CategoryIcon } from "@/components/public/CategoryIcon";
 import { ServiceErrorPanel } from "@/components/public/ServiceErrorPanel";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 
 export const Route = createFileRoute("/_public/")({
   head: () => ({
@@ -212,7 +213,7 @@ function Home() {
                 <AccordionItem key={f.id} value={f.id} className="border-border">
                   <AccordionTrigger className="text-left text-sm">{f.question}</AccordionTrigger>
                   <AccordionContent className="text-sm text-muted-foreground">
-                    {f.answerHtml ? <div className="bdg-rich-public" dangerouslySetInnerHTML={{ __html: f.answerHtml.replace(/<\/?script[^>]*>/gi, "").replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "") }} /> : f.answer}
+                    {f.answerHtml ? <div className="bdg-rich-public" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(f.answerHtml) }} /> : f.answer}
                   </AccordionContent>
                 </AccordionItem>
               ))}

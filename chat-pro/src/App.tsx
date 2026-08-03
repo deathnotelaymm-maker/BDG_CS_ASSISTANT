@@ -541,7 +541,7 @@ function StructuredResponse({ blocks, onPrompt, onPreview }: { blocks: ResponseB
             </div>
           );
         }
-        if (["warning", "notice", "success", "error"].includes(block.type)) {
+        if (block.type === "warning" || block.type === "notice" || block.type === "success" || block.type === "error") {
           const tone = block.type as "warning" | "notice" | "success" | "error";
           const styles = {
             warning: "border-amber-400/30 bg-amber-400/10 text-amber-100",

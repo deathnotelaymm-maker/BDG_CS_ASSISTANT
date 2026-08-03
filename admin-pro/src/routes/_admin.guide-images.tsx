@@ -409,7 +409,7 @@ function VisualGuideStudio() {
         <Row gutter={12} style={{ marginTop: 14 }}>
           <Col xs={24} md={12}><Form.Item name="keywords" label="Search keywords"><Input placeholder="deposit, pending, recharge" onChange={(event) => updateActiveDocument({ keywords: event.target.value })} /></Form.Item></Col>
         </Row>
-        <Divider orientation="left">Motion media cover</Divider>
+        <Divider titlePlacement="start">Motion media cover</Divider>
         <Card size="small" style={{ marginBottom: 16 }}>
           <Alert showIcon type="info" style={{ marginBottom: 14 }} message="Image, animated GIF, or video cover" description="GIF covers play naturally. Video accepts MP4 or WebM. When Autoplay is enabled, Muted is locked on to satisfy browser autoplay rules." />
           <Row gutter={12}>
@@ -432,7 +432,7 @@ function VisualGuideStudio() {
             <Col xs={12} md={6}><Form.Item name="video_controls" label="Player controls" valuePropName="checked"><Switch onChange={(checked) => updateActiveDocument({ video_controls: checked })} /></Form.Item></Col>
           </Row>}
         </Card>
-        <Divider orientation="left">Text motion</Divider>
+        <Divider titlePlacement="start">Text motion</Divider>
         <Card size="small" style={{ marginBottom: 16 }}>
           <Row gutter={12}>
             <Col xs={24} md={6}><Form.Item name="motion_enabled" label="Enable text motion" valuePropName="checked"><Switch onChange={(checked) => updateActiveDocument({ motion_enabled: checked })} /></Form.Item></Col>

@@ -18,8 +18,16 @@ const guidePublicApi = read("guide-pro/src/lib/api.ts");
 const r2Adapter = read("backend-api/src/r2-adapter.js");
 const publishingMigration = read("backend-api/migrations/031_v1.14.3_guide_publishing_state_repair_platform_self_service_upload.sql");
 const migration = read("backend-api/migrations/032_v1.15.0_advanced_visual_guide_studio_motion_media.sql");
+const stabilizationMigration = read("backend-api/migrations/033_v1.15.1_stabilization_security_repair.sql");
+const migrationRunner = read("backend-api/src/migration-files.js");
+const networkSafety = read("backend-api/src/network-safety.js");
+const richHtml = read("backend-api/src/rich-html.js");
+const guideSanitizer = read("guide-pro/src/lib/sanitize-html.ts");
+const guideHeaders = read("guide-pro/public/_headers");
+const chatHeaders = read("chat-pro/public/_headers");
+const adminHeaders = read("admin-pro/public/_headers");
 
-expect("Backend and server expose the v1.15.0 release", core.includes("1.15.0-advanced-visual-guide-studio-motion-media") && server.includes("1.15.0-advanced-visual-guide-studio-motion-media"));
+expect("Backend and server expose the v1.15.1 release", core.includes("1.15.1-stabilization-security-repair") && server.includes("1.15.1-stabilization-security-repair"));
 expect("Domain route IDs are extracted from the numeric path segment", core.includes("function domainIdFromPath") && core.includes("Number.isSafeInteger(id)") && core.includes("DOMAIN_ID_INVALID"));
 expect("Provision uses the validated domain ID", core.includes("provisionMappedDomain(env, domainIdFromPath(path), scope)") && !core.includes("provisionMappedDomain(env, idFromParts(path, 3), scope)"));
 expect("Sync, verify, and delete use the validated domain ID", ["syncMappedDomain(env, domainIdFromPath(path), scope)", "verifyMappedDomain(env, domainIdFromPath(path), scope)", "deleteMappedDomain(env, domainIdFromPath(path), scope)"].every((item) => core.includes(item)));
@@ -30,7 +38,7 @@ expect("Domain mapping exposes missing configuration names", core.includes("cons
 expect("Render environment validation covers Cloudflare prerequisites", env.includes("CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED") && env.includes("CLOUDFLARE_API_TOKEN") && env.includes("CLOUDFLARE_ZONE_ID") && env.includes("CLOUDFLARE_SAAS_CNAME_TARGET"));
 expect("Admin disables Provision until Cloudflare is configured", domainPage.includes("const cloudflareReady = data?.cloudflare?.configured === true") && domainPage.includes("disabled={!cloudflareReady}"));
 expect("Admin displays the exact missing Render variables", domainPage.includes("data?.cloudflare?.missing_env") && domainPage.includes("Set these Render variables before provisioning"));
-expect("Admin release marker is v1.15.0", adminLayout.includes('const ADMIN_VERSION = "v1.15.0"'));
+expect("Admin release marker is v1.15.1", adminLayout.includes('const ADMIN_VERSION = "v1.15.1"'));
 expect("v1.14.1 single-image contract remains present", core.includes("const legacyContentImages = imageDelivery.image_count ? [] : contentImages") && core.includes("A response without procedural steps has one canonical visual at most"));
 expect("Platform context remains strict with no fallback", core.includes("PLATFORM_CONTEXT_REQUIRED") && core.includes("fallback_applied: false") && !core.includes("publicReference || 'default'"));
 expect("v1.14.3 migration repairs existing parent Guide drafts", publishingMigration.includes("UPDATE guides g") && publishingMigration.includes("gt.status = 'published'"));
@@ -54,8 +62,13 @@ expect("Public Guide renders video and animated GIF-compatible images", guidePub
 expect("Public Guide honors reduced-motion preferences", guidePublicPage.includes("prefers-reduced-motion: reduce") && guidePublicPage.includes("useReducedMotion") && guidePublicPage.includes("!prefersReducedMotion"));
 expect("Only allowlisted motion presets reach the renderer", core.includes("GUIDE_ANIMATION_PRESETS") && guidePublicPage.includes("SAFE_MOTION_PRESETS"));
 expect("R2 media delivery supports HTTP byte ranges", r2Adapter.includes("supportsHttpRange: true") && r2Adapter.includes("Range: range") && core.includes("'Content-Range'"));
+expect("AI Response Quality Center has complete API wiring", ["getAiQualityOverview", "scanAiQuality", "listAiQualityFindings", "resolveAiQualityFinding", "createAiQualityTestCase", "runAiQualityTest", "runAiQualitySuite"].every((name) => core.includes(`function ${name}`) || core.includes(`async function ${name}`)) && adminApi.includes("getAiQualityOverview") && adminLayout.includes("AI Response Quality"));
+expect("Rich HTML is sanitized on both server and Guide client", richHtml.includes("sanitize-html") && core.includes("sanitizeRichHtml") && guideSanitizer.includes("DOMPurify.sanitize"));
+expect("Pages deployments include CSP and defensive headers", [guideHeaders, chatHeaders, adminHeaders].every((value) => value.includes("Content-Security-Policy:") && value.includes("object-src 'none'") && value.includes("X-Content-Type-Options: nosniff")));
+expect("Connector URLs use DNS-aware, rebinding-resistant HTTPS SSRF protection", networkSafety.includes("validatePublicHttpsUrl") && networkSafety.includes("isForbiddenNetworkAddress") && networkSafety.includes("pinned.address") && networkSafety.includes("Connector redirects are not allowed") && core.includes("fetchPublicHttpsText"));
+expect("SQL migration files are checksum tracked and applied", migrationRunner.includes("schema_migration_files") && migrationRunner.includes("checksum mismatch") && core.includes("applySqlMigrationFiles(client)") && stabilizationMigration.includes("v1.15.1_stabilization_security_repair"));
 
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
-console.log(`\n${checks.length - failed.length}/${checks.length} v1.15.0 regression checks passed`);
+console.log(`\n${checks.length - failed.length}/${checks.length} v1.15.1 regression checks passed`);
 if (failed.length) process.exitCode = 1;

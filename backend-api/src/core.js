@@ -1,13 +1,16 @@
 import pg from 'pg';
 import { promisify } from 'node:util';
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
-import * as XLSX from 'xlsx';
+import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import ExcelJS from 'exceljs';
 import { importedRowToAiContentDraft, parseKnowledgeWorkbook } from './knowledge-import.js';
+import { applySqlMigrationFiles } from './migration-files.js';
+import { fetchPublicHttpsText, validatePublicHttpsUrl } from './network-safety.js';
+import { sanitizeRichHtml } from './rich-html.js';
 const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.15.0-advanced-visual-guide-studio-motion-media';
+const VERSION = '1.15.1-stabilization-security-repair';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
 const CHAT_ANIMATION_PRESETS = new Set(['none', 'fade', 'slide', 'pulse', 'typing']);
@@ -81,7 +84,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','guide-parent-publication-sync','guide-derived-publication-status','guide-platform-self-service-upload','guide-publish-role-guard','guide-media-ownership-audit','guide-motion-media','guide-gif-covers','guide-video-autoplay-loop','guide-safe-text-animation-presets','guide-reduced-motion','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','domain-id-validation','cloudflare-configuration-guard'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','advanced-knowledge-import','xlsx-draft-review','ai-only-semantic-routing','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','knowledge-import-progress','xlsx-image-roles','knowledge-template','ai-qa-source','rich-faq-studio','import-approval-publish','locale-aware-knowledge-studio','locale-policy','locale-coverage','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','guide-parent-publication-sync','guide-derived-publication-status','guide-platform-self-service-upload','guide-publish-role-guard','guide-media-ownership-audit','guide-motion-media','guide-gif-covers','guide-video-autoplay-loop','guide-safe-text-animation-presets','guide-reduced-motion','unified-ai-source-router','source-policy-controls','source-aware-diagnostics','dynamic-ai-locale-routing','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','domain-id-validation','cloudflare-configuration-guard','ai-response-quality-center','immutable-file-migrations','server-rich-html-sanitization','connector-dns-ssrf-guard','postgres-api-integration-tests'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -231,6 +234,14 @@ async function route(request, env, url) {
   if (method === 'GET' && path === '/admin/ai-source-router') return json(await getAiSourceRouter(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/ai-source-router') return json(await updateAiSourceRouter(env, await readJson(request), scope), 200, env);
   if (method === 'POST' && path === '/admin/ai-source-router/preview') return json(await previewAiSourceRouter(env, await readJson(request), scope), 200, env);
+  if (method === 'GET' && path === '/admin/ai-quality/overview') return json(await getAiQualityOverview(env, scope), 200, env);
+  if (method === 'POST' && path === '/admin/ai-quality/scan') return json(await scanAiQuality(env, await readJson(request), scope), 200, env);
+  if (method === 'GET' && path === '/admin/ai-quality/findings') return json(await listAiQualityFindings(env, scope, url.searchParams), 200, env);
+  if (method === 'PUT' && /^\/admin\/ai-quality\/findings\/\d+$/.test(path)) return json(await resolveAiQualityFinding(env, idFromPath(path), await readJson(request), scope), 200, env);
+  if (method === 'GET' && path === '/admin/ai-quality/test-cases') return json(await listAiQualityTestCases(env, scope), 200, env);
+  if (method === 'POST' && path === '/admin/ai-quality/test-cases') return json(await createAiQualityTestCase(env, await readJson(request), scope), 201, env);
+  if (method === 'POST' && /^\/admin\/ai-quality\/test-cases\/\d+\/run$/.test(path)) return json(await runAiQualityTest(env, idFromParts(path, 4), scope), 200, env);
+  if (method === 'POST' && path === '/admin/ai-quality/test-suite/run') return json(await runAiQualitySuite(env, scope), 200, env);
   if (method === 'GET' && path === '/admin/locale-studio') return json(await listLocaleStudio(env, scope), 200, env);
   if (method === 'GET' && path === '/admin/locale-registry') return json(await listPlatformLocales(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/locale-registry') return json(await updatePlatformLocales(env, await readJson(request), scope), 200, env);
@@ -869,8 +880,8 @@ function guideOut(row, lang='en') {
     summary_hi: row.summary_hi || '',
     body: bodyText || '',
     body_hi: row.body_hi || '',
-    body_html: bodyHtml || '',
-    body_html_hi: row.body_html_hi || '',
+    body_html: sanitizeRichHtml(bodyHtml || ''),
+    body_html_hi: sanitizeRichHtml(row.body_html_hi || ''),
     body_blocks_json: row.body_blocks_json || '',
     body_blocks_json_hi: row.body_blocks_json_hi || '',
     rich_document: parseRichDocument(bodyBlocks),
@@ -904,12 +915,12 @@ function guideOut(row, lang='en') {
     category_icon: row.category_icon || null,
     category_slug: row.category_slug || null,
     translations: {
-      en: { title: row.title || '', summary: row.summary || '', body: row.body || '', body_html: row.body_html || '', image_urls: imageUrlsEn, cover_image_url: row.cover_image_url || imageUrlsEn[0] || '' },
-      hi: { title: row.title_hi || '', summary: row.summary_hi || '', body: row.body_hi || '', body_html: row.body_html_hi || '', image_urls: imageUrlsHi, cover_image_url: row.cover_image_url_hi || imageUrlsHi[0] || '' },
+      en: { title: row.title || '', summary: row.summary || '', body: row.body || '', body_html: sanitizeRichHtml(row.body_html || ''), image_urls: imageUrlsEn, cover_image_url: row.cover_image_url || imageUrlsEn[0] || '' },
+      hi: { title: row.title_hi || '', summary: row.summary_hi || '', body: row.body_hi || '', body_html: sanitizeRichHtml(row.body_html_hi || ''), image_urls: imageUrlsHi, cover_image_url: row.cover_image_url_hi || imageUrlsHi[0] || '' },
     },
   };
 }
-function faqOut(row) { return { id: row.id, question: row.question, answer: row.answer, answer_html: row.answer_html || '', answer_json: row.answer_json || '', image_urls: splitUrls(row.image_urls), locale: row.locale || 'en', keywords: row.keywords || '', priority: row.priority ?? 100, status: row.status || 'published' }; }
+function faqOut(row) { return { id: row.id, question: row.question, answer: row.answer, answer_html: sanitizeRichHtml(row.answer_html || ''), answer_json: row.answer_json || '', image_urls: splitUrls(row.image_urls), locale: row.locale || 'en', keywords: row.keywords || '', priority: row.priority ?? 100, status: row.status || 'published' }; }
 function knowledgeOut(row) { return { id: row.id, title: row.title, content: row.content, keywords: row.keywords || '', priority: row.priority ?? 100, status: row.status || 'active' }; }
 function promptOut(row) { return { id: row.id, section_key: row.section_key, title: row.title, content: row.content || '', enabled: !!row.enabled, priority: row.priority ?? 100, updated_at: String(row.updated_at || '') }; }
 function aiSettingOut(row, env) { row = row || {}; return { id: row.id || 1, provider: row.provider || 'deepseek', model: row.model || env.DEEPSEEK_MODEL || 'deepseek-chat', api_base: row.api_base || env.DEEPSEEK_API_BASE || 'https://api.deepseek.com', enabled: !!row.enabled, temperature: Number(row.temperature ?? 0.2), max_tokens: row.max_tokens ?? 700, require_approved_context: !!row.require_approved_context, memory_enabled: row.memory_enabled !== false, memory_max_messages: row.memory_max_messages ?? 12, memory_ttl_days: row.memory_ttl_days ?? 30, has_api_key: !!env.DEEPSEEK_API_KEY }; }
@@ -969,10 +980,10 @@ function aiContentOut(row, score = null, reason = '') {
     ai_instruction: row.ai_instruction || '',
     ai_instruction_hi: row.ai_instruction_hi || '',
     rich_json: row.rich_json || '',
-    rich_html: row.rich_html || '',
+    rich_html: sanitizeRichHtml(row.rich_html || ''),
     rich_json_hi: row.rich_json_hi || '',
-    rich_html_hi: row.rich_html_hi || '',
-    qa_answer_html: row.qa_answer_html || '',
+    rich_html_hi: sanitizeRichHtml(row.rich_html_hi || ''),
+    qa_answer_html: sanitizeRichHtml(row.qa_answer_html || ''),
     qa_answer_json: row.qa_answer_json || '',
     qa_steps: parseBlocks(row.qa_steps_json || '[]'),
     localized_fields: (() => { try { const v = JSON.parse(row.localized_fields_json || '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; } })(),
@@ -1020,10 +1031,10 @@ function normalizeAiContentPayload(p = {}) {
     ai_instruction: String(p.ai_instruction || ''),
     ai_instruction_hi: String(p.ai_instruction_hi || ''),
     rich_json: typeof p.rich_json === 'string' ? p.rich_json : JSON.stringify(p.rich_json || {}),
-    rich_html: String(p.rich_html || ''),
+    rich_html: sanitizeRichHtml(p.rich_html || ''),
     rich_json_hi: typeof p.rich_json_hi === 'string' ? p.rich_json_hi : JSON.stringify(p.rich_json_hi || {}),
-    rich_html_hi: String(p.rich_html_hi || ''),
-    qa_answer_html: String(p.qa_answer_html || ''),
+    rich_html_hi: sanitizeRichHtml(p.rich_html_hi || ''),
+    qa_answer_html: sanitizeRichHtml(p.qa_answer_html || ''),
     qa_answer_json: typeof p.qa_answer_json === 'string' ? p.qa_answer_json : JSON.stringify(p.qa_answer_json || {}),
     qa_steps_json: typeof p.qa_steps_json === 'string' ? p.qa_steps_json : JSON.stringify(Array.isArray(p.qa_steps) ? p.qa_steps : []),
     localized_fields_json: typeof p.localized_fields_json === 'string' ? p.localized_fields_json : JSON.stringify(p.localized_fields || {}),
@@ -2821,10 +2832,10 @@ function routerLocaleWhere(locale, strategy, startIndex) {
 }
 function virtualSourceId(type, id) { return -((type === 'faq' ? 1000000 : type === 'guide' ? 2000000 : type === 'knowledge' ? 3000000 : 4000000) + Number(id || 0)); }
 function virtualFaqRow(row) {
-  return { id: virtualSourceId('faq', row.id), title: row.question, intent_key: `faq:${row.id}`, locale: row.locale || 'en', source_type: 'faq', status: 'published', approval_status: 'approved', priority: Number(row.priority || 100), keywords: row.keywords || '', positive_examples: row.question || '', negative_examples: '', required_fields: '', faq_content: row.answer || '', knowledge_content: '', example_answers: '', ai_instruction: '', rich_json: row.answer_json || '', rich_html: row.answer_html || '', image_urls: row.image_urls || '', image_delivery: 'after_answer', button_ids: '', platform_scope: 'all', route_policy: 'answer_only', source_reference_id: Number(row.id) };
+  return { id: virtualSourceId('faq', row.id), title: row.question, intent_key: `faq:${row.id}`, locale: row.locale || 'en', source_type: 'faq', status: 'published', approval_status: 'approved', priority: Number(row.priority || 100), keywords: row.keywords || '', positive_examples: row.question || '', negative_examples: '', required_fields: '', faq_content: row.answer || '', knowledge_content: '', example_answers: '', ai_instruction: '', rich_json: row.answer_json || '', rich_html: sanitizeRichHtml(row.answer_html || ''), image_urls: row.image_urls || '', image_delivery: 'after_answer', button_ids: '', platform_scope: 'all', route_policy: 'answer_only', source_reference_id: Number(row.id) };
 }
 function virtualGuideRow(row, locale) {
-  return { id: virtualSourceId('guide', row.id), title: row.title, intent_key: `guide:${row.id}`, locale, source_type: 'guide', status: 'published', approval_status: 'approved', priority: Number(row.priority || 100), keywords: row.keywords || '', positive_examples: `${row.title}\n${row.summary || ''}`, negative_examples: '', required_fields: '', faq_content: row.summary || '', knowledge_content: row.body || '', example_answers: '', ai_instruction: 'Use this published guide as factual knowledge. Do not claim a step that is not present.', rich_json: row.body_blocks_json || '', rich_html: row.body_html || '', image_urls: row.image_urls || '', cover_image_url: row.cover_image_url || '', image_delivery: 'after_answer', button_ids: row.button_ids || '', platform_scope: 'all', route_policy: 'answer_only', source_reference_id: Number(row.id) };
+  return { id: virtualSourceId('guide', row.id), title: row.title, intent_key: `guide:${row.id}`, locale, source_type: 'guide', status: 'published', approval_status: 'approved', priority: Number(row.priority || 100), keywords: row.keywords || '', positive_examples: `${row.title}\n${row.summary || ''}`, negative_examples: '', required_fields: '', faq_content: row.summary || '', knowledge_content: row.body || '', example_answers: '', ai_instruction: 'Use this published guide as factual knowledge. Do not claim a step that is not present.', rich_json: row.body_blocks_json || '', rich_html: sanitizeRichHtml(row.body_html || ''), image_urls: row.image_urls || '', cover_image_url: row.cover_image_url || '', image_delivery: 'after_answer', button_ids: row.button_ids || '', platform_scope: 'all', route_policy: 'answer_only', source_reference_id: Number(row.id) };
 }
 function virtualKnowledgeRow(row) {
   return { id: virtualSourceId('knowledge', row.id), title: row.title, intent_key: `knowledge:${row.id}`, locale: 'all', source_type: 'knowledge', status: 'published', approval_status: 'approved', priority: Number(row.priority || 100), keywords: row.keywords || '', positive_examples: row.title || '', negative_examples: '', required_fields: '', faq_content: '', knowledge_content: row.content || '', example_answers: '', ai_instruction: '', rich_json: '', rich_html: '', image_urls: '', image_delivery: 'never', button_ids: '', platform_scope: 'all', route_policy: 'answer_only', source_reference_id: Number(row.id) };
@@ -2871,12 +2882,197 @@ async function previewAiSourceRouter(env, payload = {}, scope) {
   return { ok:true, version:VERSION, message, locale, router, candidate_catalog_size:catalog.rows.length, source_counts:catalog.source_counts, candidates:catalog.rows.slice(0, 40).map((row) => ({ id:Number(row.id), title:row.title, intent_key:row.intent_key, locale:row.locale || 'all', source_type:row.source_type })) };
 }
 
+function qualityJsonArray(value) {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+function qualityFindingOut(row) {
+  return {
+    id: Number(row.id), locale: row.locale || 'all', finding_type: row.finding_type,
+    severity: row.severity || 'warning', fingerprint: row.fingerprint,
+    source_refs: qualityJsonArray(row.source_refs_json), summary: row.summary || '',
+    details: parseJsonObject(row.details_json, {}), status: row.status || 'open',
+    resolution_note: row.resolution_note || '', created_at: String(row.created_at || ''),
+    updated_at: String(row.updated_at || ''),
+  };
+}
+function qualityTestCaseOut(row) {
+  return {
+    id: Number(row.id), locale: row.locale || 'en', name: row.name, message: row.message,
+    expected_source_type: row.expected_source_type || '', expected_intent_key: row.expected_intent_key || '',
+    required_facts: qualityJsonArray(row.required_facts_json), forbidden_phrases: qualityJsonArray(row.forbidden_phrases_json),
+    expected_image_roles: qualityJsonArray(row.expected_image_roles_json), expected_image_ids: qualityJsonArray(row.expected_image_ids_json),
+    expected_image_mode: row.expected_image_mode || 'any', enabled: row.enabled !== false,
+    severity: row.severity || 'critical', status: row.status || 'active',
+    last_run_status: row.last_run_status || '', last_run: parseJsonObject(row.last_run_json, {}),
+    created_at: String(row.created_at || ''), updated_at: String(row.updated_at || ''),
+  };
+}
+function qualityText(value) {
+  return String(value || '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+}
+function qualityFingerprint(type, locale, refs) {
+  return createHash('sha256').update(`${type}\n${locale}\n${refs.map((item) => `${item.source_type}:${item.id}`).sort().join('|')}`).digest('hex').slice(0, 48);
+}
+function qualityStringList(value, limit = 40) {
+  const list = Array.isArray(value) ? value : String(value || '').split(/[\n,]/);
+  return [...new Set(list.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, limit);
+}
+async function getAiQualityOverview(env, scope) {
+  const findings = (await q(env, `SELECT status,severity,finding_type,COUNT(*)::integer AS count
+    FROM ai_quality_findings WHERE tenant_id=$1 AND platform_id=$2
+    GROUP BY status,severity,finding_type ORDER BY status,severity,finding_type`, [scope.tenant_id,scope.platform_id])).rows;
+  const testRows = (await q(env, `SELECT COALESCE(NULLIF(last_run_status,''),'not_run') AS status,COUNT(*)::integer AS count
+    FROM ai_quality_test_cases WHERE tenant_id=$1 AND platform_id=$2 AND status='active'
+    GROUP BY COALESCE(NULLIF(last_run_status,''),'not_run') ORDER BY status`, [scope.tenant_id,scope.platform_id])).rows;
+  const testsByStatus = Object.fromEntries(testRows.map((row) => [row.status, Number(row.count || 0)]));
+  const tests = {
+    total:testRows.reduce((total, row) => total + Number(row.count || 0), 0),
+    passed:Number(testsByStatus.pass || 0), failed:Number(testsByStatus.fail || 0),
+    not_run:Number(testsByStatus.not_run || 0), by_status:testRows,
+  };
+  const latest = (await q(env, `SELECT id,status,created_at,completed_at FROM ai_quality_test_runs
+    WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id DESC LIMIT 1`, [scope.tenant_id,scope.platform_id])).rows[0] || null;
+  return { ok:true, version:VERSION, summary:{ findings, tests, latest_run:latest }, rules:{ advisory_only:true, no_automatic_content_mutation:true, tenant_platform_scoped:true } };
+}
+async function listAiQualityFindings(env, scope, params = new URLSearchParams()) {
+  const status = String(params.get?.('status') || '').trim();
+  const values = [scope.tenant_id,scope.platform_id];
+  const statusClause = status ? ` AND status=$${values.push(status)}` : '';
+  const rows = (await q(env, `SELECT * FROM ai_quality_findings WHERE tenant_id=$1 AND platform_id=$2${statusClause}
+    ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,updated_at DESC,id DESC LIMIT 500`, values)).rows;
+  return { ok:true, version:VERSION, findings:rows.map(qualityFindingOut) };
+}
+async function scanAiQuality(env, payload = {}, scope) {
+  const includeDrafts = payload.include_drafts === true;
+  const aiWhere = includeDrafts ? '' : " AND status='published' AND approval_status='approved'";
+  const aiRows = (await q(env, `SELECT id,title,intent_key,locale,source_type,status,approval_status,faq_content,knowledge_content,example_answers,qa_answer_html,ai_instruction,ai_instruction_hi,image_urls,source_image_ref
+    FROM ai_content_items WHERE tenant_id=$1 AND platform_id=$2 AND deleted_at IS NULL${aiWhere} ORDER BY id`, [scope.tenant_id,scope.platform_id])).rows;
+  const faqRows = (await q(env, `SELECT id,question AS title,question AS intent_key,locale,'faq'::text AS source_type,status,'approved'::text AS approval_status,
+    answer AS faq_content,''::text AS knowledge_content,''::text AS example_answers,answer_html AS qa_answer_html,''::text AS ai_instruction,''::text AS ai_instruction_hi,image_urls,''::text AS source_image_ref
+    FROM faqs WHERE tenant_id=$1 AND platform_id=$2 AND deleted_at IS NULL${includeDrafts ? '' : " AND status='published'"} ORDER BY id`, [scope.tenant_id,scope.platform_id])).rows;
+  const rows = [...aiRows,...faqRows];
+  const grouped = new Map();
+  for (const row of rows) {
+    const locale = normalizeLocale(row.locale, 'all');
+    const key = `${locale}:${qualityText(row.intent_key || row.title)}`;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(row);
+  }
+
+  const findings = [];
+  for (const [key, matches] of grouped) {
+    if (matches.length < 2) continue;
+    const locale = key.split(':')[0];
+    const refs = matches.map((row) => ({ source_type:row.source_type || 'prompt_image', id:Number(row.id), title:row.title || '' }));
+    findings.push({
+      locale, finding_type:'duplicate_intent', severity:'warning', refs,
+      summary:`${matches.length} published sources use the same normalized intent.`,
+      details:{ normalized_intent:key.slice(locale.length + 1), titles:matches.map((row) => row.title || '') },
+    });
+    const answers = new Set(matches.map((row) => qualityText([row.faq_content,row.knowledge_content,row.example_answers,stripHtml(row.qa_answer_html)].filter(Boolean).join('\n'))).filter(Boolean));
+    if (answers.size > 1) findings.push({
+      locale, finding_type:'conflicting_answer', severity:'critical', refs,
+      summary:'Sources with the same intent contain different approved answers.',
+      details:{ normalized_intent:key.slice(locale.length + 1), answer_variants:answers.size },
+    });
+  }
+  for (const row of aiRows) {
+    const refs = [{ source_type:row.source_type || 'prompt_image', id:Number(row.id), title:row.title || '' }];
+    if (row.status === 'published' && row.approval_status === 'approved' && !String(row.ai_instruction || row.ai_instruction_hi || '').trim()) {
+      findings.push({ locale:row.locale || 'all', finding_type:'instruction_gap', severity:'info', refs, summary:'Published AI content has no item-specific instruction.', details:{} });
+    }
+    if (splitUrls(row.source_image_ref).length && !splitUrls(row.image_urls).length) {
+      findings.push({ locale:row.locale || 'all', finding_type:'missing_image_mapping', severity:'warning', refs, summary:'The source references an image, but no approved image URL is mapped.', details:{} });
+    }
+  }
+
+  await q(env, `UPDATE ai_quality_findings SET status='resolved',resolution_note='Automatically resolved by the latest scan',updated_at=NOW()
+    WHERE tenant_id=$1 AND platform_id=$2 AND status='open'`, [scope.tenant_id,scope.platform_id]);
+  for (const finding of findings) {
+    const fingerprint = qualityFingerprint(finding.finding_type, finding.locale, finding.refs);
+    await q(env, `INSERT INTO ai_quality_findings(tenant_id,platform_id,locale,finding_type,severity,fingerprint,source_refs_json,summary,details_json,status,resolution_note,updated_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'open','',NOW())
+      ON CONFLICT(tenant_id,platform_id,fingerprint) DO UPDATE SET locale=EXCLUDED.locale,finding_type=EXCLUDED.finding_type,severity=EXCLUDED.severity,
+      source_refs_json=EXCLUDED.source_refs_json,summary=EXCLUDED.summary,details_json=EXCLUDED.details_json,
+      status=CASE WHEN ai_quality_findings.status IN ('ignored','acknowledged','intentional') THEN ai_quality_findings.status ELSE 'open' END,
+      resolution_note=CASE WHEN ai_quality_findings.status IN ('ignored','acknowledged','intentional') THEN ai_quality_findings.resolution_note ELSE '' END,updated_at=NOW()`,
+      [scope.tenant_id,scope.platform_id,finding.locale,finding.finding_type,finding.severity,fingerprint,JSON.stringify(finding.refs),finding.summary,JSON.stringify(finding.details)]);
+  }
+  await audit(env,'scan','ai_quality_findings',scope.platform_id,`AI quality scan completed with ${findings.length} finding(s)`,scope);
+  const result = await listAiQualityFindings(env, scope, new URLSearchParams());
+  return { ...result, scan:{ finding_count:findings.length, source_count:rows.length, include_drafts:includeDrafts } };
+}
+async function resolveAiQualityFinding(env, id, payload = {}, scope) {
+  const status = ['open','acknowledged','resolved','ignored','intentional'].includes(String(payload.status || '')) ? String(payload.status) : 'resolved';
+  const note = String(payload.resolution_note || payload.note || '').trim().slice(0, 2000);
+  const row = (await q(env, `UPDATE ai_quality_findings SET status=$1,resolution_note=$2,updated_at=NOW()
+    WHERE id=$3 AND tenant_id=$4 AND platform_id=$5 RETURNING *`, [status,note,id,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!row) bad('AI quality finding not found', 404);
+  await audit(env,'update','ai_quality_findings',id,`Finding marked ${status}`,scope);
+  return { ok:true, version:VERSION, finding:qualityFindingOut(row) };
+}
+async function listAiQualityTestCases(env, scope) {
+  const rows = (await q(env, `SELECT * FROM ai_quality_test_cases WHERE tenant_id=$1 AND platform_id=$2 AND status<>'deleted' ORDER BY id DESC`, [scope.tenant_id,scope.platform_id])).rows;
+  return { ok:true, version:VERSION, test_cases:rows.map(qualityTestCaseOut) };
+}
+async function createAiQualityTestCase(env, payload = {}, scope) {
+  const name = String(payload.name || '').trim().slice(0, 180);
+  const message = String(payload.message || '').trim().slice(0, 5000);
+  if (!name || !message) bad('Test name and customer message are required');
+  const locale = await assertSupportedLocaleFromRegistry(env, scope, payload.locale, 'Test locale');
+  const imageMode = ['any','required','none'].includes(String(payload.expected_image_mode || '')) ? String(payload.expected_image_mode) : 'any';
+  const row = (await q(env, `INSERT INTO ai_quality_test_cases(tenant_id,platform_id,locale,name,message,expected_source_type,expected_intent_key,required_facts_json,forbidden_phrases_json,expected_image_roles_json,expected_image_ids_json,expected_image_mode,enabled,severity,status)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'active') RETURNING *`, [scope.tenant_id,scope.platform_id,locale,name,message,String(payload.expected_source_type || '').trim().slice(0,40),String(payload.expected_intent_key || '').trim().slice(0,180),JSON.stringify(qualityStringList(payload.required_facts)),JSON.stringify(qualityStringList(payload.forbidden_phrases)),JSON.stringify(qualityStringList(payload.expected_image_roles)),JSON.stringify(qualityStringList(payload.expected_image_ids)),imageMode,payload.enabled !== false,String(payload.severity || 'critical').slice(0,20)])).rows[0];
+  await audit(env,'create','ai_quality_test_cases',row.id,`Created quality test: ${name}`,scope);
+  return { ok:true, version:VERSION, test_case:qualityTestCaseOut(row) };
+}
+async function runAiQualityTest(env, id, scope) {
+  const testCase = (await q(env, `SELECT * FROM ai_quality_test_cases WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND status='active' LIMIT 1`, [id,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!testCase) bad('AI quality test case not found', 404);
+  const response = finalizeChatResponse(await runAiChat(env, { message:testCase.message, language:testCase.locale, platform_key:scope.public_route_key, session_id:`quality-${crypto.randomUUID()}` }, true, scope, scope.platform_context || {}));
+  const selected = response.diagnostics?.selected_content || null;
+  const selectedType = response.diagnostics?.selected_source_type || selected?.source_type || '';
+  const replyText = qualityText(`${response.reply || ''}\n${blocksToText(response.response_blocks)}`);
+  const imageBlocks = (response.response_blocks || []).filter((block) => block?.type === 'image');
+  const imageUrls = [...new Set([...imageBlocks.map((block) => block.url),...(response.content_images || [])].filter(Boolean))];
+  const imageRoles = [...new Set(imageBlocks.map((block) => block.role).filter(Boolean))];
+  const failures = [];
+  if (testCase.expected_source_type && selectedType !== testCase.expected_source_type) failures.push(`Expected source ${testCase.expected_source_type}, received ${selectedType || 'none'}.`);
+  if (testCase.expected_intent_key && selected?.intent_key !== testCase.expected_intent_key) failures.push(`Expected intent ${testCase.expected_intent_key}, received ${selected?.intent_key || 'none'}.`);
+  for (const fact of qualityJsonArray(testCase.required_facts_json)) if (!replyText.includes(qualityText(fact))) failures.push(`Missing required fact: ${fact}`);
+  for (const phrase of qualityJsonArray(testCase.forbidden_phrases_json)) if (replyText.includes(qualityText(phrase))) failures.push(`Forbidden phrase present: ${phrase}`);
+  if (testCase.expected_image_mode === 'required' && !imageUrls.length) failures.push('Expected at least one image.');
+  if (testCase.expected_image_mode === 'none' && imageUrls.length) failures.push('Expected no images.');
+  for (const role of qualityJsonArray(testCase.expected_image_roles_json)) if (!imageRoles.includes(role)) failures.push(`Missing image role: ${role}`);
+  for (const image of qualityJsonArray(testCase.expected_image_ids_json)) if (!imageUrls.some((url) => String(url).includes(String(image)))) failures.push(`Missing image: ${image}`);
+  const status = failures.length ? 'fail' : 'pass';
+  const diagnostics = { request_id:response.request_id, selected_content:selected, selected_source_type:selectedType, image_urls:imageUrls, platform_resolution:response.platform_resolution };
+  const run = (await q(env, `INSERT INTO ai_quality_test_runs(tenant_id,platform_id,test_case_id,run_type,status,request_message,selected_source_type,selected_source_id,selected_title,selected_images_json,diagnostics_json,reply,failures_json,completed_at)
+    VALUES($1,$2,$3,'single',$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW()) RETURNING *`, [scope.tenant_id,scope.platform_id,id,status,testCase.message,selectedType,selected?.id || null,selected?.title || '',JSON.stringify(imageUrls),JSON.stringify(diagnostics),response.reply || '',JSON.stringify(failures)])).rows[0];
+  await q(env, `UPDATE ai_quality_test_cases SET last_run_status=$1,last_run_json=$2,updated_at=NOW() WHERE id=$3`, [status,JSON.stringify({ run_id:run.id,failures,request_id:response.request_id }),id]);
+  return { ok:status === 'pass', version:VERSION, run:{ id:Number(run.id),test_case_id:Number(id),status,failures,reply:response.reply || '',diagnostics,created_at:String(run.created_at || '') } };
+}
+async function runAiQualitySuite(env, scope) {
+  const ids = (await q(env, `SELECT id FROM ai_quality_test_cases WHERE tenant_id=$1 AND platform_id=$2 AND status='active' AND enabled=TRUE ORDER BY id LIMIT 100`, [scope.tenant_id,scope.platform_id])).rows.map((row) => Number(row.id));
+  const runs = [];
+  for (const id of ids) runs.push((await runAiQualityTest(env, id, scope)).run);
+  const passed = runs.filter((run) => run.status === 'pass').length;
+  const summary = { status:passed === runs.length ? 'pass' : 'fail', total:runs.length, passed, failed:runs.length - passed };
+  await audit(env,'run','ai_quality_test_cases',scope.platform_id,`Quality suite: ${passed}/${runs.length} passed`,scope);
+  return { ok:summary.failed === 0, version:VERSION, summary, runs };
+}
+
 function guideTranslationOut(row) {
   const motion = guideMotionOut(row);
   return {
     id: Number(row.id), guide_id: Number(row.guide_id), locale: row.locale,
     title: row.title || '', summary: row.summary || '', body: row.body || '',
-    rich_json: row.rich_json || '', rich_html: row.rich_html || '',
+    rich_json: row.rich_json || '', rich_html: sanitizeRichHtml(row.rich_html || ''),
     image_urls: splitUrls(row.image_urls), cover_image_url: row.cover_image_url || '',
     cover_media_type: motion.cover_media.type,
     cover_video_url: motion.cover_media.video_url,
@@ -2955,7 +3151,7 @@ async function listGuideTranslations(env, guideId, scope) {
 
 function normalizeGuideTranslationPayload(p = {}, localeFallback = 'en') {
   const blocks = Array.isArray(p.blocks) ? p.blocks : parseBlocks(p.rich_json || p.body_blocks_json || '');
-  const html = String(p.rich_html || p.body_html || '').slice(0, 200000);
+  const html = sanitizeRichHtml(p.rich_html || p.body_html || '');
   const coverMedia = p.cover_media && typeof p.cover_media === 'object' ? p.cover_media : {};
   const motion = p.motion && typeof p.motion === 'object' ? p.motion : {};
   const coverImageUrl = String(p.cover_image_url || p.cover || coverMedia.image_url || '').trim().slice(0, 2000);
@@ -3183,15 +3379,8 @@ async function assertSupportedLocaleFromRegistry(env, scope, value, label = 'Loc
   return locale;
 }
 
-function connectorUrl(value, label = 'Connector URL') {
-  const text = String(value || '').trim();
-  if (!text) return '';
-  let parsed;
-  try { parsed = new URL(text); } catch { bad(`${label} must be a valid HTTPS URL`); }
-  if (parsed.protocol !== 'https:') bad(`${label} must use HTTPS`);
-  const host = parsed.hostname.toLowerCase();
-  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local') || /^10\.|^192\.168\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) bad(`${label} cannot target a private network host`);
-  return parsed.toString();
+async function connectorUrl(value, label = 'Connector URL') {
+  return validatePublicHttpsUrl(value, label);
 }
 function connectorActions(value) {
   const values = Array.isArray(value) ? value : (typeof value === 'string' ? (() => { try { return JSON.parse(value); } catch { return value.split(','); } })() : []);
@@ -3240,10 +3429,15 @@ async function updatePlatformConnector(env, payload = {}, scope) {
   if (!scope?.platform_id) bad('Platform context is required', 403, 'PLATFORM_CONTEXT_REQUIRED');
   if (!scope.can_manage_platform) bad('Platform manager permission required', 403, 'PLATFORM_MANAGER_REQUIRED');
   const actions = connectorActions(payload.allowed_actions);
+  const [gameStatusUrl, gameCatalogUrl, paymentOrderStatusUrl] = await Promise.all([
+    connectorUrl(payload.game_status_url, 'Game status URL'),
+    connectorUrl(payload.game_catalog_url, 'Game catalog URL'),
+    connectorUrl(payload.payment_order_status_url, 'Payment order status URL'),
+  ]);
   const urls = {
-    game_status_url: connectorUrl(payload.game_status_url, 'Game status URL'),
-    game_catalog_url: connectorUrl(payload.game_catalog_url, 'Game catalog URL'),
-    payment_order_status_url: connectorUrl(payload.payment_order_status_url, 'Payment order status URL'),
+    game_status_url: gameStatusUrl,
+    game_catalog_url: gameCatalogUrl,
+    payment_order_status_url: paymentOrderStatusUrl,
   };
   for (const action of actions) if (!urls[`${action}_url`]) bad(`${CONNECTOR_ACTION_LABELS[action]} URL is required when that action is enabled`);
   const timeout = Math.max(1500, Math.min(10000, Number(payload.timeout_ms || 4000)));
@@ -3276,7 +3470,13 @@ async function callPlatformConnector(env, scope, action, args = {}, requestId = 
   if (!value) return { status: 'needs_input', action, question: action === 'payment_order_status' ? 'Please provide the exact order number.' : 'Which game should I check?' };
   if (value.length > 120 || (action === 'payment_order_status' && !/^[A-Za-z0-9_-]{3,80}$/.test(value))) return { status: 'invalid_input', action, message: 'Please provide a valid value.' };
   const urlText = row[`${action}_url`];
-  const target = new URL(urlText);
+  let target;
+  try {
+    target = new URL(await validatePublicHttpsUrl(urlText, `${CONNECTOR_ACTION_LABELS[action]} URL`));
+  } catch (error) {
+    await writeConnectorAudit(env, scope, { action, status:'blocked', request_id:requestId, duration_ms:Date.now() - started, target_host:'blocked', error_code:error?.code || 'CONNECTOR_URL_BLOCKED', details:'Stored connector target failed the public-network safety check.' });
+    return { status:'failed', action, request_id:requestId, http_status:0, message:'The platform check is temporarily unavailable.' };
+  }
   target.searchParams.set(action === 'payment_order_status' ? 'order_id' : 'game_name', value);
   const secret = await decryptConnectorSecret(env, row.secret_token_encrypted);
   let lastError = 'Connector request failed'; let httpStatus = 0;
@@ -3284,7 +3484,7 @@ async function callPlatformConnector(env, scope, action, args = {}, requestId = 
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), Number(row.timeout_ms || 4000));
     try {
       const headers = { Accept: 'application/json', 'X-BDG-Request-ID': requestId }; if (secret) headers.Authorization = `Bearer ${secret}`;
-      const response = await fetch(target, { headers, signal: controller.signal }); httpStatus = response.status; const text = await response.text();
+      const response = await fetchPublicHttpsText(target, { headers, signal:controller.signal, label:`${CONNECTOR_ACTION_LABELS[action]} URL` }); httpStatus = response.status; const text = response.text;
       if (response.ok) {
         let data; try { data = JSON.parse(text); } catch { data = { raw: text.slice(0, 500) }; }
         const result = { status: 'ok', action, request_id: requestId, http_status: response.status, data: JSON.parse(JSON.stringify(data, (_, v) => typeof v === 'string' ? v.slice(0, 1000) : v)) };
@@ -3644,23 +3844,30 @@ function knowledgeImportOut(batch, previewRows = []) {
   try { summary = JSON.parse(batch.summary_json || '{}'); } catch (_) {}
   return { id:Number(batch.id),filename:batch.filename,platform_key:batch.platform_key || 'default',status:batch.status || 'review',progress_percent:Math.max(0, Math.min(100, Number(batch.progress_percent ?? 100))),current_stage:batch.current_stage || 'complete',processed_rows:Number(batch.processed_rows || 0),sheet_count:Number(batch.sheet_count || 0),total_rows:Number(batch.total_rows || 0),valid_rows:Number(batch.valid_rows || 0),error_rows:Number(batch.error_rows || 0),last_error:batch.last_error || '',request_id:batch.request_id || '',summary,created_by:batch.created_by || '',created_at:batch.created_at ? String(batch.created_at) : '',drafted_at:batch.drafted_at ? String(batch.drafted_at) : '',rolled_back_at:batch.rolled_back_at ? String(batch.rolled_back_at) : '',preview_rows:previewRows };
 }
-function knowledgeImportTemplateResponse(env) {
-  const wb = XLSX.utils.book_new();
+async function knowledgeImportTemplateResponse(env) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'BDG CS Assistant';
+  wb.created = new Date();
   const rows = [
     ['Name','Question','How to reply / Answer','Positive examples','Negative examples','AI instruction','Locale','Platform','Image URL','Image role','Image alt','Image caption','Image placement','Corresponding Ticket','Intent key'],
     ['Deposit not received','My deposit has not arrived','Explain the approved processing steps and the safe escalation route.','deposit not received\nrecharge pending','How do I deposit?\nwithdrawal not received','Use short steps. Never promise a balance adjustment.','en-US','your-platform','https://example.com/deposit.png','step','Deposit history screen','Where to find the pending deposit','after_answer','deposit-not-received','deposit-not-received'],
   ];
-  const sheet = XLSX.utils.aoa_to_sheet(rows);
-  sheet['!cols'] = rows[0].map((header) => ({ wch: Math.max(14, Math.min(36, header.length + 4)) }));
-  XLSX.utils.book_append_sheet(wb, sheet, 'AI Knowledge');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+  const sheet = wb.addWorksheet('AI Knowledge', { views:[{ state:'frozen', ySplit:1 }] });
+  sheet.addRows(rows);
+  sheet.columns = rows[0].map((header) => ({ width:Math.max(14, Math.min(36, header.length + 4)) }));
+  sheet.getRow(1).font = { bold:true };
+  sheet.autoFilter = { from:{ row:1, column:1 }, to:{ row:1, column:rows[0].length } };
+  const imageRoles = wb.addWorksheet('Image Roles', { views:[{ state:'frozen', ySplit:1 }] });
+  imageRoles.addRows([
     ['Image role','Meaning'],
     ['hero','Shown near the top of the answer'],
     ['step','Supports one visual step'],
     ['warning','Clarifies a risk or exclusion'],
     ['reference','Optional supporting screenshot'],
-  ]), 'Image Roles');
-  const body = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  ]);
+  imageRoles.columns = [{ width:18 }, { width:44 }];
+  imageRoles.getRow(1).font = { bold:true };
+  const body = Buffer.from(await wb.xlsx.writeBuffer());
   return corsResponse(body, 200, env, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="AI_Knowledge_Import_Template.xlsx"', 'Cache-Control': 'no-store' });
 }
 async function getKnowledgeImportStatus(env, id, scope) {
@@ -3677,7 +3884,7 @@ async function previewKnowledgeImport(env, request, admin, scope) {
   if (Number(file.size || 0) > 6 * 1024 * 1024) bad('Workbook must be 6 MB or smaller');
   const platform = await getSupportPlatformForScope(env, scope);
   let parsed;
-  try { parsed = parseKnowledgeWorkbook(Buffer.from(await file.arrayBuffer())); }
+  try { parsed = await parseKnowledgeWorkbook(Buffer.from(await file.arrayBuffer())); }
   catch (err) { bad(`Workbook could not be read: ${err?.message || 'invalid Excel file'}`); }
   const policy = localePolicy(scope);
   const mappedRows = parsed.rows.map((row) => {
@@ -3933,7 +4140,7 @@ async function deleteGuide(env, id, admin, scope) {
 async function createFaq(env, p = {}, scope) {
   const question = String(p.question || '').trim();
   if (!question) bad('FAQ question is required');
-  const answerHtml = String(p.answer_html || '');
+  const answerHtml = sanitizeRichHtml(p.answer_html || '');
   const answer = String(p.answer || stripHtml(answerHtml)).trim();
   if (!answer) bad('FAQ answer is required');
   const locale = await assertSupportedLocaleFromRegistry(env, scope, p.locale, 'FAQ locale');
@@ -3963,7 +4170,7 @@ async function createFaq(env, p = {}, scope) {
 async function updateFaq(env, id, p = {}, scope) {
   const question = String(p.question || '').trim();
   if (!question) bad('FAQ question is required');
-  const answerHtml = String(p.answer_html || '');
+  const answerHtml = sanitizeRichHtml(p.answer_html || '');
   const answer = String(p.answer || stripHtml(answerHtml)).trim();
   if (!answer) bad('FAQ answer is required');
   const locale = await assertSupportedLocaleFromRegistry(env, scope, p.locale, 'FAQ locale');
@@ -4195,8 +4402,8 @@ function normalizeGuidePayload(p) {
     title_hi: p.title_hi || '',
     summary_hi: p.summary_hi || '',
     body_hi: p.body_hi || bodyFromBlocksHi || '',
-    body_html: p.body_html || p.rich_text_html || '',
-    body_html_hi: p.body_html_hi || p.rich_text_html_hi || '',
+    body_html: sanitizeRichHtml(p.body_html || p.rich_text_html || ''),
+    body_html_hi: sanitizeRichHtml(p.body_html_hi || p.rich_text_html_hi || ''),
     body_blocks_json: blocksEn.length ? JSON.stringify(blocksEn) : (p.body_blocks_json || ''),
     body_blocks_json_hi: blocksHi.length ? JSON.stringify(blocksHi) : (p.body_blocks_json_hi || ''),
     cover_image_url: coverEn,
@@ -5172,16 +5379,18 @@ export async function runMigrations(env) {
   const pool = getPool(env);
   const client = await pool.connect();
   const migrationEnv = { ...env, __DB_CLIENT: client };
+  let fileMigrations = { applied: [], skipped: [], total: 0 };
   try {
     await client.query('SELECT pg_advisory_lock($1)', [701070]);
     bootstrapped = false;
     await ensureBootstrap(migrationEnv);
+    fileMigrations = await applySqlMigrationFiles(client);
     await client.query(`INSERT INTO system_migrations(migration_key, notes) VALUES('v0.7.0a_render_neon_backend', 'Render Node backend using Neon pooled runtime and direct migration connections') ON CONFLICT(migration_key) DO NOTHING`);
   } finally {
     try { await client.query('SELECT pg_advisory_unlock($1)', [701070]); } catch (_) {}
     client.release();
   }
-  return { ok: true, version: VERSION };
+  return { ok: true, version: VERSION, file_migrations: fileMigrations };
 }
 
 export async function readiness(env) {

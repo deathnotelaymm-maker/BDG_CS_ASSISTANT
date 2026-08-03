@@ -48,12 +48,12 @@ export function getActiveAdminPlatformRoute() {
   return match?.[1] || "";
 }
 
-function platformHeaders() {
+function platformHeaders(): Record<string, string> {
   const route = getActiveAdminPlatformRoute();
   return route ? { "X-BDG-Platform-Route": route } : {};
 }
 
-async function request<T>(path: string, init?: RequestInit, auth = true): Promise<T> {
+async function request<T = any>(path: string, init?: RequestInit, auth = true): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -192,7 +192,7 @@ function normalizeResourcePayload(resource: string, payload: any): any[] {
   return [];
 }
 
-function normalizeForCreate(resource: string, data: any) {
+function normalizeForCreate(resource: string, data: any): any {
     if (resource === "admin-users") {
       return {
       name: data.name || "Admin",
@@ -947,6 +947,46 @@ export const api = {
   getFoundationDiagnostics: async () => {
     if (MOCK_MODE) return delay({ ok: true, checks: [] });
     return request("/admin/foundation-diagnostics");
+  },
+
+  getAiQualityOverview: async () => {
+    if (MOCK_MODE) return delay({ ok: true, summary: { findings: [], tests: { total: 0, passed: 0, failed: 0 } } });
+    return request("/admin/ai-quality/overview");
+  },
+
+  scanAiQuality: async (data: { include_drafts?: boolean } = {}) => {
+    if (MOCK_MODE) return delay({ ok: true, scan: { finding_count: 0 }, findings: [] });
+    return request("/admin/ai-quality/scan", { method: "POST", body: JSON.stringify(data) });
+  },
+
+  listAiQualityFindings: async () => {
+    if (MOCK_MODE) return delay({ ok: true, findings: [] });
+    return request("/admin/ai-quality/findings");
+  },
+
+  resolveAiQualityFinding: async (id: string | number, data: { status: string }) => {
+    if (MOCK_MODE) return delay({ ok: true, finding: { id, ...data } });
+    return request(`/admin/ai-quality/findings/${id}`, { method: "PUT", body: JSON.stringify(data) });
+  },
+
+  listAiQualityTestCases: async () => {
+    if (MOCK_MODE) return delay({ ok: true, test_cases: [] });
+    return request("/admin/ai-quality/test-cases");
+  },
+
+  createAiQualityTestCase: async (data: any) => {
+    if (MOCK_MODE) return delay({ ok: true, test_case: { id: Date.now(), ...data } });
+    return request("/admin/ai-quality/test-cases", { method: "POST", body: JSON.stringify(data) });
+  },
+
+  runAiQualityTest: async (id: string | number) => {
+    if (MOCK_MODE) return delay({ ok: true, run: { id: Date.now(), test_case_id: id, status: "pass" } });
+    return request(`/admin/ai-quality/test-cases/${id}/run`, { method: "POST", body: JSON.stringify({}) });
+  },
+
+  runAiQualitySuite: async () => {
+    if (MOCK_MODE) return delay({ ok: true, summary: { total: 0, passed: 0, failed: 0 }, runs: [] });
+    return request("/admin/ai-quality/test-suite/run", { method: "POST", body: JSON.stringify({}) });
   },
 
   testAI: async (message: string) => {

@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const aliases = {
   name: ['name', 'content name', 'item name', 'title', 'content'],
@@ -39,14 +39,33 @@ function splitImages(value) {
   return text(value).split(/\s*[\n,;|]\s*/).map((item) => item.trim()).filter(Boolean).slice(0, 20);
 }
 
-export function parseKnowledgeWorkbook(buffer) {
+function excelCellText(value) {
+  if (value == null) return '';
+  if (value instanceof Date) return value.toISOString();
+  if (['string', 'number', 'boolean'].includes(typeof value)) return clean(value);
+  if (Array.isArray(value?.richText)) return clean(value.richText.map((part) => part.text || '').join(''));
+  if (Object.prototype.hasOwnProperty.call(value, 'result')) return excelCellText(value.result);
+  if (value.text != null) return clean(value.text);
+  if (value.hyperlink) return clean(value.text || value.hyperlink);
+  return clean(value);
+}
+
+export async function parseKnowledgeWorkbook(buffer) {
   if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) throw new Error('Workbook is empty');
-  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
   const rows = [];
   const sheetErrors = [];
-  for (const sheetName of workbook.SheetNames || []) {
-    const sheet = workbook.Sheets[sheetName];
-    const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', blankrows: false, raw: false });
+  for (const sheet of workbook.worksheets) {
+    const sheetName = sheet.name;
+    if (headerKey(sheetName) === 'imageroles') continue;
+    const matrix = [];
+    sheet.eachRow({ includeEmpty: false }, (row) => {
+      const values = [];
+      const width = Math.max(sheet.actualColumnCount || 0, row.cellCount || 0);
+      for (let column = 1; column <= width; column += 1) values.push(excelCellText(row.getCell(column).value));
+      matrix.push(values);
+    });
     if (!Array.isArray(matrix) || matrix.length === 0) continue;
     const headers = (matrix[0] || []).map(clean);
     const questionIndex = findColumn(headers, aliases.question);
@@ -101,7 +120,16 @@ export function parseKnowledgeWorkbook(buffer) {
       rows.push({ sheet_name: sheetName, row_number: offset + 1, source_key: intentKey, raw: Object.fromEntries(headers.map((header, index) => [header || `Column ${index + 1}`, clean(values[index])])), mapped, warnings, validation_error: validationError, status: validationError ? 'error' : 'valid' });
     }
   }
-  return { rows, sheet_count: (workbook.SheetNames || []).length, sheet_errors: sheetErrors, truncated: false };
+  const validRows = rows.filter((row) => row.status === 'valid').length;
+  return {
+    rows,
+    sheet_count: workbook.worksheets.filter((sheet) => headerKey(sheet.name) !== 'imageroles').length,
+    total_rows: rows.length,
+    valid_rows: validRows,
+    error_rows: rows.length - validRows,
+    sheet_errors: sheetErrors,
+    truncated: false,
+  };
 }
 
 export function importedRowToAiContentDraft(row = {}, platformKey = 'default', batchId = null) {

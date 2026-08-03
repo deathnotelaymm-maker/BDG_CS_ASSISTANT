@@ -75,7 +75,7 @@ export function getChatConfig(language: string, platformKey = "default") {
         supportUrl: "",
         submitTicketLabel: "Contact platform support",
       };
-  if (isDefault) return { ...base, ...texts[lang], language: lang };
+  if (isDefault) return { ...base, ...(texts[lang as keyof typeof texts] || texts.en), language: lang };
   const neutral = lang === "hi"
     ? {
         chatTitle: `${name} Support`,

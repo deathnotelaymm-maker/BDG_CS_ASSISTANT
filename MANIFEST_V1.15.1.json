@@ -1,0 +1,25 @@
+{
+  "release": "v1.15.1",
+  "version": "1.15.1-stabilization-security-repair",
+  "repository": "deathnotelaymm-maker/BDG_CS_ASSISTANT",
+  "migration": "backend-api/migrations/033_v1.15.1_stabilization_security_repair.sql",
+  "migration_registry": "schema_migration_files",
+  "checks": [
+    "backend-api/scripts/regression-test.js",
+    "backend-api/scripts/knowledge-import-regression-test.js",
+    "backend-api/scripts/security-regression-test.js",
+    "backend-api/scripts/integration-test.js",
+    "npm run typecheck:all",
+    "npm run build:all"
+  ],
+  "admin_route": "/ai-response-quality",
+  "api_routes": [
+    "/admin/ai-quality/overview",
+    "/admin/ai-quality/scan",
+    "/admin/ai-quality/findings",
+    "/admin/ai-quality/test-cases",
+    "/admin/ai-quality/test-suite/run"
+  ],
+  "installer": "INSTALL-V1.15.1-STABILIZATION-SECURITY-REPAIR.cmd",
+  "deployment": "manual GitHub Desktop review/commit/push, Render pre-deploy migration, then gated Cloudflare Pages release workflow"
+}

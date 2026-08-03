@@ -1,119 +1,95 @@
-# v1.6.0 — Tenant Experience Studio + Resilient Knowledge Import
+# v1.15.1 — Stabilization & Security Repair
 
-This release adds tenant-scoped experience controls and makes workbook imports
-observable and recoverable instead of silently failing.
+This release finishes the v1.15 line without changing the production architecture:
+Cloudflare Pages hosts Guide Pro, Chat Pro, and Admin Pro; Render runs the Node.js
+API; Neon remains the PostgreSQL database; Cloudflare R2 stores media; and
+DeepSeek remains the optional AI provider.
 
-The patch includes:
+The API release marker is:
 
-- Guide theme controls for background, hero treatment, fonts, surface/text
-  colors, card radius, and content width, with a live admin preview;
-- tenant-owned Chat quick replies and action buttons rendered above the
-  composer and on the tenant start screen, with no global button fallback;
-- structured Chat API errors that preserve the request ID and safe retry
-  guidance in the customer UI;
-- a downloadable `.xlsx` knowledge template with an Image Roles sheet;
-- image URL, role, alt text, caption, and placement columns for imported
-  knowledge rows;
-- visible import progress, stages, row counts, and request-aware diagnostics;
-- a repair path that marks a batch as `error` with `last_error` when row
-  persistence fails, so operators can retry without guessing.
+`1.15.1-stabilization-security-repair`
 
-The API release marker is
-`1.6.0-tenant-experience-studio-resilient-knowledge-import`.
+## What is repaired
 
-See [RELEASE_NOTES_V1.6.0.md](RELEASE_NOTES_V1.6.0.md) and
-[TEST_RESULT_V1.6.0.md](TEST_RESULT_V1.6.0.md) for the implementation and
-verification details.
+- The **AI Response Quality Center** is complete and visible in Admin. Its
+  platform-scoped APIs scan duplicate intents, conflicting answers, missing
+  instructions, and missing image mappings. Saved response tests execute the
+  same live router used by Chat and persist their results.
+- Rich HTML uses an allowlist sanitizer in the API and DOMPurify in Guide Pro.
+  Old rows are sanitized on output; new and edited rows are sanitized on write.
+- Cloudflare Pages receives CSP, content-type, referrer, permissions, and frame
+  protection headers. Chat remains embeddable by HTTPS parent pages.
+- Operations Connector URLs must be HTTPS, resolve only to public addresses,
+  cannot redirect, and use a DNS-pinned socket to prevent rebinding into private
+  or cloud-metadata networks.
+- The vulnerable `xlsx` dependency is removed. Workbook import/export now uses
+  ExcelJS, `sanitize-html` is updated, transitive UUID is overridden to a fixed
+  release, and all four npm dependency trees report zero known vulnerabilities.
+- Admin, Chat, and Guide pass `tsc --noEmit`. Type-checking is required by CI and
+  the production release workflow before any Pages deployment.
+- The migration command applies every numbered SQL file in order, stores its
+  SHA-256 checksum, refuses edited historical migrations, and safely skips files
+  already applied with the same checksum.
+- PostgreSQL 16 integration tests exercise migrations, login, API CRUD, tenant
+  isolation, stored sanitization, connector rejection, quality scans, and live
+  router test-run persistence.
+
+## Local verification
+
+```bash
+npm --prefix backend-api ci
+npm --prefix backend-api run check
+npm --prefix backend-api run test:regression
+npm --prefix backend-api run test:knowledge-import
+npm --prefix backend-api run test:security
+npm run typecheck:all
+npm run build:all
+```
+
+The database suite intentionally requires a disposable database whose name
+contains `test`:
+
+```bash
+TEST_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/bdg_integration_test npm run test:integration
+```
+
+The test refuses to use `DATABASE_URL` and refuses to reset a database whose
+name does not contain `test`.
+
+## Production deployment
+
+1. Review [RELEASE_NOTES_V1.15.1.md](RELEASE_NOTES_V1.15.1.md) and
+   [DEPLOYMENT_CHECKLIST_V1.15.1.md](DEPLOYMENT_CHECKLIST_V1.15.1.md).
+2. Commit and push the reviewed files to `main`.
+3. Render runs `npm run migrate` with the direct Neon migration URL, then starts
+   the API with the pooled Neon URL.
+4. The production workflow waits for the matching API release, type-checks and
+   builds all three frontends, and publishes them to Cloudflare Pages.
+5. Confirm `/health/live` and `/health/ready` report the v1.15.1 marker, then
+   follow the functional checks in the deployment checklist.
+
+No Render PostgreSQL database is created and no production data transfer is
+required.
 
 ## Short-path Windows install
 
-Extract the supplied short-path `BDG-v160` package in Downloads and
-double-click `INSTALL-V160-TENANT-EXPERIENCE.cmd`. It copies only into:
+Extract `BDG-v1151-stabilization-security-repair.zip` into a short folder such
+as `C:\BDG-v1151`, then double-click:
 
-`%USERPROFILE%\\Documents\\cloud-projects\\BDG_CS_ASSISTANT`
+`INSTALL-V1.15.1-STABILIZATION-SECURITY-REPAIR.cmd`
 
-The installer does not run PowerShell, npm, Git, Render, or Cloudflare and does
-not commit or push anything. When it reports success, open that repository in
-GitHub Desktop, review the Changes tab, commit, and choose **Push origin**.
+The installer copies the payload only into:
 
-Render and the production Pages workflow run only after that manual push.
+`%USERPROFILE%\Documents\cloud-projects\BDG_CS_ASSISTANT`
 
----
+It creates a rollback backup and does not run PowerShell, npm, Git, Render, or
+Cloudflare. After it succeeds, review the Changes tab in GitHub Desktop, commit,
+and choose **Push origin**.
 
-# v1.5.0 — Tenant Platform Experience + Owner Controls
+## Release documents
 
-This release makes each tenant’s platform independently manageable and removes
-the last places where the global BDG defaults could leak into a child platform.
-
-The patch includes:
-
-- platform-owner editing for the current platform and its team;
-- qualified tenant/platform membership queries (fixes the PostgreSQL `42702`
-  ambiguity seen in the platform drawer);
-- one-platform UI guard (operators can provision the platform, but child
-  owners cannot create a second one);
-- arbitrary platform language lists instead of a hardcoded English/Hindi list;
-- local upload controls for admin, Guide, and Chat logos and favicons;
-- a previewable Chat Start Studio with background upload, announcement motion,
-  safe animation presets, colors, and action buttons;
-- neutral tenant branding when a tenant asset is not configured (no BDG asset or
-  BDG button fallback);
-- Luke Admin Control chrome with the release version under the console label.
-
-The API release marker is
-`1.5.0-tenant-platform-experience-owner-controls`.
-
-See [RELEASE_NOTES_V1.5.0.md](RELEASE_NOTES_V1.5.0.md) and
-[TEST_RESULT_V1.5.0.md](TEST_RESULT_V1.5.0.md) for the implementation and
-verification details.
-
-## Short-path Windows install
-
-Use the supplied `BDG-v150` package and double-click
-`INSTALL-V150-TENANT-EXPERIENCE.cmd`. It copies only into:
-
-`%USERPROFILE%\\Documents\\cloud-projects\\BDG_CS_ASSISTANT`
-
-The installer does not run PowerShell, npm, Git, Render, or Cloudflare and does
-not commit or push anything. When it reports success, open that repository in
-GitHub Desktop, review the Changes tab, commit, and choose **Push origin**.
-
-Render and the production Pages workflow run only after that manual push.
-
----
-
-## Previous v0.11.0 notes
-
-This release turns **AI Prompt & Image** into a safer advanced knowledge workflow:
-
-- Import `.xlsx` workbooks into a review batch instead of changing live AI immediately.
-- Create editable **AI Content drafts** from approved spreadsheet rows.
-- Use the existing Prompt & Image studio to review answers, examples, rich visual knowledge, and buttons before publishing.
-- Create support-platform profiles for apps with **no tickets**, **tickets**, or a **hybrid** support flow.
-- Limit ticket buttons to platforms that actually have tickets; normal support buttons work everywhere you permit them.
-- Send `?platform=your-platform-key` in Chat or Guide URLs to select the correct platform behaviour.
-
-See [V0.11.0_IMPORT_QUICKSTART.md](V0.11.0_IMPORT_QUICKSTART.md) for the safe import sequence and [RELEASE_NOTES_V0.11.0.md](RELEASE_NOTES_V0.11.0.md) for the full change list.
-
-## Active stack
-- Cloudflare Pages: Guide Pro, Chat Pro, Admin Pro
-- Render paid web service: Node.js API in Singapore
-- Existing Neon PostgreSQL: pooled runtime URL plus direct migration URL
-- Cloudflare R2: guide/chat images
-- DeepSeek: AI
-
-**No Render PostgreSQL database is created. No production data transfer is required.**
-
-The infrastructure remains Render + Neon + Cloudflare Pages + R2 + DeepSeek.
-
-## Easy release workflow
-
-Use the v0.11.0 release installer once. It is a double-click Windows installer—no PowerShell commands. It safely backs up changed files, installs the patch, and runs local checks.
-
-After it succeeds:
-
-1. Open the project in GitHub Desktop.
-2. Commit the displayed changes to `main`.
-3. Click **Push origin**.
-
-Render then deploys the API automatically. The included GitHub Actions workflow waits for the matching Render version and publishes Guide, Chat, and Admin to Cloudflare Pages.
+- [Release notes](RELEASE_NOTES_V1.15.1.md)
+- [Verification result](TEST_RESULT_V1.15.1.md)
+- [Deployment checklist](DEPLOYMENT_CHECKLIST_V1.15.1.md)
+- [Changed files](CHANGED_FILES_V1.15.1.txt)
+- [Machine-readable manifest](MANIFEST_V1.15.1.json)

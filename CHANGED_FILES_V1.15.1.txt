@@ -1,0 +1,65 @@
+v1.15.1 — Stabilization & Security Repair
+
+Backend and migrations
+- backend-api/src/core.js
+- backend-api/src/server.js
+- backend-api/src/knowledge-import.js
+- backend-api/src/rich-html.js
+- backend-api/src/network-safety.js
+- backend-api/src/migration-files.js
+- backend-api/migrations/033_v1.15.1_stabilization_security_repair.sql
+- backend-api/migrations/README.md
+- backend-api/scripts/regression-test.js
+- backend-api/scripts/knowledge-import-regression-test.js
+- backend-api/scripts/security-regression-test.js
+- backend-api/scripts/integration-test.js
+- backend-api/package.json
+- backend-api/package-lock.json
+- backend-api/README.md
+
+Admin Pro
+- admin-pro/src/lib/api.ts
+- admin-pro/src/components/AdminLayout.tsx
+- admin-pro/src/routes/_admin.ai-response-quality.tsx
+- admin-pro/src/routes/_admin.guide-images.tsx
+- admin-pro/src/routes/_admin.theme-settings.tsx
+- admin-pro/public/_headers
+- admin-pro/vite.config.ts
+- admin-pro/package.json
+- admin-pro/package-lock.json
+- admin-pro/bun.lock
+
+Chat Pro
+- chat-pro/src/App.tsx
+- chat-pro/src/lib/chat-config.ts
+- chat-pro/public/_headers
+- chat-pro/vite.config.ts
+- chat-pro/package.json
+- chat-pro/package-lock.json
+- chat-pro/bun.lock
+
+Guide Pro
+- guide-pro/src/lib/sanitize-html.ts
+- guide-pro/src/components/public/ServiceErrorPanel.tsx
+- guide-pro/src/routes/_public.faq.tsx
+- guide-pro/src/routes/_public.guides.$slug.tsx
+- guide-pro/src/routes/_public.index.tsx
+- guide-pro/public/_headers
+- guide-pro/vite.config.ts
+- guide-pro/package.json
+- guide-pro/package-lock.json
+- guide-pro/bun.lock
+
+CI, release, and documentation
+- .github/workflows/ci.yml
+- .github/workflows/bdg-production-release.yml
+- package.json
+- README.md
+- START-HERE-WINDOWS.bat
+- INSTALL-V1.15.1-STABILIZATION-SECURITY-REPAIR.cmd
+- README-V1.15.1.txt
+- RELEASE_NOTES_V1.15.1.md
+- TEST_RESULT_V1.15.1.md
+- DEPLOYMENT_CHECKLIST_V1.15.1.md
+- MANIFEST_V1.15.1.json
+- CHANGED_FILES_V1.15.1.txt

@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-render-backend",
-  "version": "1.15.0",
+  "version": "1.15.1",
   "private": true,
   "type": "module",
   "description": "Production Render backend using the existing Neon PostgreSQL database for BDG Guide Pro, Chat Pro, and Admin Pro.",
@@ -11,16 +11,22 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "migrate": "node src/migrate.js",
-    "check": "node --check src/server.js && node --check src/core.js && node --check src/r2-adapter.js && node --check src/env.js",
+    "check": "node --check src/server.js && node --check src/core.js && node --check src/r2-adapter.js && node --check src/env.js && node --check src/rich-html.js && node --check src/network-safety.js && node --check src/migration-files.js",
     "smoke": "node scripts/smoke-test.js",
     "test:regression": "node scripts/regression-test.js",
     "test:upload": "node scripts/upload-regression-test.js",
     "test:structured": "node scripts/structured-response-test.js",
-    "test:knowledge-import": "node scripts/regression-test.js"
+    "test:knowledge-import": "node scripts/knowledge-import-regression-test.js",
+    "test:security": "node scripts/security-regression-test.js",
+    "test:integration": "node scripts/integration-test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1085.0",
+    "exceljs": "^4.4.0",
     "pg": "8.22.0",
-    "xlsx": "^0.18.5"
+    "sanitize-html": "^2.17.6"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

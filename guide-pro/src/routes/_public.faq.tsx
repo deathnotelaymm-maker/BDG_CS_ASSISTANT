@@ -8,19 +8,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Card } from "@/components/ui/card";
 import type { Faq } from "@/mock/data";
 import { ServiceErrorPanel } from "@/components/public/ServiceErrorPanel";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 
 export const Route = createFileRoute("/_public/faq")({
   head: () => ({ meta: [{ title: "FAQ — BDG Help Center" }] }),
   component: FAQ,
 });
-
-function safeFaqHtml(value: string) {
-  return String(value || "")
-    .replace(/<\/?script[^>]*>/gi, "")
-    .replace(/<\/?style[^>]*>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/javascript\s*:/gi, "");
-}
 
 function FAQ() {
   const platformKey = getPlatformCacheKey();
@@ -80,7 +73,7 @@ function FAQ() {
                 <AccordionItem key={f.id} value={f.id}>
                   <AccordionTrigger className="text-left text-sm">{f.question}</AccordionTrigger>
                   <AccordionContent className="text-sm text-muted-foreground">
-                    {f.answerHtml ? <div className="bdg-rich-public" dangerouslySetInnerHTML={{ __html: safeFaqHtml(f.answerHtml) }} /> : f.answer}
+                    {f.answerHtml ? <div className="bdg-rich-public" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(f.answerHtml) }} /> : f.answer}
                     {!!f.imageUrls?.length && <div className="mt-3 grid gap-2 sm:grid-cols-2">{f.imageUrls.map((url) => <img key={url} src={url} alt="FAQ reference" className="max-h-64 w-full rounded-xl object-contain" loading="lazy" />)}</div>}
                   </AccordionContent>
                 </AccordionItem>

@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-center-business-platform",
-  "version": "1.15.0",
+  "version": "1.15.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,12 @@
     "build:chat": "npm --prefix chat-pro run build",
     "build:admin": "npm --prefix admin-pro run build",
     "build:all": "npm run build:admin && npm run build:chat && npm run build:guide",
+    "typecheck:admin": "npm --prefix admin-pro run typecheck",
+    "typecheck:chat": "npm --prefix chat-pro run typecheck",
+    "typecheck:guide": "npm --prefix guide-pro run typecheck",
+    "typecheck:all": "npm run typecheck:admin && npm run typecheck:chat && npm run typecheck:guide",
     "check:backend": "npm --prefix backend-api run check",
-    "test:regression": "npm --prefix backend-api run test:regression"
+    "test:regression": "npm --prefix backend-api run test:regression",
+    "test:integration": "npm --prefix backend-api run test:integration"
   }
 }

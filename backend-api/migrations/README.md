@@ -1,15 +1,23 @@
 # Migration runner
 
-`npm run migrate` invokes the versioned compatibility migration in `src/core.js` through `runMigrations()`.
+`npm run migrate` calls `runMigrations()` from `src/core.js`.
 
 The runner:
 
-1. validates required production secrets;
-2. takes PostgreSQL advisory lock `701070`;
-3. upgrades the complete v0.6.8 schema and indexes idempotently;
-4. creates or upgrades the owner account securely;
-5. applies the v0.7.1 diagnostics schema, v0.8.0 structured-response schema, and v0.9.0 AI Content Studio schema idempotently;
-6. records the release migration keys in `system_migrations`;
-7. releases the lock.
+1. validates production configuration;
+2. connects with Render's direct `MIGRATION_DATABASE_URL`;
+3. takes PostgreSQL advisory lock `701070`;
+4. completes the existing idempotent schema/bootstrap repair for older installs;
+5. discovers every `NNN_*.sql` file in this directory and sorts it numerically;
+6. calculates a SHA-256 checksum and compares it with
+   `schema_migration_files`;
+7. applies each new file in its own transaction and records the checksum;
+8. refuses a checksum mismatch because released migration files are immutable;
+9. releases the lock and closes the migration connection.
 
-It is executed by Render's `preDeployCommand`, never by customer requests.
+Migration `033_v1.15.1_stabilization_security_repair.sql` completes the quality
+center indexes and records the v1.15.1 stabilization marker. Migration `030`
+owns the AI quality tables.
+
+The migration command runs during Render pre-deploy. Customer requests never
+run the file migration sequence.

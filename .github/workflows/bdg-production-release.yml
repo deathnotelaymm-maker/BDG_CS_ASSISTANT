@@ -27,8 +27,23 @@ jobs:
     name: Build and publish BDG production
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: bdg_release_test
+          POSTGRES_USER: bdg_test
+          POSTGRES_PASSWORD: bdg_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bdg_test -d bdg_release_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     env:
       BDG_API_BASE_URL: https://bdg-ai-help-api-render.onrender.com
+      TEST_DATABASE_URL: postgresql://bdg_test:bdg_test_password@127.0.0.1:5432/bdg_release_test
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
@@ -63,6 +78,13 @@ jobs:
         run: |
           npm --prefix backend-api ci --omit=dev --no-audit --no-fund --registry=https://registry.npmjs.org/
           npm --prefix backend-api run check
+          npm --prefix backend-api run test:regression
+          npm --prefix backend-api run test:knowledge-import
+          npm --prefix backend-api run test:security
+          npm --prefix backend-api run test:structured
+          npm --prefix backend-api run test:upload
+          npm --prefix backend-api run test:integration
+          npm --prefix backend-api audit --audit-level=high
 
       - name: Wait for the matching Render release
         run: node scripts/ci/wait-for-render.mjs "${{ steps.api_version.outputs.version }}"
@@ -73,6 +95,7 @@ jobs:
       - name: Build and publish Guide production
         run: |
           npm --prefix guide-pro ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+          npm --prefix guide-pro run typecheck
           VITE_API_BASE="$BDG_API_BASE_URL" VITE_USE_MOCK=false npm --prefix guide-pro run build
           node scripts/ci/write-release-marker.mjs guide guide-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
           node scripts/ci/verify-static-release.mjs guide guide-pro/dist
@@ -81,6 +104,7 @@ jobs:
       - name: Build and publish Chat production
         run: |
           npm --prefix chat-pro ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+          npm --prefix chat-pro run typecheck
           VITE_BDG_API_BASE="$BDG_API_BASE_URL" VITE_API_BASE="$BDG_API_BASE_URL" npm --prefix chat-pro run build
           node scripts/ci/write-release-marker.mjs chat chat-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
           node scripts/ci/verify-static-release.mjs chat chat-pro/dist
@@ -89,6 +113,7 @@ jobs:
       - name: Build and publish Admin production
         run: |
           npm --prefix admin-pro ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+          npm --prefix admin-pro run typecheck
           VITE_API_BASE_URL="$BDG_API_BASE_URL" VITE_MOCK_MODE=false npm --prefix admin-pro run build
           node scripts/ci/write-release-marker.mjs admin admin-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
           node scripts/ci/verify-static-release.mjs admin admin-pro/dist

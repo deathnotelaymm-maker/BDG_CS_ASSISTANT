@@ -90,7 +90,7 @@ function ThemeSettingsPage() {
   const uploadInput = (field: string, label: string, placeholder: string) => <Input placeholder={placeholder} addonAfter={<Upload showUploadList={false} beforeUpload={(file) => uploadToField(file, field, label)}><Button size="small" icon={<UploadOutlined />}>Upload</Button></Upload>} />;
 
   const startPreview = <Form.Item noStyle shouldUpdate>{() => {
-    const get = (key: string, fallback = "") => form.getFieldValue(key) || fallback;
+    const get = (key: string, fallback: any = "") => form.getFieldValue(key) ?? fallback;
     const background = get("chat_background_url");
     return <div style={{ borderRadius: 16, minHeight: 410, padding: 18, color: get("chat_start_text_color", "#ffffff"), background: background ? `linear-gradient(#07111ddd,#07111ddd),url(${background}) center/cover` : "#101a2a", overflow: "hidden" }}>
       <style>{"@keyframes bdg-marquee { from { transform: translateX(100%); } to { transform: translateX(-100%); } }"}</style>
@@ -106,7 +106,7 @@ function ThemeSettingsPage() {
     </div>;
   }}</Form.Item>;
   const guidePreview = <Form.Item noStyle shouldUpdate>{() => {
-    const get = (key: string, fallback = "") => form.getFieldValue(key) || fallback;
+    const get = (key: string, fallback: any = "") => form.getFieldValue(key) ?? fallback;
     const background = get("guide_hero_background_url");
     return <div style={{ minHeight: 310, borderRadius: Number(get("guide_card_radius", "16")), color: get("guide_text_color", "#ffffff"), background: background ? `linear-gradient(${get("guide_hero_overlay_color", "#081525cc")},${get("guide_hero_overlay_color", "#081525cc")}),url(${background}) center/cover` : "#081525", fontFamily: get("guide_font_family", "system"), padding: 24 }}>
       <Tag color="gold">Guide theme preview</Tag>

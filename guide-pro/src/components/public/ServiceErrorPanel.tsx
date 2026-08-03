@@ -7,7 +7,7 @@ export function ServiceErrorPanel({
   compact = false,
 }: {
   onRetry: () => void;
-  language?: "en" | "hi";
+  language?: string;
   compact?: boolean;
 }) {
   const copy = language === "hi"

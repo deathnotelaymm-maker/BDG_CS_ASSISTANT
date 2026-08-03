@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ServiceErrorPanel } from "@/components/public/ServiceErrorPanel";
 import { Badge } from "@/components/ui/badge";
 import { GuideImageLightbox, openGuideImage } from "@/components/public/GuideImageLightbox";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 
 export const Route = createFileRoute("/_public/guides/$slug")({
   head: ({ params }) => ({
@@ -177,7 +178,7 @@ function GuideDetail() {
             {faqs.map((f) => (
               <li key={f.id} className="py-3">
                 <div className="text-sm font-semibold">{f.question}</div>
-                {f.answerHtml ? <div className="mt-1 text-sm leading-6 text-muted-foreground" dangerouslySetInnerHTML={{ __html: f.answerHtml.replace(/<\/?script[^>]*>/gi, "").replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "") }} /> : <div className="mt-1 text-sm leading-6 text-muted-foreground">{f.answer}</div>}
+                {f.answerHtml ? <div className="mt-1 text-sm leading-6 text-muted-foreground" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(f.answerHtml) }} /> : <div className="mt-1 text-sm leading-6 text-muted-foreground">{f.answer}</div>}
               </li>
             ))}
           </ul>
