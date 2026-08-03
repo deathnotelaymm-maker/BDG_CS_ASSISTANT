@@ -1,5 +1,9 @@
 v1.15.1 — Stabilization & Security Repair
 
+CI fixture repair marker
+- CI_PLATFORM_CONTEXT_HOTFIX_V1.15.1.md
+- START-HERE-WINDOWS.bat
+
 Backend and migrations
 - backend-api/src/core.js
 - backend-api/src/server.js

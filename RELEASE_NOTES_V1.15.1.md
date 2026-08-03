@@ -55,6 +55,10 @@ publication state are preserved.
   builds/deployments.
 - CI now starts PostgreSQL 16 and runs backend regression, workbook, security,
   and database/API integration suites.
+- The integration harness models the shared Chat Pages origin separately from
+  custom customer hostnames. Shared-route reads must pass, while an unmapped
+  hostname must still fail with `PLATFORM_CONTEXT_MISMATCH`; CI does not bypass
+  this tenant-routing security check.
 
 ## Migration repair
 

@@ -12,6 +12,9 @@
 6. Commit v1.15.1 and push `main`.
 7. Require the `v1.15.1 Stabilization and Security Checks` workflow to pass,
    including its PostgreSQL integration job.
+   Do not bypass `PLATFORM_CONTEXT_MISMATCH`: the integration harness must pass
+   the shared Chat Pages origin test and reject its deliberately unmapped
+   custom-hostname test.
 8. Confirm Render's pre-deploy migration reports all SQL files as either
    applied or checksum-matched/skipped. A checksum mismatch must stop release.
 9. Confirm `/health/live` and `/health/ready` report

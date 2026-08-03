@@ -4,6 +4,8 @@ import pg from 'pg';
 import api, { closeDatabasePools, runMigrations } from '../src/core.js';
 
 const { Pool } = pg;
+const ADMIN_ORIGIN = 'https://admin.example.test';
+const SHARED_CHAT_ORIGIN = 'https://bdg-chat-pages.pages.dev';
 const connectionString = String(process.env.TEST_DATABASE_URL || '').trim();
 if (!connectionString) throw new Error('TEST_DATABASE_URL is required. Integration tests never fall back to DATABASE_URL.');
 
@@ -25,7 +27,7 @@ const env = {
   ADMIN_EMAIL: 'integration-owner@example.test',
   ADMIN_PASSWORD: 'Integration-Test-Password-2026!',
   JWT_SECRET: 'integration-test-jwt-secret-at-least-32-characters-long',
-  ALLOWED_ORIGINS: 'https://admin.example.test',
+  ALLOWED_ORIGINS: ADMIN_ORIGIN,
   AI_MODE_ENABLED: 'false',
   DEEPSEEK_API_KEY: '',
   R2_REQUIRED: false,
@@ -39,8 +41,11 @@ let database;
 let token = '';
 let platform;
 
-async function call(path, { method = 'GET', body, platformRoute = platform?.public_route_key, auth = true } = {}) {
-  const headers = new Headers({ Origin: 'https://admin.example.test' });
+async function call(path, {
+  method = 'GET', body, platformRoute = platform?.public_route_key, auth = true, origin = ADMIN_ORIGIN,
+} = {}) {
+  const headers = new Headers();
+  if (origin) headers.set('Origin', origin);
   if (auth && token) headers.set('Authorization', `Bearer ${token}`);
   if (platformRoute) headers.set('X-BDG-Platform-Route', platformRoute);
   if (body !== undefined) headers.set('Content-Type', 'application/json');
@@ -102,10 +107,18 @@ try {
   const storedFaq = (await database.query('SELECT answer_html FROM faqs WHERE id=$1', [createdFaq.id])).rows[0];
   assert.doesNotMatch(storedFaq.answer_html, /script|onerror|javascript:/i);
 
-  const publicFaqs = expectStatus(await call(`/faqs?platform=${encodeURIComponent(platform.public_route_key)}&language=en`, { auth:false, platformRoute:'' }), 200, 'Read public FAQs');
+  const publicFaqPath = `/faqs?platform=${encodeURIComponent(platform.public_route_key)}&language=en`;
+  const publicFaqs = expectStatus(await call(publicFaqPath, {
+    auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
+  }), 200, 'Read public FAQs through the shared Chat hostname');
   const publicFaq = publicFaqs.find((row) => Number(row.id) === Number(createdFaq.id));
   assert.ok(publicFaq);
   assert.doesNotMatch(publicFaq.answer_html, /script|onerror|javascript:/i);
+
+  const mismatchedHostname = expectStatus(await call(publicFaqPath, {
+    auth:false, platformRoute:'', origin:'https://unmapped-customer.example.test',
+  }), 400, 'Reject a route that does not match the custom hostname');
+  assert.equal(mismatchedHostname.code, 'PLATFORM_CONTEXT_MISMATCH');
 
   const isolatedTenant = (await database.query(`INSERT INTO saas_tenants(tenant_key,name,status,default_locale)
     VALUES('integration-isolated','Integration Isolated','active','en') RETURNING id`)).rows[0];
@@ -143,7 +156,7 @@ try {
   assert.equal(persistedRun.rows[0]?.status, 'pass');
 
   console.log(`PASS ${migrationFiles.length} immutable SQL migration files applied and rechecked`);
-  console.log('PASS Real login, scoped CRUD, public read, and tenant-isolation API/database paths');
+  console.log('PASS Real login, scoped CRUD, shared-host public read, hostname guard, and tenant-isolation paths');
   console.log('PASS Rich HTML is sanitized in the API response and PostgreSQL row');
   console.log('PASS Private connector targets are rejected through the authenticated API');
   console.log('PASS AI quality findings and live-router test runs persist in PostgreSQL');

@@ -31,8 +31,9 @@ The API release marker is:
   SHA-256 checksum, refuses edited historical migrations, and safely skips files
   already applied with the same checksum.
 - PostgreSQL 16 integration tests exercise migrations, login, API CRUD, tenant
-  isolation, stored sanitization, connector rejection, quality scans, and live
-  router test-run persistence.
+  isolation, stored sanitization, connector rejection, shared Pages routing,
+  custom-hostname mismatch rejection, quality scans, and live router test-run
+  persistence.
 
 ## Local verification
 
@@ -54,7 +55,9 @@ TEST_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/bdg_integration_test npm 
 ```
 
 The test refuses to use `DATABASE_URL` and refuses to reset a database whose
-name does not contain `test`.
+name does not contain `test`. It invokes the backend handler directly and does
+not call Render or Cloudflare; the simulated shared Pages origin is intentionally
+different from an unmapped custom hostname.
 
 ## Production deployment
 

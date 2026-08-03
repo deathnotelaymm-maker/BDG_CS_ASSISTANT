@@ -25,6 +25,11 @@ contains `test`:
 TEST_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/bdg_integration_test npm run test:integration
 ```
 
+The suite invokes the backend handler in-process; it does not call Render or
+Cloudflare. Its public-route fixture uses the shared Chat Pages origin, and a
+separate negative assertion confirms that an unmapped custom hostname is still
+rejected with `PLATFORM_CONTEXT_MISMATCH`.
+
 ## Migration contract
 
 `npm run migrate` takes advisory lock `701070`, completes the idempotent legacy

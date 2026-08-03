@@ -3,7 +3,7 @@
 ## Passed in the release workspace
 
 - Backend syntax/import checks: passed.
-- Backend source regression suite: passed, 40/40.
+- Backend source regression suite: passed, 41/41.
 - Workbook import regression: passed, 4/4 behavior checks.
 - Rich HTML and connector security regression: passed, 3/3 behavior groups.
 - Structured response regression: passed, 4/4.
@@ -32,6 +32,8 @@ with a disposable PostgreSQL 16 service. It verifies:
 - quality tables and the migration registry exist in PostgreSQL;
 - real owner login and authenticated API requests;
 - FAQ write/read sanitization in both API output and the stored row;
+- public FAQ reads through the shared Chat Pages origin;
+- rejection of a platform route presented by an unmapped custom hostname;
 - tenant/platform isolation through a second routed platform;
 - private connector targets rejected by the authenticated API;
 - duplicate/conflicting quality findings persisted by a scan;
@@ -40,3 +42,9 @@ with a disposable PostgreSQL 16 service. It verifies:
 This workspace did not include a local PostgreSQL server, so that destructive
 test was not run here. CI supplies the disposable database. The script refuses
 `DATABASE_URL` and refuses to reset a database whose name lacks `test`.
+
+The integration harness calls the backend handler in-process. It does not use
+`BDG_API_BASE_URL`, Render, the Cloudflare API, or Cloudflare credentials. Shared
+Pages origins and custom customer hostnames are modeled separately so the
+production hostname/route mismatch protection remains a required assertion;
+there is no CI bypass flag for this security boundary.

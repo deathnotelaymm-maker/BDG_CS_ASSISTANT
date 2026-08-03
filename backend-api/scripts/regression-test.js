@@ -26,6 +26,7 @@ const guideSanitizer = read("guide-pro/src/lib/sanitize-html.ts");
 const guideHeaders = read("guide-pro/public/_headers");
 const chatHeaders = read("chat-pro/public/_headers");
 const adminHeaders = read("admin-pro/public/_headers");
+const integrationTest = read("backend-api/scripts/integration-test.js");
 
 expect("Backend and server expose the v1.15.1 release", core.includes("1.15.1-stabilization-security-repair") && server.includes("1.15.1-stabilization-security-repair"));
 expect("Domain route IDs are extracted from the numeric path segment", core.includes("function domainIdFromPath") && core.includes("Number.isSafeInteger(id)") && core.includes("DOMAIN_ID_INVALID"));
@@ -67,6 +68,7 @@ expect("Rich HTML is sanitized on both server and Guide client", richHtml.includ
 expect("Pages deployments include CSP and defensive headers", [guideHeaders, chatHeaders, adminHeaders].every((value) => value.includes("Content-Security-Policy:") && value.includes("object-src 'none'") && value.includes("X-Content-Type-Options: nosniff")));
 expect("Connector URLs use DNS-aware, rebinding-resistant HTTPS SSRF protection", networkSafety.includes("validatePublicHttpsUrl") && networkSafety.includes("isForbiddenNetworkAddress") && networkSafety.includes("pinned.address") && networkSafety.includes("Connector redirects are not allowed") && core.includes("fetchPublicHttpsText"));
 expect("SQL migration files are checksum tracked and applied", migrationRunner.includes("schema_migration_files") && migrationRunner.includes("checksum mismatch") && core.includes("applySqlMigrationFiles(client)") && stabilizationMigration.includes("v1.15.1_stabilization_security_repair"));
+expect("Integration tests distinguish shared Pages origins from custom hostnames", integrationTest.includes("SHARED_CHAT_ORIGIN") && integrationTest.includes("Read public FAQs through the shared Chat hostname") && integrationTest.includes("Reject a route that does not match the custom hostname") && !integrationTest.includes("SKIP_CLOUDFLARE_PLATFORM_CHECK"));
 
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
