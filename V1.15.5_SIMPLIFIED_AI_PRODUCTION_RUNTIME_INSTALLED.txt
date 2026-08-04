@@ -1,0 +1,19 @@
+BDG CS ASSISTANT v1.15.5
+Release marker: 1.15.5-simplified-ai-production-runtime
+
+Installed feature:
+Simplified AI Production Runtime
+
+Live AI contract:
+- one compiled Assistant Setup runtime
+- one approved Menu & Images source type
+- one DeepSeek request
+- server-validated menu/image/button selection
+- automatic message-language detection
+- prompt-aware memory reset
+- retired AI module endpoints return HTTP 410
+
+Database migration:
+037_v1.15.5_simplified_ai_production_runtime.sql
+
+Do not edit migration 037 after deployment.

@@ -19,7 +19,6 @@ import {
   QuestionCircleOutlined,
   BulbOutlined,
   RobotOutlined,
-  HistoryOutlined,
   MonitorOutlined,
   MessageOutlined,
   MessageFilled,
@@ -30,17 +29,13 @@ import {
   LogoutOutlined,
   DownOutlined,
   LinkOutlined,
-  CloudUploadOutlined,
   ApartmentOutlined,
-  GlobalOutlined,
-  ShareAltOutlined,
-  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-router";
 import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
-const ADMIN_VERSION = "v1.15.4";
+const ADMIN_VERSION = "v1.15.5";
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
   {
@@ -91,78 +86,29 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
   {
     key: "/ai-prompt-manager",
     to: "/ai-prompt-manager",
-    label: "AI Prompt Manager",
+    label: "Assistant Setup",
     icon: <RobotOutlined />,
     group: "AI",
   },
   {
     key: "/ai-content-studio",
     to: "/ai-content-studio",
-    label: "AI Prompt & Image",
+    label: "Menu & Images",
     icon: <BulbOutlined />,
-    group: "AI",
-  },
-  {
-    key: "/ai-knowledge-import",
-    to: "/ai-knowledge-import",
-    label: "AI Knowledge Import",
-    icon: <CloudUploadOutlined />,
-    group: "AI",
-  },
-  {
-    key: "/ai-qa",
-    to: "/ai-qa",
-    label: "AI Q&A",
-    icon: <MessageFilled />,
-    group: "AI",
-  },
-  {
-    key: "/ai-source-router",
-    to: "/ai-source-router",
-    label: "AI Source Router",
-    icon: <ShareAltOutlined />,
-    group: "AI",
-  },
-  {
-    key: "/locale-studio",
-    to: "/locale-studio",
-    label: "Locale Studio",
-    icon: <GlobalOutlined />,
-    group: "AI",
-  },
-  {
-    key: "/prompt-history",
-    to: "/prompt-history",
-    label: "Prompt Version History",
-    icon: <HistoryOutlined />,
-    group: "AI",
-  },
-  {
-    key: "/action-buttons",
-    to: "/action-buttons",
-    label: "Buttons Configuration",
-    icon: <LinkOutlined />,
     group: "AI",
   },
   {
     key: "/ai-diagnostics",
     to: "/ai-diagnostics",
-    label: "AI Diagnostics",
+    label: "Test & Diagnostics",
     icon: <MonitorOutlined />,
     group: "AI",
   },
   {
-    key: "/ai-reliability",
-    to: "/ai-reliability",
-    label: "AI Reliability",
-    icon: <SafetyCertificateOutlined />,
-    group: "AI",
-  },
-  {
-    key: "/ai-response-quality",
-    to: "/ai-response-quality",
-    label: "AI Response Quality",
-    icon: <SafetyCertificateOutlined />,
+    key: "/action-buttons",
+    to: "/action-buttons",
+    label: "Buttons (Optional)",
+    icon: <LinkOutlined />,
     group: "AI",
   },
 
@@ -217,14 +163,14 @@ const ZH: Record<string, string> = {
   Categories: "分类",
   Guide: "指南",
   FAQ: "常见问题",
-  "AI Prompt Manager": "AI 提示词管理",
-  "AI Prompt & Image": "AI 提示与图片",
+  "Assistant Setup": "助手设置",
+  "Menu & Images": "菜单与图片",
   "AI Knowledge Import": "AI 知识导入",
   "AI Q&A": "AI 问答",
   "AI Source Router": "AI 来源路由",
   "Prompt Version History": "提示词版本历史",
-  "Buttons Configuration": "按钮配置",
-  "AI Diagnostics": "AI 诊断",
+  "Buttons (Optional)": "按钮（可选）",
+  "Test & Diagnostics": "测试与诊断",
   "Chat Quick Replies": "聊天快捷回复",
   "Chat Logs": "聊天记录",
   "Unmatched Questions": "未匹配问题",
@@ -246,7 +192,7 @@ const ZH: Record<string, string> = {
   "My Profile": "我的资料",
 };
 const MY: Record<string, string> = {
-  Dashboard: "ဒက်ရှ်ဘုတ်", "Platform Control Center": "ပလက်ဖောင်းထိန်းချုပ်မှု", "Domain Mapping": "ဒိုမိန်းချိတ်ဆက်မှု", "Site Content": "ဆိုက်အကြောင်းအရာ", Categories: "အမျိုးအစားများ", Guide: "လမ်းညွှန်", FAQ: "အမေးများ", "AI Prompt Manager": "AI Prompt စီမံခန့်ခွဲမှု", "AI Prompt & Image": "AI Prompt နှင့် ပုံ", "AI Knowledge Import": "AI အသိပညာ တင်သွင်းရန်", "AI Q&A": "AI အမေးအဖြေ", "AI Source Router": "AI ရင်းမြစ် လမ်းကြောင်း", "AI Reliability": "AI ယုံကြည်စိတ်ချရမှု", "AI Response Quality": "AI တုံ့ပြန်မှုအရည်အသွေး", "Prompt Version History": "Prompt ဗားရှင်းမှတ်တမ်း", "Buttons Configuration": "ခလုတ်ပြင်ဆင်မှု", "AI Diagnostics": "AI စစ်ဆေးမှု", "Chat Quick Replies": "Chat အမြန်ဖြေ", "Chat Logs": "Chat မှတ်တမ်း", "Unmatched Questions": "မကိုက်ညီသောမေးခွန်းများ", "Theme Settings": "အပြင်အဆင်", "Audit Logs": "စစ်ဆေးမှတ်တမ်း", "Admin Users": "စီမံသူများ", PLATFORM: "ပလက်ဖောင်း", OVERVIEW: "အနှစ်ချုပ်", CONTENT: "အကြောင်းအရာ", AI: "AI", CHAT: "Chat", SETTINGS: "ဆက်တင်များ", Console: "ကွန်ဆိုလ်", "Sign out": "ထွက်ရန်", "My Profile": "ကိုယ်ရေးအချက်အလက်"
+  Dashboard: "ဒက်ရှ်ဘုတ်", "Platform Control Center": "ပလက်ဖောင်းထိန်းချုပ်မှု", "Domain Mapping": "ဒိုမိန်းချိတ်ဆက်မှု", "Site Content": "ဆိုက်အကြောင်းအရာ", Categories: "အမျိုးအစားများ", Guide: "လမ်းညွှန်", FAQ: "အမေးများ", "Assistant Setup": "AI Assistant ပြင်ဆင်မှု", "Menu & Images": "မီနူးနှင့် ပုံများ", "AI Knowledge Import": "AI အသိပညာ တင်သွင်းရန်", "AI Q&A": "AI အမေးအဖြေ", "AI Source Router": "AI ရင်းမြစ် လမ်းကြောင်း", "AI Reliability": "AI ယုံကြည်စိတ်ချရမှု", "AI Response Quality": "AI တုံ့ပြန်မှုအရည်အသွေး", "Prompt Version History": "Prompt ဗားရှင်းမှတ်တမ်း", "Buttons (Optional)": "ခလုတ်များ (ရွေးချယ်နိုင်)", "Test & Diagnostics": "စမ်းသပ်ခြင်းနှင့် စစ်ဆေးမှု", "Chat Quick Replies": "Chat အမြန်ဖြေ", "Chat Logs": "Chat မှတ်တမ်း", "Unmatched Questions": "မကိုက်ညီသောမေးခွန်းများ", "Theme Settings": "အပြင်အဆင်", "Audit Logs": "စစ်ဆေးမှတ်တမ်း", "Admin Users": "စီမံသူများ", PLATFORM: "ပလက်ဖောင်း", OVERVIEW: "အနှစ်ချုပ်", CONTENT: "အကြောင်းအရာ", AI: "AI", CHAT: "Chat", SETTINGS: "ဆက်တင်များ", Console: "ကွန်ဆိုလ်", "Sign out": "ထွက်ရန်", "My Profile": "ကိုယ်ရေးအချက်အလက်"
 };
 function langNow() {
   try {

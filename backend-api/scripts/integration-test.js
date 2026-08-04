@@ -52,7 +52,7 @@ globalThis.fetch = async (input, init = {}) => {
   const systemPrompt = String(request.messages?.[0]?.content || '');
   const requestKind = systemPrompt.startsWith('This is a provider connectivity test')
     ? 'connectivity'
-    : systemPrompt.startsWith('You are the prompt-first AI customer support assistant') ? 'prompt_first'
+    : systemPrompt.startsWith('You are the production AI assistant') ? 'prompt_first'
     : systemPrompt.startsWith('You are the AI Meaning Judge') ? 'judge' : 'composer';
   providerRequestKinds.push(requestKind);
   providerSystemPrompts.push(systemPrompt);
@@ -177,10 +177,26 @@ try {
     body:{ question:'Integration duplicate intent', answer:'Verified answer', answer_html:unsafeHtml, locale:'en', status:'published' },
   }), 200, 'Create sanitized FAQ');
   assert.ok(createdFaq.id);
-  selectedSourceId = -(1000000 + Number(createdFaq.id));
   assert.doesNotMatch(createdFaq.answer_html, /script|onerror|javascript:/i);
   const storedFaq = (await database.query('SELECT answer_html FROM faqs WHERE id=$1', [createdFaq.id])).rows[0];
   assert.doesNotMatch(storedFaq.answer_html, /script|onerror|javascript:/i);
+
+
+  const createdMenuSource = expectStatus(await call('/admin/ai-content', {
+    method:'POST',
+    body:{
+      content_name:'Integration duplicate intent', title:'Integration duplicate intent',
+      intent_key:'integration-duplicate-intent', locale:'en', source_type:'prompt_image',
+      status:'published', approval_status:'approved',
+      positive_examples:'Integration duplicate intent\nVerified integration answer',
+      negative_examples:'Unrelated integration request',
+      knowledge_content:'Verified answer', example_answers:'Verified answer',
+      ai_instruction:'Use only the approved content.',
+      image_urls:['https://cdn.example.test/help.png'], image_delivery:'after_answer',
+    },
+  }), 200, 'Create approved Menu & Images source');
+  selectedSourceId = Number(createdMenuSource.id);
+  assert.equal(createdMenuSource.source_type, 'prompt_image');
 
   const publicFaqPath = `/faqs?platform=${encodeURIComponent(platform.public_route_key)}&language=en`;
   const publicFaqs = expectStatus(await call(publicFaqPath, {
@@ -280,27 +296,17 @@ try {
   const blockedBody = expectStatus(blockedConnector, 400, 'Reject private connector target');
   assert.match(blockedBody.code, /^CONNECTOR_/);
 
-  const createdAiSource = expectStatus(await call('/admin/ai-content', {
-    method:'POST',
-    body:{
-      content_name:'Integration duplicate intent', title:'Integration duplicate intent',
-      intent_key:'integration-duplicate-intent', locale:'en', source_type:'qa',
-      status:'published', approval_status:'approved', faq_content:'A deliberately different approved answer.',
-      ai_instruction:'Use only the approved content.',
-    },
-  }), 200, 'Create approved AI source');
-  selectedSourceId = Number(createdAiSource.id);
-  const scan = expectStatus(await call('/admin/ai-quality/scan', { method:'POST', body:{} }), 200, 'Run AI quality scan');
-  assert.ok(scan.findings.some((finding) => finding.finding_type === 'duplicate_intent'));
-  assert.ok(scan.findings.some((finding) => finding.finding_type === 'conflicting_answer'));
+  for (const [path, method] of [
+    ['/admin/ai-qa', 'GET'],
+    ['/admin/ai-source-router', 'GET'],
+    ['/admin/knowledge-imports', 'GET'],
+    ['/admin/ai-quality/scan', 'POST'],
+    ['/admin/locale-studio', 'GET'],
+  ]) {
+    const retired = expectStatus(await call(path, { method, body:method === 'POST' ? {} : undefined }), 410, `Retire ${path}`);
+    assert.equal(retired.code, 'AI_MODULE_RETIRED');
+  }
 
-  const testCase = expectStatus(await call('/admin/ai-quality/test-cases', {
-    method:'POST', body:{ name:'Integration route test', message:'Integration duplicate intent', locale:'en', expected_image_mode:'any' },
-  }), 201, 'Create AI response test');
-  const testRun = expectStatus(await call(`/admin/ai-quality/test-cases/${testCase.test_case.id}/run`, { method:'POST', body:{} }), 200, 'Run AI response test');
-  assert.equal(testRun.run.status, 'pass');
-  const persistedRun = await database.query('SELECT status FROM ai_quality_test_runs WHERE id=$1', [testRun.run.id]);
-  assert.equal(persistedRun.rows[0]?.status, 'pass');
 
   console.log(`PASS ${migrationFiles.length} immutable SQL migration files applied and rechecked`);
   console.log('PASS Real login, scoped CRUD, shared-host public read, hostname guard, and tenant-isolation paths');
@@ -308,7 +314,7 @@ try {
   console.log('PASS Private connector targets are rejected through the authenticated API');
   console.log('PASS Prompt-managed greeting, one-call general and grounded answers, matched images, provider retry, and verified-source fallback paths');
   console.log('PASS Prompt runtime versions, hashes, and prompt-aware memory reset persist in PostgreSQL');
-  console.log('PASS AI quality findings and live-router test runs persist in PostgreSQL');
+  console.log('PASS Retired AI Admin modules return HTTP 410 and cannot participate in production routing');
 } finally {
   globalThis.fetch = originalFetch;
   if (database) await database.end();

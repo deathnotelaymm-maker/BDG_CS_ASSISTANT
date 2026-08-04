@@ -1,0 +1,77 @@
+BDG CS ASSISTANT v1.15.5 — CHANGED FILES
+=========================================
+
+BASELINE
+--------
+BDG_CS_ASSISTANT-v1.15.4-r2-complete-source.zip
+
+APPLICATION / RELEASE METADATA
+------------------------------
+package.json
+CHANGED_FILES_V1.15.5.txt
+MANIFEST_V1.15.5.json
+README.md
+README-V1.15.5.txt
+RELEASE_NOTES_V1.15.5.md
+TECHNICAL_ANALYSIS_V1.15.5.md
+SIMPLIFIED_AI_PRODUCTION_RUNTIME_V1.15.5.md
+DEPLOYMENT_CHECKLIST_V1.15.5.md
+TEST_RESULT_V1.15.5.md
+V1.15.5_SIMPLIFIED_AI_PRODUCTION_RUNTIME_INSTALLED.txt
+START-HERE-WINDOWS.bat
+START-HERE-V1.15.5-SIMPLIFIED-AI-PRODUCTION-RUNTIME.bat
+INSTALL-V1.15.5-SIMPLIFIED-AI-PRODUCTION-RUNTIME.cmd
+
+CI / PRODUCTION RELEASE
+-----------------------
+.github/workflows/ci.yml
+.github/workflows/bdg-production-release.yml
+
+ADMIN PRO
+---------
+admin-pro/package.json
+admin-pro/package-lock.json
+admin-pro/src/components/AdminLayout.tsx
+admin-pro/src/lib/api.ts
+admin-pro/src/routes/_admin.ai-prompt-manager.tsx
+admin-pro/src/routes/_admin.ai-content-studio.tsx
+admin-pro/src/routes/_admin.ai-diagnostics.tsx
+admin-pro/src/routes/_admin.ai-knowledge-import.tsx
+admin-pro/src/routes/_admin.ai-knowledge.tsx
+admin-pro/src/routes/_admin.ai-qa.tsx
+admin-pro/src/routes/_admin.ai-source-router.tsx
+admin-pro/src/routes/_admin.locale-studio.tsx
+admin-pro/src/routes/_admin.prompt-history.tsx
+admin-pro/src/routes/_admin.ai-reliability.tsx
+admin-pro/src/routes/_admin.ai-response-quality.tsx
+
+BACKEND API
+-----------
+backend-api/package.json
+backend-api/package-lock.json
+backend-api/README.md
+backend-api/src/core.js
+backend-api/src/server.js
+backend-api/migrations/README.md
+backend-api/migrations/037_v1.15.5_simplified_ai_production_runtime.sql
+backend-api/scripts/regression-test.js
+backend-api/scripts/simplified-ai-runtime-regression-test.js
+backend-api/scripts/integration-test.js
+backend-api/scripts/upload-regression-test.js
+
+CHAT / GUIDE VERSION ALIGNMENT
+------------------------------
+chat-pro/package.json
+chat-pro/package-lock.json
+guide-pro/package.json
+guide-pro/package-lock.json
+
+SUMMARY
+-------
+46 reviewed files differ from the v1.15.4-r2 complete-source baseline. The
+package checksum file is generated separately and is not included in this count.
+
+The runtime changes remove retired AI modules from Admin navigation, redirect
+old pages, block old backend endpoints with HTTP 410, fix live AI to one
+Assistant Setup runtime plus approved Menu & Images, archive old Q&A rows, add
+automatic message-language detection, and update production CI.

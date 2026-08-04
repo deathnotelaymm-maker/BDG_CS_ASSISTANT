@@ -36,3 +36,11 @@ Migration `036_v1.15.4_prompt_runtime_versioning_repair.sql` adds immutable
 compiled Prompt Manager runtime versions, an atomic active-runtime pointer,
 prompt-aware session memory fields, and exact prompt version/hash diagnostics.
 Published migration `036` is immutable and must never be edited after deployment.
+
+Migration `037_v1.15.5_simplified_ai_production_runtime.sql` retires the
+legacy AI Q&A, Knowledge Import, configurable Source Router, AI Response
+Quality, Locale Studio, and advanced two-stage decision paths from live
+production. It fixes the runtime to the compiled Assistant Setup prompt plus
+approved `prompt_image` Menu & Images records, archives existing Q&A rows, and
+keeps historical tables inert for rollback/audit. Published migration `037` is
+immutable. The next database change must use migration `038`.

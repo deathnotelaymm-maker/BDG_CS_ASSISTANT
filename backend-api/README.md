@@ -1,10 +1,10 @@
 # BDG Render Backend with Neon PostgreSQL
 
-Version: `1.15.4-prompt-runtime-versioning-repair`
+Version: `1.15.5-simplified-ai-production-runtime`
 
-This Node.js service runs on Render and preserves the existing Neon PostgreSQL
-database. Runtime traffic uses the pooled `DATABASE_URL`; Render pre-deploy
-migrations use the direct `MIGRATION_DATABASE_URL`.
+This Node.js service runs on Render and uses Neon PostgreSQL. Runtime traffic
+uses the pooled `DATABASE_URL`; Render pre-deploy migrations use the direct
+`MIGRATION_DATABASE_URL`.
 
 ## Commands
 
@@ -13,9 +13,11 @@ npm ci
 npm run check
 npm run test:regression
 npm run test:prompt-runtime
+npm run test:simplified-ai
 npm run test:chat-reliability
-npm run test:knowledge-import
 npm run test:security
+npm run test:structured
+npm run test:upload
 npm run migrate
 npm start
 ```
@@ -27,50 +29,79 @@ contains `test`:
 TEST_DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/bdg_integration_test npm run test:integration
 ```
 
-The suite invokes the backend handler in-process; it does not call Render or
-Cloudflare. Its public-route fixture uses the shared Chat Pages origin, and a
-separate negative assertion confirms that an unmapped custom hostname is still
-rejected with `PLATFORM_CONTEXT_MISMATCH`.
+## Live AI contract
 
-## AI workflow
+Live chat uses one fixed production workflow:
 
-The default live workflow is `prompt_first`: one DeepSeek request follows one
-immutable compiled runtime containing every enabled Role, Job, Output, Language,
-Safety, and other Prompt Manager section. Each runtime has a version, exact
-SHA-256 hash, section hashes, warnings, and an atomic tenant/platform active
-pointer. Sessions clear incompatible old assistant memory when that hash changes.
-It can answer general questions when approved-only mode is off. If the response
-selects a valid tenant/platform-scoped approved source, the backend attaches one
-approved source image automatically. `advanced_two_stage` remains optional.
+```text
+compiled Assistant Setup runtime
++ approved published Menu & Images catalog
++ customer message and compatible memory
+→ one DeepSeek JSON request
+→ server validation of selected item/image/button
+```
 
-The supported default model is `deepseek-v4-flash`. Admin → AI Reliability
-includes the model configuration and a real provider connectivity test; secrets
-remain in Render environment variables.
+Only hard safety-boundary messages bypass the provider. Greetings, help
+requests, menu questions, and ordinary conversation use the active Assistant
+Setup runtime.
+
+Only rows with `source_type='prompt_image'`, `status='published'`, and
+`approval_status='approved'` can enter the live catalog. AI Q&A, imported
+knowledge, FAQ, Guide, and configurable source-router rows are not consulted by
+live chat.
+
+The backend forces:
+
+```text
+workflow_mode = prompt_first
+require_approved_context = false
+source_order = [prompt_image]
+```
+
+The old AI module endpoints return HTTP 410 with code `AI_MODULE_RETIRED`.
+Their historical data remains inert for rollback/audit during the v1.15.5
+stabilization period.
+
+## Prompt runtime contract
+
+Every enabled Assistant Setup section is compiled in stable priority order.
+The active runtime stores its version, SHA-256 hash, section IDs, section
+hashes, warnings, character count, and creation note. Sessions reset old
+assistant memory whenever the active hash changes.
+
+## Language contract
+
+The backend uses an explicitly requested supported language when supplied.
+`auto`, `automatic`, `detect`, and `all` request automatic script detection.
+Without an explicit language it detects common Burmese, Hindi, Chinese, Arabic,
+Thai, Japanese, and Korean scripts before falling back to the platform locale.
 
 ## Migration contract
 
-`npm run migrate` takes advisory lock `701070`, completes the idempotent legacy
-bootstrap, then applies every numbered file in `migrations/` in order. Applied
-filenames and SHA-256 checksums are stored in `schema_migration_files`. A changed
-historical file stops deployment instead of silently mutating production. Migration
-`036_v1.15.4_prompt_runtime_versioning_repair.sql` owns the runtime version,
-active pointer, prompt-aware session, and exact Chat Log diagnostics schema.
+`npm run migrate` obtains advisory lock `701070`, completes the legacy
+idempotent bootstrap, then applies numbered SQL files in order. Applied file
+names and SHA-256 checksums are stored in `schema_migration_files`. A changed
+historical migration stops deployment.
+
+Migration `037_v1.15.5_simplified_ai_production_runtime.sql` retires the old AI
+runtime paths, archives Q&A records, and fixes the production source contract.
+It is immutable after release. The next migration number is `038`.
 
 ## Security contract
 
-- Rich HTML is allowlist-sanitized on write and output.
-- Connector targets require HTTPS, public DNS answers, no redirects, and a
-  DNS-pinned TLS connection.
-- Connector secrets are encrypted at rest and never returned by API responses.
-- Admin requests remain bound to the immutable platform-route header.
-- Production startup validates Neon pooling/direct URLs, SSL, authentication
-  secrets, allowed origins, AI configuration, and R2 configuration.
+- Admin and content operations remain tenant/platform scoped.
+- Retired AI routes cannot read, write, publish, route, or test old modules.
+- Draft or unapproved Menu & Images items never enter live prompts.
+- Model-selected IDs are validated against the exact approved candidate set.
+- Rich HTML is allowlist-sanitized.
+- Upload MIME type, extension, and file signature are verified.
+- Connector URLs use HTTPS and DNS-aware SSRF protection.
+- Provider errors and secrets are not returned to customers.
+- Production startup validates database, auth, origins, AI, and R2 settings.
 
 ## Health routes
 
-- `/health/live` checks the Node process without requiring PostgreSQL.
-- `/health/ready` checks PostgreSQL and the migration table.
-- `/health/dependencies` checks PostgreSQL, R2, and AI configuration.
-
-The runtime validator requires a Neon pooled hostname for normal traffic, a
-matching direct hostname for migrations, the same Neon database, and SSL.
+- `/health/live` — process liveness
+- `/health/ready` — PostgreSQL and migration readiness
+- `/health/dependencies` — PostgreSQL, R2, and AI configuration
+- `/health` — release marker and feature contract

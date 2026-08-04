@@ -391,8 +391,8 @@ function diagnosticsOut(d: any) {
     aiEnabled: !!(d.aiEnabled ?? d.ai_enabled_in_db),
     deepSeekEnabled: !!(d.deepSeekEnabled ?? d.ai_enabled_in_db),
     promptCount: d.promptCount ?? d.counts?.prompts ?? 0,
-    faqCount: d.faqCount ?? d.counts?.faqs ?? 0,
-    guideCount: d.guideCount ?? d.counts?.guides ?? 0,
+    menuImageCount: d.menuImageCount ?? d.counts?.menu_images ?? 0,
+    publishedMenuImageCount: d.publishedMenuImageCount ?? d.counts?.published_menu_images ?? 0,
     lastApiError: d.lastApiError || (d.recent_errors?.[0]?.error_detail ?? "No recent AI error recorded"),
     responseTimeMs: d.responseTimeMs ?? 0,
     recentErrors: d.recentErrors ?? d.recent_errors ?? [],
@@ -780,7 +780,7 @@ export const api = {
     return request("/admin/locale-studio/translations", { method: "POST", body: JSON.stringify({ source_id, target_locale }) });
   },
   getAiSourceRouter: async () => {
-    if (MOCK_MODE) return delay({ ok: true, enabled: true, prompt_manager_enabled: true, source_order: ["prompt_image", "qa", "faq", "guide", "knowledge"], locale_strategy: "exact_then_default", max_candidates: 80, source_counts: {} });
+    if (MOCK_MODE) return delay({ ok: true, enabled: true, prompt_manager_enabled: true, source_order: ["prompt_image"], enabled_sources: ["prompt_image"], locale_strategy: "exact_then_default", max_candidates: 32, source_counts: {} });
     return request("/admin/ai-source-router");
   },
   updateAiSourceRouter: async (data: { enabled: boolean; prompt_manager_enabled: boolean; source_order: string[]; enabled_sources?: string[]; locale_strategy: string; max_candidates: number }) => {

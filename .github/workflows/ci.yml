@@ -1,4 +1,4 @@
-name: v1.15.4 Prompt Runtime and Security Checks
+name: v1.15.5 Simplified AI Production Checks
 
 on:
   push:
@@ -56,8 +56,8 @@ jobs:
           npm run check
           npm run test:regression
           npm run test:prompt-runtime
+          npm run test:simplified-ai
           npm run test:chat-reliability
-          npm run test:knowledge-import
           npm run test:security
           npm run test:structured
           npm run test:upload

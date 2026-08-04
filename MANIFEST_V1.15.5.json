@@ -1,0 +1,111 @@
+{
+  "release": "v1.15.5",
+  "marker": "1.15.5-simplified-ai-production-runtime",
+  "title": "Simplified AI Production Runtime",
+  "previous_release": "v1.15.4-r2",
+  "supersedes": [
+    "BDG-v1154-prompt-runtime-versioning-repair.zip",
+    "BDG-v1154-admin-prompt-manager-typecheck-hotfix-r2.zip"
+  ],
+  "migration": "backend-api/migrations/037_v1.15.5_simplified_ai_production_runtime.sql",
+  "next_migration": "038",
+  "installer_target_default": "C:\\Users\\LENOVO\\Documents\\cloud-projects\\BDG_CS_ASSISTANT",
+  "installer_target_override": [
+    "BDG_TARGET environment variable",
+    "first command-line argument"
+  ],
+  "changed_file_count": 46,
+  "runtime_contract": {
+    "runtime_mode": "assistant_profile_menu_image",
+    "visible_admin_modules": [
+      "Assistant Setup",
+      "Menu & Images",
+      "Test & Diagnostics",
+      "Buttons (Optional)"
+    ],
+    "retired_admin_modules": [
+      "AI Knowledge Import",
+      "AI Q&A",
+      "Configurable AI Source Router",
+      "AI Locale Studio",
+      "Prompt Version History page",
+      "Separate AI Reliability page",
+      "AI Response Quality"
+    ],
+    "retired_backend_response": {
+      "http_status": 410,
+      "code": "AI_MODULE_RETIRED"
+    },
+    "provider_calls_per_normal_turn": 1,
+    "workflow_mode": "prompt_first",
+    "business_content_sources": [
+      "prompt_image"
+    ],
+    "published_and_approved_only": true,
+    "general_prompt_answers_allowed": true,
+    "approved_context_blocking": false,
+    "automatic_message_language_detection": true,
+    "prompt_aware_memory_reset": true,
+    "server_validated_assets": true,
+    "historical_tables_preserved_for_rollback": true
+  },
+  "verification": {
+    "backend_syntax": "passed",
+    "source_regressions": "62/62",
+    "prompt_runtime": "5/5",
+    "chat_reliability": "6/6",
+    "simplified_ai_runtime": "5/5",
+    "changed_admin_typescript_parser": "passed with TypeScript 5.8.3",
+    "workflow_yaml": "passed",
+    "full_dependency_suites": "not independently completed because npm registry and disposable PostgreSQL were unavailable in this container",
+    "production_workflow": ".github/workflows/bdg-production-release.yml"
+  },
+  "changed_files": [
+    ".github/workflows/bdg-production-release.yml",
+    ".github/workflows/ci.yml",
+    "CHANGED_FILES_V1.15.5.txt",
+    "DEPLOYMENT_CHECKLIST_V1.15.5.md",
+    "INSTALL-V1.15.5-SIMPLIFIED-AI-PRODUCTION-RUNTIME.cmd",
+    "MANIFEST_V1.15.5.json",
+    "README-V1.15.5.txt",
+    "README.md",
+    "RELEASE_NOTES_V1.15.5.md",
+    "SIMPLIFIED_AI_PRODUCTION_RUNTIME_V1.15.5.md",
+    "START-HERE-V1.15.5-SIMPLIFIED-AI-PRODUCTION-RUNTIME.bat",
+    "START-HERE-WINDOWS.bat",
+    "TECHNICAL_ANALYSIS_V1.15.5.md",
+    "TEST_RESULT_V1.15.5.md",
+    "V1.15.5_SIMPLIFIED_AI_PRODUCTION_RUNTIME_INSTALLED.txt",
+    "admin-pro/package-lock.json",
+    "admin-pro/package.json",
+    "admin-pro/src/components/AdminLayout.tsx",
+    "admin-pro/src/lib/api.ts",
+    "admin-pro/src/routes/_admin.ai-content-studio.tsx",
+    "admin-pro/src/routes/_admin.ai-diagnostics.tsx",
+    "admin-pro/src/routes/_admin.ai-knowledge-import.tsx",
+    "admin-pro/src/routes/_admin.ai-knowledge.tsx",
+    "admin-pro/src/routes/_admin.ai-prompt-manager.tsx",
+    "admin-pro/src/routes/_admin.ai-qa.tsx",
+    "admin-pro/src/routes/_admin.ai-reliability.tsx",
+    "admin-pro/src/routes/_admin.ai-response-quality.tsx",
+    "admin-pro/src/routes/_admin.ai-source-router.tsx",
+    "admin-pro/src/routes/_admin.locale-studio.tsx",
+    "admin-pro/src/routes/_admin.prompt-history.tsx",
+    "backend-api/README.md",
+    "backend-api/migrations/037_v1.15.5_simplified_ai_production_runtime.sql",
+    "backend-api/migrations/README.md",
+    "backend-api/package-lock.json",
+    "backend-api/package.json",
+    "backend-api/scripts/integration-test.js",
+    "backend-api/scripts/regression-test.js",
+    "backend-api/scripts/simplified-ai-runtime-regression-test.js",
+    "backend-api/scripts/upload-regression-test.js",
+    "backend-api/src/core.js",
+    "backend-api/src/server.js",
+    "chat-pro/package-lock.json",
+    "chat-pro/package.json",
+    "guide-pro/package-lock.json",
+    "guide-pro/package.json",
+    "package.json"
+  ]
+}
