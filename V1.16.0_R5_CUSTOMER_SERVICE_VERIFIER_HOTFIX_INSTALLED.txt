@@ -1,0 +1,6 @@
+BDG CS ASSISTANT v1.16.0-r5
+Customer Service Installed-State Verifier Hotfix
+
+This marker confirms that the r5 package was copied into the repository.
+Application version remains 1.16.0.
+Migration 038 remains unchanged.

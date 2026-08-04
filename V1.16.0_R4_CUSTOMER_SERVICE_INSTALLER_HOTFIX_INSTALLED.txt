@@ -1,0 +1,6 @@
+BDG CS ASSISTANT
+Release revision: v1.16.0-r4
+Purpose: Windows installer verification hotfix
+Application version: 1.16.0
+Database migration: unchanged 038
+This marker confirms the r4 package copied and verified successfully.
