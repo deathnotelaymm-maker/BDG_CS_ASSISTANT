@@ -86,6 +86,7 @@ jobs:
         working-directory: admin-pro
         run: |
           npm ci --legacy-peer-deps --no-audit --no-fund --registry=https://registry.npmjs.org/
+          npm run test:customer-service-route
           npm run typecheck
           npm run build
           npm audit --audit-level=high

@@ -1,0 +1,21 @@
+BDG CS ASSISTANT v1.16.0-r3 — Changed Files
+Total changed files: 18
+
+.github/workflows/bdg-production-release.yml
+.github/workflows/ci.yml
+CHANGED_FILES_V1.16.0-R3.txt
+DEPLOYMENT_CHECKLIST_V1.16.0-R3.md
+FILE_CHECKSUMS_V1.16.0-R3.sha256
+INSTALL-V1.16.0-R3-CUSTOMER-SERVICE-ROUTE-HOTFIX.cmd
+MANIFEST_V1.16.0-R3.json
+README-V1.16.0-R3.txt
+RELEASE_NOTES_V1.16.0-R3.md
+START-HERE-V1.16.0-R3-CUSTOMER-SERVICE-ROUTE-HOTFIX.bat
+START-HERE-WINDOWS.bat
+TECHNICAL_ANALYSIS_V1.16.0-R3.md
+TEST_RESULT_V1.16.0-R3.md
+V1.16.0_R3_CUSTOMER_SERVICE_ROUTE_HOTFIX_INSTALLED.txt
+VERIFY-V1.16.0-R3-PAYLOAD.ps1
+admin-pro/package.json
+admin-pro/scripts/customer-service-route-regression-test.mjs
+admin-pro/src/routes/_admin.customer-service.tsx

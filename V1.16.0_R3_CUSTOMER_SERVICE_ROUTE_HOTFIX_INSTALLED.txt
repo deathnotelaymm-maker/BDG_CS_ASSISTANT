@@ -1,0 +1,5 @@
+BDG CS ASSISTANT
+v1.16.0-r3 Admin Customer Service Route Crash Hotfix
+
+Application version remains 1.16.0.
+Migration 038 is unchanged.
