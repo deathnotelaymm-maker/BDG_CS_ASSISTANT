@@ -137,6 +137,7 @@ function PromptManagerPage() {
   const [sections, setSections] = useState<any[]>([]);
   const [runtimeData, setRuntimeData] = useState<any>(null);
   const [production, setProduction] = useState<ProductionSettings | null>(null);
+  const [handoff, setHandoff] = useState<any>(null);
   const [editing, setEditing] = useState<any | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -150,15 +151,13 @@ function PromptManagerPage() {
     setLoading(true);
     setError(null);
     try {
-      const [rows, runtime, aiSettings, reliability] = await Promise.all([
-        api.list("ai-prompts") as Promise<any[]>,
-        api.getPromptRuntime(),
-        api.getAiSettings(),
-        api.getAiReliability(),
+      const [rows, runtime, aiSettings, reliability, handoffSettings] = await Promise.all([
+        api.list("ai-prompts") as Promise<any[]>, api.getPromptRuntime(), api.getAiSettings(), api.getAiReliability(), api.getSupportSettings(),
       ]);
       setSections(mergeStandardSections(rows));
       setRuntimeData(runtime);
       setProduction(normalizeProductionSettings(aiSettings, reliability));
+      setHandoff(handoffSettings);
     } catch (e: any) {
       setError(e?.message || "Failed to load Assistant Setup");
     } finally {
@@ -471,6 +470,16 @@ function PromptManagerPage() {
         ) : (
           <Alert type="warning" showIcon message="Production settings could not be loaded." />
         )}
+      </Card>
+
+      <Card className="bdg-card" size="small" title="Advanced Controls · Human Customer Service Handoff" style={{ marginBottom: 12 }}>
+        <Row gutter={[16, 12]} align="middle">
+          <Col xs={24} md={7}><Typography.Text type="secondary">Enable human handoff</Typography.Text><div style={{marginTop:8}}><Switch checked={!!handoff?.human_support_enabled} onChange={(value)=>setHandoff({...handoff,human_support_enabled:value})}/></div></Col>
+          <Col xs={24} md={9}><Typography.Text type="secondary">Button text</Typography.Text><Input style={{marginTop:6}} value={handoff?.handoff_button_text||"Contact Customer Service"} onChange={(event)=>setHandoff({...handoff,handoff_button_text:event.target.value})}/></Col>
+          <Col xs={24} md={4}><Typography.Text type="secondary">Clarification attempts</Typography.Text><InputNumber min={0} max={10} style={{width:"100%",marginTop:6}} value={handoff?.maximum_clarification_attempts??2} onChange={(value)=>setHandoff({...handoff,maximum_clarification_attempts:Number(value??2)})}/></Col>
+          <Col xs={24} md={4}><Button type="primary" style={{marginTop:24}} onClick={async()=>{await api.updateSupportSettings(handoff);message.success("Human handoff settings saved")}}>Save handoff</Button></Col>
+        </Row>
+        <Typography.Text type="secondary">Detailed queue, staff, timezone, and message settings are available in Customer Service.</Typography.Text>
       </Card>
 
       <Card className="bdg-card" size="small" style={{ marginBottom: 12 }}>

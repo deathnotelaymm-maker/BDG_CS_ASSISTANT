@@ -1,0 +1,833 @@
+import { randomUUID } from 'node:crypto';
+import { bearerToken, createSupportToken, readSupportToken } from './support-auth.js';
+import { emitSupportEvent } from './support-events.js';
+
+export const SUPPORT_PERMISSIONS = [
+  'support.conversations.view_own',
+  'support.conversations.view_team',
+  'support.conversations.accept',
+  'support.conversations.reply',
+  'support.conversations.transfer',
+  'support.conversations.resolve',
+  'support.notes.create',
+  'support.reports.view_own',
+  'support.reports.view_team',
+  'support.staff.manage',
+  'support.settings.manage',
+  'support.assignments.override',
+  'support.force_logout',
+  'support.audit.view',
+];
+
+const DEFAULT_AGENT_PERMISSIONS = new Set([
+  'support.conversations.view_own',
+  'support.conversations.view_team',
+  'support.conversations.accept',
+  'support.conversations.reply',
+  'support.conversations.transfer',
+  'support.conversations.resolve',
+  'support.notes.create',
+  'support.reports.view_own',
+]);
+
+const CONVERSATION_STATES = new Set([
+  'AI_ACTIVE','HANDOFF_OFFERED','WAITING_FOR_AGENT','ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED','RESOLVED','CLOSED',
+]);
+const HANDOFF_RESULTS = new Set(['ANSWERED','NEEDS_CLARIFICATION','HUMAN_RECOMMENDED','BLOCKED','PROVIDER_ERROR']);
+const HANDOFF_REASONS = new Set([
+  'CUSTOMER_REQUESTED_HUMAN','REQUEST_NOT_UNDERSTOOD','CLARIFICATION_LIMIT_REACHED','ACCOUNT_INVESTIGATION_REQUIRED',
+  'MANUAL_ACTION_REQUIRED','OUTSIDE_ASSISTANT_SCOPE','PROVIDER_FAILURE','ADMIN_KEYWORD',
+]);
+
+function cleanText(value, max = 6000) {
+  return String(value || '').replace(/\u0000/g, '').trim().slice(0, max);
+}
+function cleanEmail(value) {
+  return String(value || '').trim().toLowerCase().slice(0, 255);
+}
+function numericId(value, label = 'ID') {
+  const id = Number(value);
+  if (!Number.isSafeInteger(id) || id < 1) throw supportError(`${label} is invalid`, 400, 'SUPPORT_ID_INVALID');
+  return id;
+}
+function supportError(message, status = 400, code = 'SUPPORT_BAD_REQUEST') {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code;
+  return error;
+}
+function bool(value, fallback = false) {
+  return value === undefined || value === null ? fallback : value === true || String(value).toLowerCase() === 'true';
+}
+function countSentences(text) {
+  const value = cleanText(text, 12000);
+  if (!value) return 0;
+  const parts = value.split(/(?<=[.!?။！？])\s+|\n+/u).map((part) => part.trim()).filter(Boolean);
+  return Math.min(200, Math.max(1, parts.length));
+}
+function safeTimezone(value, fallback = 'UTC') {
+  const candidate = cleanText(value, 80) || fallback;
+  try { new Intl.DateTimeFormat('en-US', { timeZone:candidate }).format(new Date()); return candidate; }
+  catch { throw supportError('Timezone must be a valid IANA timezone such as Asia/Phnom_Penh', 400, 'SUPPORT_TIMEZONE_INVALID'); }
+}
+function rowDate(value) { return value ? String(value) : ''; }
+function supportSettingsOut(row = {}) {
+  return {
+    id:Number(row.id || 0), tenant_id:Number(row.tenant_id || 0), platform_id:Number(row.platform_id || 0),
+    human_support_enabled:row.human_support_enabled === true,
+    handoff_button_text:row.handoff_button_text || 'Contact Customer Service',
+    ai_suggestion_message:row.ai_suggestion_message || '', waiting_message:row.waiting_message || '',
+    no_staff_online_message:row.no_staff_online_message || '', fallback_message:row.fallback_message || '',
+    maximum_clarification_attempts:Number(row.maximum_clarification_attempts ?? 2),
+    trigger_customer_request:row.trigger_customer_request !== false,
+    trigger_not_understood:row.trigger_not_understood !== false,
+    trigger_outside_scope:row.trigger_outside_scope !== false,
+    trigger_account_investigation:row.trigger_account_investigation !== false,
+    trigger_manual_action:row.trigger_manual_action !== false,
+    trigger_provider_error:row.trigger_provider_error !== false,
+    trigger_clarification_limit:row.trigger_clarification_limit !== false,
+    escalation_keywords:row.escalation_keywords || '', platform_timezone:row.platform_timezone || 'UTC',
+    allow_staff_timezone_override:row.allow_staff_timezone_override === true,
+    heartbeat_interval_seconds:Number(row.heartbeat_interval_seconds || 30),
+    offline_timeout_seconds:Number(row.offline_timeout_seconds || 90), idle_timeout_seconds:Number(row.idle_timeout_seconds || 300),
+    force_logout_assignment_policy:row.force_logout_assignment_policy || 'return_to_queue',
+    attachments_enabled:row.attachments_enabled === true, updated_at:rowDate(row.updated_at),
+  };
+}
+function staffOut(row = {}, permissions = []) {
+  return {
+    id:Number(row.id || row.staff_id || 0), admin_user_id:Number(row.admin_user_id || 0),
+    tenant_id:Number(row.tenant_id || 0), platform_id:Number(row.platform_id || 0),
+    display_name:row.display_name || row.name || '', email:row.email || '', role_key:row.role_key || 'support_agent',
+    account_status:row.account_status || (row.is_active === false ? 'inactive' : 'active'),
+    availability_status:row.availability_status || 'offline', timezone:row.timezone || '',
+    use_platform_timezone:row.use_platform_timezone !== false, personal_timezone_allowed:row.personal_timezone_allowed === true,
+    must_change_password:row.must_change_password === true, max_active_conversations:Number(row.max_active_conversations || 5),
+    last_seen_at:rowDate(row.last_seen_at), last_login_at:rowDate(row.last_login_at),
+    created_at:rowDate(row.created_at), updated_at:rowDate(row.updated_at), permissions,
+  };
+}
+function messageOut(row = {}) {
+  return {
+    id:Number(row.id || 0), public_id:String(row.public_id || ''), conversation_id:Number(row.conversation_id || 0),
+    sender_type:row.sender_type || 'SYSTEM', sender_staff_id:row.sender_staff_id ? Number(row.sender_staff_id) : null,
+    sender_name:row.sender_name || row.display_name || '', message_type:row.message_type || 'text',
+    body_text:row.body_text || '', attachment_url:row.attachment_url || '', attachment_name:row.attachment_name || '',
+    attachment_content_type:row.attachment_content_type || '', attachment_size_bytes:Number(row.attachment_size_bytes || 0),
+    is_internal:row.is_internal === true, sentence_count:Number(row.sentence_count || 0), created_at:rowDate(row.created_at),
+  };
+}
+function conversationOut(row = {}) {
+  return {
+    id:Number(row.id || 0), public_id:String(row.public_id || ''), tenant_id:Number(row.tenant_id || 0), platform_id:Number(row.platform_id || 0),
+    chat_session_id:row.chat_session_id || '', customer_identifier:row.customer_identifier || '', customer_display_name:row.customer_display_name || '',
+    customer_locale:row.customer_locale || '', status:row.status || 'AI_ACTIVE', priority:row.priority || 'normal',
+    handoff_reason:row.handoff_reason || '', handoff_detail:row.handoff_detail || '', clarification_attempts:Number(row.clarification_attempts || 0),
+    assigned_staff_id:row.assigned_staff_id ? Number(row.assigned_staff_id) : null,
+    assigned_staff_name:row.assigned_staff_name || '', queue_entered_at:rowDate(row.queue_entered_at),
+    first_assigned_at:rowDate(row.first_assigned_at), first_agent_reply_at:rowDate(row.first_agent_reply_at),
+    resolved_at:rowDate(row.resolved_at), closed_at:rowDate(row.closed_at), last_message_at:rowDate(row.last_message_at),
+    created_at:rowDate(row.created_at), updated_at:rowDate(row.updated_at), unread_count:Number(row.unread_count || 0),
+    last_message:row.last_message || '', waiting_seconds:Number(row.waiting_seconds || 0), version:Number(row.version || 1),
+  };
+}
+
+async function ensureSettings(q, env, scope) {
+  const existing = (await q(env, 'SELECT * FROM support_settings WHERE tenant_id=$1 AND platform_id=$2 LIMIT 1', [scope.tenant_id, scope.platform_id])).rows[0];
+  if (existing) return existing;
+  return (await q(env, `INSERT INTO support_settings(tenant_id,platform_id) VALUES($1,$2) ON CONFLICT(platform_id) DO UPDATE SET platform_id=EXCLUDED.platform_id RETURNING *`, [scope.tenant_id,scope.platform_id])).rows[0];
+}
+async function staffPermissions(q, env, staffId) {
+  const rows = (await q(env, 'SELECT permission_key,allowed FROM support_staff_permissions WHERE staff_id=$1', [staffId])).rows;
+  if (!rows.length) return [...DEFAULT_AGENT_PERMISSIONS];
+  return rows.filter((row) => row.allowed !== false).map((row) => row.permission_key);
+}
+function requirePermission(staff, permission) {
+  if (!staff?.permissions?.includes(permission)) throw supportError('Support permission denied', 403, 'SUPPORT_PERMISSION_DENIED');
+}
+async function supportAudit(q, env, scope, actorType, actorId, action, entityType, entityId, details = '', metadata = {}) {
+  try {
+    await q(env, `INSERT INTO support_audit_events(tenant_id,platform_id,actor_type,actor_id,action,entity_type,entity_id,details,metadata_json)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`, [scope.tenant_id,scope.platform_id,actorType,String(actorId || ''),action,entityType,String(entityId || ''),cleanText(details,3000),JSON.stringify(metadata || {})]);
+  } catch (_) {}
+}
+async function getStaffByToken(env, token, deps) {
+  const claims = readSupportToken(env, token, 'staff');
+  const row = (await deps.q(env, `SELECT sp.*,au.email,au.name,au.is_active,au.session_version
+    FROM support_staff_profiles sp JOIN admin_users au ON au.id=sp.admin_user_id
+    WHERE sp.id=$1 AND sp.tenant_id=$2 AND sp.platform_id=$3 AND sp.archived_at IS NULL LIMIT 1`,
+    [claims.staff_id,claims.tenant_id,claims.platform_id])).rows[0];
+  if (!row || row.is_active === false || row.account_status !== 'active') throw supportError('Staff account is inactive', 401, 'SUPPORT_ACCOUNT_INACTIVE');
+  if (Number(row.session_version || 0) !== Number(claims.sv || 0)) throw supportError('Staff session has been revoked', 401, 'SUPPORT_SESSION_REVOKED');
+  const permissions = await staffPermissions(deps.q, env, row.id);
+  return { ...staffOut(row, permissions), session_id:Number(claims.session_id || 0), token_claims:claims };
+}
+async function getCustomerByToken(env, token, deps) {
+  const claims = readSupportToken(env, token, 'customer');
+  const row = (await deps.q(env, `SELECT * FROM support_conversations WHERE id=$1 AND platform_id=$2 AND public_id::text=$3 LIMIT 1`, [claims.conversation_id,claims.platform_id,claims.conversation_public_id])).rows[0];
+  if (!row || row.chat_session_id !== claims.chat_session_id) throw supportError('Customer support session is invalid', 401, 'SUPPORT_CUSTOMER_SESSION_INVALID');
+  return { claims, conversation:conversationOut(row) };
+}
+
+export async function verifySupportRealtimeAccess(env, token, deps) {
+  const claims = readSupportToken(env, token);
+  if (claims.kind === 'staff') {
+    const staff = await getStaffByToken(env, token, deps);
+    return { kind:'staff', staff, tenant_id:staff.tenant_id, platform_id:staff.platform_id, staff_id:staff.id };
+  }
+  if (claims.kind === 'customer') {
+    const customer = await getCustomerByToken(env, token, deps);
+    return { kind:'customer', ...customer, tenant_id:customer.conversation.tenant_id, platform_id:customer.conversation.platform_id, conversation_id:customer.conversation.id };
+  }
+  throw supportError('Unsupported realtime identity', 401, 'SUPPORT_REALTIME_IDENTITY_INVALID');
+}
+
+export async function supportRealtimePresence(env, access, state, deps) {
+  if (access.kind !== 'staff') return;
+  const normalized = ['active','invisible'].includes(String(state || '').toLowerCase()) ? String(state).toLowerCase() : access.staff.availability_status;
+  await updatePresence(deps.q, env, access.staff, normalized, access.staff.session_id);
+}
+export async function supportRealtimeHeartbeat(env, access, deps) {
+  if (access.kind !== 'staff') return;
+  await deps.q(env, `UPDATE support_staff_profiles SET last_seen_at=NOW(),updated_at=NOW() WHERE id=$1`, [access.staff.id]);
+  await deps.q(env, `UPDATE support_staff_sessions SET last_seen_at=NOW() WHERE id=$1 AND staff_id=$2 AND revoked_at IS NULL`, [access.staff.session_id,access.staff.id]);
+  await deps.q(env, `UPDATE support_presence_sessions SET last_heartbeat_at=NOW() WHERE staff_id=$1 AND ended_at IS NULL`, [access.staff.id]);
+}
+export async function supportRealtimeCanSubscribe(env, access, conversationId, deps) {
+  const id = numericId(conversationId, 'Conversation ID');
+  const row = (await deps.q(env, 'SELECT * FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3', [id,access.tenant_id,access.platform_id])).rows[0];
+  if (!row) return false;
+  if (access.kind === 'customer') return Number(access.conversation_id) === id;
+  return Number(row.assigned_staff_id || 0) === Number(access.staff_id) || access.staff.permissions.includes('support.conversations.view_team');
+}
+
+async function updatePresence(q, env, staff, state, staffSessionId = null) {
+  const normalized = ['active','invisible','offline','idle'].includes(state) ? state : 'active';
+  await q(env, `UPDATE support_presence_sessions SET ended_at=NOW(),duration_seconds=GREATEST(0,EXTRACT(EPOCH FROM (NOW()-started_at))::int),last_heartbeat_at=NOW()
+    WHERE staff_id=$1 AND ended_at IS NULL`, [staff.id]);
+  if (normalized !== 'offline') {
+    await q(env, `INSERT INTO support_presence_sessions(tenant_id,platform_id,staff_id,staff_session_id,state) VALUES($1,$2,$3,$4,$5)`, [staff.tenant_id,staff.platform_id,staff.id,staffSessionId || null,normalized]);
+  }
+  await q(env, `UPDATE support_staff_profiles SET availability_status=$1,last_seen_at=NOW(),updated_at=NOW() WHERE id=$2`, [normalized === 'idle' ? 'active' : normalized,staff.id]);
+  emitSupportEvent({ event:'support:presence', platform_id:staff.platform_id, staff_id:staff.id, data:{ staff_id:staff.id,status:normalized,last_seen_at:new Date().toISOString() } });
+}
+
+async function releaseAssignedConversations(q, env, scope, staffId, reason = 'staff_offline') {
+  const settings = supportSettingsOut(await ensureSettings(q, env, scope));
+  if (settings.force_logout_assignment_policy === 'keep_assigned') return [];
+  if (settings.force_logout_assignment_policy === 'resolve') {
+    const resolved = (await q(env, `UPDATE support_conversations SET status='RESOLVED',resolved_at=NOW(),updated_at=NOW(),version=version+1
+      WHERE assigned_staff_id=$1 AND tenant_id=$2 AND platform_id=$3 AND status IN ('ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED') RETURNING id`, [staffId,scope.tenant_id,scope.platform_id])).rows;
+    await q(env, `UPDATE support_assignments SET released_at=NOW(),release_reason=$2 WHERE staff_id=$1 AND released_at IS NULL`, [staffId,reason]);
+    return resolved;
+  }
+  const returned = (await q(env, `UPDATE support_conversations SET assigned_staff_id=NULL,status='WAITING_FOR_AGENT',queue_entered_at=NOW(),updated_at=NOW(),version=version+1
+    WHERE assigned_staff_id=$1 AND tenant_id=$2 AND platform_id=$3 AND status IN ('ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED') RETURNING id`, [staffId,scope.tenant_id,scope.platform_id])).rows;
+  await q(env, `UPDATE support_assignments SET released_at=NOW(),release_reason=$2 WHERE staff_id=$1 AND released_at IS NULL`, [staffId,reason]);
+  for (const item of returned) emitSupportEvent({ event:'support:queue_updated',platform_id:scope.platform_id,conversation_id:Number(item.id),data:{ reason } });
+  return returned;
+}
+
+async function expireStalePresence(q, env, scope) {
+  const settings = supportSettingsOut(await ensureSettings(q, env, scope));
+  const rows = (await q(env, `UPDATE support_staff_profiles sp SET availability_status='offline',updated_at=NOW()
+    WHERE sp.tenant_id=$1 AND sp.platform_id=$2 AND sp.availability_status<>'offline'
+      AND (sp.last_seen_at IS NULL OR sp.last_seen_at < NOW() - ($3::int * INTERVAL '1 second')) RETURNING sp.id`,
+    [scope.tenant_id,scope.platform_id,settings.offline_timeout_seconds])).rows;
+  if (rows.length) {
+    await q(env, `UPDATE support_presence_sessions SET ended_at=NOW(),duration_seconds=GREATEST(0,EXTRACT(EPOCH FROM (NOW()-started_at))::int)
+      WHERE staff_id=ANY($1::bigint[]) AND ended_at IS NULL`, [rows.map((row) => row.id)]);
+    for (const row of rows) await releaseAssignedConversations(q,env,scope,Number(row.id),'heartbeat_timeout');
+  }
+}
+
+async function listConversationRows(q, env, scope, whereSql = '', params = [], limit = 100) {
+  const values = [scope.tenant_id,scope.platform_id,...params,Math.min(250,Math.max(1,Number(limit || 100)))];
+  const limitRef = `$${values.length}`;
+  const { rows } = await q(env, `SELECT c.*,sp.display_name AS assigned_staff_name,
+      COALESCE((SELECT body_text FROM support_messages sm WHERE sm.conversation_id=c.id AND sm.is_internal=FALSE ORDER BY sm.id DESC LIMIT 1),'') AS last_message,
+      GREATEST(0,EXTRACT(EPOCH FROM (NOW()-COALESCE(c.queue_entered_at,c.created_at)))::int) AS waiting_seconds
+    FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id
+    WHERE c.tenant_id=$1 AND c.platform_id=$2 ${whereSql}
+    ORDER BY CASE c.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
+      CASE WHEN c.status='WAITING_FOR_AGENT' THEN c.queue_entered_at ELSE c.last_message_at END DESC NULLS LAST
+    LIMIT ${limitRef}`, values);
+  return rows.map(conversationOut);
+}
+async function conversationDetail(q, env, scope, conversationId) {
+  const id = numericId(conversationId, 'Conversation ID');
+  const row = (await q(env, `SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`, [id,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!row) throw supportError('Support conversation not found', 404, 'SUPPORT_CONVERSATION_NOT_FOUND');
+  const messages = (await q(env, `SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 ORDER BY sm.id ASC LIMIT 1000`, [id])).rows.map(messageOut);
+  const notes = (await q(env, `SELECT n.*,sp.display_name AS author_name FROM support_internal_notes n LEFT JOIN support_staff_profiles sp ON sp.id=n.author_staff_id WHERE n.conversation_id=$1 ORDER BY n.id DESC LIMIT 100`, [id])).rows.map((note) => ({ ...note,id:Number(note.id),created_at:rowDate(note.created_at) }));
+  const transfers = (await q(env, `SELECT t.*,f.display_name AS from_staff_name,x.display_name AS to_staff_name FROM support_transfers t LEFT JOIN support_staff_profiles f ON f.id=t.from_staff_id LEFT JOIN support_staff_profiles x ON x.id=t.to_staff_id WHERE t.conversation_id=$1 ORDER BY t.id DESC LIMIT 100`, [id])).rows.map((item) => ({ ...item,id:Number(item.id),from_staff_id:item.from_staff_id ? Number(item.from_staff_id) : null,to_staff_id:Number(item.to_staff_id),requested_at:rowDate(item.requested_at),responded_at:rowDate(item.responded_at),completed_at:rowDate(item.completed_at) }));
+  return { conversation:conversationOut(row), messages, notes, transfers };
+}
+
+async function copyAiHistoryIntoSupport(q, env, scope, conversation) {
+  const existing = Number((await q(env, 'SELECT COUNT(*)::int AS count FROM support_messages WHERE conversation_id=$1', [conversation.id])).rows[0]?.count || 0);
+  if (existing) return;
+  const logs = (await q(env, `SELECT id,customer_message,assistant_reply,created_at FROM chat_logs WHERE tenant_id=$1 AND platform_id=$2 AND session_id=$3 ORDER BY id ASC LIMIT 200`, [scope.tenant_id,scope.platform_id,conversation.chat_session_id])).rows;
+  for (const log of logs) {
+    const customer = cleanText(log.customer_message, 12000);
+    const assistant = cleanText(log.assistant_reply, 12000);
+    if (customer) await q(env, `INSERT INTO support_messages(tenant_id,platform_id,conversation_id,sender_type,client_message_id,body_text,sentence_count,created_at)
+      VALUES($1,$2,$3,'CUSTOMER',$4,$5,$6,$7) ON CONFLICT(conversation_id,client_message_id) DO NOTHING`, [scope.tenant_id,scope.platform_id,conversation.id,`chatlog:${log.id}:customer`,customer,countSentences(customer),log.created_at]);
+    if (assistant) await q(env, `INSERT INTO support_messages(tenant_id,platform_id,conversation_id,sender_type,client_message_id,body_text,sentence_count,created_at)
+      VALUES($1,$2,$3,'AI',$4,$5,$6,$7) ON CONFLICT(conversation_id,client_message_id) DO NOTHING`, [scope.tenant_id,scope.platform_id,conversation.id,`chatlog:${log.id}:ai`,assistant,countSentences(assistant),log.created_at]);
+  }
+}
+
+export async function getHumanSupportSettings(env, scope, deps) {
+  return supportSettingsOut(await ensureSettings(deps.q, env, scope));
+}
+
+export function customerExplicitlyRequestsHuman(message = '') {
+  const value = String(message || '').normalize('NFKC').toLowerCase();
+  return /(human|real person|live agent|customer service|support staff|operator|representative|ဝန်ထမ်း|လူနဲ့|customer service နဲ့|အေးဂျင့်|အေဂျင့်|客服|人工客服)/iu.test(value);
+}
+
+export function normalizeAiHandoffResult(result, reason) {
+  const normalizedResult = HANDOFF_RESULTS.has(String(result || '').toUpperCase()) ? String(result).toUpperCase() : 'ANSWERED';
+  const normalizedReason = HANDOFF_REASONS.has(String(reason || '').toUpperCase()) ? String(reason).toUpperCase() : null;
+  return { result:normalizedResult, handoff_reason:normalizedReason };
+}
+
+export function messageMatchesEscalationKeyword(message = '', settings = {}) {
+  const source = String(settings?.escalation_keywords || '').split(/[\n,;]+/).map((item)=>item.trim().toLocaleLowerCase()).filter((item)=>item.length >= 2).slice(0,100);
+  if (!source.length) return false;
+  const normalized = String(message || '').normalize('NFKC').toLocaleLowerCase();
+  return source.some((keyword)=>normalized.includes(keyword));
+}
+
+export function handoffOfferForResponse(settings, result, reason, clarificationAttempts = 0) {
+  if (!settings?.human_support_enabled) return { offered:false, result, handoff_reason:reason };
+  const shouldOffer = (result === 'HUMAN_RECOMMENDED' && !reason)
+    || result === 'PROVIDER_ERROR' && settings.trigger_provider_error
+    || reason === 'CUSTOMER_REQUESTED_HUMAN' && settings.trigger_customer_request
+    || reason === 'REQUEST_NOT_UNDERSTOOD' && settings.trigger_not_understood
+    || reason === 'OUTSIDE_ASSISTANT_SCOPE' && settings.trigger_outside_scope
+    || reason === 'ACCOUNT_INVESTIGATION_REQUIRED' && settings.trigger_account_investigation
+    || reason === 'MANUAL_ACTION_REQUIRED' && settings.trigger_manual_action
+    || reason === 'ADMIN_KEYWORD'
+    || (clarificationAttempts >= settings.maximum_clarification_attempts && settings.trigger_clarification_limit);
+  return {
+    offered:shouldOffer,
+    result,
+    handoff_reason:reason,
+    button_text:settings.handoff_button_text,
+    suggestion_message:settings.ai_suggestion_message,
+  };
+}
+
+export async function handleSupportPublicRoute({ request, env, url, path, method, scope, deps }) {
+  if (method === 'GET' && (path === '/public/support/settings' || path === '/support/settings')) {
+    const settings = await getHumanSupportSettings(env, scope, deps);
+    return deps.jsonNoStore({ ok:true, support:{
+      human_support_enabled:settings.human_support_enabled,
+      handoff_button_text:settings.handoff_button_text,
+      ai_suggestion_message:settings.ai_suggestion_message,
+      waiting_message:settings.waiting_message,
+      no_staff_online_message:settings.no_staff_online_message,
+      heartbeat_interval_seconds:settings.heartbeat_interval_seconds,
+    } }, 200, env);
+  }
+  if (method === 'POST' && path === '/support/handoff') {
+    const payload = await deps.readJson(request);
+    const settings = await getHumanSupportSettings(env, scope, deps);
+    if (!settings.human_support_enabled) throw supportError('Human customer service handoff is disabled for this platform', 409, 'SUPPORT_HANDOFF_DISABLED');
+    const chatSessionId = cleanText(payload.session_id, 160);
+    if (!chatSessionId) throw supportError('Chat session ID is required', 400, 'SUPPORT_SESSION_REQUIRED');
+    const chatSession = (await deps.q(env, `SELECT session_id,tenant_id,platform_id FROM chat_sessions WHERE session_id=$1 AND tenant_id=$2 AND platform_id=$3 LIMIT 1`, [chatSessionId,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!chatSession) throw supportError('Chat session does not belong to this platform', 403, 'SUPPORT_CHAT_SESSION_SCOPE_MISMATCH');
+    const reason = HANDOFF_REASONS.has(String(payload.handoff_reason || '').toUpperCase()) ? String(payload.handoff_reason).toUpperCase() : 'CUSTOMER_REQUESTED_HUMAN';
+    const detail = cleanText(payload.handoff_detail || payload.message, 2000);
+    let conversation = (await deps.q(env, `INSERT INTO support_conversations(tenant_id,platform_id,chat_session_id,customer_identifier,customer_display_name,customer_locale,status,handoff_reason,handoff_detail,queue_entered_at,last_message_at)
+      VALUES($1,$2,$3,$4,$5,$6,'WAITING_FOR_AGENT',$7,$8,NOW(),NOW())
+      ON CONFLICT(platform_id,chat_session_id) DO UPDATE SET
+        status=CASE WHEN support_conversations.status IN ('RESOLVED','CLOSED','AI_ACTIVE','HANDOFF_OFFERED') THEN 'WAITING_FOR_AGENT' ELSE support_conversations.status END,
+        handoff_reason=EXCLUDED.handoff_reason,handoff_detail=EXCLUDED.handoff_detail,queue_entered_at=COALESCE(support_conversations.queue_entered_at,NOW()),updated_at=NOW(),version=support_conversations.version+1
+      RETURNING *`, [scope.tenant_id,scope.platform_id,chatSessionId,cleanText(payload.customer_identifier,255),cleanText(payload.customer_display_name,160),cleanText(payload.language || payload.locale,35),reason,detail])).rows[0];
+    await copyAiHistoryIntoSupport(deps.q, env, scope, conversation);
+    await deps.q(env, `UPDATE chat_sessions SET human_support_state='WAITING_FOR_AGENT',updated_at=NOW() WHERE session_id=$1 AND tenant_id=$2 AND platform_id=$3`, [chatSessionId,scope.tenant_id,scope.platform_id]);
+    await deps.q(env, `UPDATE chat_logs SET support_conversation_id=$1,handoff_reason=COALESCE(NULLIF(handoff_reason,''),$2) WHERE id=(SELECT id FROM chat_logs WHERE session_id=$3 AND tenant_id=$4 AND platform_id=$5 ORDER BY id DESC LIMIT 1)`, [conversation.id,reason,chatSessionId,scope.tenant_id,scope.platform_id]);
+    const systemMessage = settings.waiting_message;
+    const systemId = `handoff:${conversation.id}:${conversation.version}`;
+    await deps.q(env, `INSERT INTO support_messages(tenant_id,platform_id,conversation_id,sender_type,client_message_id,message_type,body_text,sentence_count)
+      VALUES($1,$2,$3,'SYSTEM',$4,'system',$5,$6) ON CONFLICT(conversation_id,client_message_id) DO NOTHING`, [scope.tenant_id,scope.platform_id,conversation.id,systemId,systemMessage,countSentences(systemMessage)]);
+    const activeCount = Number((await deps.q(env, `SELECT COUNT(*)::int AS count FROM support_staff_profiles WHERE tenant_id=$1 AND platform_id=$2 AND account_status='active' AND availability_status='active' AND archived_at IS NULL`, [scope.tenant_id,scope.platform_id])).rows[0]?.count || 0);
+    const token = createSupportToken(env, { kind:'customer',tenant_id:scope.tenant_id,platform_id:scope.platform_id,conversation_id:Number(conversation.id),conversation_public_id:String(conversation.public_id),chat_session_id:chatSessionId }, 60 * 60 * 24);
+    await supportAudit(deps.q,env,scope,'CUSTOMER',chatSessionId,'handoff_requested','support_conversation',conversation.id,reason,{ active_staff:activeCount });
+    emitSupportEvent({ event:'support:conversation_created', platform_id:scope.platform_id, conversation_id:Number(conversation.id), data:{ conversation:conversationOut(conversation) } });
+    emitSupportEvent({ event:'support:queue_updated', platform_id:scope.platform_id, data:{ reason:'handoff_created' } });
+    return deps.jsonNoStore({ ok:true, conversation:conversationOut(conversation), support_token:token, active_staff:activeCount, message:activeCount ? settings.waiting_message : settings.no_staff_online_message }, 201, env);
+  }
+  const customerConversationMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)$/i);
+  const customerMessagesMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/messages$/i);
+  if (customerConversationMatch || customerMessagesMatch) {
+    const customer = await getCustomerByToken(env, bearerToken(request), deps);
+    if (String(customer.conversation.public_id) !== String((customerConversationMatch || customerMessagesMatch)[1])) throw supportError('Conversation token does not match this conversation', 403, 'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
+    if (method === 'GET' && customerConversationMatch) return deps.jsonNoStore(await conversationDetail(deps.q,env,customer.conversation,customer.conversation.id),200,env);
+    if (method === 'POST' && customerMessagesMatch) {
+      const payload = await deps.readJson(request);
+      const body = cleanText(payload.body_text || payload.message, 12000);
+      if (!body) throw supportError('Message is required',400,'SUPPORT_MESSAGE_REQUIRED');
+      if (['RESOLVED','CLOSED'].includes(customer.conversation.status)) throw supportError('This conversation is closed',409,'SUPPORT_CONVERSATION_CLOSED');
+      const clientId = cleanText(payload.client_message_id,120) || randomUUID();
+      const row = (await deps.q(env, `INSERT INTO support_messages(tenant_id,platform_id,conversation_id,sender_type,client_message_id,body_text,sentence_count)
+        VALUES($1,$2,$3,'CUSTOMER',$4,$5,$6) ON CONFLICT(conversation_id,client_message_id) DO UPDATE SET client_message_id=EXCLUDED.client_message_id RETURNING *`, [customer.conversation.tenant_id,customer.conversation.platform_id,customer.conversation.id,clientId,body,countSentences(body)])).rows[0];
+      await deps.q(env,'UPDATE support_conversations SET last_message_at=NOW(),updated_at=NOW(),version=version+1 WHERE id=$1',[customer.conversation.id]);
+      emitSupportEvent({ event:'support:message_received', platform_id:customer.conversation.platform_id, conversation_id:customer.conversation.id, data:{ message:messageOut(row) } });
+      return deps.jsonNoStore({ ok:true,message:messageOut(row) },201,env);
+    }
+  }
+  return null;
+}
+
+async function staffLogin(request, env, deps) {
+  const payload = await deps.readJson(request);
+  const email = cleanEmail(payload.email);
+  const password = String(payload.password || '');
+  if (!email || !password) throw supportError('Email and password are required',400,'SUPPORT_LOGIN_REQUIRED');
+  const row = (await deps.q(env, `SELECT au.*,sp.id AS staff_id,sp.tenant_id,sp.platform_id,sp.display_name,sp.role_key,sp.account_status,sp.availability_status,sp.timezone,sp.use_platform_timezone,sp.personal_timezone_allowed,sp.must_change_password,sp.max_active_conversations,sp.archived_at
+    FROM admin_users au JOIN support_staff_profiles sp ON sp.admin_user_id=au.id
+    WHERE lower(au.email)=lower($1) AND au.role='support_staff' LIMIT 1`, [email])).rows[0];
+  if (!row || row.is_active === false || row.account_status !== 'active' || row.archived_at || !await deps.verifyPassword(password,row.password_hash)) {
+    throw supportError('Invalid email or password',401,'SUPPORT_LOGIN_INVALID');
+  }
+  const updated = (await deps.q(env, `UPDATE admin_users SET last_login_at=NOW(),updated_at=NOW(),session_version=COALESCE(session_version,0)+1 WHERE id=$1 RETURNING session_version`, [row.id])).rows[0];
+  const session = (await deps.q(env, `INSERT INTO support_staff_sessions(tenant_id,platform_id,staff_id,session_version,user_agent,ip_address) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, [row.tenant_id,row.platform_id,row.staff_id,Number(updated.session_version || 0),cleanText(request.headers.get('user-agent'),1000),cleanText(request.headers.get('x-forwarded-for'),100)])).rows[0];
+  const token = createSupportToken(env, { kind:'staff',admin_user_id:Number(row.id),staff_id:Number(row.staff_id),tenant_id:Number(row.tenant_id),platform_id:Number(row.platform_id),sv:Number(updated.session_version || 0),session_id:Number(session.id) }, 60 * 60 * 12);
+  const permissions = await staffPermissions(deps.q,env,row.staff_id);
+  const staff = staffOut({ ...row,id:row.staff_id,last_login_at:new Date().toISOString() },permissions);
+  await deps.q(env,'UPDATE support_staff_profiles SET last_login_at=NOW(),last_seen_at=NOW(),availability_status=\'invisible\',updated_at=NOW() WHERE id=$1',[row.staff_id]);
+  await updatePresence(deps.q,env,{ ...staff,availability_status:'invisible' },'invisible',session.id);
+  await supportAudit(deps.q,env,staff,'STAFF',staff.id,'login','support_staff',staff.id,'Support staff login');
+  return deps.jsonNoStore({ access_token:token,token_type:'bearer',staff },200,env);
+}
+
+async function requireStaff(request, env, deps) {
+  const token = bearerToken(request);
+  if (!token) throw supportError('Missing staff token',401,'SUPPORT_TOKEN_REQUIRED');
+  return getStaffByToken(env,token,deps);
+}
+
+export async function handleSupportStaffRoute({ request, env, url, path, method, deps }) {
+  if (method === 'POST' && path === '/staff/auth/login') return staffLogin(request,env,deps);
+  if (!path.startsWith('/staff/')) return null;
+  const staff = await requireStaff(request,env,deps);
+  const scope = { tenant_id:staff.tenant_id,platform_id:staff.platform_id };
+  await expireStalePresence(deps.q,env,scope);
+  if (method === 'GET' && path === '/staff/me') {
+    const settings = supportSettingsOut(await ensureSettings(deps.q,env,scope));
+    return deps.jsonNoStore({ ok:true,staff,settings:{ platform_timezone:settings.platform_timezone,allow_staff_timezone_override:settings.allow_staff_timezone_override,heartbeat_interval_seconds:settings.heartbeat_interval_seconds,offline_timeout_seconds:settings.offline_timeout_seconds } },200,env);
+  }
+  if (method === 'POST' && path === '/staff/logout') {
+    await deps.q(env,`UPDATE support_staff_sessions SET signed_out_at=NOW() WHERE id=$1 AND staff_id=$2`,[staff.session_id,staff.id]);
+    await updatePresence(deps.q,env,staff,'offline',staff.session_id);
+    await releaseAssignedConversations(deps.q,env,scope,staff.id,'staff_logout');
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'logout','support_staff',staff.id,'Support staff logout');
+    emitSupportEvent({ event:'support:force_logout', platform_id:staff.platform_id, staff_id:staff.id, data:{ reason:'logout' } });
+    return deps.jsonNoStore({ ok:true },200,env);
+  }
+  if (method === 'POST' && path === '/staff/me/password') {
+    const payload = await deps.readJson(request);
+    const password = String(payload.password || payload.new_password || '');
+    if (password.length < 12) throw supportError('Password must be at least 12 characters',400,'SUPPORT_PASSWORD_WEAK');
+    await deps.q(env,`UPDATE admin_users SET password_hash=$1,session_version=COALESCE(session_version,0)+1,updated_at=NOW() WHERE id=$2`,[await deps.hashPassword(password),staff.admin_user_id]);
+    await deps.q(env,`UPDATE support_staff_profiles SET must_change_password=FALSE,updated_at=NOW() WHERE id=$1`,[staff.id]);
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'password_changed','support_staff',staff.id,'Own password changed');
+    emitSupportEvent({ event:'support:force_logout', platform_id:staff.platform_id, staff_id:staff.id, data:{ reason:'password_changed' } });
+    return deps.jsonNoStore({ ok:true,relogin_required:true },200,env);
+  }
+  if (method === 'PUT' && path === '/staff/me/preferences') {
+    const payload = await deps.readJson(request);
+    const settings = supportSettingsOut(await ensureSettings(deps.q,env,scope));
+    const usePlatform = payload.use_platform_timezone !== false;
+    let timezone = '';
+    if (!usePlatform) {
+      if (!settings.allow_staff_timezone_override || !staff.personal_timezone_allowed) throw supportError('Personal timezone override is not allowed',403,'SUPPORT_TIMEZONE_OVERRIDE_DENIED');
+      timezone = safeTimezone(payload.timezone,settings.platform_timezone);
+    }
+    await deps.q(env,`UPDATE support_staff_profiles SET use_platform_timezone=$1,timezone=$2,updated_at=NOW() WHERE id=$3`,[usePlatform,timezone || null,staff.id]);
+    return deps.jsonNoStore({ ok:true },200,env);
+  }
+  if (method === 'POST' && path === '/staff/heartbeat') {
+    await supportRealtimeHeartbeat(env,{ kind:'staff',staff },deps);
+    const payload = await deps.readJson(request);
+    if (['active','invisible'].includes(String(payload.status || '').toLowerCase()) && payload.status !== staff.availability_status) await updatePresence(deps.q,env,staff,String(payload.status).toLowerCase(),staff.session_id);
+    return deps.jsonNoStore({ ok:true,server_time:new Date().toISOString() },200,env);
+  }
+  if (method === 'PUT' && path === '/staff/presence') {
+    const payload = await deps.readJson(request);
+    const status = String(payload.status || '').toLowerCase();
+    if (!['active','invisible'].includes(status)) throw supportError('Status must be active or invisible',400,'SUPPORT_STATUS_INVALID');
+    await updatePresence(deps.q,env,staff,status,staff.session_id);
+    return deps.jsonNoStore({ ok:true,status },200,env);
+  }
+  if (method === 'GET' && path === '/staff/online') {
+    const rows = (await deps.q(env,`SELECT sp.*,au.email FROM support_staff_profiles sp JOIN admin_users au ON au.id=sp.admin_user_id WHERE sp.tenant_id=$1 AND sp.platform_id=$2 AND sp.account_status='active' AND sp.archived_at IS NULL ORDER BY sp.availability_status,sp.display_name`,[scope.tenant_id,scope.platform_id])).rows;
+    return deps.jsonNoStore(rows.map((row)=>staffOut(row,[])),200,env);
+  }
+  if (method === 'GET' && path === '/staff/conversations') {
+    const tab = String(url.searchParams.get('tab') || 'mine').toLowerCase();
+    let where = ''; let params = [];
+    if (tab === 'waiting') { requirePermission(staff,'support.conversations.accept'); where = `AND c.status='WAITING_FOR_AGENT'`; }
+    else if (tab === 'mine') { requirePermission(staff,'support.conversations.view_own'); where = `AND c.assigned_staff_id=$3 AND c.status NOT IN ('CLOSED')`; params=[staff.id]; }
+    else if (tab === 'team') { requirePermission(staff,'support.conversations.view_team'); where = `AND c.status NOT IN ('CLOSED')`; }
+    else if (tab === 'transferred') { where = `AND EXISTS(SELECT 1 FROM support_transfers t WHERE t.conversation_id=c.id AND (t.from_staff_id=$3 OR t.to_staff_id=$3))`; params=[staff.id]; }
+    else if (tab === 'closed') { where = `AND c.status IN ('RESOLVED','CLOSED')`; }
+    return deps.jsonNoStore(await listConversationRows(deps.q,env,scope,where,params,Number(url.searchParams.get('limit') || 100)),200,env);
+  }
+  const detailMatch = path.match(/^\/staff\/conversations\/(\d+)$/);
+  if (method === 'GET' && detailMatch) {
+    const detail = await conversationDetail(deps.q,env,scope,detailMatch[1]);
+    const own = Number(detail.conversation.assigned_staff_id || 0) === staff.id;
+    if (!own) requirePermission(staff,'support.conversations.view_team');
+    return deps.jsonNoStore(detail,200,env);
+  }
+  const acceptMatch = path.match(/^\/staff\/conversations\/(\d+)\/accept$/);
+  if (method === 'POST' && acceptMatch) {
+    requirePermission(staff,'support.conversations.accept');
+    if (staff.availability_status !== 'active') throw supportError('Set your status to Active before accepting conversations',409,'SUPPORT_STAFF_NOT_ACTIVE');
+    const activeCount = Number((await deps.q(env,`SELECT COUNT(*)::int AS count FROM support_conversations WHERE assigned_staff_id=$1 AND status IN ('ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED')`,[staff.id])).rows[0]?.count || 0);
+    if (activeCount >= staff.max_active_conversations) throw supportError('Maximum active conversation limit reached',409,'SUPPORT_CAPACITY_REACHED');
+    const id = numericId(acceptMatch[1],'Conversation ID');
+    const row = await deps.withTransaction(env,async (tq)=>{
+      const accepted = (await tq(`UPDATE support_conversations SET assigned_staff_id=$1,status='AGENT_ACTIVE',first_assigned_at=COALESCE(first_assigned_at,NOW()),updated_at=NOW(),version=version+1
+        WHERE id=$2 AND tenant_id=$3 AND platform_id=$4 AND status='WAITING_FOR_AGENT' AND assigned_staff_id IS NULL RETURNING *`,[staff.id,id,scope.tenant_id,scope.platform_id])).rows[0];
+      if (!accepted) throw supportError('Conversation was already accepted by another staff member',409,'SUPPORT_ASSIGNMENT_CONFLICT');
+      await tq(`INSERT INTO support_assignments(tenant_id,platform_id,conversation_id,staff_id,assigned_by_type,assigned_by_id,assignment_reason) VALUES($1,$2,$3,$4,'STAFF',$5,'manual queue acceptance')`,[scope.tenant_id,scope.platform_id,id,staff.id,String(staff.id)]);
+      await tq(`INSERT INTO support_messages(tenant_id,platform_id,conversation_id,sender_type,message_type,body_text,sentence_count) VALUES($1,$2,$3,'SYSTEM','system',$4,$5)`,[scope.tenant_id,scope.platform_id,id,`${staff.display_name} joined the conversation.`,1]);
+      return accepted;
+    });
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'conversation_accepted','support_conversation',id,'Manual queue acceptance');
+    emitSupportEvent({ event:'support:conversation_assigned',platform_id:scope.platform_id,conversation_id:id,staff_id:staff.id,data:{ conversation:conversationOut(row),staff:staffOut(staff,[]) } });
+    emitSupportEvent({ event:'support:queue_updated',platform_id:scope.platform_id,data:{ reason:'accepted',conversation_id:id } });
+    return deps.jsonNoStore({ ok:true,conversation:conversationOut(row) },200,env);
+  }
+  const messageMatch = path.match(/^\/staff\/conversations\/(\d+)\/messages$/);
+  if (method === 'POST' && messageMatch) {
+    requirePermission(staff,'support.conversations.reply');
+    const id = numericId(messageMatch[1],'Conversation ID');
+    const conversation = (await deps.q(env,`SELECT * FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!conversation) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+    if (Number(conversation.assigned_staff_id || 0) !== staff.id) throw supportError('Only the assigned staff member may reply',403,'SUPPORT_REPLY_OWNER_REQUIRED');
+    if (!['ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED'].includes(conversation.status)) throw supportError('Conversation is not active',409,'SUPPORT_CONVERSATION_NOT_ACTIVE');
+    const payload = await deps.readJson(request);
+    const body = cleanText(payload.body_text || payload.message,12000);
+    if (!body) throw supportError('Message is required',400,'SUPPORT_MESSAGE_REQUIRED');
+    const clientId = cleanText(payload.client_message_id,120) || randomUUID();
+    const row = (await deps.q(env,`INSERT INTO support_messages(tenant_id,platform_id,conversation_id,sender_type,sender_staff_id,client_message_id,body_text,sentence_count)
+      VALUES($1,$2,$3,'STAFF',$4,$5,$6,$7) ON CONFLICT(conversation_id,client_message_id) DO UPDATE SET client_message_id=EXCLUDED.client_message_id RETURNING *`,[scope.tenant_id,scope.platform_id,id,staff.id,clientId,body,countSentences(body)])).rows[0];
+    await deps.q(env,`UPDATE support_conversations SET first_agent_reply_at=COALESCE(first_agent_reply_at,NOW()),last_message_at=NOW(),status='AGENT_ACTIVE',updated_at=NOW(),version=version+1 WHERE id=$1`,[id]);
+    await deps.q(env,`INSERT INTO support_activity_events(tenant_id,platform_id,staff_id,conversation_id,event_type,metadata_json) VALUES($1,$2,$3,$4,'reply_sent',$5::jsonb)`,[scope.tenant_id,scope.platform_id,staff.id,id,JSON.stringify({ sentence_count:countSentences(body),characters:body.length })]);
+    emitSupportEvent({ event:'support:message_received',platform_id:scope.platform_id,conversation_id:id,staff_id:staff.id,data:{ message:messageOut({ ...row,sender_name:staff.display_name }) } });
+    return deps.jsonNoStore({ ok:true,message:messageOut({ ...row,sender_name:staff.display_name }) },201,env);
+  }
+  const notesMatch = path.match(/^\/staff\/conversations\/(\d+)\/notes$/);
+  if (method === 'POST' && notesMatch) {
+    requirePermission(staff,'support.notes.create');
+    const id = numericId(notesMatch[1],'Conversation ID');
+    const payload = await deps.readJson(request);
+    const note = cleanText(payload.note_text || payload.note,5000);
+    if (!note) throw supportError('Note is required',400,'SUPPORT_NOTE_REQUIRED');
+    const row = (await deps.q(env,`INSERT INTO support_internal_notes(tenant_id,platform_id,conversation_id,author_staff_id,note_text) SELECT $1,$2,c.id,$3,$4 FROM support_conversations c WHERE c.id=$5 AND c.tenant_id=$1 AND c.platform_id=$2 RETURNING *`,[scope.tenant_id,scope.platform_id,staff.id,note,id])).rows[0];
+    if (!row) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'internal_note_created','support_conversation',id,'Internal note created');
+    return deps.jsonNoStore({ ok:true,note:{ ...row,id:Number(row.id),created_at:rowDate(row.created_at) } },201,env);
+  }
+  const transferMatch = path.match(/^\/staff\/conversations\/(\d+)\/transfer$/);
+  if (method === 'POST' && transferMatch) {
+    requirePermission(staff,'support.conversations.transfer');
+    const id = numericId(transferMatch[1],'Conversation ID');
+    const payload = await deps.readJson(request);
+    const targetId = numericId(payload.target_staff_id,'Target staff ID');
+    if (targetId === staff.id) throw supportError('Choose another staff member',400,'SUPPORT_TRANSFER_SELF');
+    const target = (await deps.q(env,`SELECT * FROM support_staff_profiles WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND account_status='active' AND availability_status='active' AND archived_at IS NULL`,[targetId,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!target) throw supportError('Target staff member is not currently Active',409,'SUPPORT_TRANSFER_TARGET_UNAVAILABLE');
+    const conversation = (await deps.q(env,`SELECT * FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND assigned_staff_id=$4 AND status IN ('ASSIGNED','AGENT_ACTIVE')`,[id,scope.tenant_id,scope.platform_id,staff.id])).rows[0];
+    if (!conversation) throw supportError('Only the assigned staff member may transfer this conversation',403,'SUPPORT_TRANSFER_OWNER_REQUIRED');
+    const reason = cleanText(payload.reason,2000);
+    if (!reason) throw supportError('Transfer reason is required',400,'SUPPORT_TRANSFER_REASON_REQUIRED');
+    const transfer = await deps.withTransaction(env,async (tq)=>{
+      const locked = (await tq(`UPDATE support_conversations SET status='TRANSFER_REQUESTED',updated_at=NOW(),version=version+1 WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND assigned_staff_id=$4 AND status IN ('ASSIGNED','AGENT_ACTIVE') RETURNING id`,[id,scope.tenant_id,scope.platform_id,staff.id])).rows[0];
+      if (!locked) throw supportError('Conversation ownership changed before transfer request',409,'SUPPORT_TRANSFER_CONFLICT');
+      return (await tq(`INSERT INTO support_transfers(tenant_id,platform_id,conversation_id,from_staff_id,to_staff_id,requested_by_type,requested_by_id,reason,internal_note) VALUES($1,$2,$3,$4,$5,'STAFF',$6,$7,$8) RETURNING *`,[scope.tenant_id,scope.platform_id,id,staff.id,targetId,String(staff.id),reason,cleanText(payload.internal_note,3000)])).rows[0];
+    });
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'transfer_requested','support_transfer',transfer.id,reason,{ to_staff_id:targetId });
+    emitSupportEvent({ event:'support:transfer_requested',platform_id:scope.platform_id,conversation_id:id,staff_id:targetId,data:{ transfer:{ ...transfer,id:Number(transfer.id) },from_staff:staff.display_name } });
+    return deps.jsonNoStore({ ok:true,transfer:{ ...transfer,id:Number(transfer.id) } },201,env);
+  }
+  if (method === 'GET' && path === '/staff/transfers') {
+    requirePermission(staff,'support.conversations.transfer');
+    const status = ['requested','accepted','rejected','cancelled','forced'].includes(String(url.searchParams.get('status') || 'requested')) ? String(url.searchParams.get('status') || 'requested') : 'requested';
+    const rows = (await deps.q(env,`SELECT t.*,c.public_id AS conversation_public_id,c.customer_identifier,c.customer_display_name,f.display_name AS from_staff_name,x.display_name AS to_staff_name
+      FROM support_transfers t JOIN support_conversations c ON c.id=t.conversation_id
+      LEFT JOIN support_staff_profiles f ON f.id=t.from_staff_id LEFT JOIN support_staff_profiles x ON x.id=t.to_staff_id
+      WHERE t.tenant_id=$1 AND t.platform_id=$2 AND t.to_staff_id=$3 AND t.status=$4 ORDER BY t.requested_at DESC LIMIT 100`,[scope.tenant_id,scope.platform_id,staff.id,status])).rows;
+    return deps.jsonNoStore(rows.map((row)=>({ ...row,id:Number(row.id),conversation_id:Number(row.conversation_id),from_staff_id:row.from_staff_id ? Number(row.from_staff_id) : null,to_staff_id:Number(row.to_staff_id),requested_at:rowDate(row.requested_at),responded_at:rowDate(row.responded_at),completed_at:rowDate(row.completed_at) })),200,env);
+  }
+  const transferResponse = path.match(/^\/staff\/transfers\/(\d+)\/(accept|reject)$/);
+  if (method === 'POST' && transferResponse) {
+    requirePermission(staff,'support.conversations.transfer');
+    const transferId = numericId(transferResponse[1],'Transfer ID');
+    const action = transferResponse[2];
+    const transfer = (await deps.q(env,`SELECT * FROM support_transfers WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND to_staff_id=$4 AND status='requested'`,[transferId,scope.tenant_id,scope.platform_id,staff.id])).rows[0];
+    if (!transfer) throw supportError('Transfer request is no longer available',409,'SUPPORT_TRANSFER_NOT_AVAILABLE');
+    if (action === 'reject') {
+      await deps.q(env,`UPDATE support_transfers SET status='rejected',responded_at=NOW() WHERE id=$1 AND status='requested'`,[transferId]);
+      await deps.q(env,`UPDATE support_conversations SET status='AGENT_ACTIVE',updated_at=NOW(),version=version+1 WHERE id=$1 AND assigned_staff_id=$2`,[transfer.conversation_id,transfer.from_staff_id]);
+      emitSupportEvent({ event:'support:transfer_rejected',platform_id:scope.platform_id,conversation_id:Number(transfer.conversation_id),staff_id:Number(transfer.from_staff_id),data:{ transfer_id:transferId } });
+      return deps.jsonNoStore({ ok:true,status:'rejected' },200,env);
+    }
+    const changed = await deps.withTransaction(env,async (tq)=>{
+      const accepted = (await tq(`UPDATE support_conversations SET assigned_staff_id=$1,status='AGENT_ACTIVE',updated_at=NOW(),version=version+1 WHERE id=$2 AND tenant_id=$3 AND platform_id=$4 AND assigned_staff_id=$5 AND status='TRANSFER_REQUESTED' RETURNING *`,[staff.id,transfer.conversation_id,scope.tenant_id,scope.platform_id,transfer.from_staff_id])).rows[0];
+      if (!accepted) throw supportError('Conversation ownership changed before the transfer was accepted',409,'SUPPORT_TRANSFER_CONFLICT');
+      const transferChanged = (await tq(`UPDATE support_transfers SET status='accepted',responded_at=NOW(),completed_at=NOW() WHERE id=$1 AND status='requested' RETURNING id`,[transferId])).rows[0];
+      if (!transferChanged) throw supportError('Transfer request was already handled',409,'SUPPORT_TRANSFER_CONFLICT');
+      await tq(`UPDATE support_assignments SET released_at=NOW(),release_reason='transferred' WHERE conversation_id=$1 AND staff_id=$2 AND released_at IS NULL`,[transfer.conversation_id,transfer.from_staff_id]);
+      await tq(`INSERT INTO support_assignments(tenant_id,platform_id,conversation_id,staff_id,assigned_by_type,assigned_by_id,assignment_reason) VALUES($1,$2,$3,$4,'STAFF',$5,'accepted transfer')`,[scope.tenant_id,scope.platform_id,transfer.conversation_id,staff.id,String(staff.id)]);
+      await tq(`INSERT INTO support_messages(tenant_id,platform_id,conversation_id,sender_type,message_type,body_text,sentence_count) VALUES($1,$2,$3,'SYSTEM','system',$4,1)`,[scope.tenant_id,scope.platform_id,transfer.conversation_id,`Conversation transferred to ${staff.display_name}.`]);
+      return accepted;
+    });
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'transfer_accepted','support_transfer',transferId,'Transfer accepted',{ from_staff_id:transfer.from_staff_id });
+    emitSupportEvent({ event:'support:transfer_accepted',platform_id:scope.platform_id,conversation_id:Number(transfer.conversation_id),data:{ transfer_id:transferId,new_staff_id:staff.id,new_staff_name:staff.display_name } });
+    return deps.jsonNoStore({ ok:true,status:'accepted',conversation:conversationOut(changed) },200,env);
+  }
+  const resolveMatch = path.match(/^\/staff\/conversations\/(\d+)\/(resolve|reopen)$/);
+  if (method === 'POST' && resolveMatch) {
+    requirePermission(staff,'support.conversations.resolve');
+    const id = numericId(resolveMatch[1],'Conversation ID');
+    const action = resolveMatch[2];
+    const row = action === 'resolve'
+      ? (await deps.q(env,`UPDATE support_conversations SET status='RESOLVED',resolved_at=NOW(),updated_at=NOW(),version=version+1 WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND assigned_staff_id=$4 AND status IN ('ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED') RETURNING *`,[id,scope.tenant_id,scope.platform_id,staff.id])).rows[0]
+      : (await deps.q(env,`UPDATE support_conversations SET status='WAITING_FOR_AGENT',assigned_staff_id=NULL,resolved_at=NULL,queue_entered_at=NOW(),updated_at=NOW(),version=version+1 WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND status IN ('RESOLVED','CLOSED') RETURNING *`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!row) throw supportError('Conversation state could not be changed',409,'SUPPORT_STATE_CONFLICT');
+    if (action === 'resolve') await deps.q(env,`UPDATE support_assignments SET released_at=NOW(),release_reason='resolved' WHERE conversation_id=$1 AND staff_id=$2 AND released_at IS NULL`,[id,staff.id]);
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,`conversation_${action}d`,'support_conversation',id,`Conversation ${action}d`);
+    emitSupportEvent({ event:action === 'resolve' ? 'support:conversation_resolved' : 'support:queue_updated',platform_id:scope.platform_id,conversation_id:id,data:{ conversation:conversationOut(row) } });
+    return deps.jsonNoStore({ ok:true,conversation:conversationOut(row) },200,env);
+  }
+  if (method === 'GET' && path === '/staff/performance') {
+    requirePermission(staff,'support.reports.view_own');
+    const period = ['day','week','month'].includes(String(url.searchParams.get('period'))) ? String(url.searchParams.get('period')) : 'day';
+    const interval = period === 'week' ? '7 days' : period === 'month' ? '30 days' : '1 day';
+    const summary = (await deps.q(env,`SELECT
+      (SELECT COUNT(DISTINCT a.conversation_id)::int FROM support_assignments a WHERE a.staff_id=$1 AND a.accepted_at > NOW() - $2::interval) AS conversations_served,
+      (SELECT COUNT(*)::int FROM support_messages m WHERE m.sender_staff_id=$1 AND m.sender_type='STAFF' AND m.is_internal=FALSE AND m.created_at > NOW() - $2::interval) AS replies_sent,
+      (SELECT COALESCE(SUM(m.sentence_count),0)::int FROM support_messages m WHERE m.sender_staff_id=$1 AND m.sender_type='STAFF' AND m.is_internal=FALSE AND m.created_at > NOW() - $2::interval) AS sentences_sent,
+      (SELECT COUNT(DISTINCT c.id)::int FROM support_conversations c WHERE c.status IN ('RESOLVED','CLOSED') AND c.resolved_at > NOW() - $2::interval AND EXISTS(SELECT 1 FROM support_assignments a WHERE a.conversation_id=c.id AND a.staff_id=$1)) AS resolved_conversations,
+      (SELECT COUNT(*)::int FROM support_transfers t WHERE t.from_staff_id=$1 AND t.requested_at > NOW() - $2::interval) AS transferred_conversations,
+      (SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (c.first_agent_reply_at-c.queue_entered_at))),0)::int FROM support_conversations c WHERE c.first_agent_reply_at IS NOT NULL AND c.queue_entered_at IS NOT NULL AND EXISTS(SELECT 1 FROM support_assignments a WHERE a.conversation_id=c.id AND a.staff_id=$1 AND a.accepted_at > NOW() - $2::interval)) AS avg_first_response_seconds,
+      (SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (c.resolved_at-c.first_assigned_at))),0)::int FROM support_conversations c WHERE c.resolved_at IS NOT NULL AND c.first_assigned_at IS NOT NULL AND EXISTS(SELECT 1 FROM support_assignments a WHERE a.conversation_id=c.id AND a.staff_id=$1 AND a.accepted_at > NOW() - $2::interval)) AS avg_conversation_seconds`,[staff.id,interval])).rows[0] || {};
+    const durations = (await deps.q(env,`SELECT state,COALESCE(SUM(COALESCE(duration_seconds,EXTRACT(EPOCH FROM (NOW()-started_at))::int)),0)::int AS seconds FROM support_presence_sessions WHERE staff_id=$1 AND started_at > NOW() - $2::interval GROUP BY state`,[staff.id,interval])).rows;
+    return deps.jsonNoStore({ period,...summary,presence:Object.fromEntries(durations.map((row)=>[row.state,Number(row.seconds || 0)])) },200,env);
+  }
+  throw supportError('Support staff route not found',404,'SUPPORT_ROUTE_NOT_FOUND');
+}
+
+function requireSupportAdmin(scope) {
+  const allowed = new Set(['owner','tenant_owner','tenant_admin','platform_owner','platform_admin']);
+  if (!scope || (!allowed.has(String(scope.admin_role || scope.membership_role || '')) && !scope.can_manage_platform)) {
+    throw supportError('Customer Service administration permission required',403,'SUPPORT_ADMIN_PERMISSION_REQUIRED');
+  }
+}
+
+async function adminListStaff(env,scope,deps) {
+  await expireStalePresence(deps.q,env,scope);
+  const rows = (await deps.q(env,`SELECT sp.*,au.email,au.name,au.is_active,au.session_version FROM support_staff_profiles sp JOIN admin_users au ON au.id=sp.admin_user_id WHERE sp.tenant_id=$1 AND sp.platform_id=$2 AND sp.archived_at IS NULL ORDER BY sp.display_name`,[scope.tenant_id,scope.platform_id])).rows;
+  const result=[];
+  for (const row of rows) result.push(staffOut(row,await staffPermissions(deps.q,env,row.id)));
+  return result;
+}
+
+export async function handleSupportAdminRoute({ request, env, url, path, method, scope, admin, deps }) {
+  if (!path.startsWith('/admin/support')) return null;
+  requireSupportAdmin(scope);
+  if (method === 'GET' && path === '/admin/support/overview') {
+    await expireStalePresence(deps.q,env,scope);
+    const counts = (await deps.q(env,`SELECT
+      COUNT(*) FILTER (WHERE account_status='active')::int AS staff_total,
+      COUNT(*) FILTER (WHERE availability_status='active')::int AS staff_active,
+      COUNT(*) FILTER (WHERE availability_status='invisible')::int AS staff_invisible,
+      COUNT(*) FILTER (WHERE availability_status='offline')::int AS staff_offline
+      FROM support_staff_profiles WHERE tenant_id=$1 AND platform_id=$2 AND archived_at IS NULL`,[scope.tenant_id,scope.platform_id])).rows[0] || {};
+    const conversations = (await deps.q(env,`SELECT
+      COUNT(*) FILTER (WHERE status='WAITING_FOR_AGENT')::int AS waiting,
+      COUNT(*) FILTER (WHERE status IN ('ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED'))::int AS active,
+      COUNT(*) FILTER (WHERE status='RESOLVED' AND resolved_at::date=CURRENT_DATE)::int AS resolved_today,
+      COALESCE(AVG(EXTRACT(EPOCH FROM (first_agent_reply_at-queue_entered_at))) FILTER (WHERE first_agent_reply_at IS NOT NULL AND queue_entered_at IS NOT NULL AND created_at > NOW()-INTERVAL '7 days'),0)::int AS avg_first_response_seconds,
+      COALESCE(AVG(EXTRACT(EPOCH FROM (NOW()-queue_entered_at))) FILTER (WHERE status='WAITING_FOR_AGENT' AND queue_entered_at IS NOT NULL),0)::int AS avg_waiting_seconds
+      FROM support_conversations WHERE tenant_id=$1 AND platform_id=$2`,[scope.tenant_id,scope.platform_id])).rows[0] || {};
+    return deps.jsonNoStore({ ok:true,staff:counts,conversations },200,env);
+  }
+  if (method === 'GET' && path === '/admin/support/settings') return deps.jsonNoStore(supportSettingsOut(await ensureSettings(deps.q,env,scope)),200,env);
+  if (method === 'PUT' && path === '/admin/support/settings') {
+    const payload = await deps.readJson(request);
+    const current = supportSettingsOut(await ensureSettings(deps.q,env,scope));
+    const timezone = safeTimezone(payload.platform_timezone ?? current.platform_timezone,current.platform_timezone);
+    const row = (await deps.q(env,`UPDATE support_settings SET
+      human_support_enabled=$1,handoff_button_text=$2,ai_suggestion_message=$3,waiting_message=$4,no_staff_online_message=$5,fallback_message=$6,
+      maximum_clarification_attempts=$7,trigger_customer_request=$8,trigger_not_understood=$9,trigger_outside_scope=$10,trigger_account_investigation=$11,
+      trigger_manual_action=$12,trigger_provider_error=$13,trigger_clarification_limit=$14,escalation_keywords=$15,platform_timezone=$16,
+      allow_staff_timezone_override=$17,heartbeat_interval_seconds=$18,offline_timeout_seconds=$19,idle_timeout_seconds=$20,
+      force_logout_assignment_policy=$21,attachments_enabled=$22,updated_at=NOW()
+      WHERE tenant_id=$23 AND platform_id=$24 RETURNING *`,[
+        bool(payload.human_support_enabled,current.human_support_enabled),cleanText(payload.handoff_button_text ?? current.handoff_button_text,160),
+        cleanText(payload.ai_suggestion_message ?? current.ai_suggestion_message,3000),cleanText(payload.waiting_message ?? current.waiting_message,3000),
+        cleanText(payload.no_staff_online_message ?? current.no_staff_online_message,3000),cleanText(payload.fallback_message ?? current.fallback_message,3000),
+        Math.min(10,Math.max(0,Number(payload.maximum_clarification_attempts ?? current.maximum_clarification_attempts))),
+        bool(payload.trigger_customer_request,current.trigger_customer_request),bool(payload.trigger_not_understood,current.trigger_not_understood),
+        bool(payload.trigger_outside_scope,current.trigger_outside_scope),bool(payload.trigger_account_investigation,current.trigger_account_investigation),
+        bool(payload.trigger_manual_action,current.trigger_manual_action),bool(payload.trigger_provider_error,current.trigger_provider_error),
+        bool(payload.trigger_clarification_limit,current.trigger_clarification_limit),cleanText(payload.escalation_keywords ?? current.escalation_keywords,5000),timezone,
+        bool(payload.allow_staff_timezone_override,current.allow_staff_timezone_override),Math.min(120,Math.max(15,Number(payload.heartbeat_interval_seconds ?? current.heartbeat_interval_seconds))),
+        Math.min(600,Math.max(45,Number(payload.offline_timeout_seconds ?? current.offline_timeout_seconds))),Math.min(3600,Math.max(60,Number(payload.idle_timeout_seconds ?? current.idle_timeout_seconds))),
+        ['return_to_queue','keep_assigned','resolve'].includes(payload.force_logout_assignment_policy) ? payload.force_logout_assignment_policy : current.force_logout_assignment_policy,
+        bool(payload.attachments_enabled,current.attachments_enabled),scope.tenant_id,scope.platform_id,
+      ])).rows[0];
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_settings_updated','support_settings',row.id,'Human support settings updated');
+    return deps.jsonNoStore(supportSettingsOut(row),200,env);
+  }
+  if (method === 'GET' && path === '/admin/support/staff') return deps.jsonNoStore(await adminListStaff(env,scope,deps),200,env);
+  if (method === 'POST' && path === '/admin/support/staff') {
+    const payload = await deps.readJson(request);
+    const email = cleanEmail(payload.email);
+    const password = String(payload.temporary_password || payload.password || '');
+    const displayName = cleanText(payload.display_name || payload.name,160);
+    if (!email || !displayName) throw supportError('Name and email are required',400,'SUPPORT_STAFF_REQUIRED');
+    if (password.length < 12) throw supportError('Temporary password must be at least 12 characters',400,'SUPPORT_PASSWORD_WEAK');
+    const conflict = (await deps.q(env,'SELECT id FROM admin_users WHERE lower(email)=lower($1) LIMIT 1',[email])).rows[0];
+    if (conflict) throw supportError('An account with this email already exists',409,'SUPPORT_EMAIL_EXISTS');
+    const account = (await deps.q(env,`INSERT INTO admin_users(name,email,password_hash,role,is_active,session_version) VALUES($1,$2,$3,'support_staff',TRUE,0) RETURNING *`,[displayName,email,await deps.hashPassword(password)])).rows[0];
+    const profile = (await deps.q(env,`INSERT INTO support_staff_profiles(admin_user_id,tenant_id,platform_id,display_name,role_key,account_status,timezone,use_platform_timezone,personal_timezone_allowed,must_change_password,max_active_conversations)
+      VALUES($1,$2,$3,$4,$5,'active',$6,$7,$8,TRUE,$9) RETURNING *`,[account.id,scope.tenant_id,scope.platform_id,displayName,cleanText(payload.role_key || 'support_agent',60),payload.timezone ? safeTimezone(payload.timezone) : null,payload.use_platform_timezone !== false,bool(payload.personal_timezone_allowed,false),Math.min(50,Math.max(1,Number(payload.max_active_conversations || 5)))])).rows[0];
+    const requested = Array.isArray(payload.permissions) ? payload.permissions.filter((item)=>SUPPORT_PERMISSIONS.includes(item)) : [...DEFAULT_AGENT_PERMISSIONS];
+    for (const permission of requested) await deps.q(env,`INSERT INTO support_staff_permissions(staff_id,permission_key,allowed) VALUES($1,$2,TRUE) ON CONFLICT(staff_id,permission_key) DO UPDATE SET allowed=TRUE,updated_at=NOW()`,[profile.id,permission]);
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_staff_created','support_staff',profile.id,`Created ${email}`);
+    return deps.jsonNoStore(staffOut({ ...profile,email },requested),201,env);
+  }
+  const staffMatch = path.match(/^\/admin\/support\/staff\/(\d+)$/);
+  if (staffMatch && method === 'PUT') {
+    const staffId = numericId(staffMatch[1],'Staff ID');
+    const payload = await deps.readJson(request);
+    const existing = (await deps.q(env,`SELECT sp.*,au.email,au.id AS account_id FROM support_staff_profiles sp JOIN admin_users au ON au.id=sp.admin_user_id WHERE sp.id=$1 AND sp.tenant_id=$2 AND sp.platform_id=$3 AND sp.archived_at IS NULL`,[staffId,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!existing) throw supportError('Staff account not found',404,'SUPPORT_STAFF_NOT_FOUND');
+    const email = cleanEmail(payload.email || existing.email);
+    const displayName = cleanText(payload.display_name || payload.name || existing.display_name,160);
+    const accountStatus = payload.account_status === 'inactive' || payload.is_active === false ? 'inactive' : 'active';
+    await deps.q(env,`UPDATE admin_users SET name=$1,email=$2,is_active=$3,updated_at=NOW(),session_version=CASE WHEN $3=FALSE THEN session_version+1 ELSE session_version END WHERE id=$4`,[displayName,email,accountStatus==='active',existing.account_id]);
+    const profile = (await deps.q(env,`UPDATE support_staff_profiles SET display_name=$1,role_key=$2,account_status=$3,timezone=$4,use_platform_timezone=$5,personal_timezone_allowed=$6,max_active_conversations=$7,availability_status=CASE WHEN $3='inactive' THEN 'offline' ELSE availability_status END,updated_at=NOW() WHERE id=$8 RETURNING *`,[displayName,cleanText(payload.role_key || existing.role_key,60),accountStatus,payload.timezone ? safeTimezone(payload.timezone) : existing.timezone,payload.use_platform_timezone ?? existing.use_platform_timezone,bool(payload.personal_timezone_allowed,existing.personal_timezone_allowed),Math.min(50,Math.max(1,Number(payload.max_active_conversations || existing.max_active_conversations))),staffId])).rows[0];
+    if (Array.isArray(payload.permissions)) {
+      await deps.q(env,'DELETE FROM support_staff_permissions WHERE staff_id=$1',[staffId]);
+      for (const permission of payload.permissions.filter((item)=>SUPPORT_PERMISSIONS.includes(item))) await deps.q(env,`INSERT INTO support_staff_permissions(staff_id,permission_key,allowed) VALUES($1,$2,TRUE)`,[staffId,permission]);
+    }
+    if (accountStatus === 'inactive') {
+      await deps.q(env,`UPDATE support_staff_sessions SET revoked_at=NOW(),revoke_reason='account_deactivated' WHERE staff_id=$1 AND revoked_at IS NULL`,[staffId]);
+      await releaseAssignedConversations(deps.q,env,scope,staffId,'account_deactivated');
+      emitSupportEvent({ event:'support:force_logout',platform_id:scope.platform_id,staff_id:staffId,data:{ reason:'account_deactivated' } });
+    }
+    const permissions = await staffPermissions(deps.q,env,staffId);
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_staff_updated','support_staff',staffId,`Updated ${email}`);
+    return deps.jsonNoStore(staffOut({ ...profile,email },permissions),200,env);
+  }
+  const resetMatch = path.match(/^\/admin\/support\/staff\/(\d+)\/password$/);
+  if (method === 'POST' && resetMatch) {
+    const staffId = numericId(resetMatch[1],'Staff ID');
+    const payload = await deps.readJson(request);
+    const password = String(payload.temporary_password || payload.password || '');
+    if (password.length < 12) throw supportError('Temporary password must be at least 12 characters',400,'SUPPORT_PASSWORD_WEAK');
+    const row = (await deps.q(env,`SELECT admin_user_id FROM support_staff_profiles WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND archived_at IS NULL`,[staffId,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!row) throw supportError('Staff account not found',404,'SUPPORT_STAFF_NOT_FOUND');
+    await deps.q(env,`UPDATE admin_users SET password_hash=$1,session_version=session_version+1,updated_at=NOW() WHERE id=$2`,[await deps.hashPassword(password),row.admin_user_id]);
+    await deps.q(env,`UPDATE support_staff_profiles SET must_change_password=TRUE,availability_status='offline',updated_at=NOW() WHERE id=$1`,[staffId]);
+    emitSupportEvent({ event:'support:force_logout',platform_id:scope.platform_id,staff_id:staffId,data:{ reason:'password_reset' } });
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_staff_password_reset','support_staff',staffId,'Temporary password set');
+    return deps.jsonNoStore({ ok:true,must_change_password:true },200,env);
+  }
+  const forceLogoutMatch = path.match(/^\/admin\/support\/staff\/(\d+)\/force-logout$/);
+  if (method === 'POST' && forceLogoutMatch) {
+    const staffId = numericId(forceLogoutMatch[1],'Staff ID');
+    const profile = (await deps.q(env,`SELECT sp.*,COALESCE(ss.force_logout_assignment_policy,'return_to_queue') AS force_logout_assignment_policy FROM support_staff_profiles sp LEFT JOIN support_settings ss ON ss.platform_id=sp.platform_id WHERE sp.id=$1 AND sp.tenant_id=$2 AND sp.platform_id=$3`,[staffId,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!profile) throw supportError('Staff account not found',404,'SUPPORT_STAFF_NOT_FOUND');
+    await deps.q(env,`UPDATE admin_users SET session_version=session_version+1,updated_at=NOW() WHERE id=$1`,[profile.admin_user_id]);
+    await deps.q(env,`UPDATE support_staff_sessions SET revoked_at=NOW(),revoke_reason='admin_force_logout' WHERE staff_id=$1 AND revoked_at IS NULL`,[staffId]);
+    await updatePresence(deps.q,env,{ ...staffOut(profile,[]),tenant_id:scope.tenant_id,platform_id:scope.platform_id },'offline');
+    if (profile.force_logout_assignment_policy === 'return_to_queue') {
+      const returned = (await deps.q(env,`UPDATE support_conversations SET assigned_staff_id=NULL,status='WAITING_FOR_AGENT',queue_entered_at=NOW(),updated_at=NOW(),version=version+1 WHERE assigned_staff_id=$1 AND tenant_id=$2 AND platform_id=$3 AND status IN ('ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED') RETURNING id`,[staffId,scope.tenant_id,scope.platform_id])).rows;
+      for (const item of returned) emitSupportEvent({ event:'support:queue_updated',platform_id:scope.platform_id,conversation_id:Number(item.id),data:{ reason:'force_logout_returned' } });
+    } else if (profile.force_logout_assignment_policy === 'resolve') {
+      await deps.q(env,`UPDATE support_conversations SET status='RESOLVED',resolved_at=NOW(),updated_at=NOW(),version=version+1 WHERE assigned_staff_id=$1 AND tenant_id=$2 AND platform_id=$3 AND status IN ('ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED')`,[staffId,scope.tenant_id,scope.platform_id]);
+    }
+    await deps.q(env,`UPDATE support_assignments SET released_at=NOW(),release_reason='force_logout' WHERE staff_id=$1 AND released_at IS NULL`,[staffId]);
+    emitSupportEvent({ event:'support:force_logout',platform_id:scope.platform_id,staff_id:staffId,data:{ reason:'admin_force_logout' } });
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_staff_force_logout','support_staff',staffId,'Admin forced logout');
+    return deps.jsonNoStore({ ok:true,assignment_policy:profile.force_logout_assignment_policy },200,env);
+  }
+  if (method === 'GET' && path === '/admin/support/conversations') {
+    const status = cleanText(url.searchParams.get('status'),40);
+    const where = status && CONVERSATION_STATES.has(status) ? 'AND c.status=$3' : '';
+    return deps.jsonNoStore(await listConversationRows(deps.q,env,scope,where,status ? [status] : [],Number(url.searchParams.get('limit') || 150)),200,env);
+  }
+  const adminDetail = path.match(/^\/admin\/support\/conversations\/(\d+)$/);
+  if (method === 'GET' && adminDetail) return deps.jsonNoStore(await conversationDetail(deps.q,env,scope,adminDetail[1]),200,env);
+  const adminAssign = path.match(/^\/admin\/support\/conversations\/(\d+)\/assign$/);
+  if (method === 'POST' && adminAssign) {
+    const id = numericId(adminAssign[1],'Conversation ID');
+    const payload = await deps.readJson(request);
+    const staffId = numericId(payload.staff_id,'Staff ID');
+    const target = (await deps.q(env,`SELECT * FROM support_staff_profiles WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND account_status='active' AND archived_at IS NULL`,[staffId,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!target) throw supportError('Target staff account is unavailable',409,'SUPPORT_ASSIGNMENT_TARGET_INVALID');
+    const previous = (await deps.q(env,`SELECT assigned_staff_id FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    const row = (await deps.q(env,`UPDATE support_conversations SET assigned_staff_id=$1,status='AGENT_ACTIVE',first_assigned_at=COALESCE(first_assigned_at,NOW()),updated_at=NOW(),version=version+1 WHERE id=$2 AND tenant_id=$3 AND platform_id=$4 RETURNING *`,[staffId,id,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!row) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+    if (previous?.assigned_staff_id) await deps.q(env,`UPDATE support_assignments SET released_at=NOW(),release_reason='admin_reassigned' WHERE conversation_id=$1 AND staff_id=$2 AND released_at IS NULL`,[id,previous.assigned_staff_id]);
+    await deps.q(env,`INSERT INTO support_assignments(tenant_id,platform_id,conversation_id,staff_id,assigned_by_type,assigned_by_id,assignment_reason) VALUES($1,$2,$3,$4,'ADMIN',$5,$6)`,[scope.tenant_id,scope.platform_id,id,staffId,admin.email,cleanText(payload.reason || 'manual admin assignment',2000)]);
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'conversation_assigned','support_conversation',id,'Admin assignment',{ staff_id:staffId });
+    emitSupportEvent({ event:'support:conversation_assigned',platform_id:scope.platform_id,conversation_id:id,staff_id:staffId,data:{ conversation:conversationOut(row),forced:true } });
+    return deps.jsonNoStore({ ok:true,conversation:conversationOut(row) },200,env);
+  }
+  const adminResolve = path.match(/^\/admin\/support\/conversations\/(\d+)\/(resolve|reopen)$/);
+  if (method === 'POST' && adminResolve) {
+    const id = numericId(adminResolve[1],'Conversation ID');
+    const action = adminResolve[2];
+    const row = action === 'resolve'
+      ? (await deps.q(env,`UPDATE support_conversations SET status='RESOLVED',resolved_at=NOW(),updated_at=NOW(),version=version+1 WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 RETURNING *`,[id,scope.tenant_id,scope.platform_id])).rows[0]
+      : (await deps.q(env,`UPDATE support_conversations SET status='WAITING_FOR_AGENT',assigned_staff_id=NULL,resolved_at=NULL,closed_at=NULL,queue_entered_at=NOW(),updated_at=NOW(),version=version+1 WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 RETURNING *`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!row) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,`conversation_${action}d`,'support_conversation',id,`Admin ${action}d conversation`);
+    emitSupportEvent({ event:action === 'resolve' ? 'support:conversation_resolved' : 'support:queue_updated',platform_id:scope.platform_id,conversation_id:id,data:{ conversation:conversationOut(row),admin:true } });
+    return deps.jsonNoStore({ ok:true,conversation:conversationOut(row) },200,env);
+  }
+  if (method === 'GET' && path === '/admin/support/performance') {
+    const rows = (await deps.q(env,`SELECT sp.id,sp.display_name,au.email,
+      COALESCE(a.conversations_served,0)::int AS conversations_served,
+      COALESCE(a.resolved_conversations,0)::int AS resolved_conversations,
+      COALESCE(m.replies_sent,0)::int AS replies_sent,
+      COALESCE(m.sentences_sent,0)::int AS sentences_sent,
+      COALESCE(a.avg_first_response_seconds,0)::int AS avg_first_response_seconds,
+      COALESCE(a.avg_conversation_seconds,0)::int AS avg_conversation_seconds
+      FROM support_staff_profiles sp JOIN admin_users au ON au.id=sp.admin_user_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(DISTINCT x.conversation_id)::int AS conversations_served,
+          COUNT(DISTINCT CASE WHEN c.status IN ('RESOLVED','CLOSED') THEN c.id END)::int AS resolved_conversations,
+          COALESCE(AVG(EXTRACT(EPOCH FROM (c.first_agent_reply_at-c.queue_entered_at))) FILTER (WHERE c.first_agent_reply_at IS NOT NULL AND c.queue_entered_at IS NOT NULL),0)::int AS avg_first_response_seconds,
+          COALESCE(AVG(EXTRACT(EPOCH FROM (c.resolved_at-c.first_assigned_at))) FILTER (WHERE c.resolved_at IS NOT NULL AND c.first_assigned_at IS NOT NULL),0)::int AS avg_conversation_seconds
+        FROM support_assignments x LEFT JOIN support_conversations c ON c.id=x.conversation_id
+        WHERE x.staff_id=sp.id AND x.accepted_at > NOW()-INTERVAL '30 days'
+      ) a ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS replies_sent,COALESCE(SUM(sentence_count),0)::int AS sentences_sent
+        FROM support_messages WHERE sender_staff_id=sp.id AND sender_type='STAFF' AND is_internal=FALSE AND created_at > NOW()-INTERVAL '30 days'
+      ) m ON TRUE
+      WHERE sp.tenant_id=$1 AND sp.platform_id=$2 AND sp.archived_at IS NULL
+      ORDER BY conversations_served DESC,sp.display_name`,[scope.tenant_id,scope.platform_id])).rows;
+    return deps.jsonNoStore(rows.map((row)=>({ ...row,id:Number(row.id),conversations_served:Number(row.conversations_served||0),resolved_conversations:Number(row.resolved_conversations||0),replies_sent:Number(row.replies_sent||0),sentences_sent:Number(row.sentences_sent||0),avg_first_response_seconds:Number(row.avg_first_response_seconds||0),avg_conversation_seconds:Number(row.avg_conversation_seconds||0) })),200,env);
+  }
+  if (method === 'GET' && path === '/admin/support/audit') {
+    const rows = (await deps.q(env,`SELECT * FROM support_audit_events WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id DESC LIMIT 300`,[scope.tenant_id,scope.platform_id])).rows;
+    return deps.jsonNoStore(rows.map((row)=>({ ...row,id:Number(row.id),actor_identifier:row.actor_id || '',action_key:row.action || '',detail:row.details || '',created_at:rowDate(row.created_at) })),200,env);
+  }
+  throw supportError('Customer Service admin route not found',404,'SUPPORT_ADMIN_ROUTE_NOT_FOUND');
+}

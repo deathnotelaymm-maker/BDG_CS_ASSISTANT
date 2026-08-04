@@ -1,2 +1,5 @@
 @echo off
-call "%~dp0INSTALL-V1.15.5-SIMPLIFIED-AI-PRODUCTION-RUNTIME.cmd" %*
+setlocal
+cd /d "%~dp0"
+call "START-HERE-V1.16.0-HUMAN-SUPPORT-LIVE-CHAT-FOUNDATION.bat" %*
+endlocal

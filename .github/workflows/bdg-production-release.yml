@@ -10,6 +10,7 @@ on:
       - admin-pro/**
       - chat-pro/**
       - guide-pro/**
+      - staff-pro/**
       - package.json
       - package-lock.json
       - .github/workflows/bdg-production-release.yml
@@ -61,6 +62,7 @@ jobs:
             guide-pro/package-lock.json
             chat-pro/package-lock.json
             admin-pro/package-lock.json
+            staff-pro/package-lock.json
 
       - name: Check Cloudflare release secrets
         run: |
@@ -81,6 +83,7 @@ jobs:
           npm --prefix backend-api run test:regression
           npm --prefix backend-api run test:prompt-runtime
           npm --prefix backend-api run test:simplified-ai
+          npm --prefix backend-api run test:support
           npm --prefix backend-api run test:security
           npm --prefix backend-api run test:chat-reliability
           npm --prefix backend-api run test:structured
@@ -112,6 +115,15 @@ jobs:
           node scripts/ci/verify-static-release.mjs chat chat-pro/dist
           npx --yes wrangler@4.107.0 pages deploy chat-pro/dist --project-name bdg-chat-pages --branch main --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
 
+      - name: Build and publish Staff production
+        run: |
+          npm --prefix staff-pro ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+          npm --prefix staff-pro run typecheck
+          VITE_API_BASE_URL="$BDG_API_BASE_URL" npm --prefix staff-pro run build
+          node scripts/ci/write-release-marker.mjs staff staff-pro/dist "${{ steps.api_version.outputs.version }}" "$GITHUB_SHA"
+          node scripts/ci/verify-static-release.mjs staff staff-pro/dist
+          npx --yes wrangler@4.107.0 pages deploy staff-pro/dist --project-name bdg-staff-pages --branch main --skip-caching --commit-message "BDG ${{ steps.api_version.outputs.version }} $GITHUB_SHA" --commit-dirty=true
+
       - name: Build and publish Admin production
         run: |
           npm --prefix admin-pro ci --no-audit --no-fund --registry=https://registry.npmjs.org/
@@ -133,4 +145,5 @@ jobs:
             echo "- Guide: https://bdg-guide-pages.pages.dev"
             echo "- Chat: https://bdg-chat-pages.pages.dev"
             echo "- Admin: https://bdg-admin-pages.pages.dev"
+            echo "- Staff: https://bdg-staff-pages.pages.dev"
           } >> "$GITHUB_STEP_SUMMARY"

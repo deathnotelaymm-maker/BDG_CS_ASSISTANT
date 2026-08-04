@@ -8,10 +8,11 @@ const checks = {
   guide: [apiHost, "Close image"],
   chat: [apiHost, "Close image", "favicon-chat-32.png?v=0101"],
   admin: [apiHost, "FAQ answer", "favicon-admin-32.png?v=0101"],
+  staff: [apiHost, "Customer Service Console"],
 };
 
 if (!checks[site] || !distDirectory) {
-  throw new Error("Usage: verify-static-release.mjs <guide|chat|admin> <dist-directory>");
+  throw new Error("Usage: verify-static-release.mjs <guide|chat|admin|staff> <dist-directory>");
 }
 
 async function files(directory) {

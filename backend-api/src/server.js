@@ -1,13 +1,33 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
-import api, { closeDatabasePools, isActiveCustomHostnameOrigin, readiness } from './core.js';
+import api, {
+  closeDatabasePools,
+  isActiveCustomHostnameOrigin,
+  readiness,
+  verifySupportWebSocketToken,
+  updateSupportWebSocketPresence,
+  heartbeatSupportWebSocket,
+  canSubscribeSupportConversation,
+} from './core.js';
+import { attachSupportRealtimeGateway } from './support-realtime.js';
+import { closeSupportEventBus } from './support-events.js';
 import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } from './env.js';
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.15.5-simplified-ai-production-runtime';
+const API_VERSION = '1.16.0-human-support-live-chat-foundation';
 const API_FEATURES = [
   'tenant-core',
+  'human-support-live-chat',
+  'dedicated-staff-console',
+  'authenticated-support-websocket',
+  'platform-scoped-support-staff',
+  'support-presence-heartbeats',
+  'manual-support-queue-assignment',
+  'safe-conversation-transfer',
+  'ai-to-human-handoff',
+  'support-performance-reports',
+  'support-audit-events',
   'platform-control-center',
   'platform-scoped-admin',
   'tenant-data-isolation',
@@ -225,10 +245,21 @@ server.headersTimeout = 35_000;
 server.keepAliveTimeout = 65_000;
 server.listen(env.PORT, '0.0.0.0', () => console.log(JSON.stringify({ level: 'info', event: 'server_started', port: env.PORT, version: API_VERSION, ...databaseDescriptor(env) })));
 
+const supportGateway = await attachSupportRealtimeGateway({
+  server,
+  env,
+  verifyAccess:verifySupportWebSocketToken,
+  heartbeat:heartbeatSupportWebSocket,
+  presence:updateSupportWebSocketPresence,
+  canSubscribe:canSubscribeSupportConversation,
+});
+
 async function shutdown(signal) {
   console.log(JSON.stringify({ level: 'info', event: 'shutdown_started', signal }));
   server.close(async () => {
-    await closeDatabasePools();
+    await supportGateway.close().catch(() => undefined);
+  await closeSupportEventBus().catch(() => undefined);
+  await closeDatabasePools();
     process.exit(0);
   });
   setTimeout(() => process.exit(1), 25_000).unref();

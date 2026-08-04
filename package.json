@@ -1,22 +1,25 @@
 {
   "name": "bdg-help-center-business-platform",
-  "version": "1.15.5",
+  "version": "1.16.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build:guide": "npm --prefix guide-pro run build",
     "build:chat": "npm --prefix chat-pro run build",
     "build:admin": "npm --prefix admin-pro run build",
-    "build:all": "npm run build:admin && npm run build:chat && npm run build:guide",
+    "build:all": "npm run build:admin && npm run build:chat && npm run build:guide && npm run build:staff",
     "typecheck:admin": "npm --prefix admin-pro run typecheck",
     "typecheck:chat": "npm --prefix chat-pro run typecheck",
     "typecheck:guide": "npm --prefix guide-pro run typecheck",
-    "typecheck:all": "npm run typecheck:admin && npm run typecheck:chat && npm run typecheck:guide",
+    "typecheck:all": "npm run typecheck:admin && npm run typecheck:chat && npm run typecheck:guide && npm run typecheck:staff",
     "check:backend": "npm --prefix backend-api run check",
     "test:regression": "npm --prefix backend-api run test:regression",
     "test:chat-reliability": "npm --prefix backend-api run test:chat-reliability",
     "test:integration": "npm --prefix backend-api run test:integration",
     "test:prompt-runtime": "npm --prefix backend-api run test:prompt-runtime",
-    "test:simplified-ai": "npm --prefix backend-api run test:simplified-ai"
+    "test:simplified-ai": "npm --prefix backend-api run test:simplified-ai",
+    "build:staff": "npm --prefix staff-pro run build",
+    "typecheck:staff": "npm --prefix staff-pro run typecheck",
+    "test:support": "npm --prefix backend-api run test:support"
   }
 }

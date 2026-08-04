@@ -1007,6 +1007,21 @@ export const api = {
     return request("/admin/ai-quality/test-suite/run", { method: "POST", body: JSON.stringify({}) });
   },
 
+  getSupportOverview: async () => request("/admin/support/overview"),
+  getSupportSettings: async () => request("/admin/support/settings"),
+  updateSupportSettings: async (data: any) => request("/admin/support/settings", { method: "PUT", body: JSON.stringify(data) }),
+  listSupportStaff: async () => request("/admin/support/staff"),
+  createSupportStaff: async (data: any) => request("/admin/support/staff", { method: "POST", body: JSON.stringify(data) }),
+  updateSupportStaff: async (id: string | number, data: any) => request(`/admin/support/staff/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  resetSupportStaffPassword: async (id: string | number, temporary_password: string) => request(`/admin/support/staff/${id}/password`, { method: "POST", body: JSON.stringify({ temporary_password }) }),
+  forceLogoutSupportStaff: async (id: string | number) => request(`/admin/support/staff/${id}/force-logout`, { method: "POST", body: JSON.stringify({}) }),
+  listSupportConversations: async (status = "") => request(`/admin/support/conversations${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  getSupportConversation: async (id: string | number) => request(`/admin/support/conversations/${id}`),
+  assignSupportConversation: async (id: string | number, staff_id: number) => request(`/admin/support/conversations/${id}/assign`, { method: "POST", body: JSON.stringify({ staff_id }) }),
+  resolveSupportConversation: async (id: string | number, action: "resolve" | "reopen") => request(`/admin/support/conversations/${id}/${action}`, { method: "POST", body: JSON.stringify({}) }),
+  getSupportPerformance: async () => request("/admin/support/performance"),
+  getSupportAudit: async () => request("/admin/support/audit"),
+
   testAI: async (message: string) => {
     if (MOCK_MODE)
       return delay({

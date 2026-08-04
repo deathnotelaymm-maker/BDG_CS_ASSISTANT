@@ -10,7 +10,7 @@ import {
   Sparkles,
   XCircle,
 } from "lucide-react";
-import { ChatApiError, fetchChatContent, getPlatformKey, sendChatMessage, type ChatContent, type ResponseBlock } from "@/lib/api";
+import { ChatApiError, clearCustomerSupportSession, fetchChatContent, fetchCustomerSupport, getCustomerSupportSession, getPlatformKey, requestHumanSupport, sendChatMessage, sendCustomerSupportMessage, supportWebSocketUrl, type ChatContent, type ResponseBlock, type SupportMessage } from "@/lib/api";
 import { CHAT_LANGUAGE_OPTIONS, getChatConfig, normalizeChatLocale, type PublicLanguage } from "@/lib/chat-config";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
@@ -25,6 +25,7 @@ interface Message {
   error?: boolean;
   retryOf?: string;
   errorInfo?: string;
+  senderName?: string;
 }
 
 function uid() {
@@ -110,6 +111,8 @@ export default function App() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [waitHint, setWaitHint] = useState(false);
+  const [supportSession, setSupportSession] = useState<{token:string;publicId:string;status:string;handoffReason?:string}|null>(null);
+  const supportSocket = useRef<WebSocket | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -121,6 +124,35 @@ export default function App() {
       .catch(() => null);
     return () => controller.abort();
   }, [platformKey]);
+
+  useEffect(() => {
+    const saved = getCustomerSupportSession();
+    if (!saved) return;
+    fetchCustomerSupport(saved.publicId, saved.token).then((data) => {
+      if (["RESOLVED","CLOSED"].includes(data.conversation.status)) { clearCustomerSupportSession(); return; }
+      setSupportSession({ token:saved.token, publicId:saved.publicId, status:data.conversation.status, handoffReason:data.conversation.handoff_reason });
+      setStarted(true);
+      setMessages(data.messages.filter((item) => !item.is_internal).map((item) => ({ id:`support-${item.id}`, role:item.sender_type === "CUSTOMER" ? "user" : "assistant", content:item.body_text, senderName:item.sender_name || item.sender_type })));
+    }).catch(() => clearCustomerSupportSession());
+  }, [platformKey]);
+
+  useEffect(() => {
+    if (!supportSession) return;
+    const socket = new WebSocket(supportWebSocketUrl(), ["bdg-support", supportSession.token]);
+    supportSocket.current = socket;
+    socket.onmessage = (event) => {
+      try {
+        const packet = JSON.parse(event.data);
+        if (packet.data?.message && !packet.data.message.is_internal) {
+          const item = packet.data.message as SupportMessage;
+          setMessages((current) => current.some((message) => message.id === `support-${item.id}`) ? current : [...current,{ id:`support-${item.id}`,role:item.sender_type === "CUSTOMER" ? "user" : "assistant",content:item.body_text,senderName:item.sender_name || item.sender_type }]);
+        }
+        if (packet.event === "support:conversation_assigned") setSupportSession((value)=>value?{...value,status:"AGENT_ACTIVE"}:value);
+        if (packet.event === "support:conversation_resolved") { setSupportSession((value)=>value?{...value,status:"RESOLVED"}:value); clearCustomerSupportSession(); }
+      } catch { /* ignore malformed realtime packets */ }
+    };
+    return () => socket.close();
+  }, [supportSession?.token, supportSession?.publicId]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -168,6 +200,12 @@ export default function App() {
       setIsProcessing(true);
 
       try {
+        if (supportSession && !["RESOLVED","CLOSED"].includes(supportSession.status)) {
+          const sent = await sendCustomerSupportMessage(supportSession.publicId,supportSession.token,trimmed);
+          setMessages((current)=>current.map((message)=>message.content===trimmed && message.role==="user" ? message : message));
+          if (sent.message?.id) setMessages((current)=>current.map((message,index)=>index===current.length-1&&message.role==="user"?{...message,id:`support-${sent.message.id}`} : message));
+          return;
+        }
         const res = await sendChatMessage(trimmed, effectiveLanguage, platformKey);
         // During a rolling deployment an older API may still return a usable
         // fallback as an `error` block. Treat that as information, not as a
@@ -207,8 +245,20 @@ export default function App() {
         setTimeout(() => inputRef.current?.focus(), 30);
       }
     },
-    [isProcessing, effectiveLanguage, platformKey, chatConfig.fallbackMessage],
+    [isProcessing, effectiveLanguage, platformKey, chatConfig.fallbackMessage, supportSession],
   );
+
+  const startHumanSupport = useCallback(async (reason?: string) => {
+    if (isProcessing || supportSession) return;
+    setIsProcessing(true);
+    try {
+      const handoff = await requestHumanSupport(platformKey,effectiveLanguage,reason);
+      setSupportSession({ token:handoff.support_token,publicId:handoff.conversation.public_id,status:handoff.conversation.status,handoffReason:handoff.conversation.handoff_reason });
+      setMessages((current)=>[...current,{id:uid(),role:"assistant",content:handoff.message,senderName:"Customer Service"}]);
+    } catch (error) {
+      setMessages((current)=>[...current,{id:uid(),role:"assistant",content:error instanceof Error?error.message:chatConfig.fallbackMessage,error:true}]);
+    } finally { setIsProcessing(false); }
+  },[isProcessing,supportSession,platformKey,effectiveLanguage,chatConfig.fallbackMessage]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -305,7 +355,7 @@ export default function App() {
           )}
 
           {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} onRetry={() => m.retryOf && send(m.retryOf)} onPrompt={send} onPreview={(src,alt)=>setPreview({src,alt})} />
+            <MessageBubble key={m.id} message={m} onRetry={() => m.retryOf && send(m.retryOf)} onPrompt={send} onPreview={(src,alt)=>setPreview({src,alt})} onHandoff={startHumanSupport} />
           ))}
           {isProcessing && <TypingIndicator />}
         </div>
@@ -451,7 +501,7 @@ function StartCopy({ text }: { text: string }) {
   );
 }
 
-function MessageBubble({ message, onRetry, onPrompt, onPreview }: { message: Message; onRetry: () => void; onPrompt: (text:string) => void; onPreview:(src:string,alt:string)=>void }) {
+function MessageBubble({ message, onRetry, onPrompt, onPreview, onHandoff }: { message: Message; onRetry: () => void; onPrompt: (text:string) => void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void }) {
   const isUser = message.role === "user";
   return (
     <div className={`flex msg-in ${isUser ? "justify-end" : "justify-start"}`}>
@@ -459,7 +509,7 @@ function MessageBubble({ message, onRetry, onPrompt, onPreview }: { message: Mes
         className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser ? "bg-bubble-user text-bubble-user-foreground rounded-br-sm" : "bg-bubble-ai text-bubble-ai-foreground rounded-bl-sm border border-border"}`}
       >
         {message.blocks && message.blocks.length > 0 ? (
-          <StructuredResponse blocks={message.blocks} onPrompt={onPrompt} onPreview={onPreview} />
+          <StructuredResponse blocks={message.blocks} onPrompt={onPrompt} onPreview={onPreview} onHandoff={onHandoff} />
         ) : (
           <div>{message.content}</div>
         )}
@@ -504,7 +554,7 @@ function RichText({ segments, fallback }: { segments?: any[]; fallback:string })
   if (!segments?.length) return <>{fallback}</>;
   return <>{segments.map((segment,index)=><span key={index} className={`${segment.marks?.bold ? "font-bold" : ""} ${segment.marks?.italic ? "italic" : ""} ${segment.marks?.underline ? "underline" : ""} ${textColors[segment.marks?.color || "default"] || ""} ${highlights[segment.marks?.highlight || "default"] || ""}`}>{segment.text}</span>)}</>;
 }
-function StructuredResponse({ blocks, onPrompt, onPreview }: { blocks: ResponseBlock[]; onPrompt:(text:string)=>void; onPreview:(src:string,alt:string)=>void }) {
+function StructuredResponse({ blocks, onPrompt, onPreview, onHandoff }: { blocks: ResponseBlock[]; onPrompt:(text:string)=>void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void }) {
   return (
     <div className="space-y-3 whitespace-normal">
       {blocks.map((block, index) => {
@@ -577,6 +627,8 @@ function StructuredResponse({ blocks, onPrompt, onPreview }: { blocks: ResponseB
         }
         if (block.type === "link" || block.type === "button") {
           const isPrompt = block.action_type === "chat_prompt" || block.url.startsWith("prompt:");
+          const isHandoff = block.action_type === "human_handoff" || block.url === "support:handoff";
+          if (isHandoff) return <button key={key} type="button" onClick={()=>onHandoff("CUSTOMER_REQUESTED_HUMAN")} className="flex w-full items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2.5 text-left text-xs font-semibold text-white transition-colors hover:bg-emerald-500"><span className="flex-1"><span className="block">{block.label}</span>{block.subtitle && <span className="mt-0.5 block font-normal opacity-80">{block.subtitle}</span>}</span></button>;
           if (isPrompt) return <button key={key} type="button" onClick={()=>onPrompt(block.url.replace(/^prompt:/i,"").trim() || block.label)} className="flex w-full items-center gap-2 rounded-xl bg-brand px-3 py-2 text-left text-xs font-semibold text-brand-foreground transition-colors hover:bg-brand-glow">{block.icon_url && <img src={block.icon_url} alt="" className="h-7 w-7 rounded-lg object-contain"/>}<span className="flex-1"><span className="block">{block.label}</span>{block.subtitle && <span className="mt-0.5 block font-normal opacity-75">{block.subtitle}</span>}</span></button>;
           return (
             <a

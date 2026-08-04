@@ -39,7 +39,7 @@ const integrationTest = read("backend-api/scripts/integration-test.js");
 const chatApp = read("chat-pro/src/App.tsx");
 const chatConfig = read("chat-pro/src/lib/chat-config.ts");
 
-expect("Backend and server expose the v1.15.5 simplified runtime", core.includes("1.15.5-simplified-ai-production-runtime") && server.includes("1.15.5-simplified-ai-production-runtime"));
+expect("Backend and server expose the v1.16.0 human support runtime", core.includes("1.16.0-human-support-live-chat-foundation") && server.includes("1.16.0-human-support-live-chat-foundation"));
 expect("Domain route IDs are extracted from the numeric path segment", core.includes("function domainIdFromPath") && core.includes("Number.isSafeInteger(id)") && core.includes("DOMAIN_ID_INVALID"));
 expect("Provision uses the validated domain ID", core.includes("provisionMappedDomain(env, domainIdFromPath(path), scope)") && !core.includes("provisionMappedDomain(env, idFromParts(path, 3), scope)"));
 expect("Sync, verify, and delete use the validated domain ID", ["syncMappedDomain(env, domainIdFromPath(path), scope)", "verifyMappedDomain(env, domainIdFromPath(path), scope)", "deleteMappedDomain(env, domainIdFromPath(path), scope)"].every((item) => core.includes(item)));
@@ -50,7 +50,7 @@ expect("Domain mapping exposes missing configuration names", core.includes("cons
 expect("Render environment validation covers Cloudflare prerequisites", env.includes("CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED") && env.includes("CLOUDFLARE_API_TOKEN") && env.includes("CLOUDFLARE_ZONE_ID") && env.includes("CLOUDFLARE_SAAS_CNAME_TARGET"));
 expect("Admin disables Provision until Cloudflare is configured", domainPage.includes("const cloudflareReady = data?.cloudflare?.configured === true") && domainPage.includes("disabled={!cloudflareReady}"));
 expect("Admin displays the exact missing Render variables", domainPage.includes("data?.cloudflare?.missing_env") && domainPage.includes("Set these Render variables before provisioning"));
-expect("Admin release marker is v1.15.5", adminLayout.includes('const ADMIN_VERSION = "v1.15.5"'));
+expect("Admin release marker is v1.16.0", adminLayout.includes('const ADMIN_VERSION = "v1.16.0"'));
 expect("v1.14.1 single-image contract remains present", core.includes("const legacyContentImages = imageDelivery.image_count ? [] : contentImages") && core.includes("A response without procedural steps has one canonical visual at most"));
 expect("Platform context remains strict with no fallback", core.includes("PLATFORM_CONTEXT_REQUIRED") && core.includes("fallback_applied: false") && !core.includes("publicReference || 'default'"));
 expect("v1.14.3 migration repairs existing parent Guide drafts", publishingMigration.includes("UPDATE guides g") && publishingMigration.includes("gt.status = 'published'"));
@@ -104,5 +104,5 @@ expect("Admin UI exposes only the simplified production AI workflow", adminLayou
 
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
-console.log(`\n${checks.length - failed.length}/${checks.length} v1.15.5 regression checks passed`);
+console.log(`\n${checks.length - failed.length}/${checks.length} v1.16.0 regression checks passed`);
 if (failed.length) process.exitCode = 1;

@@ -25,6 +25,24 @@ for (const [index, project] of pagesProjects.entries()) {
   assert.equal(call.options.body, '{"production_branch":"main"}');
 }
 
+const createCalls = [];
+let createAttempt = 0;
+await alignPagesProductionBranches({
+  accountId: "account-123",
+  apiToken: "test-token",
+  projects: ["bdg-staff-pages"],
+  fetchFn: async (url, options) => {
+    createCalls.push({ url, options });
+    createAttempt += 1;
+    if (createAttempt === 1) return new Response(JSON.stringify({ success:false, errors:[{ message:"not found" }] }), { status:404, headers:{ "Content-Type":"application/json" } });
+    return new Response(JSON.stringify({ success:true, result:{ name:"bdg-staff-pages", production_branch:"main" } }), { status:200, headers:{ "Content-Type":"application/json" } });
+  },
+});
+assert.equal(createCalls.length, 2);
+assert.equal(createCalls[1].url, "https://api.cloudflare.com/client/v4/accounts/account-123/pages/projects");
+assert.equal(createCalls[1].options.method, "POST");
+assert.equal(createCalls[1].options.body, '{"name":"bdg-staff-pages","production_branch":"main"}');
+
 await assert.rejects(
   () => alignPagesProductionBranches({
     accountId: "account-123",

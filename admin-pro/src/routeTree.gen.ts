@@ -26,6 +26,7 @@ import { Route as AdminDashboardRouteImport } from './routes/_admin.dashboard'
 import { Route as AdminChatQuickRepliesRouteImport } from './routes/_admin.chat-quick-replies'
 import { Route as AdminChatLogsRouteImport } from './routes/_admin.chat-logs'
 import { Route as AdminCategoriesRouteImport } from './routes/_admin.categories'
+import { Route as AdminCustomerServiceRouteImport } from './routes/_admin.customer-service'
 import { Route as AdminAuditLogsRouteImport } from './routes/_admin.audit-logs'
 import { Route as AdminAiSourceRouterRouteImport } from './routes/_admin.ai-source-router'
 import { Route as AdminAiResponseQualityRouteImport } from './routes/_admin.ai-response-quality'
@@ -124,6 +125,11 @@ const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCustomerServiceRoute = AdminCustomerServiceRouteImport.update({
+  id: '/customer-service',
+  path: '/customer-service',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAuditLogsRoute = AdminAuditLogsRouteImport.update({
   id: '/audit-logs',
   path: '/audit-logs',
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/ai-source-router': typeof AdminAiSourceRouterRoute
   '/audit-logs': typeof AdminAuditLogsRoute
   '/categories': typeof AdminCategoriesRoute
+  '/customer-service': typeof AdminCustomerServiceRoute
   '/chat-logs': typeof AdminChatLogsRoute
   '/chat-quick-replies': typeof AdminChatQuickRepliesRoute
   '/dashboard': typeof AdminDashboardRoute
@@ -231,6 +238,7 @@ export interface FileRoutesByTo {
   '/ai-source-router': typeof AdminAiSourceRouterRoute
   '/audit-logs': typeof AdminAuditLogsRoute
   '/categories': typeof AdminCategoriesRoute
+  '/customer-service': typeof AdminCustomerServiceRoute
   '/chat-logs': typeof AdminChatLogsRoute
   '/chat-quick-replies': typeof AdminChatQuickRepliesRoute
   '/dashboard': typeof AdminDashboardRoute
@@ -263,6 +271,7 @@ export interface FileRoutesById {
   '/_admin/ai-source-router': typeof AdminAiSourceRouterRoute
   '/_admin/audit-logs': typeof AdminAuditLogsRoute
   '/_admin/categories': typeof AdminCategoriesRoute
+  '/_admin/customer-service': typeof AdminCustomerServiceRoute
   '/_admin/chat-logs': typeof AdminChatLogsRoute
   '/_admin/chat-quick-replies': typeof AdminChatQuickRepliesRoute
   '/_admin/dashboard': typeof AdminDashboardRoute
@@ -295,6 +304,7 @@ export interface FileRouteTypes {
     | '/ai-source-router'
     | '/audit-logs'
     | '/categories'
+    | '/customer-service'
     | '/chat-logs'
     | '/chat-quick-replies'
     | '/dashboard'
@@ -325,6 +335,7 @@ export interface FileRouteTypes {
     | '/ai-source-router'
     | '/audit-logs'
     | '/categories'
+    | '/customer-service'
     | '/chat-logs'
     | '/chat-quick-replies'
     | '/dashboard'
@@ -356,6 +367,7 @@ export interface FileRouteTypes {
     | '/_admin/ai-source-router'
     | '/_admin/audit-logs'
     | '/_admin/categories'
+    | '/_admin/customer-service'
     | '/_admin/chat-logs'
     | '/_admin/chat-quick-replies'
     | '/_admin/dashboard'
@@ -484,6 +496,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminChatQuickRepliesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/customer-service': {
+      id: '/_admin/customer-service'
+      path: '/customer-service'
+      fullPath: '/customer-service'
+      preLoaderRoute: typeof AdminCustomerServiceRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/chat-logs': {
       id: '/_admin/chat-logs'
       path: '/chat-logs'
@@ -599,6 +618,7 @@ interface AdminRouteChildren {
   AdminAiSourceRouterRoute: typeof AdminAiSourceRouterRoute
   AdminAuditLogsRoute: typeof AdminAuditLogsRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
+  AdminCustomerServiceRoute: typeof AdminCustomerServiceRoute
   AdminChatLogsRoute: typeof AdminChatLogsRoute
   AdminChatQuickRepliesRoute: typeof AdminChatQuickRepliesRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
@@ -628,6 +648,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAiSourceRouterRoute: AdminAiSourceRouterRoute,
   AdminAuditLogsRoute: AdminAuditLogsRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
+  AdminCustomerServiceRoute: AdminCustomerServiceRoute,
   AdminChatLogsRoute: AdminChatLogsRoute,
   AdminChatQuickRepliesRoute: AdminChatQuickRepliesRoute,
   AdminDashboardRoute: AdminDashboardRoute,

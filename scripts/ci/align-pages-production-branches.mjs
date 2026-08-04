@@ -4,6 +4,7 @@ export const pagesProjects = [
   "bdg-guide-pages",
   "bdg-chat-pages",
   "bdg-admin-pages",
+  "bdg-staff-pages",
 ];
 
 const defaultApiBase = "https://api.cloudflare.com/client/v4";
@@ -49,7 +50,18 @@ export async function alignPagesProductionBranches({
         body: JSON.stringify({ production_branch: "main" }),
       },
     );
-    const payload = await response.json().catch(() => null);
+    let payload = await response.json().catch(() => null);
+    if (response.status === 404) {
+      const createResponse = await fetchFn(`${baseUrl}/accounts/${encodeURIComponent(safeAccountId)}/pages/projects`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${safeApiToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: project, production_branch: "main" }),
+      });
+      payload = await createResponse.json().catch(() => null);
+      if (!createResponse.ok || payload?.success === false) throw new Error(describeCloudflareError(payload, createResponse.status));
+      console.log(`PASS ${project}: project created with main as production branch`);
+      continue;
+    }
     if (!response.ok || payload?.success === false) {
       throw new Error(describeCloudflareError(payload, response.status));
     }

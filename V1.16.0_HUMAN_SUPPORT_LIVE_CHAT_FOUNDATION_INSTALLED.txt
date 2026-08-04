@@ -1,0 +1,11 @@
+BDG CS ASSISTANT
+VERSION: 1.16.0
+RELEASE: Human Support & Live Chat Foundation
+MARKER: 1.16.0-human-support-live-chat-foundation
+MIGRATION: 038_v1.16.0_human_support_live_chat_foundation.sql
+STAFF APPLICATION: staff-pro
+WEBSOCKET PATH: /support
+PRODUCTION MODE: one backend instance
+DEFAULT FEATURE STATE: human_support_enabled=false
+
+PACKAGE_REVISION=R2_INSTALLER_PATH_HOTFIX

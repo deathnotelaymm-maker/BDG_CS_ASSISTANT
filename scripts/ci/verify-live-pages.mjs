@@ -7,6 +7,7 @@ const sites = [
   ["Guide", "https://bdg-guide-pages.pages.dev", "guide"],
   ["Chat", "https://bdg-chat-pages.pages.dev", "chat"],
   ["Admin", "https://bdg-admin-pages.pages.dev", "admin"],
+  ["Staff", "https://bdg-staff-pages.pages.dev", "staff"],
 ];
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 

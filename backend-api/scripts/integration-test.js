@@ -127,6 +127,12 @@ try {
   assert.equal(qualityTables.rows[0].count, 3);
   const promptRuntimeTables = await database.query("SELECT COUNT(*)::integer AS count FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('ai_prompt_runtime_versions','ai_prompt_runtime_state')");
   assert.equal(promptRuntimeTables.rows[0].count, 2);
+  const supportTables = await database.query("SELECT COUNT(*)::integer AS count FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('support_staff_profiles','support_staff_permissions','support_settings','support_conversations','support_messages','support_assignments','support_transfers','support_internal_notes','support_staff_sessions','support_presence_sessions','support_activity_events','support_audit_events')");
+  assert.equal(supportTables.rows[0].count, 12, 'Migration 038 must create the complete Human Support foundation');
+  const supportDefaults = (await database.query('SELECT human_support_enabled,heartbeat_interval_seconds,offline_timeout_seconds FROM support_settings ORDER BY id LIMIT 1')).rows[0];
+  assert.equal(supportDefaults.human_support_enabled, false, 'Human Support must remain disabled until acceptance testing');
+  assert.equal(Number(supportDefaults.heartbeat_interval_seconds), 30);
+  assert.equal(Number(supportDefaults.offline_timeout_seconds), 90);
   const modelSettings = (await database.query('SELECT model,require_approved_context,max_tokens FROM ai_model_settings ORDER BY id LIMIT 1')).rows[0];
   assert.equal(modelSettings.model, 'deepseek-v4-flash');
   assert.equal(modelSettings.require_approved_context, false);

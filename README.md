@@ -175,3 +175,8 @@ The installer defaults to
 `C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT`. Set `BDG_TARGET`
 or pass a repository path to the installer to use another location. It never
 commits, pushes, deploys, or reads production secrets.
+
+
+## v1.16.0 Human Support & Live Chat
+
+The production stack now includes `staff-pro`, an independent customer-service console. The backend exposes an authenticated `/support` WebSocket gateway, platform-scoped staff accounts, waiting queues, assignment locking, transfers, presence heartbeats, unified AI/human conversation history, performance reports, and audit logs. Apply migration `038_v1.16.0_human_support_live_chat_foundation.sql` and keep `human_support_enabled` off until acceptance testing is complete.
