@@ -1,0 +1,7 @@
+BDG v1.16.1-r3 Async Integration Contract Hotfix
+
+This marker confirms that the PostgreSQL integration suite was updated for the v1.16.1 asynchronous HTTP 202 + durable AI worker contract.
+
+Runtime version: 1.16.1
+Migration: 039 unchanged
+Next migration: 040

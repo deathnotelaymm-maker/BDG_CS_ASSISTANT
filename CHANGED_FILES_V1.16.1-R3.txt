@@ -1,0 +1,14 @@
+v1.16.1-r3 — Async Integration Contract Hotfix
+
+Changed application/test files:
+- backend-api/scripts/integration-test.js
+
+Added release documentation and installed marker:
+- CHANGED_FILES_V1.16.1-R3.txt
+- DEPLOYMENT_CHECKLIST_V1.16.1-R3.md
+- RELEASE_NOTES_V1.16.1-R3.md
+- TECHNICAL_ANALYSIS_V1.16.1-R3.md
+- TEST_RESULT_V1.16.1-R3.md
+- V1.16.1_R3_ASYNC_INTEGRATION_CONTRACT_HOTFIX_INSTALLED.txt
+
+No runtime, API, frontend, database, or migration files changed.

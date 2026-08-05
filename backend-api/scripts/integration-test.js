@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdir } from 'node:fs/promises';
 import pg from 'pg';
-import api, { closeDatabasePools, runMigrations } from '../src/core.js';
+import api, { closeDatabasePools, processNextAiJob, runMigrations } from '../src/core.js';
 
 const { Pool } = pg;
 const ADMIN_ORIGIN = 'https://admin.example.test';
@@ -60,10 +60,11 @@ globalThis.fetch = async (input, init = {}) => {
   const userMessage = String(request.messages?.[1]?.content || '');
   if (requestKind === 'connectivity') return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ ok:true }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
   if (requestKind === 'prompt_first') {
-    const matched = userMessage.includes('Customer message: Integration duplicate intent');
-    const greeting = userMessage.includes('Customer message: halo');
-    const localizedReply = greeting ? 'Halo, saya mengikuti Prompt Manager.' : matched && systemPrompt.includes('requested locale (id)') ? 'Jawaban terverifikasi' : matched ? 'Verified answer' : 'I can help with general support questions under the configured role and instructions.';
-    return new Response(JSON.stringify({ choices:[{ message:{ content:JSON.stringify({ reply:localizedReply, item_id:matched ? selectedSourceId : null, reason:matched ? 'Matched approved integration source' : 'General prompt answer' }) } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
+    const matched = /Customer message:\s*Integration duplicate intent/i.test(userMessage);
+    const greeting = /Customer message:\s*halo/i.test(userMessage);
+    const indonesian = /requested locale \(id\)|naturally in id\b/i.test(systemPrompt);
+    const localizedReply = greeting ? 'Halo, saya mengikuti Prompt Manager.' : matched && indonesian ? 'Jawaban terverifikasi' : matched ? 'Verified answer' : 'I can help with general support questions under the configured role and instructions.';
+    return new Response(JSON.stringify({ choices:[{ message:{ content:localizedReply } }] }), { status:200, headers:{ 'Content-Type':'application/json' } });
   }
   // The composer prompt contains an "AI Meaning Judge decision" section.
   // Classify only the dedicated judge prompt by its authoritative prefix so
@@ -104,6 +105,56 @@ async function call(path, {
 function expectStatus(result, status, label) {
   assert.equal(result.response.status, status, `${label}: ${JSON.stringify(result.payload)}`);
   return result.payload;
+}
+
+function jsonObject(value, fallback = {}) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value || ''));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function processQueuedAiJob(jobId, label) {
+  let job = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await processNextAiJob(env, `integration-worker-${jobId}-${attempt + 1}`);
+    job = (await database.query('SELECT * FROM ai_jobs WHERE id=$1 LIMIT 1', [jobId])).rows[0] || null;
+    assert.ok(job, `${label}: queued AI job must exist`);
+    if (['COMPLETED','FAILED','CANCELLED','SUPPRESSED'].includes(String(job.status))) break;
+    if (job.status === 'RETRYING') {
+      await database.query('UPDATE ai_jobs SET available_at=NOW(),locked_at=NULL,locked_by=NULL WHERE id=$1', [jobId]);
+    }
+  }
+  assert.ok(job && ['COMPLETED','FAILED','CANCELLED','SUPPRESSED'].includes(String(job.status)), `${label}: AI job did not reach a terminal state: ${JSON.stringify(job)}`);
+  const message = (await database.query('SELECT * FROM support_messages WHERE id=$1 LIMIT 1', [job.result_message_id])).rows[0] || null;
+  assert.ok(message, `${label}: terminal AI job must save a customer-visible message`);
+  const metadata = jsonObject(message.metadata_json, {});
+  const chatLog = (await database.query('SELECT * FROM chat_logs WHERE session_id=$1 ORDER BY id DESC LIMIT 1', [job.chat_session_id])).rows[0] || null;
+  return {
+    job,
+    message,
+    metadata,
+    chatLog,
+    reply:String(message.body_text || ''),
+    response_blocks:Array.isArray(metadata.response_blocks) ? metadata.response_blocks : [],
+    response_status:String(metadata.response_status || chatLog?.response_status || ''),
+    resolution_path:String(metadata.resolution_path || chatLog?.resolution_path || ''),
+  };
+}
+
+async function submitAndCompleteChat(body, label) {
+  const accepted = expectStatus(await call('/chat', {
+    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN, body,
+  }), 202, label);
+  assert.equal(accepted.ok, true, `${label}: asynchronous acknowledgement must be successful`);
+  assert.equal(accepted.accepted, true, `${label}: message must be accepted`);
+  assert.equal(accepted.mode, 'AI_PROCESSING', `${label}: response mode must be AI_PROCESSING`);
+  assert.ok(Number(accepted.ai_job?.id) > 0, `${label}: acknowledgement must include the durable AI job`);
+  const completed = await processQueuedAiJob(Number(accepted.ai_job.id), label);
+  return { accepted, ...completed };
 }
 
 try {
@@ -225,10 +276,8 @@ try {
   assert.equal(isolatedFaqs.some((row) => Number(row.id) === Number(createdFaq.id)), false, 'Platform-scoped API must not leak FAQ rows');
 
   const callsBeforeGreeting = providerRequestKinds.length;
-  const promptGreeting = expectStatus(await call('/chat', {
-    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
-    body:{ message:'halo', language:'id', platform_key:platform.public_route_key, session_id:'integration-prompt-greeting' },
-  }), 200, 'Route an Indonesian greeting through the active Prompt Manager runtime');
+  const promptGreeting = await submitAndCompleteChat({ message:'halo', language:'id', platform_key:platform.public_route_key, session_id:'integration-prompt-greeting' }, 'Queue and complete an Indonesian greeting through the active Prompt Manager runtime');
+  assert.equal(promptGreeting.job.status, 'COMPLETED');
   assert.equal(promptGreeting.response_status, 'success');
   assert.equal(promptGreeting.resolution_path, 'prompt_first_general_answer');
   assert.match(promptGreeting.reply, /Halo/i);
@@ -237,12 +286,9 @@ try {
   assert.match(providerSystemPrompts.at(-1), /INTEGRATION_OUTPUT_MARKER/);
   assert.equal(promptGreeting.response_blocks.some((block) => block.type === 'error'), false);
 
-  const localizedAiAnswer = expectStatus(await call('/chat', {
-    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
-    body:{ message:'Integration duplicate intent', language:'id', platform_key:platform.public_route_key, session_id:'integration-id-answer' },
-  }), 200, 'Use default-locale verified content for an Indonesian AI answer');
+  const localizedAiAnswer = await submitAndCompleteChat({ message:'Integration duplicate intent', language:'id', platform_key:platform.public_route_key, session_id:'integration-id-answer' }, 'Queue and complete a default-locale verified answer for an Indonesian customer');
+  assert.equal(localizedAiAnswer.job.status, 'COMPLETED');
   assert.equal(localizedAiAnswer.response_status, 'success');
-  assert.equal(localizedAiAnswer.language, 'id');
   assert.match(localizedAiAnswer.reply, /Jawaban terverifikasi/);
   assert.equal(localizedAiAnswer.resolution_path, 'prompt_first_grounded_answer');
   assert.equal(localizedAiAnswer.response_blocks.filter((block) => block.type === 'image').length, 1, 'A matched source must attach its approved image once');
@@ -250,27 +296,23 @@ try {
   assert.deepEqual(providerRequestKinds.slice(-1), ['prompt_first'], 'A normal answer must use one provider call');
 
   const callsBeforeGeneral = providerRequestKinds.length;
-  const generalAnswer = expectStatus(await call('/chat', {
-    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
-    body:{ message:'What can you help me with today?', language:'en', platform_key:platform.public_route_key, session_id:'integration-general-answer' },
-  }), 200, 'Answer a general question under Prompt Manager rules');
+  const generalAnswer = await submitAndCompleteChat({ message:'What can you help me with today?', language:'en', platform_key:platform.public_route_key, session_id:'integration-general-answer' }, 'Queue and complete a general question under Prompt Manager rules');
+  assert.equal(generalAnswer.job.status, 'COMPLETED');
   assert.equal(generalAnswer.response_status, 'success');
   assert.equal(generalAnswer.resolution_path, 'prompt_first_general_answer');
   assert.match(generalAnswer.reply, /general support questions/i);
   assert.deepEqual(providerRequestKinds.slice(callsBeforeGeneral), ['prompt_first'], 'A general prompt answer must use exactly one provider call');
 
-  const runtimeBeforeEdit = generalAnswer.prompt_runtime.hash;
+  const runtimeBeforeEdit = String(generalAnswer.chatLog?.prompt_runtime_hash || '');
+  assert.match(runtimeBeforeEdit, /^[a-f0-9]{64}$/);
   const editedRole = expectStatus(await call(`/admin/ai/prompts/${runtimeRole.id}`, {
     method:'PUT', body:{ section_key:'integration_runtime_role', title:'Integration Runtime Role', content:'INTEGRATION_ROLE_MARKER_V2: You are the newly published integration assistant.', enabled:true, priority:5 },
   }), 200, 'Publish a changed prompt runtime');
   assert.notEqual(editedRole.prompt_runtime.compiled_prompt_hash, runtimeBeforeEdit);
-  const afterPromptChange = expectStatus(await call('/chat', {
-    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
-    body:{ message:'What changed in your instructions?', language:'en', platform_key:platform.public_route_key, session_id:'integration-general-answer' },
-  }), 200, 'Reset old conversation memory after a prompt runtime change');
-  assert.equal(afterPromptChange.memory_reset.reset, true);
-  assert.match(afterPromptChange.memory_reset.reason, /^prompt_runtime_changed:/);
-  assert.equal(afterPromptChange.prompt_runtime.hash, editedRole.prompt_runtime.compiled_prompt_hash);
+  const afterPromptChange = await submitAndCompleteChat({ message:'What changed in your instructions?', language:'en', platform_key:platform.public_route_key, session_id:'integration-general-answer' }, 'Queue and complete an answer after a prompt runtime change');
+  assert.equal(afterPromptChange.job.status, 'COMPLETED');
+  assert.match(String(afterPromptChange.chatLog?.memory_reset_reason || ''), /^prompt_runtime_changed:/);
+  assert.equal(afterPromptChange.chatLog?.prompt_runtime_hash, editedRole.prompt_runtime.compiled_prompt_hash);
   assert.match(providerSystemPrompts.at(-1), /INTEGRATION_ROLE_MARKER_V2/);
   assert.doesNotMatch(providerSystemPrompts.at(-1), /INTEGRATION_ROLE_MARKER: /);
   const promptChangeLog = (await database.query(`SELECT prompt_runtime_hash,memory_reset_reason,prompt_section_ids_json FROM chat_logs WHERE session_id='integration-general-answer' ORDER BY id DESC LIMIT 1`)).rows[0];
@@ -279,20 +321,17 @@ try {
   assert.ok(JSON.parse(promptChangeLog.prompt_section_ids_json).includes(Number(runtimeRole.id)));
 
   providerMode = 'outage';
-  const verifiedFallback = expectStatus(await call('/chat', {
-    method:'POST', auth:false, platformRoute:'', origin:SHARED_CHAT_ORIGIN,
-    body:{ message:'Integration duplicate intent', language:'en', platform_key:platform.public_route_key, session_id:'integration-provider-fallback' },
-  }), 200, 'Return verified source content when the prompt-first provider fails');
-  assert.equal(verifiedFallback.response_status, 'degraded');
-  assert.equal(verifiedFallback.resolution_path, 'verified_source_fallback');
-  assert.match(verifiedFallback.reply, /Verified answer/);
-  assert.equal(verifiedFallback.response_blocks.filter((block) => block.type === 'image').length, 1, 'Provider outage fallback must retain the matched approved image');
-  assert.equal(verifiedFallback.response_blocks.some((block) => block.type === 'error'), false);
-  assert.equal(Object.hasOwn(verifiedFallback, 'provider_error'), false, 'Public chat must not expose provider details');
-  const fallbackLog = (await database.query(`SELECT response_status,resolution_path,degraded_reason,provider_attempts FROM chat_logs WHERE session_id='integration-provider-fallback' ORDER BY id DESC LIMIT 1`)).rows[0];
-  assert.equal(fallbackLog.response_status, 'degraded');
-  assert.equal(fallbackLog.resolution_path, 'verified_source_fallback');
-  assert.ok(Number(fallbackLog.provider_attempts) >= 3, 'Configured provider retries must execute and be recorded');
+  const outageCallsBefore = providerRequestKinds.length;
+  const failedAnswer = await submitAndCompleteChat({ message:'Integration duplicate intent', language:'en', platform_key:platform.public_route_key, session_id:'integration-provider-fallback' }, 'Retry a temporary provider outage through the durable AI queue');
+  assert.equal(failedAnswer.job.status, 'FAILED');
+  assert.equal(Number(failedAnswer.job.attempt_count), 3, 'Durable worker must perform the configured three job attempts');
+  assert.equal(failedAnswer.response_status, 'degraded');
+  assert.equal(failedAnswer.resolution_path, 'provider_failure_retry_exhausted');
+  assert.match(failedAnswer.reply, /couldn[’']t complete that answer/i);
+  assert.equal(failedAnswer.response_blocks.some((block) => block.type === 'error'), false);
+  assert.equal(failedAnswer.response_blocks.some((block) => block.action_type === 'human_handoff'), false, 'Handoff-disabled provider failure must not recommend support');
+  assert.equal(providerRequestKinds.length - outageCallsBefore, 3, 'Each durable job attempt must perform one provider request');
+  assert.equal(String(failedAnswer.job.last_error_detail || '').includes('simulated provider outage'), true, 'Provider detail remains available only in the internal job record');
   providerMode = 'success';
 
   const blockedConnector = await call('/admin/connector', {
@@ -318,7 +357,7 @@ try {
   console.log('PASS Real login, scoped CRUD, shared-host public read, hostname guard, and tenant-isolation paths');
   console.log('PASS Rich HTML is sanitized in the API response and PostgreSQL row');
   console.log('PASS Private connector targets are rejected through the authenticated API');
-  console.log('PASS Prompt-managed greeting, one-call general and grounded answers, matched images, provider retry, and verified-source fallback paths');
+  console.log('PASS Asynchronous HTTP 202 chat acknowledgement, durable worker completion, plain-text answers, approved images, and provider retry exhaustion paths');
   console.log('PASS Prompt runtime versions, hashes, and prompt-aware memory reset persist in PostgreSQL');
   console.log('PASS Retired AI Admin modules return HTTP 410 and cannot participate in production routing');
 } finally {
