@@ -35,7 +35,7 @@ import { Link, useLocation, useNavigate, useMatches } from "@tanstack/react-rout
 import { api, getActiveAdminPlatformRoute, getCurrentUser, logout } from "@/lib/api";
 
 const { Sider, Header, Content } = Layout;
-const ADMIN_VERSION = "v1.16.2";
+const ADMIN_VERSION = "v1.16.3";
 
 const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: string }[] = [
   {
@@ -104,13 +104,6 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     icon: <MonitorOutlined />,
     group: "AI",
   },
-  {
-    key: "/action-buttons",
-    to: "/action-buttons",
-    label: "Buttons (Optional)",
-    icon: <LinkOutlined />,
-    group: "AI",
-  },
 
   {
     key: "/customer-service",
@@ -142,13 +135,9 @@ const NAV: { key: string; to: string; label: string; icon: ReactNode; group?: st
     group: "CHAT",
   },
 
-  {
-    key: "/theme-settings",
-    to: "/theme-settings",
-    label: "Theme Settings",
-    icon: <BgColorsOutlined />,
-    group: "SETTINGS",
-  },
+  { key: "/theme-settings?section=guide", to: "/theme-settings?section=guide", label: "Guide Theme", icon: <BgColorsOutlined />, group: "APPEARANCE" },
+  { key: "/theme-settings?section=chat", to: "/theme-settings?section=chat", label: "Chat Theme", icon: <BgColorsOutlined />, group: "APPEARANCE" },
+  { key: "/action-buttons", to: "/action-buttons", label: "Global Buttons", icon: <LinkOutlined />, group: "ENGAGEMENT" },
   {
     key: "/audit-logs",
     to: "/audit-logs",
@@ -177,12 +166,12 @@ const ZH: Record<string, string> = {
   "AI Q&A": "AI 问答",
   "AI Source Router": "AI 来源路由",
   "Prompt Version History": "提示词版本历史",
-  "Buttons (Optional)": "按钮（可选）",
+  "Global Buttons": "全局按钮", "Guide Theme": "指南主题", "Chat Theme": "聊天主题",
   "Test & Diagnostics": "测试与诊断",
   "Chat Quick Replies": "聊天快捷回复",
   "Chat Logs": "聊天记录",
   "Unmatched Questions": "未匹配问题",
-  "Theme Settings": "主题设置",
+  APPEARANCE: "外观", ENGAGEMENT: "互动",
   "Audit Logs": "审计日志",
   "Admin Users": "管理员账号",
   "Platform Control Center": "平台控制中心",
@@ -200,7 +189,7 @@ const ZH: Record<string, string> = {
   "My Profile": "我的资料",
 };
 const MY: Record<string, string> = {
-  Dashboard: "ဒက်ရှ်ဘုတ်", "Platform Control Center": "ပလက်ဖောင်းထိန်းချုပ်မှု", "Domain Mapping": "ဒိုမိန်းချိတ်ဆက်မှု", "Site Content": "ဆိုက်အကြောင်းအရာ", Categories: "အမျိုးအစားများ", Guide: "လမ်းညွှန်", FAQ: "အမေးများ", "Assistant Setup": "AI Assistant ပြင်ဆင်မှု", "Customer Service": "ဖောက်သည်ဝန်ဆောင်မှု", "CUSTOMER SERVICE": "ဖောက်သည်ဝန်ဆောင်မှု", "Menu & Images": "မီနူးနှင့် ပုံများ", "AI Knowledge Import": "AI အသိပညာ တင်သွင်းရန်", "AI Q&A": "AI အမေးအဖြေ", "AI Source Router": "AI ရင်းမြစ် လမ်းကြောင်း", "AI Reliability": "AI ယုံကြည်စိတ်ချရမှု", "AI Response Quality": "AI တုံ့ပြန်မှုအရည်အသွေး", "Prompt Version History": "Prompt ဗားရှင်းမှတ်တမ်း", "Buttons (Optional)": "ခလုတ်များ (ရွေးချယ်နိုင်)", "Test & Diagnostics": "စမ်းသပ်ခြင်းနှင့် စစ်ဆေးမှု", "Chat Quick Replies": "Chat အမြန်ဖြေ", "Chat Logs": "Chat မှတ်တမ်း", "Unmatched Questions": "မကိုက်ညီသောမေးခွန်းများ", "Theme Settings": "အပြင်အဆင်", "Audit Logs": "စစ်ဆေးမှတ်တမ်း", "Admin Users": "စီမံသူများ", PLATFORM: "ပလက်ဖောင်း", OVERVIEW: "အနှစ်ချုပ်", CONTENT: "အကြောင်းအရာ", AI: "AI", CHAT: "Chat", SETTINGS: "ဆက်တင်များ", Console: "ကွန်ဆိုလ်", "Sign out": "ထွက်ရန်", "My Profile": "ကိုယ်ရေးအချက်အလက်"
+  Dashboard: "ဒက်ရှ်ဘုတ်", "Platform Control Center": "ပလက်ဖောင်းထိန်းချုပ်မှု", "Domain Mapping": "ဒိုမိန်းချိတ်ဆက်မှု", "Site Content": "ဆိုက်အကြောင်းအရာ", Categories: "အမျိုးအစားများ", Guide: "လမ်းညွှန်", FAQ: "အမေးများ", "Assistant Setup": "AI Assistant ပြင်ဆင်မှု", "Customer Service": "ဖောက်သည်ဝန်ဆောင်မှု", "CUSTOMER SERVICE": "ဖောက်သည်ဝန်ဆောင်မှု", "Menu & Images": "မီနူးနှင့် ပုံများ", "AI Knowledge Import": "AI အသိပညာ တင်သွင်းရန်", "AI Q&A": "AI အမေးအဖြေ", "AI Source Router": "AI ရင်းမြစ် လမ်းကြောင်း", "AI Reliability": "AI ယုံကြည်စိတ်ချရမှု", "AI Response Quality": "AI တုံ့ပြန်မှုအရည်အသွေး", "Prompt Version History": "Prompt ဗားရှင်းမှတ်တမ်း", "Global Buttons": "Global Buttons", "Guide Theme": "Guide Theme", "Chat Theme": "Chat Theme", "Test & Diagnostics": "စမ်းသပ်ခြင်းနှင့် စစ်ဆေးမှု", "Chat Quick Replies": "Chat အမြန်ဖြေ", "Chat Logs": "Chat မှတ်တမ်း", "Unmatched Questions": "မကိုက်ညီသောမေးခွန်းများ", APPEARANCE: "Appearance", ENGAGEMENT: "Engagement", "Audit Logs": "စစ်ဆေးမှတ်တမ်း", "Admin Users": "စီမံသူများ", PLATFORM: "ပလက်ဖောင်း", OVERVIEW: "အနှစ်ချုပ်", CONTENT: "အကြောင်းအရာ", AI: "AI", CHAT: "Chat", SETTINGS: "ဆက်တင်များ", Console: "ကွန်ဆိုလ်", "Sign out": "ထွက်ရန်", "My Profile": "ကိုယ်ရေးအချက်အလက်"
 };
 function langNow() {
   try {
@@ -232,7 +221,7 @@ function buildMenu(userRole?: string, canManagePlatform = false): MenuProps["ite
       children: list.map((n) => ({
         key: n.key,
         icon: n.icon,
-        label: <Link to={n.to}>{tr(n.label)}</Link>,
+        label: (() => { const [to,query] = n.to.split("?"); const search = query ? Object.fromEntries(new URLSearchParams(query)) : undefined; return <Link to={to as any} search={search as any}>{tr(n.label)}</Link>; })(),
       })),
     });
   }
@@ -255,7 +244,8 @@ export default function AdminLayout({
   const location = useLocation();
   const navigate = useNavigate();
   const matches = useMatches();
-  const current = NAV.find((n) => location.pathname.startsWith(n.key));
+  const currentSearch = typeof window !== "undefined" ? window.location.search : "";
+  const current = NAV.find((n) => n.to.includes("?") ? `${location.pathname}${currentSearch}` === n.to : location.pathname.startsWith(n.key));
 
   useEffect(() => {
     if (!getActiveAdminPlatformRoute()) { setPlatformContext(null); return; }

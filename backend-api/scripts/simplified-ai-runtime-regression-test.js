@@ -23,8 +23,8 @@ const redirects = [
   '_admin.ai-knowledge.tsx',
 ].map((file) => read(`admin-pro/src/routes/${file}`));
 
-assert.match(core, /1\.16\.2-conversation-continuity-realtime-media-matching/);
-assert.match(server, /1\.16\.2-conversation-continuity-realtime-media-matching/);
+assert.match(core, /1\.16\.3-admin-contract-chat-flow-theme-separation/);
+assert.match(server, /1\.16\.3-admin-contract-chat-flow-theme-separation/);
 assert.match(core, /source_order:\['prompt_image'\]/);
 assert.match(core, /enabled_sources:\['prompt_image'\]/);
 assert.match(core, /source_type='prompt_image'/);
@@ -39,7 +39,7 @@ assert.match(core, /retiredAiAdminEndpoint\(path\)/);
 assert.match(server, /assistant-profile-menu-image-runtime/);
 assert.doesNotMatch(server, /ai-response-quality-center|unified-ai-source-router|advanced-knowledge-import/);
 
-for (const route of ['/ai-prompt-manager', '/ai-content-studio', '/ai-diagnostics', '/action-buttons']) {
+for (const route of ['/ai-prompt-manager', '/ai-content-studio', '/ai-diagnostics']) {
   assert.match(layout, new RegExp(`(?:key|to): "${route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
 }
 for (const retired of ['/ai-qa', '/ai-source-router', '/ai-response-quality', '/ai-knowledge-import', '/locale-studio']) {

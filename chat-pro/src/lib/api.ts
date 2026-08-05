@@ -1,4 +1,4 @@
-// BDG Chat Pro API client — v1.16.2 continuity, ticketed realtime and fallback sync.
+// BDG Chat Pro API client — v1.16.3 single-pending flow and progressive history.
 
 const configuredApiBase =
   (import.meta.env.VITE_BDG_API_BASE as string | undefined) ??
@@ -343,6 +343,8 @@ export async function resumeCustomerConversation(platformKey = getPlatformKey())
     ok: true;
     conversation: SupportConversation;
     messages: SupportMessage[];
+    has_older_messages?: boolean;
+    oldest_sequence?: number;
     active_ai_jobs?: AiJobSummary[];
     support_token: string;
     resume_key: string;
@@ -353,6 +355,11 @@ export async function resumeCustomerConversation(platformKey = getPlatformKey())
   }, saved.token || undefined);
   saveCustomerSupportSession(response.support_token, response.conversation.public_id, platformKey, response.resume_key);
   return response;
+}
+
+
+export async function fetchOlderCustomerMessages(publicId: string, supportToken: string, beforeSequence: number, limit = 10) {
+  return supportRequest<{ ok:true; messages:SupportMessage[]; has_older_messages:boolean; oldest_sequence:number }>(`/support/customer/conversations/${publicId}/history?before_sequence=${Math.max(0,Number(beforeSequence||0))}&limit=${Math.max(5,Math.min(50,Number(limit||10)))}`,{},supportToken);
 }
 
 export async function createCustomerRealtimeTicket(supportToken: string) {

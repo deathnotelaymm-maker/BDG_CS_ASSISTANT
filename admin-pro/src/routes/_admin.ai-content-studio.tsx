@@ -47,27 +47,19 @@ function AiContentStudioPage() {
   const [richHtml, setRichHtml] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [actionButtons, setActionButtons] = useState<any[]>([]);
-  const [platforms, setPlatforms] = useState<any[]>([]);
-  const [testMessage, setTestMessage] = useState("ဗိုက်ဆာနေတယ်၊ ဘာစားရမလဲ");
+  const [testMessage, setTestMessage] = useState("");
   const [testLanguage, setTestLanguage] = useState("my");
-  const [testPlatform, setTestPlatform] = useState("");
-  const [testResult, setTestResult] = useState<any | null>(null);
+    const [testResult, setTestResult] = useState<any | null>(null);
   const [testing, setTesting] = useState(false);
   const [form] = Form.useForm();
 
   const load = async () => {
     setLoading(true);
     try {
-      const [items, buttons, platformRows] = await Promise.all([
-        api.list("ai-content"),
-        api.list("action-buttons"),
-        api.listSupportPlatforms(),
-      ]);
+      const [items, buttons, context] = await Promise.all([api.list("ai-content"),api.list("action-buttons"),api.getPlatformContext()]);
+      if (!(context as any)?.platform) throw new Error("Active platform context is unavailable");
       setRows(items as any[]);
       setActionButtons(buttons as any[]);
-      setPlatforms(platformRows as any[]);
-      const activePlatforms = (platformRows as any[]).filter((platform) => platform.status === "active");
-      if (!testPlatform && activePlatforms[0]?.platform_key) setTestPlatform(activePlatforms[0].platform_key);
     } catch (error: any) {
       message.error(error?.message || "Failed to load Menu & Images");
     } finally {
@@ -168,7 +160,7 @@ function AiContentStudioPage() {
     if (!testMessage.trim()) return;
     setTesting(true);
     try {
-      setTestResult(await api.testAiContent(testMessage.trim(), testLanguage, testPlatform || undefined));
+      setTestResult(await api.testAiContent(testMessage.trim(), testLanguage));
     } catch (error: any) {
       message.error(error?.message || "Test failed");
     } finally {
@@ -265,19 +257,10 @@ function AiContentStudioPage() {
             ]}
             style={{ width: 145 }}
           />
-          <Select
-            value={testPlatform}
-            onChange={setTestPlatform}
-            options={platforms
-              .filter((platform) => platform.status === "active")
-              .map((platform) => ({ value: platform.platform_key, label: platform.name }))}
-            style={{ width: 190 }}
-          />
           <Input
             value={testMessage}
             onChange={(event) => setTestMessage(event.target.value)}
             onPressEnter={runTest}
-            placeholder="Try: ဗိုက်ဆာနေတယ်၊ ဘာစားရမလဲ"
           />
           <Button icon={<ExperimentOutlined />} type="primary" loading={testing} onClick={runTest}>
             Test
@@ -424,20 +407,6 @@ function AiContentStudioPage() {
 
                     <Row gutter={12}>
                       <Col xs={24} md={12}>
-                        <Form.Item name="platform_scope" label="Available on platforms">
-                          <Select
-                            mode="multiple"
-                            optionFilterProp="label"
-                            options={[
-                              { value: "all", label: "All active platforms" },
-                              ...platforms
-                                .filter((platform) => platform.status === "active")
-                                .map((platform) => ({ value: platform.platform_key, label: platform.name })),
-                            ]}
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} md={12}>
                         <Form.Item name="route_policy" label="Customer action">
                           <Select
                             options={[
@@ -459,7 +428,6 @@ function AiContentStudioPage() {
                         <Form.Item name="positive_examples" label="Customer messages that should match">
                           <Input.TextArea
                             rows={6}
-                            placeholder={"ဘာစားရမလဲ\nထမင်းကြော်မီနူးပြပါ\nစားကောင်းတာလေး အကြံပေးပါ\nRecommend something delicious"}
                           />
                         </Form.Item>
                       </Col>
@@ -467,7 +435,6 @@ function AiContentStudioPage() {
                         <Form.Item name="negative_examples" label="Messages that must not match">
                           <Input.TextArea
                             rows={6}
-                            placeholder={"ငွေပေးချေမှုမအောင်မြင်ဘူး\nMy delivery is late\nI want human support"}
                           />
                         </Form.Item>
                       </Col>

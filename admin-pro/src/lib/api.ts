@@ -671,6 +671,12 @@ export const api = {
     });
   },
 
+
+  getChatTheme: async () => request('/admin/themes/chat'),
+  updateChatTheme: async (data: any) => request('/admin/themes/chat', { method:'PUT', body:JSON.stringify(data) }),
+  getGuideTheme: async () => request('/admin/themes/guide'),
+  updateGuideTheme: async (data: any) => request('/admin/themes/guide', { method:'PUT', body:JSON.stringify(data) }),
+
   getSettings: async () => {
     if (MOCK_MODE)
       return delay({
@@ -712,7 +718,7 @@ export const api = {
     return uploadAdminFile(file, "/admin/guide-motion-uploads");
   },
 
-  testAiContent: async (message: string, language = "en", platform_key = "default") => {
+  testAiContent: async (message: string, language = "en", platform_key = getActiveAdminPlatformRoute() || "default") => {
     if (MOCK_MODE)
       return delay({ ok: true, selected_content: null, candidates: [], greeting_bypass: false });
     return request("/admin/ai-content/test", {

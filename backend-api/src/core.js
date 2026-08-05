@@ -36,7 +36,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.16.2-conversation-continuity-realtime-media-matching';
+const VERSION = '1.16.3-admin-contract-chat-flow-theme-separation';
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
@@ -111,13 +111,15 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','prompt-first-one-call','assistant-profile-menu-image-runtime','human-support-live-chat','support-staff-console','support-websocket-gateway','support-presence-heartbeats','support-queue-assignment','support-conversation-transfers','support-audit-log','fixed-prompt-image-source','automatic-message-language-detection','retired-ai-modules-410','prompt-runtime-versioning','prompt-hash-diagnostics','prompt-aware-memory-reset','fresh-admin-ai-tests','current-deepseek-v4-model','matched-source-image-delivery','live-provider-connectivity-test','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','rich-faq-studio','locale-policy','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','guide-parent-publication-sync','guide-derived-publication-status','guide-platform-self-service-upload','guide-publish-role-guard','guide-media-ownership-audit','guide-motion-media','guide-gif-covers','guide-video-autoplay-loop','guide-safe-text-animation-presets','guide-reduced-motion','dynamic-ai-locale-routing','default-locale-source-fallback','bounded-provider-retries','turn-deadline-budget','verified-source-fallback','local-conversation-safety','customer-safe-degraded-response','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','domain-id-validation','cloudflare-configuration-guard','immutable-file-migrations','server-rich-html-sanitization','connector-dns-ssrf-guard','postgres-api-integration-tests'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','prompt-first-one-call','assistant-profile-menu-image-runtime','human-support-live-chat','support-staff-console','support-websocket-gateway','support-presence-heartbeats','support-queue-assignment','support-conversation-transfers','support-audit-log','fixed-prompt-image-source','automatic-message-language-detection','retired-ai-modules-410','prompt-runtime-versioning','prompt-hash-diagnostics','prompt-aware-memory-reset','fresh-admin-ai-tests','current-deepseek-v4-model','matched-source-image-delivery','live-provider-connectivity-test','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','rich-faq-studio','locale-policy','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','guide-parent-publication-sync','guide-derived-publication-status','guide-platform-self-service-upload','guide-publish-role-guard','guide-media-ownership-audit','guide-motion-media','guide-gif-covers','guide-video-autoplay-loop','guide-safe-text-animation-presets','guide-reduced-motion','dynamic-ai-locale-routing','default-locale-source-fallback','bounded-provider-retries','turn-deadline-budget','verified-source-fallback','local-conversation-safety','customer-safe-degraded-response','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','domain-id-validation','cloudflare-configuration-guard','immutable-file-migrations','server-rich-html-sanitization','connector-dns-ssrf-guard','postgres-api-integration-tests','stable-admin-platform-context','single-pending-question','progressive-message-history','separate-guide-chat-themes','global-action-buttons'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
   const publicContext = platformContextFromRequest(request, url, { allowQuery: true, allowHostname: true });
   const publicReference = publicContext.reference || publicContext.raw_reference || '';
   if (method === 'GET' && (path === '/settings' || path === '/public/theme')) return json(await getTheme(env, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
+  if (method === 'GET' && path === '/public/chat-theme') return json(await getChatTheme(env, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
+  if (method === 'GET' && path === '/public/guide-theme') return json(await getGuideTheme(env, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
   if (method === 'GET' && (path === '/guide/content' || path === '/public/guide-content')) return json(await getGuideContent(env, publicReference, publicContext), 200, env);
   if (method === 'GET' && (path === '/popular-help' || path === '/public/popular-help')) return json(await listPopularHelp(env, false, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
   if (method === 'GET' && (path === '/navigation' || path === '/public/navigation')) return json(await listNavigation(env, false, await resolvePublicPlatformScope(env, publicReference, publicContext)), 200, env);
@@ -245,7 +247,11 @@ async function route(request, env, url) {
   if (method === 'POST' && path === '/admin/connector/test') return json(await testPlatformConnector(env, await readJson(request), scope), 200, env);
   if (method === 'GET' && path === '/admin/connector/audit') return json(await listConnectorAudit(env, scope), 200, env);
 
-  // Admin settings / theme
+  // Admin settings / independently versioned Guide and Chat themes
+  if (method === 'GET' && path === '/admin/themes/chat') return json(await getChatTheme(env, scope), 200, env);
+  if (method === 'PUT' && path === '/admin/themes/chat') return json(await updateChatTheme(env, await readJson(request), scope), 200, env);
+  if (method === 'GET' && path === '/admin/themes/guide') return json(await getGuideTheme(env, scope), 200, env);
+  if (method === 'PUT' && path === '/admin/themes/guide') return json(await updateGuideTheme(env, await readJson(request), scope), 200, env);
   if (method === 'PUT' && path === '/admin/settings') return json(await updateTheme(env, await readJson(request), scope), 200, env);
   if (method === 'GET' && path === '/admin/site-content') return json(await getAdminSiteContent(env, scope), 200, env);
   if (method === 'PUT' && path === '/admin/site-content/bulk') return json(await updateSiteContentBulk(env, await readJson(request), scope), 200, env);
@@ -1024,14 +1030,11 @@ function numericIds(value) {
   return [...new Set(source.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))].slice(0, 30);
 }
 function actionButtonOut(row, lang = 'en') {
-  const useHi = String(lang || '').toLowerCase().startsWith('hi');
   return {
     id: row.id,
     button_key: row.button_key,
-    label: (useHi && row.label_hi) ? row.label_hi : row.label,
-    label_hi: row.label_hi || '',
-    subtitle: (useHi && row.subtitle_hi) ? row.subtitle_hi : (row.subtitle || ''),
-    subtitle_hi: row.subtitle_hi || '',
+    label: row.label,
+    subtitle: row.subtitle || '',
     icon_url: row.icon_url || '',
     action_type: row.action_type || 'url',
     url: row.url || '',
@@ -1178,6 +1181,8 @@ async function getTheme(env, scope = null) {
     ? 'SELECT * FROM theme_settings WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id ASC LIMIT 1'
     : 'SELECT * FROM theme_settings ORDER BY id ASC LIMIT 1', scope ? [scope.tenant_id, scope.platform_id] : []);
   const row = rows[0] || {};
+  const separatedChat = scope ? await getChatTheme(env,scope) : {};
+  const separatedGuide = scope ? await getGuideTheme(env,scope) : {};
   const platformName = scope ? safePlatformDisplayName(scope, 'Support') : '';
   const scopedName = platformName || (scope ? 'Support' : 'BDG Help Center');
   const scopedSupport = platformName ? `${platformName} Support` : (scope ? 'Platform Support' : 'BDG AI Support');
@@ -1202,40 +1207,75 @@ async function getTheme(env, scope = null) {
     surface_color: row.surface_color || '#0f172a',
     font_family: row.font_family || 'Inter',
     button_style: row.button_style || 'rounded',
-    chat_header_title: row.chat_header_title || scopedSupport,
-    chat_online_text: row.chat_online_text || 'Online assistant',
+    chat_header_title: separatedChat.header_title || row.chat_header_title || scopedSupport,
+    chat_online_text: separatedChat.online_text || row.chat_online_text || 'Online',
     show_chat_support_button: row.show_chat_support_button === true,
     show_guide_support_button: row.show_guide_support_button === true,
-    chat_welcome_title: row.chat_welcome_title || `Welcome to ${scopedSupport}`,
-    chat_welcome_subtitle: row.chat_welcome_subtitle || `Please describe your issue and ${scopedSupport} will guide you step by step.`,
-    chat_input_placeholder: row.chat_input_placeholder || 'Type your message...',
-    chat_start_enabled: row.chat_start_enabled !== false,
-    chat_start_title: row.chat_start_title || `Welcome to ${scopedSupport}`,
-    chat_start_body: row.chat_start_body || `Get help from ${scopedSupport}. Choose a quick topic or start a conversation.`,
-    chat_start_image_url: row.chat_start_image_url || '',
-    chat_start_animation: safeChatPreset(row.chat_start_animation, CHAT_ANIMATION_PRESETS, 'fade'),
-    chat_start_button_label: row.chat_start_button_label || 'Start chat',
-    chat_start_announcement: row.chat_start_announcement || '',
-    chat_start_maintenance_banner: row.chat_start_maintenance_banner || '',
-    chat_start_responsible_notice: row.chat_start_responsible_notice || '',
-    chat_layout: safeChatPreset(row.chat_layout, CHAT_LAYOUT_MODES, 'standard'),
-    chat_bubble_style: safeChatPreset(row.chat_bubble_style, CHAT_BUBBLE_STYLES, 'soft'),
-    chat_input_style: safeChatPreset(row.chat_input_style, CHAT_INPUT_STYLES, 'rounded'),
-    chat_background_url: row.chat_background_url || '',
-    chat_start_button_ids: numericIds(row.chat_start_button_ids || ''),
+    chat_welcome_title: separatedChat.welcome_title || row.chat_welcome_title || `Welcome to ${scopedSupport}`,
+    chat_welcome_subtitle: separatedChat.welcome_subtitle || row.chat_welcome_subtitle || `Please describe your issue and ${scopedSupport} will guide you step by step.`,
+    chat_input_placeholder: separatedChat.input_placeholder || row.chat_input_placeholder || 'Type a message…',
+    chat_start_enabled: separatedChat.start_enabled ?? (row.chat_start_enabled !== false),
+    chat_start_title: separatedChat.start_title || row.chat_start_title || `Welcome to ${scopedSupport}`,
+    chat_start_body: separatedChat.start_body || row.chat_start_body || `Get help from ${scopedSupport}. Choose a quick topic or start a conversation.`,
+    chat_start_image_url: separatedChat.start_image_url || row.chat_start_image_url || '',
+    chat_start_animation: separatedChat.start_animation || safeChatPreset(row.chat_start_animation, CHAT_ANIMATION_PRESETS, 'fade'),
+    chat_start_button_label: separatedChat.start_button_label || row.chat_start_button_label || 'Start chat',
+    chat_start_announcement: separatedChat.start_announcement || row.chat_start_announcement || '',
+    chat_start_maintenance_banner: separatedChat.start_maintenance_banner || row.chat_start_maintenance_banner || '',
+    chat_start_responsible_notice: separatedChat.start_responsible_notice || row.chat_start_responsible_notice || '',
+    chat_layout: separatedChat.layout || safeChatPreset(row.chat_layout, CHAT_LAYOUT_MODES, 'standard'),
+    chat_bubble_style: separatedChat.bubble_style || safeChatPreset(row.chat_bubble_style, CHAT_BUBBLE_STYLES, 'soft'),
+    chat_input_style: separatedChat.input_style || safeChatPreset(row.chat_input_style, CHAT_INPUT_STYLES, 'rounded'),
+    chat_background_url: separatedChat.background_url || row.chat_background_url || '',
+    chat_start_button_ids: separatedChat.start_button_ids || numericIds(row.chat_start_button_ids || ''),
     chat_start_text_color: row.chat_start_text_color || '#ffffff',
     chat_start_accent_color: row.chat_start_accent_color || row.primary_color || '#f7c948',
-    guide_background_url: row.guide_background_url || '',
-    guide_hero_background_url: row.guide_hero_background_url || '',
-    guide_hero_overlay_color: row.guide_hero_overlay_color || '',
-    guide_font_family: row.guide_font_family || 'system',
-    guide_surface_color: row.guide_surface_color || '',
-    guide_text_color: row.guide_text_color || '',
-    guide_card_radius: Math.max(8, Math.min(32, Number(row.guide_card_radius || 16))),
-    guide_content_width: Math.max(720, Math.min(1400, Number(row.guide_content_width || 960))),
+    guide_background_url: separatedGuide.background_url || row.guide_background_url || '',
+    guide_hero_background_url: separatedGuide.hero_background_url || row.guide_hero_background_url || '',
+    guide_hero_overlay_color: separatedGuide.hero_overlay_color || row.guide_hero_overlay_color || '',
+    guide_font_family: separatedGuide.font_family || row.guide_font_family || 'system',
+    guide_surface_color: separatedGuide.surface_color || row.guide_surface_color || '',
+    guide_text_color: separatedGuide.text_color || row.guide_text_color || '',
+    guide_card_radius: separatedGuide.card_radius || Math.max(8, Math.min(32, Number(row.guide_card_radius || 16))),
+    guide_content_width: separatedGuide.content_width || Math.max(720, Math.min(1400, Number(row.guide_content_width || 960))),
     updated_at: row.updated_at ? String(row.updated_at) : ''
   };
 }
+
+async function getChatTheme(env, scope) {
+  if (!scope) return {};
+  const legacy = await getThemeLegacyRow(env, scope);
+  const row = (await q(env, `SELECT * FROM chat_theme_settings WHERE tenant_id=$1 AND platform_id=$2 LIMIT 1`, [scope.tenant_id,scope.platform_id])).rows[0] || {};
+  const platformName=safePlatformDisplayName(scope,'Support');
+  return {
+    header_title:row.header_title || legacy.chat_header_title || `${platformName} Support`, online_text:row.online_text || legacy.chat_online_text || 'Online',
+    welcome_title:row.welcome_title || legacy.chat_welcome_title || `Welcome to ${platformName} Support`, welcome_subtitle:row.welcome_subtitle || legacy.chat_welcome_subtitle || '',
+    input_placeholder:row.input_placeholder || legacy.chat_input_placeholder || 'Type a message…', icon_url:row.icon_url || legacy.chat_icon_url || '', background_url:row.background_url || legacy.chat_background_url || '',
+    layout:safeChatPreset(row.layout || legacy.chat_layout,CHAT_LAYOUT_MODES,'standard'), bubble_style:safeChatPreset(row.bubble_style || legacy.chat_bubble_style,CHAT_BUBBLE_STYLES,'soft'), input_style:safeChatPreset(row.input_style || legacy.chat_input_style,CHAT_INPUT_STYLES,'rounded'),
+    start_enabled:row.start_enabled !== false, start_title:row.start_title || legacy.chat_start_title || '', start_body:row.start_body || legacy.chat_start_body || '', start_image_url:row.start_image_url || legacy.chat_start_image_url || '', start_animation:safeChatPreset(row.start_animation || legacy.chat_start_animation,CHAT_ANIMATION_PRESETS,'fade'), start_button_label:row.start_button_label || legacy.chat_start_button_label || 'Start chat', start_announcement:row.start_announcement || legacy.chat_start_announcement || '', start_maintenance_banner:row.start_maintenance_banner || legacy.chat_start_maintenance_banner || '', start_responsible_notice:row.start_responsible_notice || legacy.chat_start_responsible_notice || '', start_button_ids:numericIds(row.start_button_ids || legacy.chat_start_button_ids || ''), start_text_color:row.start_text_color || legacy.chat_start_text_color || '#ffffff', start_accent_color:row.start_accent_color || legacy.chat_start_accent_color || '#f7c948', show_language_selector:false, initial_message_limit:Math.max(5,Math.min(50,Number(row.initial_message_limit || 10))), updated_at:row.updated_at ? String(row.updated_at) : ''
+  };
+}
+async function getGuideTheme(env, scope) {
+  if (!scope) return {};
+  const legacy=await getThemeLegacyRow(env,scope);
+  const row=(await q(env,`SELECT * FROM guide_theme_settings WHERE tenant_id=$1 AND platform_id=$2 LIMIT 1`,[scope.tenant_id,scope.platform_id])).rows[0] || {};
+  return { background_url:row.background_url || legacy.guide_background_url || '',hero_background_url:row.hero_background_url || legacy.guide_hero_background_url || '',hero_overlay_color:row.hero_overlay_color || legacy.guide_hero_overlay_color || '#081525cc',surface_color:row.surface_color || legacy.guide_surface_color || '#ffffff18',text_color:row.text_color || legacy.guide_text_color || '#ffffff',font_family:row.font_family || legacy.guide_font_family || 'system',card_radius:Math.max(8,Math.min(32,Number(row.card_radius || legacy.guide_card_radius || 16))),content_width:Math.max(720,Math.min(1400,Number(row.content_width || legacy.guide_content_width || 960))),updated_at:row.updated_at ? String(row.updated_at) : '' };
+}
+async function getThemeLegacyRow(env,scope){ return (await q(env,`SELECT * FROM theme_settings WHERE tenant_id=$1 AND platform_id=$2 ORDER BY id ASC LIMIT 1`,[scope.tenant_id,scope.platform_id])).rows[0] || {}; }
+async function updateChatTheme(env,p={},scope){
+  if (!scope) bad('Platform context is required',400,'PLATFORM_CONTEXT_REQUIRED');
+  const current=await getChatTheme(env,scope);
+  const values=[safeThemeText(p.header_title,current.header_title,220),safeThemeText(p.online_text,current.online_text,160),safeThemeText(p.welcome_title,current.welcome_title,220),safeThemeText(p.welcome_subtitle,current.welcome_subtitle,4000),safeThemeText(p.input_placeholder,current.input_placeholder,220),safeResponseUrl(p.icon_url ?? current.icon_url),safeResponseUrl(p.background_url ?? current.background_url),safeChatPreset(p.layout,CHAT_LAYOUT_MODES,current.layout),safeChatPreset(p.bubble_style,CHAT_BUBBLE_STYLES,current.bubble_style),safeChatPreset(p.input_style,CHAT_INPUT_STYLES,current.input_style),p.start_enabled !== false,safeThemeText(p.start_title,current.start_title,220),safeThemeText(p.start_body,current.start_body,4000),safeResponseUrl(p.start_image_url ?? current.start_image_url),safeChatPreset(p.start_animation,CHAT_ANIMATION_PRESETS,current.start_animation),safeThemeText(p.start_button_label,current.start_button_label,120),safeThemeText(p.start_announcement,current.start_announcement,1000),safeThemeText(p.start_maintenance_banner,current.start_maintenance_banner,1000),safeThemeText(p.start_responsible_notice,current.start_responsible_notice,1000),numericIds(p.start_button_ids ?? current.start_button_ids).join(','),safeThemeText(p.start_text_color,current.start_text_color,40),safeThemeText(p.start_accent_color,current.start_accent_color,40),false,10,scope.tenant_id,scope.platform_id];
+  await q(env,`INSERT INTO chat_theme_settings(header_title,online_text,welcome_title,welcome_subtitle,input_placeholder,icon_url,background_url,layout,bubble_style,input_style,start_enabled,start_title,start_body,start_image_url,start_animation,start_button_label,start_announcement,start_maintenance_banner,start_responsible_notice,start_button_ids,start_text_color,start_accent_color,show_language_selector,initial_message_limit,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26) ON CONFLICT(tenant_id,platform_id) DO UPDATE SET header_title=EXCLUDED.header_title,online_text=EXCLUDED.online_text,welcome_title=EXCLUDED.welcome_title,welcome_subtitle=EXCLUDED.welcome_subtitle,input_placeholder=EXCLUDED.input_placeholder,icon_url=EXCLUDED.icon_url,background_url=EXCLUDED.background_url,layout=EXCLUDED.layout,bubble_style=EXCLUDED.bubble_style,input_style=EXCLUDED.input_style,start_enabled=EXCLUDED.start_enabled,start_title=EXCLUDED.start_title,start_body=EXCLUDED.start_body,start_image_url=EXCLUDED.start_image_url,start_animation=EXCLUDED.start_animation,start_button_label=EXCLUDED.start_button_label,start_announcement=EXCLUDED.start_announcement,start_maintenance_banner=EXCLUDED.start_maintenance_banner,start_responsible_notice=EXCLUDED.start_responsible_notice,start_button_ids=EXCLUDED.start_button_ids,start_text_color=EXCLUDED.start_text_color,start_accent_color=EXCLUDED.start_accent_color,show_language_selector=FALSE,initial_message_limit=10,updated_at=NOW()`,values);
+  await audit(env,'update','chat_theme_settings',String(scope.platform_id),'Chat theme updated',scope); return getChatTheme(env,scope);
+}
+async function updateGuideTheme(env,p={},scope){
+  if (!scope) bad('Platform context is required',400,'PLATFORM_CONTEXT_REQUIRED'); const current=await getGuideTheme(env,scope);
+  const values=[safeResponseUrl(p.background_url ?? current.background_url),safeResponseUrl(p.hero_background_url ?? current.hero_background_url),safeThemeText(p.hero_overlay_color,current.hero_overlay_color,40),safeThemeText(p.surface_color,current.surface_color,40),safeThemeText(p.text_color,current.text_color,40),safeThemeText(p.font_family,current.font_family,100),Math.max(8,Math.min(32,Number(p.card_radius ?? current.card_radius))),Math.max(720,Math.min(1400,Number(p.content_width ?? current.content_width))),scope.tenant_id,scope.platform_id];
+  await q(env,`INSERT INTO guide_theme_settings(background_url,hero_background_url,hero_overlay_color,surface_color,text_color,font_family,card_radius,content_width,tenant_id,platform_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(tenant_id,platform_id) DO UPDATE SET background_url=EXCLUDED.background_url,hero_background_url=EXCLUDED.hero_background_url,hero_overlay_color=EXCLUDED.hero_overlay_color,surface_color=EXCLUDED.surface_color,text_color=EXCLUDED.text_color,font_family=EXCLUDED.font_family,card_radius=EXCLUDED.card_radius,content_width=EXCLUDED.content_width,updated_at=NOW()`,values);
+  await audit(env,'update','guide_theme_settings',String(scope.platform_id),'Guide theme updated',scope); return getGuideTheme(env,scope);
+}
+
 async function updateTheme(env, p = {}, scope = null) {
   const current = await getTheme(env, scope);
   const values = [
@@ -1567,9 +1607,9 @@ function normalizeActionButtonPayload(p = {}) {
   return {
     button_key: String(p.button_key || slugify(label)).trim().slice(0, 180),
     label: label.slice(0, 180),
-    label_hi: String(p.label_hi || '').trim().slice(0, 180),
+    label_hi: '',
     subtitle: String(p.subtitle || '').trim().slice(0, 500),
-    subtitle_hi: String(p.subtitle_hi || '').trim().slice(0, 500),
+    subtitle_hi: '',
     icon_url: safeResponseUrl(p.icon_url),
     action_type: actionType,
     url: normalizeActionUrl(p.url, actionType),
@@ -5883,7 +5923,7 @@ function aiProcessingExperience(settings = {}) {
     show_after_ms:Math.max(0,Number(settings.processing_message_delay_ms || 700)),
     secondary_after_ms:Math.max(1000,Number(settings.processing_message_secondary_delay_ms || 8000)),
     max_visible_ms:Math.max(5000,Number(settings.processing_message_max_visible_ms || 45000)),
-    allow_additional_messages:settings.allow_messages_while_ai_processing !== false,
+    allow_additional_messages:false,
   };
 }
 
@@ -5900,7 +5940,7 @@ async function enqueuePublicAiMessage(env, payload = {}, contextResolution = {})
   const clientMessageId = String(payload.client_message_id || crypto.randomUUID()).replace(/[^a-zA-Z0-9_.:-]/g,'').slice(0,120) || crypto.randomUUID();
   const customerIdentifier = String(payload.customer_identifier || session.session_id).slice(0,255);
   const customerDisplayName = String(payload.customer_display_name || '').slice(0,160);
-  const allowAdditional = settings.allow_messages_while_ai_processing !== false;
+  const allowAdditional = false;
   const resumeKey = randomBytes(32).toString('base64url');
   const resumeKeyHash = createHash('sha256').update(resumeKey).digest('hex');
 
@@ -5921,9 +5961,9 @@ async function enqueuePublicAiMessage(env, payload = {}, contextResolution = {})
       return { conversation,message:duplicate,job:existingJob,duplicate:true,human:conversation.control_mode === 'HUMAN' };
     }
 
-    if (conversation.control_mode === 'AI' && !allowAdditional) {
+    if (conversation.control_mode === 'AI') {
       const active = Number((await tq(`SELECT COUNT(*)::int AS count FROM ai_jobs WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING')`,[conversation.id])).rows[0]?.count || 0);
-      if (active > 0) bad('Please wait for the current AI answer to finish',409,'AI_JOB_ALREADY_ACTIVE');
+      if (active > 0) bad('Please wait for the current response to finish',409,'CONVERSATION_RESPONSE_PENDING');
     }
 
     const sequence = Number((await tq(`UPDATE support_conversations SET last_message_sequence=last_message_sequence+1,last_message_at=NOW(),updated_at=NOW(),version=version+1 WHERE id=$1 RETURNING last_message_sequence`,[conversation.id])).rows[0]?.last_message_sequence || 0);

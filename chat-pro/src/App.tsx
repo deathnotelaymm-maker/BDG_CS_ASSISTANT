@@ -5,7 +5,6 @@ import {
   ExternalLink,
   Headphones,
   Info,
-  Languages,
   RefreshCw,
   Send,
   Sparkles,
@@ -18,6 +17,7 @@ import {
   createCustomerRealtimeTicket,
   fetchChatContent,
   fetchCustomerSupport,
+  fetchOlderCustomerMessages,
   getCustomerSupportSession,
   getPlatformKey,
   requestHumanSupport,
@@ -33,7 +33,7 @@ import {
   type SupportConversation,
   type SupportMessage,
 } from "@/lib/api";
-import { CHAT_LANGUAGE_OPTIONS, getChatConfig, normalizeChatLocale, type PublicLanguage } from "@/lib/chat-config";
+import { getChatConfig, normalizeChatLocale } from "@/lib/chat-config";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
 type Role = "user" | "assistant";
@@ -212,13 +212,11 @@ function customerUiCopy(locale: string): CustomerUiCopy {
 export default function App() {
   const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [hasOlderMessages,setHasOlderMessages]=useState(false);
+  const [loadingOlder,setLoadingOlder]=useState(false);
   const [usedQuickReplies, setUsedQuickReplies] = useState<Set<string>>(() => new Set());
   const [input, setInput] = useState("");
   const [content, setContent] = useState<ChatContent | null>(null);
-  const [language, setLanguage] = useState<PublicLanguage>(() => {
-    if (typeof window === "undefined") return "en";
-    return (window.localStorage.getItem("bdg_chat_language") as PublicLanguage) || "en";
-  });
   const [started, setStarted] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [waitHint, setWaitHint] = useState(false);
@@ -239,12 +237,11 @@ export default function App() {
   });
 
   const platformKey = getPlatformKey();
-  const effectiveLanguage = normalizeChatLocale(language, normalizeChatLocale(content?.default_locale, "en"));
+  const effectiveLanguage = normalizeChatLocale(content?.default_locale, "en");
   const chatConfig = getChatConfig(effectiveLanguage, platformKey);
   const uiCopy = customerUiCopy(effectiveLanguage);
   const dynamicTexts = content?.texts?.[effectiveLanguage] || content?.texts?.[effectiveLanguage.split("-")[0]] || {};
   const startModule = content?.start_module;
-  const languageOptions = content?.languages?.length ? content.languages : CHAT_LANGUAGE_OPTIONS;
   const startEnabled = Boolean(content && startModule?.enabled !== false);
   const headerTitle = content?.branding?.title || dynamicTexts.title || chatConfig.chatTitle;
   const onlineText = content?.branding?.online || dynamicTexts.online || chatConfig.onlineLabel;
@@ -282,8 +279,8 @@ export default function App() {
   const humanControlled = Boolean(supportSession && (supportSession.controlMode === "HUMAN" || ["WAITING_FOR_AGENT", "ASSIGNED", "AGENT_ACTIVE", "TRANSFER_REQUESTED"].includes(supportSession.status)));
   const closed = supportSession?.controlMode === "CLOSED" || supportSession?.status === "CLOSED";
   const jobs = useMemo(() => Object.values(activeJobs).sort((a, b) => a.queuedAt - b.queuedAt || a.id - b.id), [activeJobs]);
-  const allowAdditionalMessages = jobs[0]?.processing.allow_additional_messages ?? defaultProcessing.allow_additional_messages ?? true;
-  const composerDisabled = closed || isSending || (jobs.length > 0 && !allowAdditionalMessages);
+  const allowAdditionalMessages = false;
+  const composerDisabled = closed || isSending || jobs.length > 0;
 
   const updateSession = useCallback((conversation: SupportConversation, tokenValue?: string) => {
     setSupportSession((current) => sessionFromConversation(tokenValue || current?.token || "", conversation));
@@ -330,7 +327,7 @@ export default function App() {
         setPollIntervalMs(Math.max(1500,Number(data.poll_interval_ms || 2500)));
         lastSequenceRef.current=Number(data.conversation.last_message_sequence || 0);
         const restored=(data.messages || []).filter((item)=>!item.is_internal).map(supportMessageToUi);
-        setMessages(restored);
+        setMessages(restored); setHasOlderMessages(Boolean((data as any).has_older_messages));
         setStarted(restored.length > 0);
         initialAnchorRef.current=true;
         const active=Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : [];
@@ -343,7 +340,7 @@ export default function App() {
             if (disposed) return;
             setSupportSession(sessionFromConversation(saved.token,data.conversation));
             const restored=(data.messages || []).filter((item)=>!item.is_internal).map(supportMessageToUi);
-            setMessages(restored); setStarted(restored.length > 0); initialAnchorRef.current=true;
+            setMessages(restored); setHasOlderMessages(Boolean((data as any).has_older_messages)); setStarted(restored.length > 0); initialAnchorRef.current=true;
             lastSequenceRef.current=Number(data.conversation.last_message_sequence || 0);
             return;
           } catch {}
@@ -557,6 +554,15 @@ export default function App() {
   }, [chatConfig.fallbackMessage, closed, effectiveLanguage, humanControlled, isSending, platformKey, updateSession]);
 
   const connectionCopy=connectionState === "reconnecting" || connectionState === "connecting" ? uiCopy.reconnecting : (onlineText || uiCopy.online);
+  const loadOlder=useCallback(async()=>{
+    if(!supportSession || loadingOlder || !hasOlderMessages) return;
+    const oldest=Math.min(...messages.map((m)=>Number(m.sequence||Number.MAX_SAFE_INTEGER)));
+    if(!Number.isFinite(oldest)) return;
+    const viewport=scrollRef.current; const beforeHeight=viewport?.scrollHeight||0;
+    setLoadingOlder(true);
+    try{ const page=await fetchOlderCustomerMessages(supportSession.publicId,supportSession.token,oldest,10); const older=(page.messages||[]).filter((m)=>!m.is_internal).map(supportMessageToUi); setMessages((current)=>{const ids=new Set(current.map((m)=>m.id));return [...older.filter((m)=>!ids.has(m.id)),...current];}); setHasOlderMessages(Boolean(page.has_older_messages)); requestAnimationFrame(()=>{if(viewport)viewport.scrollTop+=(viewport.scrollHeight-beforeHeight);}); }catch{}finally{setLoadingOlder(false);}
+  },[supportSession,loadingOlder,hasOlderMessages,messages]);
+
   const modeCopy=closed ? uiCopy.closed : humanControlled ? (supportSession?.status === "WAITING_FOR_AGENT" ? uiCopy.waiting : uiCopy.representative) : uiCopy.online;
 
   const leaveQueue=useCallback(async()=>{
@@ -586,12 +592,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <label className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground">
-              <Languages className="h-3.5 w-3.5" />
-              <select value={language} onChange={(e) => { const next = e.target.value as PublicLanguage; setLanguage(next); localStorage.setItem("bdg_chat_language", next); }} disabled={isSending} className="bg-transparent text-foreground outline-none" aria-label={chatConfig.languageLabel}>
-                {languageOptions.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
-              </select>
-            </label>
+
           </div>
           {humanControlled && (
             <div className="chat-mode-strip human">
@@ -603,6 +604,7 @@ export default function App() {
         </header>
 
         <div ref={scrollRef} onScroll={handleScroll} className="chat-scroll flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {hasOlderMessages && <button type="button" disabled={loadingOlder} onClick={()=>void loadOlder()} className="mx-auto block rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold disabled:opacity-50">{loadingOlder?"Loading…":"Show previous messages"}</button>}
           {startEnabled && !started && messages.length === 0 ? (
             <ChatStartModule module={startModule} iconUrl={iconUrl} actionButtons={actionButtons} onStart={() => { setStarted(true); setTimeout(() => inputRef.current?.focus(), 30); }} onPrompt={send} />
           ) : (
@@ -620,7 +622,7 @@ export default function App() {
         </div>
 
         <form onSubmit={(event) => { event.preventDefault(); void send(input); }} className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur-md px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          {waitHint && <div className="text-[11px] text-muted-foreground px-2 pb-1">{jobs.length ? "Your previous message is still being processed." : chatConfig.waitInlineNote}</div>}
+          {waitHint && <div className="text-[11px] text-muted-foreground px-2 pb-1">{jobs.length ? "Preparing your response…" : chatConfig.waitInlineNote}</div>}
           {visibleQuickQuestions.length > 0 && !humanControlled && (
             <div className="mb-2 flex flex-wrap gap-2" aria-label="Quick replies">
               {visibleQuickQuestions.map((question) => <button key={question} type="button" disabled={composerDisabled} onClick={() => { setUsedQuickReplies((previous) => new Set(previous).add(question)); void send(question); }} className="text-xs px-3 py-1.5 rounded-full border border-border bg-surface hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors">{question}</button>)}
@@ -634,7 +636,7 @@ export default function App() {
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(input); } }}
               disabled={composerDisabled}
-              placeholder={closed ? uiCopy.closed : humanControlled ? "Message customer service…" : jobs.length && !allowAdditionalMessages ? "Please wait for the current answer…" : dynamicTexts.placeholder || chatConfig.placeholderIdle}
+              placeholder={closed ? uiCopy.closed : humanControlled ? "Message customer service…" : jobs.length ? "Preparing your response…" : dynamicTexts.placeholder || chatConfig.placeholderIdle}
               className="flex-1 resize-none max-h-32 rounded-2xl bg-surface border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 placeholder:text-muted-foreground"
               style={{ minHeight: "42px" }}
             />

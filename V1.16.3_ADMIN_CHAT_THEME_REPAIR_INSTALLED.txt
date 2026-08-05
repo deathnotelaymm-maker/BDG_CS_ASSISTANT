@@ -1,0 +1,5 @@
+BDG CS Assistant v1.16.3
+Admin Contract, Chat Flow and Theme Separation Repair
+Release marker: 1.16.3-admin-contract-chat-flow-theme-separation
+Migration: 041_v1.16.3_admin_chat_theme_and_queue_guard.sql
+Next migration: 042

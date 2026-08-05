@@ -19,7 +19,7 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.16.2-conversation-continuity-realtime-media-matching';
+const API_VERSION = '1.16.3-admin-contract-chat-flow-theme-separation';
 const API_FEATURES = [
   'one-time-realtime-tickets',
   'conversation-resume-key-rotation',

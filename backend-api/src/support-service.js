@@ -124,7 +124,7 @@ function supportSettingsOut(row = {}) {
     processing_message_delay_ms:Number(row.processing_message_delay_ms || 700),
     processing_message_secondary_delay_ms:Number(row.processing_message_secondary_delay_ms || 8000),
     processing_message_max_visible_ms:Number(row.processing_message_max_visible_ms || 45000),
-    allow_messages_while_ai_processing:row.allow_messages_while_ai_processing !== false,
+    allow_messages_while_ai_processing:false,
     provider_failure_message:row.provider_failure_message || 'The response is taking longer than expected. You can retry or send another message.',
     return_to_ai_on_resolve:row.return_to_ai_on_resolve !== false,
     customer_messages_json:parseJsonObject(row.customer_messages_json, {}),
@@ -425,6 +425,20 @@ export function handoffOfferForResponse(settings, result, reason, clarificationA
   };
 }
 
+
+async function customerMessageWindow(q,env,conversation,limit=10,beforeSequence=0) {
+  const safeLimit=Math.max(5,Math.min(50,Number(limit || 10)));
+  const before=Math.max(0,Number(beforeSequence || 0));
+  const params=[conversation.id,safeLimit];
+  let where='sm.conversation_id=$1 AND sm.is_internal=FALSE';
+  if (before>0) { params.splice(1,0,before); where+=' AND sm.message_sequence<$2'; }
+  const limitRef='$'+params.length;
+  const rows=(await q(env,`SELECT * FROM (SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE ${where} ORDER BY sm.message_sequence DESC LIMIT ${limitRef}) page ORDER BY message_sequence ASC`,params)).rows.map(messageOut);
+  const oldest=rows[0]?.message_sequence ? Number(rows[0].message_sequence) : 0;
+  const hasOlder=oldest>0 && Number((await q(env,`SELECT COUNT(*)::int AS count FROM support_messages WHERE conversation_id=$1 AND is_internal=FALSE AND message_sequence<$2`,[conversation.id,oldest])).rows[0]?.count || 0)>0;
+  return { messages:rows,has_older_messages:hasOlder,oldest_sequence:oldest };
+}
+
 export async function handleSupportPublicRoute({ request, env, url, path, method, scope, deps }) {
   if (method === 'GET' && (path === '/public/support/settings' || path === '/support/settings')) {
     const settings = await getHumanSupportSettings(env, scope, deps);
@@ -445,7 +459,7 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
         show_after_ms:settings.processing_message_delay_ms,
         secondary_after_ms:settings.processing_message_secondary_delay_ms,
         max_visible_ms:settings.processing_message_max_visible_ms,
-        allow_additional_messages:settings.allow_messages_while_ai_processing,
+        allow_additional_messages:false,
       },
     } }, 200, env);
   }
@@ -495,9 +509,9 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
     const nextResume=createResumeKey();
     row=(await deps.q(env,`UPDATE support_conversations SET customer_resume_key_hash=$2,updated_at=NOW() WHERE id=$1 RETURNING *`,[row.id,sha256(nextResume)])).rows[0];
     const token=createSupportToken(env,{ kind:'customer',tenant_id:row.tenant_id,platform_id:row.platform_id,conversation_id:Number(row.id),conversation_public_id:String(row.public_id),chat_session_id:row.chat_session_id },60*60*24);
-    const detail=await conversationDetail(deps.q,env,row,row.id);
+    const detail=await customerMessageWindow(deps.q,env,row,10,0);
     const settings=supportSettingsOut(await ensureSettings(deps.q,env,row));
-    return deps.jsonNoStore({ ok:true,...detail,support_token:token,resume_key:nextResume,poll_interval_ms:settings.realtime_poll_interval_ms },200,env);
+    return deps.jsonNoStore({ ok:true,conversation:conversationOut(row),...detail,active_ai_jobs:(await deps.q(env,`SELECT id,public_id,status,attempt_count,created_at,started_at FROM ai_jobs WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING') ORDER BY id LIMIT 1`,[row.id])).rows,support_token:token,resume_key:nextResume,poll_interval_ms:settings.realtime_poll_interval_ms },200,env);
   }
   if (method === 'POST' && path === '/support/customer/realtime-ticket') {
     const customer=await getCustomerByToken(env,bearerToken(request),deps);
@@ -508,10 +522,12 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
   const customerSyncMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/sync$/i);
   const customerCancelMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/cancel-handoff$/i);
   const customerMessagesMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/messages$/i);
-  if (customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch) {
+  const customerHistoryMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/history$/i);
+  if (customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch || customerHistoryMatch) {
     const customer = await getCustomerByToken(env, bearerToken(request), deps);
-    if (String(customer.conversation.public_id) !== String((customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch)[1])) throw supportError('Conversation token does not match this conversation', 403, 'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
-    if (method === 'GET' && customerConversationMatch) return deps.jsonNoStore(await conversationDetail(deps.q,env,customer.conversation,customer.conversation.id),200,env);
+    if (String(customer.conversation.public_id) !== String((customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch || customerHistoryMatch)[1])) throw supportError('Conversation token does not match this conversation', 403, 'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
+    if (method === 'GET' && customerConversationMatch) return deps.jsonNoStore({ conversation:conversationOut(customer.conversation),...await customerMessageWindow(deps.q,env,customer.conversation,10,0) },200,env);
+    if (method === 'GET' && customerHistoryMatch) return deps.jsonNoStore({ ok:true,...await customerMessageWindow(deps.q,env,customer.conversation,Number(url.searchParams.get('limit') || 10),Number(url.searchParams.get('before_sequence') || 0)) },200,env);
     if (method === 'GET' && customerSyncMatch) {
       const after=Math.max(0,Number(url.searchParams.get('after_sequence') || 0));
       const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 AND sm.is_internal=FALSE ORDER BY sm.message_sequence ASC LIMIT 500`,[customer.conversation.id,after])).rows.map(messageOut);
@@ -918,7 +934,7 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
         Math.min(10000,Math.max(0,Number(payload.processing_message_delay_ms ?? current.processing_message_delay_ms))),
         Math.min(120000,Math.max(1000,Number(payload.processing_message_secondary_delay_ms ?? current.processing_message_secondary_delay_ms))),
         Math.min(300000,Math.max(5000,Number(payload.processing_message_max_visible_ms ?? current.processing_message_max_visible_ms))),
-        bool(payload.allow_messages_while_ai_processing,current.allow_messages_while_ai_processing),
+        false,
         cleanText(payload.provider_failure_message ?? current.provider_failure_message,3000),
         bool(payload.return_to_ai_on_resolve,current.return_to_ai_on_resolve),
         JSON.stringify(payload.customer_messages_json && typeof payload.customer_messages_json === 'object' ? payload.customer_messages_json : current.customer_messages_json || {}),

@@ -1,148 +1,100 @@
-# v1.16.2 — Conversation Continuity, Realtime Transport and Media Matching Repair
+# v1.16.3 — Admin Contract, Chat Flow and Theme Separation Repair
 
-v1.16.2 repairs the customer experience around asynchronous AI delivery,
-human-support resolution, conversation restoration, and approved Menu & Images
-matching. PostgreSQL remains the source of truth. WebSocket delivery is retained
-for low latency, while authenticated sequence-based HTTP catch-up prevents a
-single broken socket from forcing customers or staff to refresh.
+v1.16.3 repairs the platform-scoped Admin contracts used by Menu & Images and
+Global Buttons, enforces one unanswered automated question per conversation,
+adds ten-message progressive customer history, and separates Guide appearance
+from Chat appearance.
 
-Release marker: `1.16.2-conversation-continuity-realtime-media-matching`
+Release marker: `1.16.3-admin-contract-chat-flow-theme-separation`
 
-## Production conversation architecture
-
-```text
-Customer opens Chat
-      ↓
-Resume latest platform-scoped conversation
-      ↓
-Rotate the customer resume key
-      ↓
-Issue a one-time realtime ticket
-      ↓
-Connect WebSocket
-      ↓
-Use sequence-based HTTP catch-up as a safety path
-      ↓
-Restore messages, control state, AI-job state, and latest unread position
-```
-
-For each new customer message:
+## Production architecture
 
 ```text
-Validate and save the customer message
+Admin authentication
       ↓
-Create durable PostgreSQL AI job
+Stable active platform context
       ↓
-Return HTTP 202 and show ephemeral processing state
-      ↓
-Server selects approved Menu & Images candidates
-      ↓
-DeepSeek returns plain customer-facing text
-      ↓
-Server attaches the selected approved media manifest
-      ↓
-Save the final message
-      ↓
-Broadcast by WebSocket and expose through sequence catch-up
+Independent feature routes
+  ├── Menu & Images
+  ├── Global Buttons
+  ├── Guide Theme
+  └── Chat Theme
 ```
 
-## Realtime continuity
+Menu & Images and Global Buttons no longer use the Customer Service platform
+listing as a page dependency. They resolve the active tenant/platform through
+the shared Admin platform context, then call their own feature APIs.
 
-Customer and Staff Console clients receive one-time realtime tickets rather
-than depending on a long-lived browser token in the socket protocol. Every
-conversation event carries an event ID and every saved message carries an
-ordered conversation sequence. Connected clients use WebSocket for immediate
-delivery and periodically reconcile with PostgreSQL. Disconnected clients use
-a faster authenticated catch-up interval until the socket returns.
+## One pending customer question
 
-Refreshing the page resumes the latest platform-scoped conversation, restores
-its current AI or human-control state, renews realtime credentials, and scrolls
-to the latest unread message or conversation end. Image loading preserves the
-bottom anchor. Customers who scroll upward receive a new-message indicator
-instead of being forcibly moved.
+```text
+Customer sends one question
+      ↓
+Message and durable AI job are saved
+      ↓
+Composer locks while the job is QUEUED, PROCESSING, or RETRYING
+      ↓
+Final answer or final failure arrives
+      ↓
+Composer unlocks
+```
 
-## Customer-facing state
+The browser lock is backed by a transactional backend check and a PostgreSQL
+partial unique index. Duplicate browser tabs and repeated requests cannot create
+two active AI jobs for the same conversation. A second legitimate question
+receives HTTP `409 CONVERSATION_RESPONSE_PENDING` until the current response
+finishes.
 
-The public interface uses neutral brand-facing labels such as `JAVO Support`
-and `Online`. It does not expose internal labels such as `AI Assistant`,
-`provider failed`, or `realtime offline`. Human assignment and resolution are
-shown through customer-friendly localized messages.
+## Progressive customer history
 
-A failed AI job no longer closes a conversation. The conversation remains
-available, the composer remains enabled, and the customer may retry or send a
-new question. When staff resolves with return-to-brand enabled, ownership is
-released, control returns to the automated support workflow, and the customer
-can continue without refreshing.
+Customer Chat restores the newest ten non-internal messages. When older history
+exists, the customer can select **Show previous messages** to load the preceding
+ten messages using `before_sequence`. Older messages are prepended while the
+scroll anchor is preserved.
 
-## Menu & Images matching
+Realtime catch-up still uses ordered message sequences. Pagination is only for
+older history and does not replace live delivery.
 
-Menu & Images remains the only approved business-content source in the live AI
-path. v1.16.2 adds server-owned hybrid matching using:
+## Separate Guide and Chat themes
 
-- exact localized trigger phrases;
-- contained trigger phrases;
-- localized aliases and alternative spellings;
-- title and keyword overlap;
-- token coverage;
-- character-trigram similarity;
-- category and negative-example controls.
+Migration `041` introduces:
 
-The backend selects the content and approved asset manifest before the provider
-call. DeepSeek writes only the natural-language response and cannot select an
-arbitrary image or content ID. Match method, score, threshold, matched phrase,
-selected content, and selected media are stored for diagnostics.
+- `guide_theme_settings`
+- `chat_theme_settings`
 
-## Contact information and live-human intent
+Existing values are copied from the legacy shared theme row without deleting
+rollback data. Guide changes do not alter Chat, and Chat changes do not alter
+Guide. The customer Chat language dropdown is disabled and removed from the
+public interface.
 
-A request for contact information is not automatically treated as a request to
-join the live support queue. The backend distinguishes informational requests
-such as “Where is Contact Us?” from explicit requests such as “Connect me to a
-human agent.” Human handoff remains controlled by the platform setting and
-server-side trigger policy.
+## Global Buttons
 
-## Localization
-
-Customer processing, waiting, assignment, provider-failure, resolution,
-reconnection, and no-agent messages are managed centrally per platform and per
-supported language. The foundation includes English, Burmese, Indonesian,
-Chinese, and Hindi defaults.
+Buttons use one platform-wide label and optional subtitle. Legacy localized
+columns remain archived for rollback compatibility, but production reads and
+writes the global `label` and `subtitle` fields only.
 
 ## Database migration
 
-Apply:
-
 ```text
-backend-api/migrations/040_v1.16.2_conversation_continuity_realtime_media_matching.sql
+backend-api/migrations/041_v1.16.3_admin_chat_theme_and_queue_guard.sql
 ```
 
-Migration `040` adds rotating resume continuity, one-time realtime tickets,
-read-sequence tracking, localized customer-message settings, fallback sync
-configuration, hybrid Menu & Images metadata, and selected-media diagnostics on
-AI jobs. It is immutable after production deployment. The next migration must
-be `041`.
+Do not modify migration `041` after deployment. The next migration is `042`.
 
-## Verification commands
+## Deployment order
 
-```bash
-npm --prefix backend-api run check
-npm --prefix backend-api run test:regression
-npm --prefix backend-api run test:prompt-runtime
-npm --prefix backend-api run test:simplified-ai
-npm --prefix backend-api run test:support
-npm --prefix backend-api run test:v1161
-npm --prefix backend-api run test:v1162
-npm --prefix backend-api run test:chat-reliability
-npm --prefix admin-pro run test:customer-service-route
-```
+1. Snapshot Neon.
+2. Deploy the backend and apply migration `041`.
+3. Verify the backend release marker.
+4. Deploy Guide.
+5. Deploy Chat.
+6. Deploy Staff.
+7. Deploy Admin.
+8. Run the acceptance checklist in `DEPLOYMENT_CHECKLIST_V1.16.3.md`.
 
-GitHub Actions additionally installs dependencies, starts PostgreSQL, runs the
-integration/security/upload suites, typechecks and builds all frontends, waits
-for the matching Render release, and publishes Guide, Chat, Staff, and Admin to
-Cloudflare Pages.
+## Local installation
 
-## Production note
-
-Keep Render at one backend instance for this release. PostgreSQL provides
-persistent messages, AI jobs, resume state, and HTTP catch-up, but live
-WebSocket broadcasts remain process-local. Add a Redis-compatible broadcast
-backplane before horizontal scaling.
+Use the versioned repair package installer. It verifies package SHA-256 values,
+checks the v1.16.2 baseline, creates a changed-file rollback backup, copies only
+reviewed files, verifies installed hashes, and runs source-level regressions.
+It never commits, pushes, deploys, accesses secrets, or applies migrations.
