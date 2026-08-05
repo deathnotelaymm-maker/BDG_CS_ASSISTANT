@@ -198,7 +198,7 @@
   animation: bdg-fade-in 220ms ease-out both;
 }
 
-/* v1.16.1 realtime AI/human control */
+/* v1.16.2 conversation continuity and neutral brand status */
 .chat-mode-strip{display:flex;align-items:center;gap:.4rem;border-top:1px solid color-mix(in srgb,var(--border) 75%,transparent);padding:.38rem 1rem;font-size:.68rem;color:var(--muted-foreground);background:color-mix(in srgb,var(--surface) 88%,transparent)}
 .chat-mode-strip.human{color:#bbf7d0;background:color-mix(in srgb,#065f46 26%,var(--background))}
 .chat-mode-strip.resolved{color:#bfdbfe;background:color-mix(in srgb,#1d4ed8 20%,var(--background))}

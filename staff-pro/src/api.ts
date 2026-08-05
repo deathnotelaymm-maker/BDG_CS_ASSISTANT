@@ -31,6 +31,9 @@ export type Conversation = {
   waiting_seconds?: number;
   last_message_sequence?: number;
   return_to_ai_on_resolve?: boolean;
+  version?: number;
+  last_customer_read_sequence?: number;
+  last_staff_read_sequence?: number;
 };
 
 export type SupportMessage = {
@@ -63,6 +66,7 @@ export type StaffSettings = {
   offline_timeout_seconds?: number;
   allow_staff_timezone_override?: boolean;
   return_to_ai_on_resolve?: boolean;
+  realtime_poll_interval_ms?: number;
 };
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -101,13 +105,15 @@ export const api = {
   transferDecision: (id: number, action: "accept" | "reject") => request(`/staff/transfers/${id}/${action}`, { method: "POST" }),
   changePassword: (password: string) => request("/staff/me/password", { method: "POST", body: JSON.stringify({ password }) }),
   performance: (period: "day" | "week" | "month" = "day") => request<Record<string, unknown>>(`/staff/performance?period=${period}`),
+  realtimeTicket: () => request<{ ticket: string; expires_at: string }>("/staff/realtime-ticket", { method: "POST", body: "{}" }),
+  sync: (id: number, afterSequence = 0) => request<{ conversation: Conversation; messages: SupportMessage[]; active_ai_jobs?: Array<{ id:number; status:string }>; poll_interval_ms?: number }>(`/staff/conversations/${id}/sync?after_sequence=${Math.max(0,Number(afterSequence || 0))}`),
 };
 
-export function websocketUrl() {
+export function websocketUrl(ticket = "") {
   const base = API || location.origin;
   const url = new URL(base, location.origin);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   url.pathname = "/support";
-  url.search = "";
+  url.search = ticket ? `?ticket=${encodeURIComponent(ticket)}` : "";
   return url.toString();
 }

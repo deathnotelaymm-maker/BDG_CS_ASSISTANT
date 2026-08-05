@@ -1,108 +1,125 @@
-# v1.16.1 — Plain-Text AI Worker and Realtime Delivery Repair
+# v1.16.2 — Conversation Continuity, Realtime Transport and Media Matching Repair
 
-v1.16.1 changes the production chat path from a synchronous, strict-JSON AI
-request into a durable asynchronous workflow. DeepSeek now returns only the
-customer-facing answer as plain text. The backend remains authoritative for
-conversation state, approved Menu & Images, media attachment, handoff rules,
-message ordering, delivery state, and tenant/platform isolation.
+v1.16.2 repairs the customer experience around asynchronous AI delivery,
+human-support resolution, conversation restoration, and approved Menu & Images
+matching. PostgreSQL remains the source of truth. WebSocket delivery is retained
+for low latency, while authenticated sequence-based HTTP catch-up prevents a
+single broken socket from forcing customers or staff to refresh.
 
-Release marker: `1.16.1-plain-text-ai-worker-realtime-delivery`
+Release marker: `1.16.2-conversation-continuity-realtime-media-matching`
 
 ## Production conversation architecture
 
 ```text
-Customer sends message
+Customer opens Chat
       ↓
-Backend validates and stores the customer message
+Resume latest platform-scoped conversation
       ↓
-Backend creates a durable PostgreSQL AI job
+Rotate the customer resume key
       ↓
-HTTP 202 Accepted is returned immediately
+Issue a one-time realtime ticket
       ↓
-Chat displays an ephemeral Admin-configured processing indicator
+Connect WebSocket
       ↓
-Background worker loads Assistant Setup and relevant Menu & Images
+Use sequence-based HTTP catch-up as a safety path
+      ↓
+Restore messages, control state, AI-job state, and latest unread position
+```
+
+For each new customer message:
+
+```text
+Validate and save the customer message
+      ↓
+Create durable PostgreSQL AI job
+      ↓
+Return HTTP 202 and show ephemeral processing state
+      ↓
+Server selects approved Menu & Images candidates
       ↓
 DeepSeek returns plain customer-facing text
       ↓
-Backend saves the final AI message and approved media
+Server attaches the selected approved media manifest
       ↓
-WebSocket broadcasts the saved message
+Save the final message
       ↓
-Customer and Staff Console update without refresh
+Broadcast by WebSocket and expose through sequence catch-up
 ```
 
-The processing indicator is not stored as a chat message and is removed when
-the final AI message, cancellation, or failure event arrives.
+## Realtime continuity
 
-## Plain-text provider boundary
+Customer and Staff Console clients receive one-time realtime tickets rather
+than depending on a long-lived browser token in the socket protocol. Every
+conversation event carries an event ID and every saved message carries an
+ordered conversation sequence. Connected clients use WebSocket for immediate
+delivery and periodically reconcile with PostgreSQL. Disconnected clients use
+a faster authenticated catch-up interval until the socket returns.
 
-Only the model output is plain text. Internal HTTP responses and WebSocket
-events remain structured JSON because the application still needs reliable
-message IDs, sequence numbers, job states, delivery/read state, and security
-metadata.
+Refreshing the page resumes the latest platform-scoped conversation, restores
+its current AI or human-control state, renews realtime credentials, and scrolls
+to the latest unread message or conversation end. Image loading preserves the
+bottom anchor. Customers who scroll upward receive a new-message indicator
+instead of being forcibly moved.
 
-The model no longer selects content IDs, image IDs, button IDs, handoff enums,
-or routing states. The server retrieves and validates approved Menu & Images
-before the provider request, then attaches only approved platform-scoped media.
+## Customer-facing state
 
-## AI and human control
+The public interface uses neutral brand-facing labels such as `JAVO Support`
+and `Online`. It does not expose internal labels such as `AI Assistant`,
+`provider failed`, or `realtime offline`. Human assignment and resolution are
+shown through customer-friendly localized messages.
 
-When Human Customer Service Handoff is disabled, the backend prevents support
-buttons, queue creation, provider-failure escalation, and model wording that
-recommends customer service. The AI continues with a useful answer, a focused
-clarification, or the configured retry message.
+A failed AI job no longer closes a conversation. The conversation remains
+available, the composer remains enabled, and the customer may retry or send a
+new question. When staff resolves with return-to-brand enabled, ownership is
+released, control returns to the automated support workflow, and the customer
+can continue without refreshing.
 
-When a staff member takes ownership, queued AI jobs are cancelled and running
-answers are suppressed. When staff resolves the conversation, the default
-behavior returns control to AI, broadcasts the state change, and lets the next
-customer message enter the AI queue without refreshing.
+## Menu & Images matching
 
-## Realtime delivery
+Menu & Images remains the only approved business-content source in the live AI
+path. v1.16.2 adds server-owned hybrid matching using:
 
-Every support message has a conversation-scoped sequence number. Customer and
-staff clients reconnect using the last received sequence and request missed
-messages. Client-generated message IDs prevent duplicate sends. Delivery and
-read state are updated through authenticated WebSocket events.
+- exact localized trigger phrases;
+- contained trigger phrases;
+- localized aliases and alternative spellings;
+- title and keyword overlap;
+- token coverage;
+- character-trigram similarity;
+- category and negative-example controls.
 
-## Staff Console improvements
+The backend selects the content and approved asset manifest before the provider
+call. DeepSeek writes only the natural-language response and cannot select an
+arbitrary image or content ID. Match method, score, threshold, matched phrase,
+selected content, and selected media are stored for diagnostics.
 
-The dedicated `staff-pro` application now includes:
+## Contact information and live-human intent
 
-- Dashboard with presence, connection, waiting queue, active conversations,
-  transfer requests, daily performance, and queue status.
-- Realtime three-panel Chats workspace.
-- Waiting, Mine, Team, Transferred, and Resolved views.
-- Owner-only reply controls, internal notes, transfer, resolve-to-AI, typing,
-  delivery/read state, and reconnect catch-up.
-- Archive and Performance views.
+A request for contact information is not automatically treated as a request to
+join the live support queue. The backend distinguishes informational requests
+such as “Where is Contact Us?” from explicit requests such as “Connect me to a
+human agent.” Human handoff remains controlled by the platform setting and
+server-side trigger policy.
 
-## Admin controls
+## Localization
 
-Customer Service now includes an **AI Processing Experience** section for:
-
-- processing indicator enable/disable;
-- primary and secondary waiting text;
-- display delays and maximum visibility;
-- whether additional customer messages may queue;
-- provider-failure customer text;
-- return-to-AI behavior after staff resolution.
-
-The **AI Delivery** tab displays queued, processing, retrying, completed,
-failed, cancelled, and suppressed jobs for the active platform.
+Customer processing, waiting, assignment, provider-failure, resolution,
+reconnection, and no-agent messages are managed centrally per platform and per
+supported language. The foundation includes English, Burmese, Indonesian,
+Chinese, and Hindi defaults.
 
 ## Database migration
 
 Apply:
 
 ```text
-backend-api/migrations/039_v1.16.1_plain_text_ai_worker_realtime_delivery.sql
+backend-api/migrations/040_v1.16.2_conversation_continuity_realtime_media_matching.sql
 ```
 
-Migration `039` adds the durable `ai_jobs` queue, ordered message delivery,
-idempotency, delivery/read timestamps, processing-experience settings, and
-explicit AI/human control fields. It is immutable after production deployment.
-The next migration must be `040`.
+Migration `040` adds rotating resume continuity, one-time realtime tickets,
+read-sequence tracking, localized customer-message settings, fallback sync
+configuration, hybrid Menu & Images metadata, and selected-media diagnostics on
+AI jobs. It is immutable after production deployment. The next migration must
+be `041`.
 
 ## Verification commands
 
@@ -113,18 +130,19 @@ npm --prefix backend-api run test:prompt-runtime
 npm --prefix backend-api run test:simplified-ai
 npm --prefix backend-api run test:support
 npm --prefix backend-api run test:v1161
+npm --prefix backend-api run test:v1162
 npm --prefix backend-api run test:chat-reliability
 npm --prefix admin-pro run test:customer-service-route
 ```
 
-GitHub Actions additionally installs dependencies, runs PostgreSQL integration
-and security suites, typechecks and builds all four frontends, audits
-production dependencies, waits for the matching Render release, and publishes
-Guide, Chat, Staff, and Admin to Cloudflare Pages.
+GitHub Actions additionally installs dependencies, starts PostgreSQL, runs the
+integration/security/upload suites, typechecks and builds all frontends, waits
+for the matching Render release, and publishes Guide, Chat, Staff, and Admin to
+Cloudflare Pages.
 
 ## Production note
 
-Keep the Render backend at one instance for this release. The AI queue itself
-is PostgreSQL-backed and restart-safe, but the realtime event bus remains
-process-local. Add a Redis-compatible broadcast backplane before horizontal
-scaling.
+Keep Render at one backend instance for this release. PostgreSQL provides
+persistent messages, AI jobs, resume state, and HTTP catch-up, but live
+WebSocket broadcasts remain process-local. Add a Redis-compatible broadcast
+backplane before horizontal scaling.

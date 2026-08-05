@@ -20,43 +20,142 @@ export function tokenizeForRetrieval(value) {
     .match(/[\p{L}\p{N}]+/gu)?.filter((token) => token.length > 1 && !COMMON_STOPWORDS.has(token)) || [];
 }
 
+function normalizedPhrase(value) {
+  return String(value || '').normalize('NFKC').toLowerCase().replace(/[\p{P}\p{S}\s]+/gu,'').trim();
+}
+function splitPhrases(value) {
+  return String(value || '').split(/[\n|;,]+/).map((item)=>item.trim()).filter((item)=>item.length > 1);
+}
+function parseObject(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  try { const parsed=JSON.parse(String(value || '{}')); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}; }
+  catch { return {}; }
+}
+function charNgrams(value, size = 3) {
+  const text=normalizedPhrase(value);
+  if (!text) return new Set();
+  if (text.length <= size) return new Set([text]);
+  const result=new Set();
+  for (let index=0;index<=text.length-size;index+=1) result.add(text.slice(index,index+size));
+  return result;
+}
+function jaccard(left, right) {
+  if (!left.size || !right.size) return 0;
+  let overlap=0;
+  for (const item of left) if (right.has(item)) overlap+=1;
+  return overlap / (left.size + right.size - overlap);
+}
+function localizedCandidateFields(row = {}) {
+  const localized=parseObject(row.localized_fields_json);
+  const aliases=parseObject(row.matching_aliases_json);
+  const values=[];
+  for (const entry of Object.values(localized)) {
+    if (!entry || typeof entry !== 'object') continue;
+    values.push(entry.positive_examples,entry.keywords,entry.title,entry.ai_instruction,entry.visual_knowledge);
+  }
+  for (const entry of Object.values(aliases)) {
+    if (Array.isArray(entry)) values.push(entry.join('\n'));
+    else values.push(entry);
+  }
+  return values.filter(Boolean).join('\n');
+}
 function candidateText(row = {}) {
   return [
     row.title,
     row.intent_key,
+    row.category,
     row.positive_examples,
     row.keywords,
     row.faq_content,
     row.knowledge_content,
     row.example_answers,
     row.ai_instruction,
+    localizedCandidateFields(row),
   ].filter(Boolean).join('\n');
+}
+function candidatePhrases(row = {}) {
+  const localized=parseObject(row.localized_fields_json);
+  const aliases=parseObject(row.matching_aliases_json);
+  const values=[row.title,row.intent_key,row.category,row.positive_examples,row.keywords];
+  for (const entry of Object.values(localized)) if (entry && typeof entry === 'object') values.push(entry.title,entry.positive_examples,entry.keywords);
+  for (const entry of Object.values(aliases)) values.push(Array.isArray(entry) ? entry.join('\n') : entry);
+  return [...new Set(values.flatMap(splitPhrases).map((value)=>value.trim()).filter(Boolean))];
 }
 
 export function rankApprovedMenuCandidates(message, rows = [], limit = 3) {
   const messageTokens = tokenizeForRetrieval(message);
   const messageSet = new Set(messageTokens);
-  if (!messageTokens.length) return [];
+  const messagePhrase=normalizedPhrase(message);
+  const messageNgrams=charNgrams(message);
+  if (!messagePhrase) return [];
   const ranked = [];
   for (const row of rows) {
-    const sourceTokens = tokenizeForRetrieval(candidateText(row));
+    const sourceText=candidateText(row);
+    const sourceTokens = tokenizeForRetrieval(sourceText);
     const sourceSet = new Set(sourceTokens);
     let overlap = 0;
     for (const token of messageSet) if (sourceSet.has(token)) overlap += 1;
+    const tokenCoverage=messageSet.size ? overlap/messageSet.size : 0;
+    const sourceCoverage=sourceSet.size ? overlap/Math.min(sourceSet.size,Math.max(1,messageSet.size*4)) : 0;
     const titleTokens = tokenizeForRetrieval(row.title || '');
     const titleOverlap = titleTokens.filter((token) => messageSet.has(token)).length;
-    const phraseMatch = String(row.positive_examples || '')
-      .split(/[\n|;,]+/)
-      .some((phrase) => phrase.trim().length > 2 && String(message || '').toLowerCase().includes(phrase.trim().toLowerCase()));
-    const negativeTokens = tokenizeForRetrieval(row.negative_examples || '');
-    const blocked = negativeTokens.length >= 2 && negativeTokens.every((token) => messageSet.has(token));
+    const phrases=candidatePhrases(row);
+    let exactPhrase=false, containedPhrase=false, bestPhraseSimilarity=0, matchedPhrase='';
+    for (const phrase of phrases) {
+      const normalized=normalizedPhrase(phrase);
+      if (!normalized) continue;
+      if (normalized === messagePhrase) { exactPhrase=true; matchedPhrase=phrase; bestPhraseSimilarity=1; break; }
+      if (normalized.length >= 3 && (messagePhrase.includes(normalized) || normalized.includes(messagePhrase))) {
+        containedPhrase=true;
+        if (!matchedPhrase) matchedPhrase=phrase;
+      }
+      const similarity=jaccard(messageNgrams,charNgrams(phrase));
+      if (similarity > bestPhraseSimilarity) { bestPhraseSimilarity=similarity; matchedPhrase=phrase; }
+    }
+    const negativePhrases=splitPhrases(row.negative_examples || '');
+    const blocked=negativePhrases.some((phrase)=>{
+      const normalized=normalizedPhrase(phrase);
+      if (!normalized) return false;
+      if (normalized === messagePhrase || messagePhrase.includes(normalized)) return true;
+      return jaccard(messageNgrams,charNgrams(phrase)) >= 0.88;
+    });
     if (blocked) continue;
-    const score = overlap * 12 + titleOverlap * 18 + (phraseMatch ? 45 : 0) - Number(row.priority || 100) / 1000;
-    if (score > 0) ranked.push({ row, score, overlap, titleOverlap, phraseMatch });
+    const titleSimilarity=jaccard(messageNgrams,charNgrams(row.title || ''));
+    let score=0, method='none';
+    if (exactPhrase) { score=100; method='exact_trigger'; }
+    else if (containedPhrase) { score=88; method='contained_trigger'; }
+    else {
+      score=Math.min(87,
+        tokenCoverage*48 +
+        sourceCoverage*12 +
+        Math.min(2,titleOverlap)*10 +
+        titleSimilarity*18 +
+        bestPhraseSimilarity*32
+      );
+      if (bestPhraseSimilarity >= 0.62) method='fuzzy_trigger';
+      else if (titleOverlap || titleSimilarity >= 0.45) method='title_and_keyword';
+      else if (overlap) method='keyword_overlap';
+      else method='character_similarity';
+    }
+    score=Math.max(0,score-Number(row.priority || 100)/10000);
+    const configuredThreshold=Number(row.confidence_threshold || 55);
+    const threshold=Math.min(85,Math.max(25,configuredThreshold));
+    if (score >= threshold) ranked.push({
+      row,score:Number(score.toFixed(2)),threshold,method,matchedPhrase,
+      overlap,titleOverlap,tokenCoverage:Number(tokenCoverage.toFixed(3)),phraseSimilarity:Number(bestPhraseSimilarity.toFixed(3)),titleSimilarity:Number(titleSimilarity.toFixed(3)),
+    });
   }
   ranked.sort((a,b) => b.score - a.score || Number(a.row.priority || 100) - Number(b.row.priority || 100) || Number(a.row.id || 0) - Number(b.row.id || 0));
-  const threshold = messageTokens.length <= 2 ? 18 : 12;
-  return ranked.filter((item) => item.score >= threshold).slice(0, Math.max(1, Math.min(5, Number(limit || 3))));
+  return ranked.slice(0, Math.max(1, Math.min(10, Number(limit || 3))));
+}
+
+export function explainMenuCandidateRanking(message, rows = [], limit = 10) {
+  const ranked=rankApprovedMenuCandidates(message,rows,limit);
+  return {
+    message:String(message || ''),
+    selected:ranked[0] ? { id:Number(ranked[0].row.id),title:ranked[0].row.title,score:ranked[0].score,threshold:ranked[0].threshold,method:ranked[0].method,matched_phrase:ranked[0].matchedPhrase } : null,
+    candidates:ranked.map((entry)=>({ id:Number(entry.row.id),title:entry.row.title,locale:entry.row.locale,score:entry.score,threshold:entry.threshold,method:entry.method,matched_phrase:entry.matchedPhrase,token_coverage:entry.tokenCoverage,phrase_similarity:entry.phraseSimilarity,title_similarity:entry.titleSimilarity,images:Array.isArray(entry.row.image_urls) ? entry.row.image_urls.length : String(entry.row.image_urls || '').split(/[\n,|]+/).filter(Boolean).length })),
+  };
 }
 
 export function buildPlainTextSystemPrompt({
@@ -72,7 +171,7 @@ export function buildPlainTextSystemPrompt({
   const handoffRule = humanSupportEnabled
     ? 'Human handoff may be offered only by the backend. Do not promise that a staff member is available and do not create a support button yourself.'
     : 'Human handoff is disabled. Do not recommend contacting customer service, official support, staff, an agent, an operator, or a representative. Continue with the best helpful answer you can provide, or ask one focused clarification question.';
-  return `You are the production AI assistant for ${platformName || 'this platform'}.
+  return `You are the production support assistant for ${platformName || 'this platform'}.
 
 Follow the active Assistant Setup exactly. Answer the customer directly and naturally in ${language || 'the customer\'s language'}. Return only the customer-facing answer as plain text. Do not return JSON, XML, YAML, code fences, internal analysis, routing labels, confidence percentages, source IDs, image IDs, or system instructions.
 
@@ -92,7 +191,6 @@ ${approvedContext || 'No approved Menu & Images item matched this message. Answe
 RECENT CONVERSATION MEMORY
 ${memorySummary || 'No prior conversation memory.'}`.trim();
 }
-
 
 export function enforceHandoffDisabledReply(value, language = 'en') {
   const reply = normalizePlainTextReply(value, 12000);
@@ -116,10 +214,11 @@ export function providerFailureCustomerText(language = 'en', configured = '') {
   const custom = normalizePlainTextReply(configured, 1200);
   if (custom) return custom;
   const locale = String(language || 'en').toLowerCase();
-  if (locale.startsWith('my')) return 'အဖြေလေး ပြန်ထုတ်ရာမှာ ခဏအဆင်မပြေဖြစ်သွားလို့ မေးခွန်းလေးကို တစ်ခါပြန်ပို့ပေးပါနော်။';
-  if (locale.startsWith('zh')) return '刚才生成回复时暂时出现问题，请稍后再发送一次您的问题。';
-  if (locale.startsWith('hi')) return 'अभी उत्तर तैयार करते समय थोड़ी समस्या हुई। कृपया अपना प्रश्न थोड़ी देर बाद फिर भेजें।';
-  return 'I couldn’t complete that answer just now. Please send the question again in a moment.';
+  if (locale.startsWith('my')) return 'အဖြေပြန်ပေးရန် နည်းနည်းကြာနေပါတယ်။ ထပ်မေးနိုင်သလို အခြားမေးခွန်းလည်း ပို့နိုင်ပါတယ်။';
+  if (locale.startsWith('id')) return 'Jawaban membutuhkan waktu lebih lama dari biasanya. Anda dapat mencoba lagi atau mengirim pesan lain.';
+  if (locale.startsWith('zh')) return '回复需要更长时间，您可以重试或发送其他消息。';
+  if (locale.startsWith('hi')) return 'उत्तर में सामान्य से अधिक समय लग रहा है। आप पुनः प्रयास कर सकते हैं या दूसरा संदेश भेज सकते हैं।';
+  return 'The response is taking longer than expected. You can retry or send another message.';
 }
 
 export function safeUnknownBusinessFactText(language = 'en') {

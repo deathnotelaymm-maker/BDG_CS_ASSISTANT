@@ -3,7 +3,6 @@ import {
   Archive,
   ArrowRightLeft,
   BarChart3,
-  Bot,
   CheckCircle2,
   Clock3,
   Headphones,
@@ -132,6 +131,7 @@ export default function App() {
   const [socketState, setSocketState] = useState<SocketState>("offline");
   const [customerTyping, setCustomerTyping] = useState(false);
   const [aiState, setAiState] = useState<string>("");
+  const [pollIntervalMs, setPollIntervalMs] = useState(2500);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number | null>(null);
   const reconnectAttempt = useRef(0);
@@ -203,9 +203,9 @@ export default function App() {
   useEffect(() => {
     if (!staff) return;
     void refreshAll();
-    const timer = window.setInterval(() => { void loadDashboard(); }, 30000);
+    const timer = window.setInterval(() => { void loadDashboard(); void loadConversationList(); }, socketState === "connected" ? 12000 : 4000);
     return () => window.clearInterval(timer);
-  }, [staff?.id, chatTab, view, refreshAll, loadDashboard]);
+  }, [staff?.id, chatTab, view, refreshAll, loadDashboard, loadConversationList, socketState]);
 
   useEffect(() => {
     if (!staff) return;
@@ -216,91 +216,70 @@ export default function App() {
 
   useEffect(() => {
     if (!staff || !token()) return;
-    let disposed = false;
-    const connect = () => {
+    let disposed=false;
+    const connect=async()=>{
       if (disposed) return;
       setSocketState(reconnectAttempt.current ? "reconnecting" : "connecting");
-      const socket = new WebSocket(websocketUrl(), ["bdg-support", token()]);
-      socketRef.current = socket;
-      socket.onopen = () => {
-        reconnectAttempt.current = 0;
-        setSocketState("connected");
-        const selected = selectedRef.current;
-        if (selected) {
-          socket.send(JSON.stringify({ event: "support:subscribe", data: { conversation_id: selected } }));
-          socket.send(JSON.stringify({ event: "support:sync", data: { conversation_id: selected, after_sequence: sequenceRef.current } }));
-        }
-      };
-      socket.onmessage = (event) => {
-        try {
-          const packet = JSON.parse(String(event.data || "{}"));
-          const data = packet.data || {};
-          if (packet.event === "support:force_logout") {
-            saveToken("");
-            window.location.reload();
-            return;
-          }
-          if (packet.event === "support:snapshot" && Number(data.conversation_id) === selectedRef.current) {
-            setDetail((current) => current ? {
-              ...current,
-              conversation: data.conversation || current.conversation,
-              messages: (data.messages || []).reduce((list: SupportMessage[], item: SupportMessage) => mergeMessage(list, item), current.messages),
-            } : current);
-            for (const item of (data.messages || []) as SupportMessage[]) sequenceRef.current = Math.max(sequenceRef.current, Number(item.message_sequence || 0));
-            const active = Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : data.active_ai_job ? [data.active_ai_job] : [];
-            setAiState(active[0]?.status || "");
-          }
-          if ((packet.event === "support:message_created" || packet.event === "ai:message_created") && data.message && Number(data.message.conversation_id || selectedRef.current) === selectedRef.current) {
-            const message = data.message as SupportMessage;
-            sequenceRef.current = Math.max(sequenceRef.current, Number(message.message_sequence || 0));
-            setDetail((current) => current ? { ...current, messages: mergeMessage(current.messages, message) } : current);
-            if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ event: "support:read", data: { conversation_id: selectedRef.current, through_sequence: sequenceRef.current } }));
-          }
-          if (["ai:job_queued", "ai:processing_started", "ai:processing_updated"].includes(packet.event) && Number(packet.conversation_id || data.conversation_id || selectedRef.current) === selectedRef.current) setAiState(data.status || "PROCESSING");
-          if (["ai:message_created", "ai:processing_failed", "ai:processing_cancelled"].includes(packet.event)) setAiState("");
-          if (packet.event === "support:message_state" && data.actor === "customer" && Number(data.conversation_id) === selectedRef.current) {
-            const through = Number(data.through_sequence || 0);
-            setDetail((current) => current ? { ...current, messages: current.messages.map((message) => message.sender_type === "STAFF" && Number(message.message_sequence || 0) <= through
-              ? { ...message, delivered_at: data.updated_at || message.delivered_at, read_at: data.state === "read" ? (data.updated_at || message.read_at) : message.read_at }
-              : message) } : current);
-          }
-          if (packet.event === "support:typing" && data.actor === "customer" && Number(data.conversation_id) === selectedRef.current) {
-            setCustomerTyping(data.is_typing === true);
-            if (data.is_typing) window.setTimeout(() => setCustomerTyping(false), 5000);
-          }
-          if (packet.event === "support:conversation_resolved" && Number(packet.conversation_id || data.conversation?.id) === selectedRef.current) {
-            setDetail((current) => current ? { ...current, conversation: data.conversation || { ...current.conversation, status: "RESOLVED", control_mode: data.return_to_ai === false ? "CLOSED" : "AI", assigned_staff_id: null } } : current);
-          }
-          if (packet.event === "support:transfer_requested") void api.transfers().then((items) => setTransfers(items as TransferRequest[])).catch(() => undefined);
-          if (String(packet.event || "").startsWith("support:") || String(packet.event || "").startsWith("ai:")) {
-            void loadDashboard();
-            void loadConversationList();
-          }
-        } catch {
-          // Reconnection sync is the authoritative recovery path.
-        }
-      };
-      socket.onerror = () => setSocketState("offline");
-      socket.onclose = () => {
+      try {
+        const ticket=await api.realtimeTicket();
         if (disposed) return;
-        setSocketState("reconnecting");
-        const attempt = Math.min(8, reconnectAttempt.current++);
-        const delay = Math.min(15000, 750 * 2 ** attempt) + Math.floor(Math.random() * 300);
-        reconnectTimer.current = window.setTimeout(connect, delay);
-      };
+        const socket=new WebSocket(websocketUrl(ticket.ticket));
+        socketRef.current=socket;
+        socket.onopen=()=>{
+          reconnectAttempt.current=0; setSocketState("connected");
+          const selected=selectedRef.current;
+          if (selected) { socket.send(JSON.stringify({ event:"support:subscribe",data:{ conversation_id:selected } })); socket.send(JSON.stringify({ event:"support:sync",data:{ conversation_id:selected,after_sequence:sequenceRef.current } })); }
+        };
+        socket.onmessage=(event)=>{
+          try {
+            const packet=JSON.parse(String(event.data || "{}")); const data=packet.data || {};
+            if (packet.event === "support:force_logout") { saveToken(""); window.location.reload(); return; }
+            if (packet.event === "support:snapshot" && Number(data.conversation_id || data.conversation?.id) === selectedRef.current) {
+              setDetail((current)=>current ? { ...current,conversation:data.conversation || current.conversation,messages:(data.messages || []).reduce((list:SupportMessage[],item:SupportMessage)=>mergeMessage(list,item),current.messages) } : current);
+              for (const item of (data.messages || []) as SupportMessage[]) sequenceRef.current=Math.max(sequenceRef.current,Number(item.message_sequence || 0));
+              const active=Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : data.active_ai_job ? [data.active_ai_job] : []; setAiState(active[0]?.status || "");
+            }
+            if ((packet.event === "support:message_created" || packet.event === "ai:message_created") && data.message && Number(data.message.conversation_id || selectedRef.current) === selectedRef.current) {
+              const message=data.message as SupportMessage; sequenceRef.current=Math.max(sequenceRef.current,Number(message.message_sequence || 0)); setDetail((current)=>current ? { ...current,messages:mergeMessage(current.messages,message) } : current);
+              if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ event:"support:read",data:{ conversation_id:selectedRef.current,through_sequence:sequenceRef.current } }));
+            }
+            if (["ai:job_queued","ai:processing_started","ai:processing_updated"].includes(packet.event) && Number(packet.conversation_id || data.conversation_id || selectedRef.current) === selectedRef.current) setAiState(data.status || "PROCESSING");
+            if (["ai:message_created","ai:processing_failed","ai:processing_cancelled"].includes(packet.event)) setAiState("");
+            if (packet.event === "support:message_state" && data.actor === "customer" && Number(data.conversation_id) === selectedRef.current) { const through=Number(data.through_sequence || 0); setDetail((current)=>current ? { ...current,messages:current.messages.map((message)=>message.sender_type === "STAFF" && Number(message.message_sequence || 0) <= through ? { ...message,delivered_at:data.updated_at || message.delivered_at,read_at:data.state === "read" ? (data.updated_at || message.read_at) : message.read_at } : message) } : current); }
+            if (packet.event === "support:typing" && data.actor === "customer" && Number(data.conversation_id) === selectedRef.current) { setCustomerTyping(data.is_typing === true); if (data.is_typing) window.setTimeout(()=>setCustomerTyping(false),5000); }
+            if (packet.event === "support:conversation_resolved" && Number(packet.conversation_id || data.conversation?.id) === selectedRef.current) { setDetail((current)=>current ? { ...current,conversation:data.conversation || { ...current.conversation,status:"RESOLVED",control_mode:data.return_to_ai === false ? "CLOSED" : "AI",assigned_staff_id:null } } : current); }
+            if (packet.event === "support:transfer_requested") void api.transfers().then((items)=>setTransfers(items as TransferRequest[])).catch(()=>undefined);
+            if (String(packet.event || "").startsWith("support:") || String(packet.event || "").startsWith("ai:")) { void loadDashboard(); void loadConversationList(); }
+          } catch {}
+        };
+        socket.onerror=()=>setSocketState("offline");
+        socket.onclose=()=>{ if (disposed) return; setSocketState("reconnecting"); const attempt=Math.min(8,reconnectAttempt.current++); const delay=Math.min(15000,750*2**attempt)+Math.floor(Math.random()*300); reconnectTimer.current=window.setTimeout(()=>void connect(),delay); };
+      } catch { if (disposed) return; setSocketState("reconnecting"); const attempt=Math.min(8,reconnectAttempt.current++); const delay=Math.min(15000,750*2**attempt)+Math.floor(Math.random()*300); reconnectTimer.current=window.setTimeout(()=>void connect(),delay); }
     };
-    connect();
-    return () => {
-      disposed = true;
-      if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current);
-      socketRef.current?.close(1000, "Staff Console closed");
-      socketRef.current = null;
-    };
-  }, [staff?.id, loadConversationList, loadDashboard]);
+    void connect();
+    return ()=>{ disposed=true; if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current); socketRef.current?.close(1000,"Staff Console closed"); socketRef.current=null; };
+  }, [staff?.id,loadConversationList,loadDashboard]);
 
-  useEffect(() => {
-    messagePaneRef.current?.scrollTo({ top: messagePaneRef.current.scrollHeight, behavior: "smooth" });
-  }, [detail?.messages.length, customerTyping]);
+  useEffect(()=>{
+    if (!staff || !selectedId) return;
+    let disposed=false;
+    const sync=async()=>{
+      try {
+        const data=await api.sync(selectedId,sequenceRef.current);
+        if (disposed) return;
+        setPollIntervalMs(Math.max(1500,Number(data.poll_interval_ms || 2500)));
+        setDetail((current)=>current ? { ...current,conversation:data.conversation || current.conversation,messages:(data.messages || []).reduce((list,item)=>mergeMessage(list,item),current.messages) } : current);
+        for (const item of data.messages || []) sequenceRef.current=Math.max(sequenceRef.current,Number(item.message_sequence || 0));
+        setAiState(data.active_ai_jobs?.[0]?.status || "");
+      } catch {}
+    };
+    void sync();
+    const timer=window.setInterval(()=>void sync(),socketState === "connected" ? 12000 : pollIntervalMs);
+    const onVisible=()=>{ if (document.visibilityState === "visible") void sync(); };
+    document.addEventListener("visibilitychange",onVisible); window.addEventListener("online",onVisible);
+    return ()=>{ disposed=true; window.clearInterval(timer); document.removeEventListener("visibilitychange",onVisible); window.removeEventListener("online",onVisible); };
+  },[staff?.id,selectedId,socketState,pollIntervalMs]);
+
 
   async function changePresence(status: "active" | "invisible") {
     try {
@@ -434,7 +413,7 @@ export default function App() {
               <DashboardList title="Waiting queue" items={waitingPreview} empty="No customers are waiting." actionLabel="Accept" onOpen={(item) => { setView("chats"); setChatTab("waiting"); void loadConversation(item.id); }} onAction={acceptConversation} zone={displayTimezone} />
               <DashboardList title="My conversations" items={minePreview} empty="You have no active conversations." actionLabel="Open" onOpen={(item) => { setView("chats"); setChatTab("mine"); void loadConversation(item.id); }} onAction={(item) => { setView("chats"); setChatTab("mine"); return loadConversation(item.id); }} zone={displayTimezone} />
             </section>
-            <section className="dashboard-help"><Headphones /><div><h3>Realtime support is active</h3><p>Customer and staff messages synchronize through the authenticated support WebSocket. Reconnection automatically requests missed message sequences.</p></div></section>
+            <section className="dashboard-help"><Headphones /><div><h3>Reliable live support is active</h3><p>Realtime delivery is backed by automatic message catch-up, so conversations continue through brief connection interruptions.</p></div></section>
           </div>
         )}
 
@@ -451,16 +430,16 @@ export default function App() {
 
             <main className="conversation-panel">
               {detail ? <>
-                <header className="conversation-header"><div><h2>{detail.conversation.customer_display_name || detail.conversation.customer_identifier || `Customer ${detail.conversation.id}`}</h2><p><StatusPill value={detail.conversation.status} /> {detail.conversation.control_mode === "HUMAN" ? "Human-controlled" : detail.conversation.control_mode === "AI" ? "AI available" : "Closed"}{aiState && <span className="ai-state"><Bot /> AI {aiState.toLowerCase()}</span>}</p></div><div className="conversation-tools"><button onClick={addNote}>Internal note</button>{canReply && <button onClick={transferConversation}><ArrowRightLeft /> Transfer</button>}{canReply && <button className="success" onClick={resolveConversation}><CheckCircle2 /> Resolve → AI</button>}</div></header>
+                <header className="conversation-header"><div><h2>{detail.conversation.customer_display_name || detail.conversation.customer_identifier || `Customer ${detail.conversation.id}`}</h2><p><StatusPill value={detail.conversation.status} /> {detail.conversation.control_mode === "HUMAN" ? "Representative-controlled" : detail.conversation.control_mode === "AI" ? "Brand support ready" : "Closed"}{aiState && <span className="ai-state"><Activity /> Automated response {aiState.toLowerCase()}</span>}</p></div><div className="conversation-tools"><button onClick={addNote}>Internal note</button>{canReply && <button onClick={transferConversation}><ArrowRightLeft /> Transfer</button>}{canReply && <button className="success" onClick={resolveConversation}><CheckCircle2 /> Resolve → Brand support</button>}</div></header>
                 <div className="message-stream" ref={messagePaneRef}>{detail.messages.filter((message) => !message.is_internal).map((message) => <div key={message.id} className={`message-row ${message.sender_type.toLowerCase()}`}><div className="message-meta"><strong>{message.sender_name || message.sender_type}</strong><span>#{message.message_sequence || "—"} · {formatDate(message.created_at, displayTimezone)}</span></div><p>{message.body_text}</p>{message.sender_type === "STAFF" && <small className="delivery-state">{message.read_at ? "Read" : message.delivered_at ? "Delivered" : "Sent"}</small>}</div>)}{customerTyping && <div className="typing-line">Customer is typing…</div>}</div>
-                <footer className="reply-composer"><div className="composer-tabs"><button className="active">Reply</button><button onClick={addNote}>Internal note</button></div><div className="composer-row"><textarea disabled={!canReply || socketState !== "connected"} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendReply(); } }} onInput={() => { const socket = socketRef.current; if (socket?.readyState === WebSocket.OPEN && detail) socket.send(JSON.stringify({ event: "support:typing", data: { conversation_id: detail.conversation.id, is_typing: true } })); }} placeholder={canReply ? socketState === "connected" ? "Type a reply…" : "Reconnecting realtime chat…" : `Read-only — assigned to ${detail.conversation.assigned_staff_name || "another staff member"}`} /><button disabled={!canReply || socketState !== "connected" || !draft.trim()} onClick={sendReply}><Send /></button></div>{detail.conversation.status === "RESOLVED" && detail.conversation.control_mode === "AI" && <div className="returned-ai-notice"><Bot /> Resolved. The customer has returned to the AI assistant.</div>}</footer>
+                <footer className="reply-composer"><div className="composer-tabs"><button className="active">Reply</button><button onClick={addNote}>Internal note</button></div><div className="composer-row"><textarea disabled={!canReply} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendReply(); } }} onInput={() => { const socket = socketRef.current; if (socket?.readyState === WebSocket.OPEN && detail) socket.send(JSON.stringify({ event: "support:typing", data: { conversation_id: detail.conversation.id, is_typing: true } })); }} placeholder={canReply ? "Type a reply…" : `Read-only — assigned to ${detail.conversation.assigned_staff_name || "another staff member"}`} /><button disabled={!canReply || !draft.trim()} onClick={sendReply}><Send /></button></div>{detail.conversation.status === "RESOLVED" && detail.conversation.control_mode === "AI" && <div className="returned-ai-notice"><Activity /> Resolved. The customer has returned to brand support.</div>}</footer>
               </> : <div className="empty-conversation"><MessageCircle /><h2>Select a conversation</h2><p>Messages will arrive here in real time without refreshing.</p></div>}
             </main>
 
             <aside className="customer-panel">
               {detail ? <>
                 <div className="panel-tabs"><button className="active">Customer</button><button>Conversation</button><button>Shortcuts</button></div>
-                <section><h3>Visitor information</h3><dl><dt>Customer</dt><dd>{detail.conversation.customer_display_name || detail.conversation.customer_identifier || "Not set"}</dd><dt>Locale</dt><dd>{detail.conversation.customer_locale || "Not set"}</dd><dt>Connection</dt><dd>{socketState}</dd><dt>Started</dt><dd>{formatDate(detail.conversation.created_at || detail.conversation.queue_entered_at, displayTimezone)}</dd></dl></section>
+                <section><h3>Visitor information</h3><dl><dt>Customer</dt><dd>{detail.conversation.customer_display_name || detail.conversation.customer_identifier || "Not set"}</dd><dt>Locale</dt><dd>{detail.conversation.customer_locale || "Not set"}</dd><dt>Delivery</dt><dd>{socketState === "connected" ? "Realtime" : socketState === "offline" ? "Fallback syncing" : "Reconnecting"}</dd><dt>Started</dt><dd>{formatDate(detail.conversation.created_at || detail.conversation.queue_entered_at, displayTimezone)}</dd></dl></section>
                 <section><h3>Conversation</h3><dl><dt>Handoff reason</dt><dd>{detail.conversation.handoff_reason?.replaceAll("_", " ") || "—"}</dd><dt>Assigned staff</dt><dd>{detail.conversation.assigned_staff_name || "Unassigned"}</dd><dt>Control mode</dt><dd>{detail.conversation.control_mode}</dd><dt>Last sequence</dt><dd>{detail.conversation.last_message_sequence || sequenceRef.current}</dd></dl></section>
                 <section><h3>Internal notes</h3>{detail.notes.map((note) => <article className="note-card" key={note.id}><p>{note.note_text}</p><small>{note.author_name || "Staff"} · {formatDate(note.created_at, displayTimezone)}</small></article>)}{!detail.notes.length && <p className="muted">No internal notes.</p>}</section>
               </> : <section><h3>Staff availability</h3><p className="muted">Active staff can accept waiting customers and transfer requests. Invisible staff remain signed in but are not offered new work.</p></section>}

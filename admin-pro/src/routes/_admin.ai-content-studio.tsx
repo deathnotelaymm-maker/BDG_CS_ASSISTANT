@@ -86,7 +86,9 @@ function AiContentStudioPage() {
       locale: "my",
       status: "draft",
       priority: 100,
-      confidence_threshold: 86,
+      confidence_threshold: 55,
+      category: "",
+      matching_aliases: { my: "", en: "", id: "", zh: "", hi: "" },
       image_delivery: "after_answer",
       version_label: "v1",
       approval_status: "draft",
@@ -248,7 +250,7 @@ function AiContentStudioPage() {
         style={{ marginBottom: 12 }}
       />
 
-      <Card className="bdg-card" size="small" title="Fresh menu matching test" style={{ marginBottom: 12 }}>
+      <Card className="bdg-card" size="small" title="Hybrid Menu & Images Match Tester" style={{ marginBottom: 12 }}>
         <Space.Compact style={{ width: "100%" }}>
           <Select
             value={testLanguage}
@@ -256,6 +258,9 @@ function AiContentStudioPage() {
             options={[
               { value: "my", label: "Burmese" },
               { value: "en", label: "English" },
+              { value: "id", label: "Indonesian" },
+              { value: "zh", label: "Chinese" },
+              { value: "hi", label: "Hindi" },
               { value: "auto", label: "Automatic" },
             ]}
             style={{ width: 145 }}
@@ -282,7 +287,7 @@ function AiContentStudioPage() {
           <div style={{ marginTop: 12 }}>
             <Space wrap>
               <Tag color={testResult.ok ? "green" : "red"}>{testResult.ok ? "AI replied" : "Provider fallback"}</Tag>
-              <Tag color="blue">One-call runtime</Tag>
+              <Tag color="blue">Server-owned hybrid matching</Tag>
               <Tag>{testResult.catalog_size || 0} live menu candidate(s)</Tag>
               {testResult.selected_content ? (
                 <Tag color="purple">Matched: {testResult.selected_content.title}</Tag>
@@ -290,6 +295,21 @@ function AiContentStudioPage() {
                 <Tag>General Assistant Setup answer</Tag>
               )}
             </Space>
+            {testResult.selected_content ? <Card size="small" style={{marginTop:10}}><Space wrap>
+              <Tag color="geekblue">Score {Math.round(Number(testResult.selected_content.match_score || 0))}</Tag>
+              <Tag>Threshold {Math.round(Number(testResult.selected_content.match_threshold || 0))}</Tag>
+              <Tag>Method {testResult.selected_content.match_method || "—"}</Tag>
+              <Tag>Phrase {testResult.selected_content.matched_phrase || "—"}</Tag>
+              <Tag color={(testResult.selected_content.image_urls || []).length ? "green" : "gold"}>{(testResult.selected_content.image_urls || []).length} approved image(s)</Tag>
+            </Space></Card> : null}
+            {Array.isArray(testResult.match_diagnostics?.candidates) && testResult.match_diagnostics.candidates.length ? <Table size="small" style={{marginTop:10}} pagination={false} rowKey={(r:any)=>String(r.id || r.title)} dataSource={testResult.match_diagnostics.candidates.slice(0,8)} columns={[
+              {title:"Candidate",dataIndex:"title",ellipsis:true},
+              {title:"Score",dataIndex:"score",width:80},
+              {title:"Threshold",dataIndex:"threshold",width:90},
+              {title:"Method",dataIndex:"method",width:150},
+              {title:"Matched phrase",dataIndex:"matched_phrase",ellipsis:true},
+              {title:"Images",dataIndex:"images",width:80,render:(v:number)=>v||0},
+            ] as any}/> : null}
             {testResult.reply ? (
               <Typography.Paragraph style={{ marginTop: 10, marginBottom: 0, whiteSpace: "pre-wrap" }}>
                 {testResult.reply}
@@ -361,9 +381,22 @@ function AiContentStudioPage() {
                             options={[
                               { value: "my", label: "Burmese" },
                               { value: "en", label: "English" },
+                              { value: "id", label: "Indonesian" },
+                              { value: "zh", label: "Chinese" },
+                              { value: "hi", label: "Hindi" },
                               { value: "all", label: "All languages" },
                             ]}
                           />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={12} md={6}>
+                        <Form.Item name="category" label="Category">
+                          <Input placeholder="fried-rice" />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={12} md={6}>
+                        <Form.Item name="confidence_threshold" label="Match threshold">
+                          <InputNumber min={25} max={85} style={{width:"100%"}} />
                         </Form.Item>
                       </Col>
                       <Col xs={12} md={6}>
@@ -417,6 +450,10 @@ function AiContentStudioPage() {
                       </Col>
                     </Row>
 
+                    <Alert type="info" showIcon message="Hybrid matching" description="Exact examples are strongest. Localized aliases, title/category tokens, and semantic character similarity provide safe fallback matching. The server selects the item and its approved media before calling the provider." style={{marginBottom:12}} />
+                    <Row gutter={12}>
+                      {[["my","Burmese aliases"],["en","English aliases"],["id","Indonesian aliases"],["zh","Chinese aliases"],["hi","Hindi aliases"]].map(([code,label])=><Col xs={24} md={12} key={code}><Form.Item name={["matching_aliases",code]} label={label}><Input.TextArea rows={3} placeholder="One phrase or alias per line" /></Form.Item></Col>)}
+                    </Row>
                     <Row gutter={12}>
                       <Col xs={24} md={12}>
                         <Form.Item name="positive_examples" label="Customer messages that should match">
@@ -497,7 +534,7 @@ function AiContentStudioPage() {
                     <Alert
                       type="info"
                       showIcon
-                      message="The model may attach only images approved on the matched menu item. Images never create a match by themselves."
+                      message="The server attaches only approved images from the selected item. The provider writes plain text and cannot choose a different image."
                       style={{ marginBottom: 12 }}
                     />
                     <Row gutter={12}>

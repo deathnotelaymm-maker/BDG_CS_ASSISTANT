@@ -1,0 +1,7 @@
+BDG CS Assistant v1.16.2
+Conversation Continuity, Realtime Transport and Media Matching Repair
+Release marker: 1.16.2-conversation-continuity-realtime-media-matching
+Base: v1.16.1-r3
+Database migration: 040
+Next migration: 041
+Installed files must be reviewed before commit, push, or deployment.

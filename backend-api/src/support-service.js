@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { bearerToken, createSupportToken, readSupportToken } from './support-auth.js';
 import { emitSupportEvent } from './support-events.js';
 
@@ -71,6 +71,32 @@ function safeTimezone(value, fallback = 'UTC') {
   catch { throw supportError('Timezone must be a valid IANA timezone such as Asia/Phnom_Penh', 400, 'SUPPORT_TIMEZONE_INVALID'); }
 }
 function rowDate(value) { return value ? String(value) : ''; }
+function parseJsonObject(value, fallback = {}) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  try { const parsed=JSON.parse(String(value || '{}')); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback; }
+  catch { return fallback; }
+}
+function sha256(value) { return createHash('sha256').update(String(value || '')).digest('hex'); }
+function secureEqualHex(left, right) {
+  const a=Buffer.from(String(left || ''),'utf8'), b=Buffer.from(String(right || ''),'utf8');
+  return a.length === b.length && timingSafeEqual(a,b);
+}
+function supportLocale(value = 'en') {
+  const locale=String(value || 'en').trim().toLowerCase().replace('_','-');
+  return locale.split('-')[0] || 'en';
+}
+const DEFAULT_CUSTOMER_MESSAGES = {
+  en:{ waiting:'Your request is in the customer-service queue.', no_staff:'No representative is currently available. Your request remains in the queue.', resolved:'Your customer-service request has been resolved. You can continue chatting here.', agent_joined:'A customer-service representative joined the conversation.', provider_failure:'The response is taking longer than expected. You can retry or send another message.', reconnecting:'Reconnecting…' },
+  my:{ waiting:'သင့်တောင်းဆိုချက်ကို ဖောက်သည်ဝန်ဆောင်မှု စောင့်ဆိုင်းစာရင်းထဲ ထည့်ပြီးပါပြီ။', no_staff:'လက်ရှိ ဝန်ထမ်းမအားသေးပါ။ သင့်တောင်းဆိုချက်ကို စောင့်ဆိုင်းစာရင်းထဲ သိမ်းထားပါတယ်။', resolved:'ဖောက်သည်ဝန်ဆောင်မှုက ဒီတောင်းဆိုချက်ကို ဖြေရှင်းပြီးပါပြီ။ ဒီနေရာမှာ ဆက်ပြီး စကားပြောနိုင်ပါတယ်။', agent_joined:'ဖောက်သည်ဝန်ဆောင်မှု ကိုယ်စားလှယ်တစ်ဦး စကားဝိုင်းထဲ ဝင်လာပါပြီ။', provider_failure:'အဖြေပြန်ပေးရန် နည်းနည်းကြာနေပါတယ်။ ထပ်မေးနိုင်သလို အခြားမေးခွန်းလည်း ပို့နိုင်ပါတယ်။', reconnecting:'ပြန်လည်ချိတ်ဆက်နေသည်…' },
+  id:{ waiting:'Permintaan Anda sudah masuk antrean layanan pelanggan.', no_staff:'Belum ada perwakilan yang tersedia. Permintaan Anda tetap berada dalam antrean.', resolved:'Permintaan layanan pelanggan Anda telah diselesaikan. Anda dapat melanjutkan percakapan di sini.', agent_joined:'Perwakilan layanan pelanggan telah bergabung dalam percakapan.', provider_failure:'Jawaban membutuhkan waktu lebih lama dari biasanya. Anda dapat mencoba lagi atau mengirim pesan lain.', reconnecting:'Menyambungkan kembali…' },
+  zh:{ waiting:'您的请求已加入客服队列。', no_staff:'目前暂无客服人员在线，您的请求会继续保留在队列中。', resolved:'客服请求已处理完成，您可以继续在这里聊天。', agent_joined:'客服人员已加入对话。', provider_failure:'回复需要更长时间，您可以重试或发送其他消息。', reconnecting:'正在重新连接…' },
+  hi:{ waiting:'आपका अनुरोध ग्राहक-सेवा कतार में जोड़ दिया गया है।', no_staff:'अभी कोई प्रतिनिधि उपलब्ध नहीं है। आपका अनुरोध कतार में सुरक्षित है।', resolved:'आपका ग्राहक-सेवा अनुरोध हल हो गया है। आप यहाँ बातचीत जारी रख सकते हैं।', agent_joined:'एक ग्राहक-सेवा प्रतिनिधि बातचीत में जुड़ गया है।', provider_failure:'उत्तर में सामान्य से अधिक समय लग रहा है। आप पुनः प्रयास कर सकते हैं या दूसरा संदेश भेज सकते हैं।', reconnecting:'फिर से कनेक्ट हो रहा है…' },
+};
+function customerMessage(settings, locale, key, fallback = '') {
+  const code=supportLocale(locale), configured=parseJsonObject(settings?.customer_messages_json || {}, {});
+  return cleanText(configured?.[code]?.[key] || configured?.en?.[key] || DEFAULT_CUSTOMER_MESSAGES[code]?.[key] || DEFAULT_CUSTOMER_MESSAGES.en[key] || fallback, 3000);
+}
+function createResumeKey() { return randomBytes(32).toString('base64url'); }
 function supportSettingsOut(row = {}) {
   return {
     id:Number(row.id || 0), tenant_id:Number(row.tenant_id || 0), platform_id:Number(row.platform_id || 0),
@@ -99,8 +125,10 @@ function supportSettingsOut(row = {}) {
     processing_message_secondary_delay_ms:Number(row.processing_message_secondary_delay_ms || 8000),
     processing_message_max_visible_ms:Number(row.processing_message_max_visible_ms || 45000),
     allow_messages_while_ai_processing:row.allow_messages_while_ai_processing !== false,
-    provider_failure_message:row.provider_failure_message || 'I couldn’t complete that answer just now. Please send the question again in a moment.',
+    provider_failure_message:row.provider_failure_message || 'The response is taking longer than expected. You can retry or send another message.',
     return_to_ai_on_resolve:row.return_to_ai_on_resolve !== false,
+    customer_messages_json:parseJsonObject(row.customer_messages_json, {}),
+    realtime_poll_interval_ms:Math.min(15000,Math.max(1500,Number(row.realtime_poll_interval_ms || 2500))),
     updated_at:rowDate(row.updated_at),
   };
 }
@@ -144,6 +172,7 @@ function conversationOut(row = {}) {
     created_at:rowDate(row.created_at), updated_at:rowDate(row.updated_at), unread_count:Number(row.unread_count || 0),
     last_message:row.last_message || '', waiting_seconds:Number(row.waiting_seconds || 0), version:Number(row.version || 1),
     last_message_sequence:Number(row.last_message_sequence || 0), return_to_ai_on_resolve:row.return_to_ai_on_resolve !== false,
+    last_customer_read_sequence:Number(row.last_customer_read_sequence || 0), last_staff_read_sequence:Number(row.last_staff_read_sequence || 0),
   };
 }
 
@@ -206,7 +235,41 @@ async function getCustomerByToken(env, token, deps) {
   return { claims, conversation:conversationOut(row) };
 }
 
+async function issueRealtimeTicket(env, access, deps) {
+  const raw=`rt_${randomBytes(32).toString('base64url')}`;
+  const expiresAt=new Date(Date.now()+60_000).toISOString();
+  const payload=access.kind === 'staff'
+    ? { kind:'staff',tenant_id:access.tenant_id,platform_id:access.platform_id,staff_id:access.staff_id,staff:access.staff }
+    : { kind:'customer',tenant_id:access.tenant_id,platform_id:access.platform_id,conversation_id:access.conversation_id,conversation:access.conversation };
+  await deps.q(env,`DELETE FROM support_realtime_tickets WHERE expires_at<NOW()-INTERVAL '5 minutes' OR consumed_at<NOW()-INTERVAL '5 minutes'`);
+  await deps.q(env,`INSERT INTO support_realtime_tickets(token_hash,identity_kind,tenant_id,platform_id,conversation_id,staff_id,access_json,expires_at)
+    VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::timestamptz)`,[sha256(raw),access.kind,access.tenant_id,access.platform_id,access.conversation_id || null,access.staff_id || null,JSON.stringify(payload),expiresAt]);
+  return { ticket:raw,expires_at:expiresAt };
+}
+async function consumeRealtimeTicket(env, ticket, deps) {
+  const hash=sha256(ticket);
+  const row=(await deps.q(env,`UPDATE support_realtime_tickets SET consumed_at=NOW() WHERE token_hash=$1 AND consumed_at IS NULL AND expires_at>NOW() RETURNING *`,[hash])).rows[0];
+  if (!row) throw supportError('Realtime ticket is invalid or expired',401,'SUPPORT_REALTIME_TICKET_INVALID');
+  const payload=parseJsonObject(row.access_json,{});
+  if (row.identity_kind === 'staff') {
+    const staffRow=(await deps.q(env,`SELECT sp.*,au.email,au.name,au.is_active,au.session_version FROM support_staff_profiles sp JOIN admin_users au ON au.id=sp.admin_user_id WHERE sp.id=$1 AND sp.tenant_id=$2 AND sp.platform_id=$3 AND sp.archived_at IS NULL LIMIT 1`,[row.staff_id,row.tenant_id,row.platform_id])).rows[0];
+    if (!staffRow || staffRow.is_active === false || staffRow.account_status !== 'active') throw supportError('Staff account is inactive',401,'SUPPORT_ACCOUNT_INACTIVE');
+    const ticketSessionVersion=Number(payload?.staff?.token_claims?.sv ?? payload?.staff?.session_version ?? -1);
+    if (ticketSessionVersion < 0 || Number(staffRow.session_version || 0) !== ticketSessionVersion) throw supportError('Staff session has been revoked',401,'SUPPORT_SESSION_REVOKED');
+    const sessionId=Number(payload?.staff?.session_id || 0);
+    const session=sessionId ? (await deps.q(env,`SELECT id FROM support_staff_sessions WHERE id=$1 AND staff_id=$2 AND revoked_at IS NULL AND signed_out_at IS NULL LIMIT 1`,[sessionId,staffRow.id])).rows[0] : null;
+    if (!session) throw supportError('Staff realtime session is unavailable',401,'SUPPORT_SESSION_REVOKED');
+    const permissions=await staffPermissions(deps.q,env,staffRow.id);
+    const staff={ ...staffOut(staffRow,permissions),session_id:sessionId };
+    return { kind:'staff',staff,tenant_id:staff.tenant_id,platform_id:staff.platform_id,staff_id:staff.id };
+  }
+  const conversation=(await deps.q(env,`SELECT * FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 LIMIT 1`,[row.conversation_id,row.tenant_id,row.platform_id])).rows[0];
+  if (!conversation) throw supportError('Customer conversation is unavailable',401,'SUPPORT_CUSTOMER_SESSION_INVALID');
+  return { kind:'customer',conversation:conversationOut(conversation),tenant_id:Number(row.tenant_id),platform_id:Number(row.platform_id),conversation_id:Number(row.conversation_id) };
+}
+
 export async function verifySupportRealtimeAccess(env, token, deps) {
+  if (String(token || '').startsWith('rt_')) return consumeRealtimeTicket(env,token,deps);
   const claims = readSupportToken(env, token);
   if (claims.kind === 'staff') {
     const staff = await getStaffByToken(env, token, deps);
@@ -317,9 +380,16 @@ export async function getHumanSupportSettings(env, scope, deps) {
   return supportSettingsOut(await ensureSettings(deps.q, env, scope));
 }
 
+export function customerRequestsContactInformation(message = '') {
+  const value=String(message || '').normalize('NFKC').toLowerCase();
+  const contactTerm=/(contact us|contact page|support page|support website|support link|customer service website|联系客服的方式|客服页面|ဆက်သွယ်ရန်|contact.*ဘယ်မှာ|website.*contact)/iu.test(value);
+  const informationIntent=/(where|how|what|website|page|link|url|information|address|number|ဘယ်မှာ|ဘယ်လို|လင့်ခ်|ဝဘ်ဆိုက်|页面|网址|链接)/iu.test(value);
+  return contactTerm && informationIntent;
+}
 export function customerExplicitlyRequestsHuman(message = '') {
   const value = String(message || '').normalize('NFKC').toLowerCase();
-  return /(human|real person|live agent|customer service|support staff|operator|representative|ဝန်ထမ်း|လူနဲ့|customer service နဲ့|အေးဂျင့်|အေဂျင့်|客服|人工客服)/iu.test(value);
+  if (customerRequestsContactInformation(value)) return false;
+  return /(speak|talk|chat|connect|transfer|let me speak|i want|need).{0,24}(human|real person|live agent|customer service|support staff|operator|representative)|(?:human|real person|live agent|operator|representative).{0,20}(please|now|connect|talk|speak)|ဝန်ထမ်း(?:နဲ့|ကို).{0,20}(ပြော|ဆက်သွယ်|လွှဲ)|လူနဲ့.{0,20}ပြော|人工客服|转人工|找客服人员/iu.test(value);
 }
 
 export function normalizeAiHandoffResult(result, reason) {
@@ -366,6 +436,8 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
       no_staff_online_message:settings.no_staff_online_message,
       heartbeat_interval_seconds:settings.heartbeat_interval_seconds,
       return_to_ai_on_resolve:settings.return_to_ai_on_resolve,
+      poll_interval_ms:settings.realtime_poll_interval_ms,
+      customer_messages:settings.customer_messages_json,
       processing:{
         enabled:settings.processing_message_enabled,
         message:settings.processing_message_text,
@@ -387,18 +459,19 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
     if (!chatSession) throw supportError('Chat session does not belong to this platform', 403, 'SUPPORT_CHAT_SESSION_SCOPE_MISMATCH');
     const reason = HANDOFF_REASONS.has(String(payload.handoff_reason || '').toUpperCase()) ? String(payload.handoff_reason).toUpperCase() : 'CUSTOMER_REQUESTED_HUMAN';
     const detail = cleanText(payload.handoff_detail || payload.message, 2000);
-    let conversation = (await deps.q(env, `INSERT INTO support_conversations(tenant_id,platform_id,chat_session_id,customer_identifier,customer_display_name,customer_locale,status,control_mode,handoff_reason,handoff_detail,queue_entered_at,last_message_at,return_to_ai_on_resolve)
-      VALUES($1,$2,$3,$4,$5,$6,'WAITING_FOR_AGENT','HUMAN',$7,$8,NOW(),NOW(),$9)
+    const resumeKey=createResumeKey();
+    let conversation = (await deps.q(env, `INSERT INTO support_conversations(tenant_id,platform_id,chat_session_id,customer_identifier,customer_display_name,customer_locale,status,control_mode,handoff_reason,handoff_detail,queue_entered_at,last_message_at,return_to_ai_on_resolve,customer_resume_key_hash)
+      VALUES($1,$2,$3,$4,$5,$6,'WAITING_FOR_AGENT','HUMAN',$7,$8,NOW(),NOW(),$9,$10)
       ON CONFLICT(platform_id,chat_session_id) DO UPDATE SET
         status=CASE WHEN support_conversations.status IN ('RESOLVED','CLOSED','AI_ACTIVE','HANDOFF_OFFERED') THEN 'WAITING_FOR_AGENT' ELSE support_conversations.status END,
         control_mode='HUMAN',active_ai_job_id=NULL,assigned_staff_id=CASE WHEN support_conversations.status IN ('RESOLVED','CLOSED','AI_ACTIVE','HANDOFF_OFFERED') THEN NULL ELSE support_conversations.assigned_staff_id END,
-        handoff_reason=EXCLUDED.handoff_reason,handoff_detail=EXCLUDED.handoff_detail,queue_entered_at=COALESCE(support_conversations.queue_entered_at,NOW()),updated_at=NOW(),version=support_conversations.version+1
-      RETURNING *`, [scope.tenant_id,scope.platform_id,chatSessionId,cleanText(payload.customer_identifier,255),cleanText(payload.customer_display_name,160),cleanText(payload.language || payload.locale,35),reason,detail,settings.return_to_ai_on_resolve !== false])).rows[0];
+        handoff_reason=EXCLUDED.handoff_reason,handoff_detail=EXCLUDED.handoff_detail,customer_resume_key_hash=EXCLUDED.customer_resume_key_hash,queue_entered_at=COALESCE(support_conversations.queue_entered_at,NOW()),updated_at=NOW(),version=support_conversations.version+1
+      RETURNING *`, [scope.tenant_id,scope.platform_id,chatSessionId,cleanText(payload.customer_identifier,255),cleanText(payload.customer_display_name,160),cleanText(payload.language || payload.locale,35),reason,detail,settings.return_to_ai_on_resolve !== false,sha256(resumeKey)])).rows[0];
     await deps.q(env,`UPDATE ai_jobs SET status=CASE WHEN status='PROCESSING' THEN 'SUPPRESSED' ELSE 'CANCELLED' END,completed_at=NOW(),last_error_code='HUMAN_HANDOFF_STARTED',locked_at=NULL,locked_by=NULL,updated_at=NOW() WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING')`,[conversation.id]);
     await copyAiHistoryIntoSupport(deps.q, env, scope, conversation);
     await deps.q(env, `UPDATE chat_sessions SET human_support_state='WAITING_FOR_AGENT',updated_at=NOW() WHERE session_id=$1 AND tenant_id=$2 AND platform_id=$3`, [chatSessionId,scope.tenant_id,scope.platform_id]);
     await deps.q(env, `UPDATE chat_logs SET support_conversation_id=$1,handoff_reason=COALESCE(NULLIF(handoff_reason,''),$2) WHERE id=(SELECT id FROM chat_logs WHERE session_id=$3 AND tenant_id=$4 AND platform_id=$5 ORDER BY id DESC LIMIT 1)`, [conversation.id,reason,chatSessionId,scope.tenant_id,scope.platform_id]);
-    const systemMessage = settings.waiting_message;
+    const systemMessage = customerMessage(settings,payload.language || payload.locale,'waiting',settings.waiting_message);
     const systemId = `handoff:${conversation.id}:${conversation.version}`;
     await appendSupportMessage(deps,env,scope,conversation.id,{ sender_type:'SYSTEM',client_message_id:systemId,message_type:'system',body_text:systemMessage,sentence_count:countSentences(systemMessage),metadata:{ event:'handoff_requested' } });
     const activeCount = Number((await deps.q(env, `SELECT COUNT(*)::int AS count FROM support_staff_profiles WHERE tenant_id=$1 AND platform_id=$2 AND account_status='active' AND availability_status='active' AND archived_at IS NULL`, [scope.tenant_id,scope.platform_id])).rows[0]?.count || 0);
@@ -406,19 +479,60 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
     await supportAudit(deps.q,env,scope,'CUSTOMER',chatSessionId,'handoff_requested','support_conversation',conversation.id,reason,{ active_staff:activeCount });
     emitSupportEvent({ event:'support:conversation_created', platform_id:scope.platform_id, conversation_id:Number(conversation.id), data:{ conversation:conversationOut(conversation) } });
     emitSupportEvent({ event:'support:queue_updated', platform_id:scope.platform_id, data:{ reason:'handoff_created' } });
-    return deps.jsonNoStore({ ok:true, conversation:conversationOut(conversation), support_token:token, active_staff:activeCount, message:activeCount ? settings.waiting_message : settings.no_staff_online_message }, 201, env);
+    return deps.jsonNoStore({ ok:true, conversation:conversationOut(conversation), support_token:token, resume_key:resumeKey, poll_interval_ms:settings.realtime_poll_interval_ms, active_staff:activeCount, message:activeCount ? customerMessage(settings,payload.language || payload.locale,'waiting',settings.waiting_message) : customerMessage(settings,payload.language || payload.locale,'no_staff',settings.no_staff_online_message) }, 201, env);
+  }
+  if (method === 'POST' && path === '/support/customer/resume') {
+    const payload=await deps.readJson(request);
+    const sessionId=cleanText(payload.session_id,160), resumeKey=cleanText(payload.resume_key,200);
+    if (!sessionId) throw supportError('Chat session ID is required',400,'SUPPORT_SESSION_REQUIRED');
+    let row=(await deps.q(env,`SELECT * FROM support_conversations WHERE tenant_id=$1 AND platform_id=$2 AND chat_session_id=$3 LIMIT 1`,[scope.tenant_id,scope.platform_id,sessionId])).rows[0];
+    if (!row) throw supportError('No conversation is available to resume',404,'SUPPORT_RESUME_NOT_FOUND');
+    let authorized=false;
+    const currentToken=bearerToken(request);
+    if (currentToken) { try { const current=await getCustomerByToken(env,currentToken,deps); authorized=Number(current.conversation.id)===Number(row.id); } catch {} }
+    if (!authorized && row.customer_resume_key_hash && resumeKey) authorized=secureEqualHex(row.customer_resume_key_hash,sha256(resumeKey));
+    if (!authorized) throw supportError('Conversation resume key is invalid',401,'SUPPORT_RESUME_KEY_INVALID');
+    const nextResume=createResumeKey();
+    row=(await deps.q(env,`UPDATE support_conversations SET customer_resume_key_hash=$2,updated_at=NOW() WHERE id=$1 RETURNING *`,[row.id,sha256(nextResume)])).rows[0];
+    const token=createSupportToken(env,{ kind:'customer',tenant_id:row.tenant_id,platform_id:row.platform_id,conversation_id:Number(row.id),conversation_public_id:String(row.public_id),chat_session_id:row.chat_session_id },60*60*24);
+    const detail=await conversationDetail(deps.q,env,row,row.id);
+    const settings=supportSettingsOut(await ensureSettings(deps.q,env,row));
+    return deps.jsonNoStore({ ok:true,...detail,support_token:token,resume_key:nextResume,poll_interval_ms:settings.realtime_poll_interval_ms },200,env);
+  }
+  if (method === 'POST' && path === '/support/customer/realtime-ticket') {
+    const customer=await getCustomerByToken(env,bearerToken(request),deps);
+    const access={ kind:'customer',conversation:customer.conversation,tenant_id:customer.conversation.tenant_id,platform_id:customer.conversation.platform_id,conversation_id:customer.conversation.id };
+    return deps.jsonNoStore({ ok:true,...await issueRealtimeTicket(env,access,deps) },201,env);
   }
   const customerConversationMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)$/i);
+  const customerSyncMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/sync$/i);
+  const customerCancelMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/cancel-handoff$/i);
   const customerMessagesMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/messages$/i);
-  if (customerConversationMatch || customerMessagesMatch) {
+  if (customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch) {
     const customer = await getCustomerByToken(env, bearerToken(request), deps);
-    if (String(customer.conversation.public_id) !== String((customerConversationMatch || customerMessagesMatch)[1])) throw supportError('Conversation token does not match this conversation', 403, 'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
+    if (String(customer.conversation.public_id) !== String((customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch)[1])) throw supportError('Conversation token does not match this conversation', 403, 'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
     if (method === 'GET' && customerConversationMatch) return deps.jsonNoStore(await conversationDetail(deps.q,env,customer.conversation,customer.conversation.id),200,env);
+    if (method === 'GET' && customerSyncMatch) {
+      const after=Math.max(0,Number(url.searchParams.get('after_sequence') || 0));
+      const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 AND sm.is_internal=FALSE ORDER BY sm.message_sequence ASC LIMIT 500`,[customer.conversation.id,after])).rows.map(messageOut);
+      const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1`,[customer.conversation.id])).rows[0];
+      const jobs=(await deps.q(env,`SELECT id,public_id,status,attempt_count,created_at,started_at FROM ai_jobs WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING') ORDER BY id LIMIT 20`,[customer.conversation.id])).rows.map((job)=>({ ...job,id:Number(job.id),attempt_count:Number(job.attempt_count || 0) }));
+      return deps.jsonNoStore({ ok:true,conversation:conversationOut(conversation),messages:rows,active_ai_jobs:jobs },200,env);
+    }
+    if (method === 'POST' && customerCancelMatch) {
+      const row=(await deps.q(env,`UPDATE support_conversations SET status='AI_ACTIVE',control_mode='AI',assigned_staff_id=NULL,handoff_reason=NULL,handoff_detail=NULL,queue_entered_at=NULL,updated_at=NOW(),version=version+1 WHERE id=$1 AND assigned_staff_id IS NULL AND status IN ('HANDOFF_OFFERED','WAITING_FOR_AGENT') RETURNING *`,[customer.conversation.id])).rows[0];
+      if (!row) throw supportError('The conversation can no longer leave the queue automatically',409,'SUPPORT_CANCEL_HANDOFF_CONFLICT');
+      await deps.q(env,`UPDATE chat_sessions SET human_support_state='AI_ACTIVE',updated_at=NOW() WHERE session_id=$1 AND tenant_id=$2 AND platform_id=$3`,[row.chat_session_id,row.tenant_id,row.platform_id]);
+      emitSupportEvent({ event:'support:conversation_resolved',platform_id:row.platform_id,conversation_id:row.id,data:{ conversation:conversationOut(row),return_to_ai:true,cancelled_by_customer:true } });
+      emitSupportEvent({ event:'support:queue_updated',platform_id:row.platform_id,data:{ reason:'customer_cancelled_handoff',conversation_id:row.id } });
+      return deps.jsonNoStore({ ok:true,conversation:conversationOut(row),return_to_ai:true },200,env);
+    }
     if (method === 'POST' && customerMessagesMatch) {
       const payload = await deps.readJson(request);
       const body = cleanText(payload.body_text || payload.message, 12000);
       if (!body) throw supportError('Message is required',400,'SUPPORT_MESSAGE_REQUIRED');
-      if (['RESOLVED','CLOSED'].includes(customer.conversation.status)) throw supportError('This conversation is closed',409,'SUPPORT_CONVERSATION_CLOSED');
+      if (customer.conversation.status === 'RESOLVED' && customer.conversation.return_to_ai_on_resolve !== false) throw supportError('Conversation returned to brand support',409,'SUPPORT_RETURNED_TO_BRAND');
+      if (customer.conversation.status === 'CLOSED') throw supportError('This conversation is closed',409,'SUPPORT_CONVERSATION_CLOSED');
       const clientId = cleanText(payload.client_message_id,120) || randomUUID();
       const row = await appendSupportMessage(deps,env,{ tenant_id:customer.conversation.tenant_id,platform_id:customer.conversation.platform_id },customer.conversation.id,{ sender_type:'CUSTOMER',client_message_id:clientId,body_text:body,sentence_count:countSentences(body),metadata:{ source:'customer_support_chat' } });
       emitSupportEvent({ event:'support:message_created', platform_id:customer.conversation.platform_id, conversation_id:customer.conversation.id, data:{ message:messageOut(row) } });
@@ -459,9 +573,10 @@ async function requireStaff(request, env, deps) {
 async function finalizeSupportResolution(deps, env, scope, conversation, actorType, actorId, actorName = '') {
   if (!conversation) return null;
   const returnsToAi = conversation.return_to_ai_on_resolve !== false && conversation.control_mode === 'AI';
+  const settings=supportSettingsOut(await ensureSettings(deps.q,env,scope));
   const text = returnsToAi
-    ? 'Customer service has resolved this conversation. The AI assistant is available again, and you can continue chatting here.'
-    : 'Customer service has resolved and closed this conversation.';
+    ? customerMessage(settings,conversation.customer_locale,'resolved','Your customer-service request has been resolved. You can continue chatting here.')
+    : 'This conversation has been closed.';
   const message = await appendSupportMessage(deps,env,scope,conversation.id,{
     sender_type:'SYSTEM',message_type:'system',body_text:text,sentence_count:1,
     metadata:{ event:'conversation_resolved',return_to_ai:returnsToAi,actor_type:actorType,actor_id:actorId,actor_name:actorName },
@@ -478,6 +593,10 @@ export async function handleSupportStaffRoute({ request, env, url, path, method,
   const staff = await requireStaff(request,env,deps);
   const scope = { tenant_id:staff.tenant_id,platform_id:staff.platform_id };
   await expireStalePresence(deps.q,env,scope);
+  if (method === 'POST' && path === '/staff/realtime-ticket') {
+    const access={ kind:'staff',staff,tenant_id:staff.tenant_id,platform_id:staff.platform_id,staff_id:staff.id };
+    return deps.jsonNoStore({ ok:true,...await issueRealtimeTicket(env,access,deps) },201,env);
+  }
   if (method === 'GET' && path === '/staff/me') {
     const settings = supportSettingsOut(await ensureSettings(deps.q,env,scope));
     return deps.jsonNoStore({ ok:true,staff,settings:{ platform_timezone:settings.platform_timezone,allow_staff_timezone_override:settings.allow_staff_timezone_override,heartbeat_interval_seconds:settings.heartbeat_interval_seconds,offline_timeout_seconds:settings.offline_timeout_seconds,return_to_ai_on_resolve:settings.return_to_ai_on_resolve } },200,env);
@@ -540,6 +659,15 @@ export async function handleSupportStaffRoute({ request, env, url, path, method,
     return deps.jsonNoStore(await listConversationRows(deps.q,env,scope,where,params,Number(url.searchParams.get('limit') || 100)),200,env);
   }
   const detailMatch = path.match(/^\/staff\/conversations\/(\d+)$/);
+  const staffSyncMatch = path.match(/^\/staff\/conversations\/(\d+)\/sync$/);
+  if (method === 'GET' && staffSyncMatch) {
+    const id=numericId(staffSyncMatch[1],'Conversation ID');
+    if (!await supportRealtimeCanSubscribe(env,{ kind:'staff',staff,tenant_id:scope.tenant_id,platform_id:scope.platform_id,staff_id:staff.id },id,deps)) throw supportError('Conversation access denied',403,'SUPPORT_SUBSCRIBE_DENIED');
+    const after=Math.max(0,Number(url.searchParams.get('after_sequence') || 0));
+    const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 ORDER BY sm.message_sequence ASC LIMIT 500`,[id,after])).rows.map(messageOut);
+    const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    return deps.jsonNoStore({ ok:true,conversation:conversationOut(conversation),messages:rows },200,env);
+  }
   if (method === 'GET' && detailMatch) {
     const detail = await conversationDetail(deps.q,env,scope,detailMatch[1]);
     const own = Number(detail.conversation.assigned_staff_id || 0) === staff.id;
@@ -553,13 +681,14 @@ export async function handleSupportStaffRoute({ request, env, url, path, method,
     const activeCount = Number((await deps.q(env,`SELECT COUNT(*)::int AS count FROM support_conversations WHERE assigned_staff_id=$1 AND status IN ('ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED')`,[staff.id])).rows[0]?.count || 0);
     if (activeCount >= staff.max_active_conversations) throw supportError('Maximum active conversation limit reached',409,'SUPPORT_CAPACITY_REACHED');
     const id = numericId(acceptMatch[1],'Conversation ID');
+    const acceptSettings=supportSettingsOut(await ensureSettings(deps.q,env,scope));
     const row = await deps.withTransaction(env,async (tq)=>{
       const accepted = (await tq(`UPDATE support_conversations SET assigned_staff_id=$1,status='AGENT_ACTIVE',control_mode='HUMAN',active_ai_job_id=NULL,first_assigned_at=COALESCE(first_assigned_at,NOW()),updated_at=NOW(),version=version+1
         WHERE id=$2 AND tenant_id=$3 AND platform_id=$4 AND status='WAITING_FOR_AGENT' AND assigned_staff_id IS NULL RETURNING *`,[staff.id,id,scope.tenant_id,scope.platform_id])).rows[0];
       if (!accepted) throw supportError('Conversation was already accepted by another staff member',409,'SUPPORT_ASSIGNMENT_CONFLICT');
       await tq(`UPDATE ai_jobs SET status=CASE WHEN status='PROCESSING' THEN 'SUPPRESSED' ELSE 'CANCELLED' END,completed_at=NOW(),last_error_code='AGENT_ACCEPTED',locked_at=NULL,locked_by=NULL,updated_at=NOW() WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING')`,[id]);
       await tq(`INSERT INTO support_assignments(tenant_id,platform_id,conversation_id,staff_id,assigned_by_type,assigned_by_id,assignment_reason) VALUES($1,$2,$3,$4,'STAFF',$5,'manual queue acceptance')`,[scope.tenant_id,scope.platform_id,id,staff.id,String(staff.id)]);
-      await appendSupportMessageWithQuery(tq,scope,id,{ sender_type:'SYSTEM',message_type:'system',body_text:`${staff.display_name} joined the conversation.`,sentence_count:1,metadata:{ event:'agent_joined',staff_id:staff.id } });
+      const acceptedText=customerMessage(acceptSettings,accepted.customer_locale,'agent_joined','A customer-service representative joined the conversation.'); await appendSupportMessageWithQuery(tq,scope,id,{ sender_type:'SYSTEM',message_type:'system',body_text:acceptedText,sentence_count:1,metadata:{ event:'agent_joined',staff_id:staff.id } });
       return accepted;
     });
     await supportAudit(deps.q,env,scope,'STAFF',staff.id,'conversation_accepted','support_conversation',id,'Manual queue acceptance');
@@ -743,14 +872,14 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
     const filter=allowed.includes(status) ? ` AND j.status=$3` : '';
     if (filter) params.push(status);
     const rows=(await deps.q(env,`SELECT j.id,j.public_id,j.status,j.attempt_count,j.max_attempts,j.provider_status,j.provider_attempts,
-      j.last_error_code,j.last_error_detail,j.created_at,j.started_at,j.completed_at,j.available_at,
+      j.last_error_code,j.last_error_detail,j.selected_content_id,j.selected_match_score,j.selected_match_method,j.selected_asset_manifest,j.created_at,j.started_at,j.completed_at,j.available_at,
       c.public_id AS conversation_public_id,c.customer_identifier,c.customer_display_name,m.body_text AS customer_message
       FROM ai_jobs j
       JOIN support_conversations c ON c.id=j.conversation_id
       JOIN support_messages m ON m.id=j.customer_message_id
       WHERE j.tenant_id=$1 AND j.platform_id=$2${filter}
       ORDER BY CASE WHEN j.status IN ('PROCESSING','RETRYING','QUEUED') THEN 0 ELSE 1 END,j.updated_at DESC,j.id DESC LIMIT 200`,params)).rows;
-    return deps.jsonNoStore(rows.map((row)=>({ ...row,id:Number(row.id),attempt_count:Number(row.attempt_count || 0),max_attempts:Number(row.max_attempts || 0),provider_attempts:Number(row.provider_attempts || 0),created_at:rowDate(row.created_at),started_at:rowDate(row.started_at),completed_at:rowDate(row.completed_at),available_at:rowDate(row.available_at) })),200,env);
+    return deps.jsonNoStore(rows.map((row)=>({ ...row,id:Number(row.id),attempt_count:Number(row.attempt_count || 0),max_attempts:Number(row.max_attempts || 0),provider_attempts:Number(row.provider_attempts || 0),selected_content_id:row.selected_content_id ? Number(row.selected_content_id) : null,selected_match_score:row.selected_match_score == null ? null : Number(row.selected_match_score),selected_asset_manifest:parseJsonObject(row.selected_asset_manifest,{}),created_at:rowDate(row.created_at),started_at:rowDate(row.started_at),completed_at:rowDate(row.completed_at),available_at:rowDate(row.available_at) })),200,env);
   }
   if (method === 'GET' && path === '/admin/support/settings') return deps.jsonNoStore(supportSettingsOut(await ensureSettings(deps.q,env,scope)),200,env);
   if (method === 'PUT' && path === '/admin/support/settings') {
@@ -780,8 +909,9 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
     row = (await deps.q(env,`UPDATE support_settings SET
       processing_message_enabled=$1,processing_message_text=$2,processing_message_secondary_text=$3,
       processing_message_delay_ms=$4,processing_message_secondary_delay_ms=$5,processing_message_max_visible_ms=$6,
-      allow_messages_while_ai_processing=$7,provider_failure_message=$8,return_to_ai_on_resolve=$9,updated_at=NOW()
-      WHERE tenant_id=$10 AND platform_id=$11 RETURNING *`,[
+      allow_messages_while_ai_processing=$7,provider_failure_message=$8,return_to_ai_on_resolve=$9,
+      customer_messages_json=$10::jsonb,realtime_poll_interval_ms=$11,updated_at=NOW()
+      WHERE tenant_id=$12 AND platform_id=$13 RETURNING *`,[
         bool(payload.processing_message_enabled,current.processing_message_enabled),
         cleanText(payload.processing_message_text ?? current.processing_message_text,3000),
         cleanText(payload.processing_message_secondary_text ?? current.processing_message_secondary_text,3000),
@@ -791,6 +921,8 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
         bool(payload.allow_messages_while_ai_processing,current.allow_messages_while_ai_processing),
         cleanText(payload.provider_failure_message ?? current.provider_failure_message,3000),
         bool(payload.return_to_ai_on_resolve,current.return_to_ai_on_resolve),
+        JSON.stringify(payload.customer_messages_json && typeof payload.customer_messages_json === 'object' ? payload.customer_messages_json : current.customer_messages_json || {}),
+        Math.min(15000,Math.max(1500,Number(payload.realtime_poll_interval_ms ?? current.realtime_poll_interval_ms ?? 2500))),
         scope.tenant_id,scope.platform_id,
       ])).rows[0];
     await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_settings_updated','support_settings',row.id,'Human support and AI processing settings updated');

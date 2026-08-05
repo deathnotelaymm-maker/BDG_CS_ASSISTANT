@@ -40,7 +40,7 @@ const chatApp = read("chat-pro/src/App.tsx");
 const chatConfig = read("chat-pro/src/lib/chat-config.ts");
 const plainTextAi = read("backend-api/src/plain-text-ai.js");
 
-expect("Backend and server expose the v1.16.1 realtime AI worker runtime", core.includes("1.16.1-plain-text-ai-worker-realtime-delivery") && server.includes("1.16.1-plain-text-ai-worker-realtime-delivery"));
+expect("Backend and server expose the v1.16.2 conversation continuity runtime", core.includes("1.16.2-conversation-continuity-realtime-media-matching") && server.includes("1.16.2-conversation-continuity-realtime-media-matching"));
 expect("Domain route IDs are extracted from the numeric path segment", core.includes("function domainIdFromPath") && core.includes("Number.isSafeInteger(id)") && core.includes("DOMAIN_ID_INVALID"));
 expect("Provision uses the validated domain ID", core.includes("provisionMappedDomain(env, domainIdFromPath(path), scope)") && !core.includes("provisionMappedDomain(env, idFromParts(path, 3), scope)"));
 expect("Sync, verify, and delete use the validated domain ID", ["syncMappedDomain(env, domainIdFromPath(path), scope)", "verifyMappedDomain(env, domainIdFromPath(path), scope)", "deleteMappedDomain(env, domainIdFromPath(path), scope)"].every((item) => core.includes(item)));
@@ -51,7 +51,7 @@ expect("Domain mapping exposes missing configuration names", core.includes("cons
 expect("Render environment validation covers Cloudflare prerequisites", env.includes("CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED") && env.includes("CLOUDFLARE_API_TOKEN") && env.includes("CLOUDFLARE_ZONE_ID") && env.includes("CLOUDFLARE_SAAS_CNAME_TARGET"));
 expect("Admin disables Provision until Cloudflare is configured", domainPage.includes("const cloudflareReady = data?.cloudflare?.configured === true") && domainPage.includes("disabled={!cloudflareReady}"));
 expect("Admin displays the exact missing Render variables", domainPage.includes("data?.cloudflare?.missing_env") && domainPage.includes("Set these Render variables before provisioning"));
-expect("Admin release marker is v1.16.1", adminLayout.includes('const ADMIN_VERSION = "v1.16.1"'));
+expect("Admin release marker is v1.16.2", adminLayout.includes('const ADMIN_VERSION = "v1.16.2"'));
 expect("v1.14.1 single-image contract remains present", core.includes("const legacyContentImages = imageDelivery.image_count ? [] : contentImages") && core.includes("A response without procedural steps has one canonical visual at most"));
 expect("Platform context remains strict with no fallback", core.includes("PLATFORM_CONTEXT_REQUIRED") && core.includes("fallback_applied: false") && !core.includes("publicReference || 'default'"));
 expect("v1.14.3 migration repairs existing parent Guide drafts", publishingMigration.includes("UPDATE guides g") && publishingMigration.includes("gt.status = 'published'"));
@@ -86,7 +86,7 @@ expect("Admin reliability test calls the real provider safely", core.includes("T
 expect("Only approved Menu & Images are loaded into the live catalog", core.includes("async function buildPromptImageCatalog") && core.includes("source_type='prompt_image'") && core.includes("approval_status='approved'") && core.includes("status='published'"));
 expect("General questions remain allowed when no approved menu matches", core.includes("general_prompt_answers_allowed:true") && plainTextAi.includes("No approved Menu & Images item matched this message. Answer from the Assistant Setup") && core.includes("require_approved_context:false"));
 expect("Locale routing can use the platform default without crossing tenants", core.includes("exact_then_default") && core.includes("defaultLocale = normalizeLocale(scope.default_locale") && reliabilityMigration.includes("locale_strategy='exact_then_default'"));
-expect("Customer responses never expose raw provider failures", !core.includes("provider_error: usedDeepSeek") && plainTextAi.includes("I couldn’t complete that answer just now") && core.includes("provider_failure_retry_exhausted") && chatApp.includes("AsyncProcessingIndicator"));
+expect("Customer responses never expose raw provider failures", !core.includes("provider_error: usedDeepSeek") && plainTextAi.includes("The response is taking longer than expected") && core.includes("provider_failure_retry_exhausted") && chatApp.includes("AsyncProcessingIndicator"));
 expect("Chat has Indonesian, Chinese, Burmese, Hindi, and English safety copy", ["id:","zh:","my:","hi:","en:"].every((token) => chatConfig.includes(token)) && chatConfig.includes("Layanan sedang mengalami gangguan"));
 expect("Diagnostics expose the simplified runtime and retired modules", core.includes("runtime_mode:'assistant_profile_menu_image'") && core.includes("retired_modules:source_router.retired_modules") && diagnosticsPage.includes("Retired AI modules"));
 expect("Rich HTML is sanitized on both server and Guide client", richHtml.includes("sanitize-html") && core.includes("sanitizeRichHtml") && guideSanitizer.includes("DOMPurify.sanitize"));

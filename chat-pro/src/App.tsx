@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
-  Bot,
   CheckCircle2,
   ExternalLink,
   Headphones,
@@ -10,21 +9,23 @@ import {
   RefreshCw,
   Send,
   Sparkles,
-  Wifi,
-  WifiOff,
   XCircle,
 } from "lucide-react";
 import {
   ChatApiError,
+  cancelCustomerHandoff,
   clearCustomerSupportSession,
+  createCustomerRealtimeTicket,
   fetchChatContent,
   fetchCustomerSupport,
   getCustomerSupportSession,
   getPlatformKey,
   requestHumanSupport,
+  resumeCustomerConversation,
   sendChatMessage,
   sendCustomerSupportMessage,
   supportWebSocketUrl,
+  syncCustomerSupport,
   type AiJobSummary,
   type ChatContent,
   type ProcessingExperience,
@@ -65,6 +66,7 @@ interface CustomerRealtimeSession {
   assignedStaffName?: string;
   lastSequence: number;
   returnToAiOnResolve: boolean;
+  version: number;
 }
 
 interface ActiveJob extends AiJobSummary {
@@ -152,6 +154,7 @@ function sessionFromConversation(token: string, conversation: SupportConversatio
     assignedStaffName: conversation.assigned_staff_name,
     lastSequence: Number(conversation.last_message_sequence || 0),
     returnToAiOnResolve: conversation.return_to_ai_on_resolve !== false,
+    version: Number(conversation.version || 1),
   };
 }
 
@@ -159,7 +162,7 @@ function processingLabel(job: ActiveJob | undefined, count: number, secondary: b
   if (!job) return "";
   const base = secondary && job.processing.secondary_message
     ? job.processing.secondary_message
-    : job.processing.message || "I’m preparing your answer. Please give me a moment…";
+    : job.processing.message || "Your answer is being prepared. Please give us a moment…";
   return count > 1 ? `${base} (${count} answers queued)` : base;
 }
 
@@ -188,12 +191,22 @@ function AsyncProcessingIndicator({ jobs }: { jobs: ActiveJob[] }) {
           <span className="typing-dot" />
           <span>{processingLabel(job, jobs.length, secondary)}</span>
         </div>
-        <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-          {job.status === "RETRYING" ? "Retrying safely" : job.status === "PROCESSING" ? "AI processing" : "Queued"}
-        </div>
       </div>
     </div>
   );
+}
+
+type CustomerUiCopy = { online:string; reconnecting:string; waiting:string; representative:string; queue:string; cancelQueue:string; resolved:string; newMessages:(count:number)=>string; typing:string; closed:string };
+function customerUiCopy(locale: string): CustomerUiCopy {
+  const code=String(locale || "en").toLowerCase().split("-")[0];
+  const copy: Record<string,CustomerUiCopy> = {
+    en:{ online:"Online",reconnecting:"Reconnecting…",waiting:"Waiting for a representative",representative:"Customer service representative connected",queue:"Your request is in the queue",cancelQueue:"Cancel request and continue here",resolved:"Your customer-service request has been resolved. You can continue chatting here.",newMessages:(count)=>`↓ ${count} new message${count === 1 ? "" : "s"}`,typing:"Customer service is typing…",closed:"This conversation is closed" },
+    my:{ online:"အွန်လိုင်း",reconnecting:"ပြန်လည်ချိတ်ဆက်နေသည်…",waiting:"ဝန်ထမ်းတစ်ဦးကို စောင့်ဆိုင်းနေသည်",representative:"ဖောက်သည်ဝန်ဆောင်မှု ဝန်ထမ်း ချိတ်ဆက်ပြီးပါပြီ",queue:"သင့်တောင်းဆိုချက် စောင့်ဆိုင်းစာရင်းထဲ ရှိနေပါတယ်",cancelQueue:"တောင်းဆိုချက်ပယ်ဖျက်ပြီး ဒီနေရာမှာ ဆက်ပြောမယ်",resolved:"ဖောက်သည်ဝန်ဆောင်မှုတောင်းဆိုချက် ဖြေရှင်းပြီးပါပြီ။ ဒီနေရာမှာ ဆက်ပြောနိုင်ပါတယ်။",newMessages:(count)=>`↓ မက်ဆေ့ချ်အသစ် ${count} ခု`,typing:"ဖောက်သည်ဝန်ဆောင်မှုက စာရိုက်နေသည်…",closed:"ဒီစကားဝိုင်း ပိတ်ထားပါပြီ" },
+    id:{ online:"Online",reconnecting:"Menyambungkan kembali…",waiting:"Menunggu perwakilan",representative:"Perwakilan layanan pelanggan terhubung",queue:"Permintaan Anda ada dalam antrean",cancelQueue:"Batalkan permintaan dan lanjutkan di sini",resolved:"Permintaan layanan pelanggan Anda telah diselesaikan. Anda dapat melanjutkan percakapan di sini.",newMessages:(count)=>`↓ ${count} pesan baru`,typing:"Layanan pelanggan sedang mengetik…",closed:"Percakapan ini ditutup" },
+    zh:{ online:"在线",reconnecting:"正在重新连接…",waiting:"正在等待客服人员",representative:"客服人员已连接",queue:"您的请求正在队列中",cancelQueue:"取消请求并继续聊天",resolved:"客服请求已处理完成，您可以继续在这里聊天。",newMessages:(count)=>`↓ ${count} 条新消息`,typing:"客服正在输入…",closed:"此对话已关闭" },
+    hi:{ online:"ऑनलाइन",reconnecting:"फिर से कनेक्ट हो रहा है…",waiting:"प्रतिनिधि की प्रतीक्षा",representative:"ग्राहक-सेवा प्रतिनिधि जुड़ गया",queue:"आपका अनुरोध कतार में है",cancelQueue:"अनुरोध रद्द करें और यहाँ जारी रखें",resolved:"ग्राहक-सेवा अनुरोध हल हो गया है। आप यहाँ बातचीत जारी रख सकते हैं।",newMessages:(count)=>`↓ ${count} नए संदेश`,typing:"ग्राहक सेवा टाइप कर रही है…",closed:"यह बातचीत बंद है" },
+  };
+  return copy[code] || copy.en;
 }
 
 export default function App() {
@@ -211,12 +224,14 @@ export default function App() {
   const [waitHint, setWaitHint] = useState(false);
   const [supportSession, setSupportSession] = useState<CustomerRealtimeSession | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+  const [pollIntervalMs, setPollIntervalMs] = useState(2500);
+  const [newMessageCount, setNewMessageCount] = useState(0);
   const [staffTyping, setStaffTyping] = useState(false);
   const [activeJobs, setActiveJobs] = useState<Record<number, ActiveJob>>({});
   const [defaultProcessing, setDefaultProcessing] = useState<ProcessingExperience>({
     enabled: true,
-    message: "I’m preparing your answer. Please give me a moment…",
-    secondary_message: "I’m still working on your answer…",
+    message: "Your answer is being prepared. Please give us a moment…",
+    secondary_message: "Your answer is still being prepared…",
     show_after_ms: 700,
     secondary_after_ms: 8000,
     max_visible_ms: 45000,
@@ -226,6 +241,7 @@ export default function App() {
   const platformKey = getPlatformKey();
   const effectiveLanguage = normalizeChatLocale(language, normalizeChatLocale(content?.default_locale, "en"));
   const chatConfig = getChatConfig(effectiveLanguage, platformKey);
+  const uiCopy = customerUiCopy(effectiveLanguage);
   const dynamicTexts = content?.texts?.[effectiveLanguage] || content?.texts?.[effectiveLanguage.split("-")[0]] || {};
   const startModule = content?.start_module;
   const languageOptions = content?.languages?.length ? content.languages : CHAT_LANGUAGE_OPTIONS;
@@ -258,6 +274,9 @@ export default function App() {
   const reconnectAttempt = useRef(0);
   const socketGeneration = useRef(0);
   const lastSequenceRef = useRef(0);
+  const nearBottomRef = useRef(true);
+  const initialAnchorRef = useRef(false);
+  const syncInFlightRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const humanControlled = Boolean(supportSession && (supportSession.controlMode === "HUMAN" || ["WAITING_FOR_AGENT", "ASSIGNED", "AGENT_ACTIVE", "TRANSFER_REQUESTED"].includes(supportSession.status)));
@@ -273,6 +292,8 @@ export default function App() {
 
   const ingestMessage = useCallback((item: SupportMessage) => {
     if (item.is_internal) return;
+    const incoming = item.sender_type !== "CUSTOMER";
+    if (incoming && !nearBottomRef.current && !initialAnchorRef.current) setNewMessageCount((count) => count + 1);
     setMessages((current) => mergeSupportMessage(current, item));
     lastSequenceRef.current = Math.max(lastSequenceRef.current, Number(item.message_sequence || 0));
     setSupportSession((current) => current ? { ...current, lastSequence: Math.max(current.lastSequence, Number(item.message_sequence || 0)) } : current);
@@ -299,118 +320,138 @@ export default function App() {
   useEffect(() => {
     const saved = getCustomerSupportSession(platformKey);
     if (!saved) return;
-    fetchCustomerSupport(saved.publicId, saved.token)
-      .then((data) => {
-        if (data.conversation.status === "CLOSED" || data.conversation.control_mode === "CLOSED") {
-          clearCustomerSupportSession(platformKey);
-          return;
-        }
-        const session = sessionFromConversation(saved.token, data.conversation);
+    let disposed=false;
+    const restore=async () => {
+      try {
+        const data=await resumeCustomerConversation(platformKey);
+        if (disposed) return;
+        const session=sessionFromConversation(data.support_token,data.conversation);
         setSupportSession(session);
-        lastSequenceRef.current = Number(data.conversation.last_message_sequence || 0);
-        setStarted(true);
-        setMessages((data.messages || []).filter((item) => !item.is_internal).map(supportMessageToUi));
-      })
-      .catch(() => clearCustomerSupportSession());
+        setPollIntervalMs(Math.max(1500,Number(data.poll_interval_ms || 2500)));
+        lastSequenceRef.current=Number(data.conversation.last_message_sequence || 0);
+        const restored=(data.messages || []).filter((item)=>!item.is_internal).map(supportMessageToUi);
+        setMessages(restored);
+        setStarted(restored.length > 0);
+        initialAnchorRef.current=true;
+        const active=Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : [];
+        setActiveJobs(Object.fromEntries(active.map((job)=>[Number(job.id),{ ...job,processing:processingRef.current,queuedAt:Date.parse(job.created_at || "") || Date.now() }])))
+      } catch (error) {
+        if (disposed) return;
+        if (saved.token) {
+          try {
+            const data=await fetchCustomerSupport(saved.publicId,saved.token);
+            if (disposed) return;
+            setSupportSession(sessionFromConversation(saved.token,data.conversation));
+            const restored=(data.messages || []).filter((item)=>!item.is_internal).map(supportMessageToUi);
+            setMessages(restored); setStarted(restored.length > 0); initialAnchorRef.current=true;
+            lastSequenceRef.current=Number(data.conversation.last_message_sequence || 0);
+            return;
+          } catch {}
+        }
+        if (error instanceof ChatApiError && [401,404].includes(error.status)) clearCustomerSupportSession(platformKey);
+      }
+    };
+    void restore();
+    return ()=>{ disposed=true; };
   }, [platformKey]);
 
   useEffect(() => {
     if (!supportSession?.token || !supportSession.publicId) return;
-    const generation = ++socketGeneration.current;
-    let disposed = false;
-
-    const connect = () => {
+    const generation=++socketGeneration.current;
+    let disposed=false;
+    const connect=async () => {
       if (disposed || generation !== socketGeneration.current) return;
       setConnectionState(reconnectAttempt.current > 0 ? "reconnecting" : "connecting");
-      const socket = new WebSocket(supportWebSocketUrl(), ["bdg-support", supportSession.token]);
-      supportSocket.current = socket;
-      socket.onopen = () => {
-        if (disposed || generation !== socketGeneration.current) return socket.close();
-        reconnectAttempt.current = 0;
-        setConnectionState("connected");
-        socket.send(JSON.stringify({ event: "support:sync", data: { conversation_id: supportSession.conversationId, after_sequence: lastSequenceRef.current } }));
-      };
-      socket.onmessage = (event) => {
-        try {
-          const packet = JSON.parse(String(event.data || "{}"));
-          const data = packet.data || {};
-          if (packet.event === "support:snapshot") {
-            if (data.conversation) updateSession(data.conversation);
-            for (const item of (data.messages || []) as SupportMessage[]) ingestMessage(item);
-            const active = Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : data.active_ai_job ? [data.active_ai_job] : [];
-            if (active.length) {
-              setActiveJobs((current) => {
-                const next = { ...current };
-                for (const job of active as AiJobSummary[]) next[Number(job.id)] = { ...job, processing: current[Number(job.id)]?.processing || processingRef.current, queuedAt: current[Number(job.id)]?.queuedAt || Date.parse(job.created_at || "") || Date.now() };
+      try {
+        const ticket=await createCustomerRealtimeTicket(supportSession.token);
+        if (disposed || generation !== socketGeneration.current) return;
+        const socket=new WebSocket(supportWebSocketUrl(ticket.ticket));
+        supportSocket.current=socket;
+        socket.onopen=()=>{
+          if (disposed || generation !== socketGeneration.current) return socket.close();
+          reconnectAttempt.current=0; setConnectionState("connected");
+          socket.send(JSON.stringify({ event:"support:sync",data:{ conversation_id:supportSession.conversationId,after_sequence:lastSequenceRef.current } }));
+        };
+        socket.onmessage=(event)=>{
+          try {
+            const packet=JSON.parse(String(event.data || "{}")); const data=packet.data || {};
+            if (packet.event === "support:snapshot") {
+              if (data.conversation) updateSession(data.conversation);
+              for (const item of (data.messages || []) as SupportMessage[]) ingestMessage(item);
+              const active=Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : data.active_ai_job ? [data.active_ai_job] : [];
+              const activeIds=new Set((active as AiJobSummary[]).map((job)=>Number(job.id)));
+              setActiveJobs((current)=>{
+                const next:Record<number,ActiveJob>={};
+                for (const job of active as AiJobSummary[]) next[Number(job.id)]={ ...job,processing:current[Number(job.id)]?.processing || processingRef.current,queuedAt:current[Number(job.id)]?.queuedAt || Date.parse(job.created_at || "") || Date.now() };
+                for (const [id,job] of Object.entries(current)) if (activeIds.has(Number(id))) next[Number(id)]=next[Number(id)] || job;
                 return next;
               });
             }
-          }
-          if ((packet.event === "support:message_created" || packet.event === "ai:message_created") && data.message) ingestMessage(data.message as SupportMessage);
-          if (["ai:job_queued", "ai:processing_started", "ai:processing_updated"].includes(packet.event)) {
-            const id = Number(data.job_id || 0);
-            if (id) setActiveJobs((current) => ({
-              ...current,
-              [id]: {
-                ...(current[id] || { id, queuedAt: Date.now(), processing: data.processing || processingRef.current }),
-                id,
-                status: data.status || current[id]?.status || "QUEUED",
-                attempt_count: Number(data.attempt_count || current[id]?.attempt_count || 0),
-                processing: data.processing || current[id]?.processing || processingRef.current,
-              },
-            }));
-          }
-          if (["ai:processing_failed", "ai:processing_cancelled"].includes(packet.event)) {
-            const id = Number(data.job_id || 0);
-            if (id) setActiveJobs((current) => { const next = { ...current }; delete next[id]; return next; });
-          }
-          if (packet.event === "support:message_state" && data.actor === "staff") {
-            const through = Number(data.through_sequence || 0);
-            setMessages((current) => current.map((message) => message.role === "user" && Number(message.sequence || 0) <= through
-              ? { ...message, deliveredAt: data.updated_at || message.deliveredAt, readAt: data.state === "read" ? (data.updated_at || message.readAt) : message.readAt }
-              : message));
-          }
-          if (packet.event === "support:conversation_assigned") {
-            setSupportSession((current) => current ? { ...current, status: "AGENT_ACTIVE", controlMode: "HUMAN", assignedStaffName: data.staff?.display_name || data.conversation?.assigned_staff_name || current.assignedStaffName } : current);
-          }
-          if (packet.event === "support:conversation_resolved") {
-            const returnToAi = data.return_to_ai !== false && data.conversation?.control_mode !== "CLOSED";
-            setSupportSession((current) => current ? { ...current, status: data.conversation?.status || "RESOLVED", controlMode: returnToAi ? "AI" : "CLOSED", assignedStaffName: "" } : current);
-            setActiveJobs({});
-          }
-          if (packet.event === "support:typing" && data.actor === "staff") {
-            setStaffTyping(data.is_typing === true);
-            if (data.is_typing) window.setTimeout(() => setStaffTyping(false), 5000);
-          }
-          if (packet.event === "support:message_created" || packet.event === "ai:message_created") {
-            const seq = Number(data.message?.message_sequence || 0);
-            if (seq && socket.readyState === WebSocket.OPEN) {
-              socket.send(JSON.stringify({ event: "support:read", data: { conversation_id: supportSession.conversationId, through_sequence: seq } }));
+            if ((packet.event === "support:message_created" || packet.event === "ai:message_created") && data.message) ingestMessage(data.message as SupportMessage);
+            if (["ai:job_queued","ai:processing_started","ai:processing_updated"].includes(packet.event)) {
+              const id=Number(data.job_id || 0); if (id) setActiveJobs((current)=>({ ...current,[id]:{ ...(current[id] || { id,queuedAt:Date.now(),processing:data.processing || processingRef.current }),id,status:data.status || current[id]?.status || "QUEUED",attempt_count:Number(data.attempt_count || current[id]?.attempt_count || 0),processing:data.processing || current[id]?.processing || processingRef.current } }));
             }
-          }
-        } catch {
-          // Ignore malformed realtime packets and recover with support:sync.
-        }
-      };
-      socket.onerror = () => setConnectionState("offline");
-      socket.onclose = () => {
+            if (["ai:processing_failed","ai:processing_cancelled"].includes(packet.event)) { const id=Number(data.job_id || 0); if (id) setActiveJobs((current)=>{ const next={ ...current }; delete next[id]; return next; }); }
+            if (packet.event === "support:conversation_assigned") setSupportSession((current)=>current ? { ...current,status:"AGENT_ACTIVE",controlMode:"HUMAN",assignedStaffName:data.staff?.display_name || data.conversation?.assigned_staff_name || current.assignedStaffName,version:Number(data.conversation?.version || current.version) } : current);
+            if (packet.event === "support:conversation_resolved") { if (data.conversation) updateSession(data.conversation); else setSupportSession((current)=>current ? { ...current,status:"AI_ACTIVE",controlMode:data.return_to_ai === false ? "CLOSED" : "AI",assignedStaffName:"",version:current.version+1 } : current); setActiveJobs({}); }
+            if (packet.event === "support:typing" && data.actor === "staff") { setStaffTyping(data.is_typing === true); if (data.is_typing) window.setTimeout(()=>setStaffTyping(false),5000); }
+            if (packet.event === "support:message_state" && data.actor === "staff") { const through=Number(data.through_sequence || 0); setMessages((current)=>current.map((message)=>message.role === "user" && Number(message.sequence || 0) <= through ? { ...message,deliveredAt:data.updated_at || message.deliveredAt,readAt:data.state === "read" ? (data.updated_at || message.readAt) : message.readAt } : message)); }
+          } catch {}
+        };
+        socket.onerror=()=>setConnectionState("offline");
+        socket.onclose=()=>{
+          if (disposed || generation !== socketGeneration.current) return;
+          setConnectionState("reconnecting");
+          const attempt=Math.min(8,reconnectAttempt.current++); const delay=Math.min(15000,750*2**attempt)+Math.floor(Math.random()*300);
+          reconnectTimer.current=window.setTimeout(()=>void connect(),delay);
+        };
+      } catch {
         if (disposed || generation !== socketGeneration.current) return;
         setConnectionState("reconnecting");
-        const attempt = Math.min(8, reconnectAttempt.current++);
-        const delay = Math.min(15000, 750 * 2 ** attempt) + Math.floor(Math.random() * 300);
-        reconnectTimer.current = window.setTimeout(connect, delay);
-      };
+        const attempt=Math.min(8,reconnectAttempt.current++); const delay=Math.min(15000,750*2**attempt)+Math.floor(Math.random()*300);
+        reconnectTimer.current=window.setTimeout(()=>void connect(),delay);
+      }
     };
+    void connect();
+    return ()=>{ disposed=true; if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current); supportSocket.current?.close(1000,"Chat session changed"); supportSocket.current=null; setConnectionState("disconnected"); };
+  }, [supportSession?.token,supportSession?.publicId,supportSession?.conversationId,ingestMessage,updateSession]);
 
-    connect();
-    return () => {
-      disposed = true;
-      if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current);
-      supportSocket.current?.close(1000, "Chat session changed");
-      supportSocket.current = null;
-      setConnectionState("disconnected");
+  useEffect(() => {
+    if (!supportSession?.token || !supportSession.publicId) return;
+    let disposed=false;
+    const sync=async () => {
+      if (disposed || syncInFlightRef.current) return;
+      syncInFlightRef.current=true;
+      try {
+        const data=await syncCustomerSupport(supportSession.publicId,supportSession.token,lastSequenceRef.current);
+        if (disposed) return;
+        updateSession(data.conversation);
+        setPollIntervalMs(Math.max(1500,Number(data.poll_interval_ms || pollIntervalMs || 2500)));
+        for (const item of data.messages || []) ingestMessage(item);
+        const active=Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : data.active_ai_job ? [data.active_ai_job] : [];
+        const activeIds=new Set(active.map((job)=>Number(job.id)));
+        setActiveJobs((current)=>{
+          const next:Record<number,ActiveJob>={};
+          for (const job of active) next[Number(job.id)]={ ...job,processing:current[Number(job.id)]?.processing || processingRef.current,queuedAt:current[Number(job.id)]?.queuedAt || Date.parse(job.created_at || "") || Date.now() };
+          for (const [id,job] of Object.entries(current)) if (activeIds.has(Number(id))) next[Number(id)]=next[Number(id)] || job;
+          return next;
+        });
+      } catch (error) {
+        if (error instanceof ChatApiError && error.status === 401) {
+          try {
+            const resumed=await resumeCustomerConversation(platformKey);
+            if (!disposed) { setSupportSession(sessionFromConversation(resumed.support_token,resumed.conversation)); setPollIntervalMs(Math.max(1500,Number(resumed.poll_interval_ms || 2500))); }
+          } catch {}
+        }
+      } finally { syncInFlightRef.current=false; }
     };
-  }, [supportSession?.token, supportSession?.publicId, supportSession?.conversationId, ingestMessage, updateSession]);
+    void sync();
+    const interval=window.setInterval(()=>void sync(),connectionState === "connected" ? 12000 : pollIntervalMs);
+    const onVisible=()=>{ if (document.visibilityState === "visible") void sync(); };
+    document.addEventListener("visibilitychange",onVisible);
+    window.addEventListener("online",onVisible);
+    return ()=>{ disposed=true; window.clearInterval(interval); document.removeEventListener("visibilitychange",onVisible); window.removeEventListener("online",onVisible); };
+  }, [supportSession?.token,supportSession?.publicId,connectionState,pollIntervalMs,platformKey,ingestMessage,updateSession]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -429,12 +470,19 @@ export default function App() {
     } else if (existing) existing.remove();
   }, [content?.branding?.favicon_url, headerTitle, platformKey]);
 
-  const scrollToBottom = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }));
-  }, []);
-  useEffect(() => { scrollToBottom(); }, [messages, jobs.length, staffTyping, scrollToBottom]);
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const el=scrollRef.current; if (!el) return;
+    requestAnimationFrame(()=>{ el.scrollTo({ top:el.scrollHeight,behavior }); nearBottomRef.current=true; setNewMessageCount(0); });
+  },[]);
+  const handleScroll=useCallback(()=>{ const el=scrollRef.current; if (!el) return; nearBottomRef.current=el.scrollHeight-el.scrollTop-el.clientHeight < 120; if (nearBottomRef.current) setNewMessageCount(0); },[]);
+  const handleMediaLoad=useCallback(()=>{ if (nearBottomRef.current || initialAnchorRef.current) scrollToBottom("auto"); },[scrollToBottom]);
+  useEffect(()=>{
+    if (initialAnchorRef.current) {
+      const first=window.setTimeout(()=>scrollToBottom("auto"),20); const second=window.setTimeout(()=>{ scrollToBottom("auto"); initialAnchorRef.current=false; },280);
+      return ()=>{ window.clearTimeout(first); window.clearTimeout(second); };
+    }
+    if (nearBottomRef.current) scrollToBottom("smooth");
+  },[messages,jobs.length,staffTyping,scrollToBottom]);
 
   const send = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -452,8 +500,18 @@ export default function App() {
     setMessages((current) => [...current, { id: pendingId, role: "user", content: trimmed, clientMessageId }]);
     try {
       if (humanControlled && supportSession) {
-        const sent = await sendCustomerSupportMessage(supportSession.publicId, supportSession.token, trimmed, clientMessageId);
-        ingestMessage(sent.message);
+        try {
+          const sent=await sendCustomerSupportMessage(supportSession.publicId,supportSession.token,trimmed,clientMessageId);
+          ingestMessage(sent.message);
+        } catch (error) {
+          if (error instanceof ChatApiError && error.code === "SUPPORT_RETURNED_TO_BRAND") {
+            const resumed=await resumeCustomerConversation(platformKey);
+            updateSession(resumed.conversation,resumed.support_token);
+            const accepted=await sendChatMessage(trimmed,effectiveLanguage,platformKey,clientMessageId);
+            updateSession(accepted.conversation,accepted.support_token); ingestMessage(accepted.message);
+            if (accepted.ai_job) setActiveJobs((current)=>({ ...current,[Number(accepted.ai_job!.id)]:{ ...accepted.ai_job!,processing:accepted.processing || defaultProcessing,queuedAt:Date.now() } }));
+          } else throw error;
+        }
       } else {
         const accepted = await sendChatMessage(trimmed, effectiveLanguage, platformKey, clientMessageId);
         updateSession(accepted.conversation, accepted.support_token);
@@ -475,9 +533,7 @@ export default function App() {
         content: chatConfig.fallbackMessage,
         error: true,
         retryOf: trimmed,
-        errorInfo: error instanceof ChatApiError
-          ? `${error.message}${error.requestId ? ` · Request ${error.requestId}` : ""}`
-          : error instanceof Error ? error.message : "The service did not accept the message.",
+        errorInfo: undefined,
       }));
     } finally {
       setIsSending(false);
@@ -491,6 +547,7 @@ export default function App() {
     try {
       const handoff = await requestHumanSupport(platformKey, effectiveLanguage, reason);
       updateSession(handoff.conversation, handoff.support_token);
+      setPollIntervalMs(Math.max(1500,Number(handoff.poll_interval_ms || 2500)));
       setActiveJobs({});
     } catch (error) {
       setMessages((current) => [...current, { id: uid(), role: "assistant", content: error instanceof Error ? error.message : chatConfig.fallbackMessage, error: true }]);
@@ -499,12 +556,15 @@ export default function App() {
     }
   }, [chatConfig.fallbackMessage, closed, effectiveLanguage, humanControlled, isSending, platformKey, updateSession]);
 
-  const connectionCopy = connectionState === "connected" ? "Live" : connectionState === "reconnecting" ? "Reconnecting" : connectionState === "connecting" ? "Connecting" : supportSession ? "Offline" : onlineText;
-  const modeCopy = closed
-    ? "Conversation closed"
-    : humanControlled
-      ? supportSession?.status === "WAITING_FOR_AGENT" ? "Waiting for customer service" : `Customer Service${supportSession?.assignedStaffName ? ` · ${supportSession.assignedStaffName}` : ""}`
-      : supportSession?.status === "RESOLVED" ? "AI Assistant is available again" : "AI Assistant";
+  const connectionCopy=connectionState === "reconnecting" || connectionState === "connecting" ? uiCopy.reconnecting : (onlineText || uiCopy.online);
+  const modeCopy=closed ? uiCopy.closed : humanControlled ? (supportSession?.status === "WAITING_FOR_AGENT" ? uiCopy.waiting : uiCopy.representative) : uiCopy.online;
+
+  const leaveQueue=useCallback(async()=>{
+    if (!supportSession || supportSession.status !== "WAITING_FOR_AGENT") return;
+    try { const result=await cancelCustomerHandoff(supportSession.publicId,supportSession.token); updateSession(result.conversation); }
+    catch {}
+  },[supportSession,updateSession]);
+
 
   return (
     <div className="min-h-[100dvh] w-full bg-background flex justify-center" style={themeStyle}>
@@ -521,10 +581,8 @@ export default function App() {
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">{headerTitle}</div>
                 <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                  {connectionState === "connected" || !supportSession ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
                   <span>{connectionCopy}</span>
-                  <span>·</span>
-                  <span>{modeCopy}</span>
+                  {humanControlled && <><span>·</span><span>{modeCopy}</span></>}
                 </div>
               </div>
             </div>
@@ -535,17 +593,17 @@ export default function App() {
               </select>
             </label>
           </div>
-          {supportSession && (
-            <div className={`chat-mode-strip ${humanControlled ? "human" : supportSession.status === "RESOLVED" ? "resolved" : "ai"}`}>
-              {humanControlled ? <Headphones className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+          {humanControlled && (
+            <div className="chat-mode-strip human">
+              <Headphones className="h-3.5 w-3.5" />
               <span>{modeCopy}</span>
-              {humanControlled && supportSession.status === "WAITING_FOR_AGENT" && <span className="ml-auto text-[10px] opacity-80">Your request is in the live queue</span>}
+              {supportSession?.status === "WAITING_FOR_AGENT" && <button type="button" className="ml-auto text-[10px] underline underline-offset-2" onClick={()=>void leaveQueue()}>{uiCopy.cancelQueue}</button>}
             </div>
           )}
         </header>
 
-        <div ref={scrollRef} className="chat-scroll flex-1 overflow-y-auto px-4 py-4 space-y-3">
-          {startEnabled && !started ? (
+        <div ref={scrollRef} onScroll={handleScroll} className="chat-scroll flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {startEnabled && !started && messages.length === 0 ? (
             <ChatStartModule module={startModule} iconUrl={iconUrl} actionButtons={actionButtons} onStart={() => { setStarted(true); setTimeout(() => inputRef.current?.focus(), 30); }} onPrompt={send} />
           ) : (
             <section className="rounded-2xl bg-gradient-to-br from-surface-elevated to-surface border border-border p-4 msg-in">
@@ -555,9 +613,10 @@ export default function App() {
               </div>
             </section>
           )}
-          {messages.map((message) => <MessageBubble key={message.id} message={message} onRetry={() => message.retryOf && send(message.retryOf)} onPrompt={send} onPreview={(src, alt) => setPreview({ src, alt })} onHandoff={startHumanSupport} />)}
+          {messages.map((message) => <MessageBubble key={message.id} message={message} onRetry={() => message.retryOf && send(message.retryOf)} onPrompt={send} onPreview={(src, alt) => setPreview({ src, alt })} onHandoff={startHumanSupport} onMediaLoad={handleMediaLoad} />)}
           <AsyncProcessingIndicator jobs={jobs} />
-          {staffTyping && humanControlled && <div className="text-xs text-muted-foreground px-2">Customer service is typing…</div>}
+          {staffTyping && humanControlled && <div className="text-xs text-muted-foreground px-2">{uiCopy.typing}</div>}
+          {newMessageCount > 0 && <button type="button" onClick={()=>scrollToBottom("smooth")} className="sticky bottom-2 mx-auto block rounded-full bg-brand px-4 py-2 text-xs font-semibold text-brand-foreground shadow-lg">{uiCopy.newMessages(newMessageCount)}</button>}
         </div>
 
         <form onSubmit={(event) => { event.preventDefault(); void send(input); }} className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur-md px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
@@ -575,13 +634,12 @@ export default function App() {
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(input); } }}
               disabled={composerDisabled}
-              placeholder={closed ? "This conversation is closed" : humanControlled ? "Message customer service…" : jobs.length && !allowAdditionalMessages ? "Please wait for the current answer…" : dynamicTexts.placeholder || chatConfig.placeholderIdle}
+              placeholder={closed ? uiCopy.closed : humanControlled ? "Message customer service…" : jobs.length && !allowAdditionalMessages ? "Please wait for the current answer…" : dynamicTexts.placeholder || chatConfig.placeholderIdle}
               className="flex-1 resize-none max-h-32 rounded-2xl bg-surface border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 placeholder:text-muted-foreground"
               style={{ minHeight: "42px" }}
             />
             <button type="submit" disabled={composerDisabled || !input.trim()} aria-label="Send message" className="shrink-0 w-11 h-11 rounded-full bg-brand text-brand-foreground grid place-items-center hover:bg-brand-glow disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"><Send className="w-4.5 h-4.5" strokeWidth={2.25} /></button>
           </div>
-          {supportSession && connectionState !== "connected" && <div className="mt-1 px-2 text-[10px] text-amber-300">Realtime connection is {connectionState}. Messages will synchronize automatically.</div>}
         </form>
       </div>
       {preview && <ImageLightbox src={preview.src} alt={preview.alt} onClose={() => setPreview(null)} />}
@@ -665,7 +723,7 @@ function StartCopy({ text }: { text: string }) {
   );
 }
 
-function MessageBubble({ message, onRetry, onPrompt, onPreview, onHandoff }: { message: Message; onRetry: () => void; onPrompt: (text:string) => void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void }) {
+function MessageBubble({ message, onRetry, onPrompt, onPreview, onHandoff, onMediaLoad }: { message: Message; onRetry: () => void; onPrompt: (text:string) => void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void; onMediaLoad:()=>void }) {
   const isUser = message.role === "user";
   return (
     <div className={`flex msg-in ${isUser ? "justify-end" : "justify-start"}`}>
@@ -673,7 +731,7 @@ function MessageBubble({ message, onRetry, onPrompt, onPreview, onHandoff }: { m
         className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser ? "bg-bubble-user text-bubble-user-foreground rounded-br-sm" : "bg-bubble-ai text-bubble-ai-foreground rounded-bl-sm border border-border"}`}
       >
         {message.blocks && message.blocks.length > 0 ? (
-          <StructuredResponse blocks={message.blocks} onPrompt={onPrompt} onPreview={onPreview} onHandoff={onHandoff} />
+          <StructuredResponse blocks={message.blocks} onPrompt={onPrompt} onPreview={onPreview} onHandoff={onHandoff} onMediaLoad={onMediaLoad} />
         ) : (
           <div>{message.content}</div>
         )}
@@ -682,15 +740,16 @@ function MessageBubble({ message, onRetry, onPrompt, onPreview, onHandoff }: { m
             {message.images.map((src, index) => (
               <button
                 type="button"
-                onClick={()=>onPreview(src,"AI support visual")}
+                onClick={()=>onPreview(src,"Support visual")}
                 key={src + index}
                 className="block overflow-hidden rounded-xl border border-border bg-surface-elevated/50"
               >
                 <img
                   src={src}
-                  alt="AI support visual"
+                  alt="Support visual"
                   className="w-full max-h-80 object-contain bg-black/15"
                   loading="lazy"
+                  onLoad={onMediaLoad}
                 />
               </button>
             ))}
@@ -718,7 +777,7 @@ function RichText({ segments, fallback }: { segments?: any[]; fallback:string })
   if (!segments?.length) return <>{fallback}</>;
   return <>{segments.map((segment,index)=><span key={index} className={`${segment.marks?.bold ? "font-bold" : ""} ${segment.marks?.italic ? "italic" : ""} ${segment.marks?.underline ? "underline" : ""} ${textColors[segment.marks?.color || "default"] || ""} ${highlights[segment.marks?.highlight || "default"] || ""}`}>{segment.text}</span>)}</>;
 }
-function StructuredResponse({ blocks, onPrompt, onPreview, onHandoff }: { blocks: ResponseBlock[]; onPrompt:(text:string)=>void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void }) {
+function StructuredResponse({ blocks, onPrompt, onPreview, onHandoff, onMediaLoad }: { blocks: ResponseBlock[]; onPrompt:(text:string)=>void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void; onMediaLoad:()=>void }) {
   return (
     <div className="space-y-3 whitespace-normal">
       {blocks.map((block, index) => {
@@ -787,7 +846,7 @@ function StructuredResponse({ blocks, onPrompt, onPreview, onHandoff }: { blocks
           );
         }
         if (block.type === "image") {
-          return <figure key={key} className="overflow-hidden rounded-xl border border-border bg-black/10"><button type="button" className="block w-full cursor-zoom-in" onClick={()=>onPreview(block.url,block.alt || "Support visual")}><img src={block.url} alt={block.alt || "Support visual"} className="w-full max-h-96 object-contain" loading="lazy" /></button>{block.caption && <figcaption className="border-t border-border px-3 py-2 text-xs text-muted-foreground">{block.caption}</figcaption>}</figure>;
+          return <figure key={key} className="overflow-hidden rounded-xl border border-border bg-black/10"><button type="button" className="block w-full cursor-zoom-in" onClick={()=>onPreview(block.url,block.alt || "Support visual")}><img src={block.url} alt={block.alt || "Support visual"} className="w-full max-h-96 object-contain" loading="lazy" onLoad={onMediaLoad} /></button>{block.caption && <figcaption className="border-t border-border px-3 py-2 text-xs text-muted-foreground">{block.caption}</figcaption>}</figure>;
         }
         if (block.type === "link" || block.type === "button") {
           const isPrompt = block.action_type === "chat_prompt" || block.url.startsWith("prompt:");

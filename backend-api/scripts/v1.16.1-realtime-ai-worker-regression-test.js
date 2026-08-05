@@ -29,7 +29,7 @@ function test(name, condition) {
   console.log(`PASS ${name}`);
 }
 
-test('v1.16.1 release marker is active', core.includes('1.16.1-plain-text-ai-worker-realtime-delivery') && server.includes('1.16.1-plain-text-ai-worker-realtime-delivery'));
+test('v1.16.1 worker foundation remains active in the current release', core.includes('1.16.2-conversation-continuity-realtime-media-matching') && server.includes('1.16.2-conversation-continuity-realtime-media-matching'));
 test('migration 039 creates a durable PostgreSQL AI queue', migration.includes('CREATE TABLE IF NOT EXISTS ai_jobs') && migration.includes("status IN ('QUEUED','PROCESSING','RETRYING','COMPLETED','FAILED','CANCELLED','SUPPRESSED')"));
 test('migration 039 adds ordered realtime messages and duplicate protection', migration.includes('message_sequence BIGINT') && migration.includes('UNIQUE(conversation_id, client_message_id)'));
 test('temporary processing text is configured outside normal messages', migration.includes('processing_message_text') && migration.includes('processing_message_secondary_text') && !core.includes("sender_type,'SYSTEM','AI_PROCESSING'"));
@@ -45,10 +45,10 @@ test('AI worker starts independently from the browser request', server.includes(
 test('human takeover suppresses queued or running AI jobs', core.includes("status='SUPPRESSED'") && service.includes("'CANCELLED'") && core.includes('HUMAN_CONTROL_TAKEN'));
 test('staff resolution returns the customer to AI by default', service.includes('return_to_ai_on_resolve') && service.includes("control_mode=CASE WHEN return_to_ai_on_resolve THEN 'AI' ELSE 'CLOSED' END"));
 test('realtime gateway supports catch-up, delivery, and read events', realtime.includes("support:sync") && realtime.includes("support:delivered") && realtime.includes("support:read"));
-test('customer reconnects and requests missed message sequences', chat.includes('after_sequence: lastSequenceRef.current') && chat.includes('support:snapshot'));
+test('customer reconnects and requests missed message sequences', chat.includes('after_sequence:lastSequenceRef.current') && chat.includes('support:snapshot'));
 test('processing indicator is ephemeral and removed by job events', chat.includes('AsyncProcessingIndicator') && chat.includes('ai:processing_cancelled') && chat.includes('ai:message_created'));
 test('staff console has dashboard, three-panel chat, and realtime sync', staff.includes('Dashboard') && staff.includes('conversation-list') && staff.includes('customer-panel') && staff.includes('support:sync'));
-test('Admin can manage processing experience and inspect AI jobs', admin.includes('AI Processing Experience') && admin.includes('AI Delivery') && admin.includes('provider_failure_message'));
+test('Admin can manage processing experience and inspect AI jobs', admin.includes('Response Processing Experience') && admin.includes('Response Delivery') && admin.includes('provider_failure_message'));
 test('Admin overview exposes queue health', service.includes('completed_24h') && service.includes('/admin/support/ai-jobs'));
 
 test('stale PROCESSING jobs are recoverable after a worker restart', core.includes("j.status='PROCESSING' AND j.locked_at < NOW()-INTERVAL '5 minutes'"));

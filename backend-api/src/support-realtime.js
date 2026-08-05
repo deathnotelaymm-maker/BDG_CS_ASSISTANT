@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { configureSupportEventBus, onSupportEvent } from './support-events.js';
 
@@ -6,7 +7,7 @@ function parseProtocols(header = '') {
 }
 function send(socket, event, data = {}) {
   if (socket.readyState !== WebSocket.OPEN) return;
-  socket.send(JSON.stringify({ event, data, sent_at:new Date().toISOString() }));
+  socket.send(JSON.stringify({ event, event_id:randomUUID(), data, sent_at:new Date().toISOString() }));
 }
 function requestPath(request) {
   try { return new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`).pathname.replace(/\/+$/,'') || '/'; }
@@ -22,8 +23,9 @@ export async function attachSupportRealtimeGateway({ server, env, verifyAccess, 
     if (requestPath(request) !== '/support') return;
     try {
       const protocols = parseProtocols(request.headers['sec-websocket-protocol']);
-      const token = protocols.find((value) => value !== 'bdg-support') || '';
-      if (!token) throw new Error('Missing support WebSocket token');
+      const requestUrl=new URL(request.url || '/support',`http://${request.headers.host || 'localhost'}`);
+      const token = String(requestUrl.searchParams.get('ticket') || protocols.find((value) => value !== 'bdg-support') || '');
+      if (!token) throw new Error('Missing support realtime ticket');
       const access = await verifyAccess(env,token);
       wss.handleUpgrade(request,socket,head,(ws) => {
         ws.__supportAccess = access;

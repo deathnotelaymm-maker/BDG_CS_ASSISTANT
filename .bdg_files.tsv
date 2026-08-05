@@ -1,615 +1,804 @@
-./.bdg_files.tsv	0
-./.github/workflows/bdg-production-release.yml	4922
-./.github/workflows/ci.yml	1835
-./.gitignore	430
-./ACTIVE_ARCHITECTURE_V0.7.0A.md	587
-./APPLY-PATCH-V0.7.0A-WINDOWS.ps1	3275
-./APPLY-PATCH-V0.7.1-WINDOWS.ps1	1068
-./APPLY-PATCH-V0.8.0-WINDOWS.ps1	2879
-./APPLY-PATCH-V0.9.0-WINDOWS.ps1	3324
-./APPLY-PATCH-V0.9.0A-WINDOWS.ps1	4831
-./APPLY-V0.10.0-WINDOWS.ps1	4648
-./BACKUP-NEON-V0.7.0A-WINDOWS.ps1	1330
-./BDG-RELEASE-PIPELINE-SETUP.json	373
-./CHANGED_FILES_V0.7.0A.txt	2875
-./CHANGED_FILES_V0.9.0.txt	1454
-./CHANGED_FILES_V0.9.0A.txt	505
-./CHANGED_FILES_V1.5.0.txt	1211
-./CHANGED_FILES_V1.6.0.txt	1316
-./CHANGELOG_V0.7.0A.md	533
-./DEPLOY-CLOUDFLARE-PAGES-V0.7.0A-WINDOWS.ps1	2129
-./DEPLOY-V0.10.0-PRODUCTION-WINDOWS.ps1	5320
-./DEPLOY-V0.10.1-PRODUCTION-WINDOWS.ps1	5299
-./DEPLOY-V0.8.0-PRODUCTION-WINDOWS.ps1	4774
-./DEPLOY-V0.9.0-PRODUCTION-WINDOWS.ps1	6429
-./DEPLOY-V0.9.0A-PRODUCTION-WINDOWS.ps1	5867
-./DEPLOYMENT_CHECKLIST_V0.10.0.md	1486
-./DEPLOYMENT_CHECKLIST_V0.10.1.md	825
-./DEPLOYMENT_CHECKLIST_V0.7.0A.md	1348
-./DEPLOYMENT_CHECKLIST_V0.7.1.md	1101
-./DEPLOYMENT_CHECKLIST_V0.8.0.md	1671
-./DEPLOYMENT_CHECKLIST_V0.9.0.md	2397
-./DEPLOYMENT_CHECKLIST_V0.9.0A.md	962
-./DEPLOYMENT_CHECKLIST_V1.8.0.md	832
-./DEPLOYMENT_CHECKLIST_V1.9.0.md	1092
-./ENVIRONMENT_VARIABLES_V0.7.0A.md	1042
-./FILE_CHECKSUMS_V0.7.0A.sha256	50538
-./GENERATE-RENDER-NEON-SECRETS-WINDOWS.ps1	864
-./INSTALL-V1.7.0-STRICT-ROUTING.cmd	2378
-./INSTALL-V1.8.0-AI-QA-RICH-FAQ.cmd	2246
-./INSTALL-V1.8.0A-AI-QA-REPAIR.cmd	2276
-./INSTALL-V1.8.0B-ADMIN-QA-ROUTE.cmd	2359
-./INSTALL-V1.9.0-LOCALE-KNOWLEDGE-STUDIO.cmd	2506
-./INSTALL-V130.cmd	2393
-./MANIFEST_V0.10.0.json	541
-./MANIFEST_V0.10.1.json	642
-./MANIFEST_V0.7.0A.json	1889
-./MANIFEST_V0.7.1.json	577
-./MANIFEST_V0.8.0.json	1209
-./MANIFEST_V0.9.0.json	1327
-./MANIFEST_V0.9.0A.json	717
-./MANIFEST_V1.2.1.json	468
-./MANIFEST_V1.3.0.json	657
-./MANIFEST_V1.7.0.json	441
-./MANIFEST_V1.8.0.json	558
-./MANIFEST_V1.8.0A.json	580
-./MANIFEST_V1.8.0B.json	405
-./MANIFEST_V1.9.0.json	533
-./MANIFEST_V1.9.1.json	495
-./PREPARE-GITHUB-RENDER-V0.7.0A-WINDOWS.ps1	1902
-./README-V1.0.0-TENANT-CORE.md	2628
-./README-V1.2.1.txt	536
-./README-V1.3.0.txt	939
-./README.md	5372
-./README_V0.7.0A.md	1243
-./RELEASE_NOTES_V0.10.0.md	1872
-./RELEASE_NOTES_V0.10.1.md	1296
-./RELEASE_NOTES_V0.11.0.md	1328
-./RELEASE_NOTES_V0.7.0A.md	1200
-./RELEASE_NOTES_V0.7.1.md	1688
-./RELEASE_NOTES_V0.8.0.md	2950
-./RELEASE_NOTES_V0.9.0.md	3227
-./RELEASE_NOTES_V0.9.0A.md	1309
-./RELEASE_NOTES_V1.0.0.md	1086
-./RELEASE_NOTES_V1.1.0.md	1528
-./RELEASE_NOTES_V1.2.1.md	1201
-./RELEASE_NOTES_V1.3.0.md	1684
-./RELEASE_NOTES_V1.5.0.md	2238
-./RELEASE_NOTES_V1.6.0.md	2263
-./RELEASE_NOTES_V1.7.0.md	1315
-./RELEASE_NOTES_V1.8.0.md	1315
-./RELEASE_NOTES_V1.8.0A.md	615
-./RELEASE_NOTES_V1.8.0B.md	381
-./RELEASE_NOTES_V1.9.0.md	1778
-./RELEASE_NOTES_V1.9.1.md	1499
-./RESTORE-NEON-V0.7.0A-WINDOWS.ps1	1704
-./ROLLBACK_V0.7.0A.md	676
-./START-HERE-WINDOWS.bat	254
-./TEST_RESULT.md	2391
-./TEST_RESULT_V0.10.0.md	453
-./TEST_RESULT_V0.10.1.md	451
-./TEST_RESULT_V0.7.1.md	1222
-./TEST_RESULT_V0.8.0.md	1966
-./TEST_RESULT_V0.9.0.md	1709
-./TEST_RESULT_V0.9.0A.md	687
-./TEST_RESULT_V1.3.0.md	281
-./TEST_RESULT_V1.5.0.md	711
-./TEST_RESULT_V1.6.0.md	755
-./TEST_RESULT_V1.7.0.md	463
-./TEST_RESULT_V1.8.0.md	533
-./TEST_RESULT_V1.8.0A.md	452
-./TEST_RESULT_V1.8.0B.md	348
-./TEST_RESULT_V1.9.0.md	400
-./V0.11.0_IMPORT_QUICKSTART.md	2542
-./V1.1.0_INSTALL_AND_PUBLISH.md	1500
-./VERIFY-NEON-CONNECTIONS-V0.7.0A-WINDOWS.ps1	1864
-./VERIFY-V0.10.0-WINDOWS.ps1	2225
-./VERIFY-V0.10.1-WINDOWS.ps1	4026
-./VERIFY-V0.7.0A-WINDOWS.ps1	1614
-./VERIFY-V0.7.1-WINDOWS.ps1	490
-./VERIFY-V0.8.0-WINDOWS.ps1	1272
-./VERIFY-V0.9.0-WINDOWS.ps1	2593
-./VERIFY-V0.9.0A-WINDOWS.ps1	1197
-./admin-pro/.env.production	100
-./admin-pro/.gitignore	334
-./admin-pro/.lovable/project.json	124
-./admin-pro/.npmrc	170
-./admin-pro/.prettierignore	92
-./admin-pro/.prettierrc	90
-./admin-pro/AGENTS.md	480
-./admin-pro/bun.lock	209748
-./admin-pro/bunfig.toml	386
-./admin-pro/components.json	443
-./admin-pro/eslint.config.js	1250
-./admin-pro/index.html	641
-./admin-pro/package-lock.json	325849
-./admin-pro/package.json	3594
-./admin-pro/public/_redirects	59
-./admin-pro/public/favicon-admin-32.png	2545
-./admin-pro/public/favicon-admin-512.png	49541
-./admin-pro/public/favicon-bdg.png	192174
-./admin-pro/public/favicon.ico	15086
-./admin-pro/src/components/AdminLayout.tsx	13150
-./admin-pro/src/components/DataPage.tsx	8791
-./admin-pro/src/components/LocalizedHelp.tsx	1324
-./admin-pro/src/components/RichKnowledgeEditor.tsx	7404
-./admin-pro/src/components/ui/accordion.tsx	2015
-./admin-pro/src/components/ui/alert-dialog.tsx	4183
-./admin-pro/src/components/ui/alert.tsx	1589
-./admin-pro/src/components/ui/aspect-ratio.tsx	143
-./admin-pro/src/components/ui/avatar.tsx	1413
-./admin-pro/src/components/ui/badge.tsx	1123
-./admin-pro/src/components/ui/breadcrumb.tsx	2749
-./admin-pro/src/components/ui/button.tsx	1894
-./admin-pro/src/components/ui/calendar.tsx	7210
-./admin-pro/src/components/ui/card.tsx	1817
-./admin-pro/src/components/ui/carousel.tsx	6200
-./admin-pro/src/components/ui/chart.tsx	10570
-./admin-pro/src/components/ui/checkbox.tsx	1043
-./admin-pro/src/components/ui/collapsible.tsx	335
-./admin-pro/src/components/ui/command.tsx	4876
-./admin-pro/src/components/ui/context-menu.tsx	7391
-./admin-pro/src/components/ui/dialog.tsx	3648
-./admin-pro/src/components/ui/drawer.tsx	2973
-./admin-pro/src/components/ui/dropdown-menu.tsx	7596
-./admin-pro/src/components/ui/form.tsx	4201
-./admin-pro/src/components/ui/hover-card.tsx	1246
-./admin-pro/src/components/ui/input-otp.tsx	2161
-./admin-pro/src/components/ui/input.tsx	776
-./admin-pro/src/components/ui/label.tsx	716
-./admin-pro/src/components/ui/menubar.tsx	8546
-./admin-pro/src/components/ui/navigation-menu.tsx	5152
-./admin-pro/src/components/ui/pagination.tsx	2739
-./admin-pro/src/components/ui/popover.tsx	1352
-./admin-pro/src/components/ui/progress.tsx	781
-./admin-pro/src/components/ui/radio-group.tsx	1405
-./admin-pro/src/components/ui/resizable.tsx	1552
-./admin-pro/src/components/ui/scroll-area.tsx	1635
-./admin-pro/src/components/ui/select.tsx	5749
-./admin-pro/src/components/ui/separator.tsx	723
-./admin-pro/src/components/ui/sheet.tsx	4248
-./admin-pro/src/components/ui/sidebar.tsx	23975
-./admin-pro/src/components/ui/skeleton.tsx	239
-./admin-pro/src/components/ui/slider.tsx	1025
-./admin-pro/src/components/ui/sonner.tsx	734
-./admin-pro/src/components/ui/switch.tsx	1156
-./admin-pro/src/components/ui/table.tsx	2820
-./admin-pro/src/components/ui/tabs.tsx	1934
-./admin-pro/src/components/ui/textarea.tsx	677
-./admin-pro/src/components/ui/toggle-group.tsx	1752
-./admin-pro/src/components/ui/toggle.tsx	1534
-./admin-pro/src/components/ui/tooltip.tsx	1278
-./admin-pro/src/hooks/use-mobile.tsx	576
-./admin-pro/src/lib/api.ts	42066
-./admin-pro/src/lib/error-capture.ts	906
-./admin-pro/src/lib/error-page.ts	1371
-./admin-pro/src/lib/lovable-error-reporting.ts	830
-./admin-pro/src/lib/utils.ts	169
-./admin-pro/src/main.tsx	463
-./admin-pro/src/mock/data.ts	7144
-./admin-pro/src/routeTree.gen.ts	24202
-./admin-pro/src/router.tsx	665
-./admin-pro/src/routes/README.md	835
-./admin-pro/src/routes/__root.tsx	454
-./admin-pro/src/routes/_admin.action-buttons.tsx	8325
-./admin-pro/src/routes/_admin.admin-users.tsx	6393
-./admin-pro/src/routes/_admin.ai-content-studio.tsx	17358
-./admin-pro/src/routes/_admin.ai-diagnostics.tsx	5821
-./admin-pro/src/routes/_admin.ai-knowledge-import.tsx	7134
-./admin-pro/src/routes/_admin.ai-knowledge.tsx	772
-./admin-pro/src/routes/_admin.ai-prompt-manager.tsx	7924
-./admin-pro/src/routes/_admin.ai-qa.tsx	13306
-./admin-pro/src/routes/_admin.ai-reliability.tsx	5831
-./admin-pro/src/routes/_admin.ai-response-quality.tsx	12272
-./admin-pro/src/routes/_admin.ai-source-router.tsx	8861
-./admin-pro/src/routes/_admin.audit-logs.tsx	780
-./admin-pro/src/routes/_admin.categories.tsx	4930
-./admin-pro/src/routes/_admin.chat-logs.tsx	7346
-./admin-pro/src/routes/_admin.chat-quick-replies.tsx	832
-./admin-pro/src/routes/_admin.dashboard.tsx	4315
-./admin-pro/src/routes/_admin.domain-mapping.tsx	10271
-./admin-pro/src/routes/_admin.faq.tsx	7470
-./admin-pro/src/routes/_admin.guide-images.tsx	30127
-./admin-pro/src/routes/_admin.help-cards.tsx	810
-./admin-pro/src/routes/_admin.locale-studio.tsx	8688
-./admin-pro/src/routes/_admin.platform-control-center.tsx	32192
-./admin-pro/src/routes/_admin.prompt-history.tsx	3386
-./admin-pro/src/routes/_admin.site-content.tsx	1758
-./admin-pro/src/routes/_admin.theme-settings.tsx	17097
-./admin-pro/src/routes/_admin.tsx	489
-./admin-pro/src/routes/_admin.unmatched-questions.tsx	2405
-./admin-pro/src/routes/index.tsx	186
-./admin-pro/src/routes/login.tsx	3461
-./admin-pro/src/server.ts	2048
-./admin-pro/src/start.ts	619
-./admin-pro/src/styles.css	6475
-./admin-pro/tsconfig.json	672
-./admin-pro/vite.config.ts	669
-./backend-api/.env.example	1155
-./backend-api/.npmrc	170
-./backend-api/README.md	813
-./backend-api/migrations/001_v0.7.0a_render_neon_backend.sql	513
-./backend-api/migrations/002_v0.7.1_admin_stability_reliable_fallback.sql	961
-./backend-api/migrations/003_v0.8.0_structured_rich_responses_precision_guide_delivery.sql	807
-./backend-api/migrations/004_v0.9.0_prompt_first_ai_content_studio.sql	1712
-./backend-api/migrations/005_v0.10.0_ai_knowledge_orchestrator_visual_guide_studio.sql	3726
-./backend-api/migrations/006_v0.11.0_advanced_ai_knowledge_import_multi_platform_router.sql	3153
-./backend-api/migrations/007_v1.0.0_tenant_core_platform_control_center.sql	4637
-./backend-api/migrations/008_v1.0.1_automatic_platform_access_links.sql	770
-./backend-api/migrations/009_v1.1.0_tenant_data_isolation_platform_scoped_admin.sql	2904
-./backend-api/migrations/010_v1.2.0_tenant_brand_studio_one_platform_guard.sql	1145
-./backend-api/migrations/011_v1.2.0a_safe_bootstrap_deduplication_repair.sql	453
-./backend-api/migrations/012_v1.2.0a2_scoped_backfill_conflict_repair.sql	356
-./backend-api/migrations/013_v1.2.0a4_safe_active_platform_bootstrap_repair.sql	527
-./backend-api/migrations/014_v1.2.1_platform_context_no_fallback_repair.sql	706
-./backend-api/migrations/015_v1.3.0_chat_start_module_experience_studio.sql	458
-./backend-api/migrations/016_v1.4.0_operations_connector_gateway.sql	1672
-./backend-api/migrations/017_v1.5.0_tenant_platform_experience_owner_controls.sql	813
-./backend-api/migrations/018_v1.6.0_tenant_experience_studio_resilient_knowledge_import.sql	1675
-./backend-api/migrations/019_v1.7.0_strict_tenant_routing_quick_reply_lifecycle.sql	754
-./backend-api/migrations/020_v1.8.0_ai_qa_rich_faq_studio.sql	1325
-./backend-api/migrations/021_v1.9.0_locale_aware_knowledge_studio.sql	780
-./backend-api/migrations/022_v1.9.1_faq_sql_repair_locale_registry.sql	1713
-./backend-api/migrations/023_v1.9.2_guide_locale_studio_dynamic_translation_variants.sql	1568
-./backend-api/migrations/024_v1.10.0_unified_ai_source_router.sql	1085
-./backend-api/migrations/025_v1.11.0_batch_import_approval_publishing_rollback.sql	1263
-./backend-api/migrations/026_v1.12.0_production_domain_mapping_ai_reliability_foundation.sql	2145
-./backend-api/migrations/027_v1.12.1_ai_platform_context_lock_domain_mapping_sql_repair.sql	966
-./backend-api/migrations/028_v1.13.0_bring_your_own_domain_cloudflare_custom_hostnames.sql	1939
-./backend-api/migrations/030_v1.14.0_ai_response_quality_center.sql	3457
-./backend-api/migrations/031_v1.14.3_guide_publishing_state_repair_platform_self_service_upload.sql	2076
-./backend-api/migrations/032_v1.15.0_advanced_visual_guide_studio_motion_media.sql	1922
-./backend-api/migrations/README.md	631
-./backend-api/package-lock.json	24830
-./backend-api/package.json	942
-./backend-api/scripts/knowledge-import-preview-return-regression-test.js	938
-./backend-api/scripts/knowledge-import-regression-test.js	2609
-./backend-api/scripts/operations-connector-regression-test.js	2101
-./backend-api/scripts/regression-test.js	8201
-./backend-api/scripts/smoke-test.js	823
-./backend-api/scripts/structured-response-test.js	2086
-./backend-api/scripts/tenant-platform-experience-regression-test.js	2340
-./backend-api/scripts/upload-regression-test.js	7016
-./backend-api/scripts/v1.6.0-regression-test.js	1547
-./backend-api/scripts/v1.7.0-regression-test.js	2202
-./backend-api/scripts/v1.8.0-regression-test.js	2457
-./backend-api/scripts/v1.9.0-regression-test.js	3384
-./backend-api/src/core.js	470434
-./backend-api/src/env.js	8588
-./backend-api/src/knowledge-import.js	7814
-./backend-api/src/migrate.js	905
-./backend-api/src/r2-adapter.js	2938
-./backend-api/src/server.js	10081
-./chat-pro/.env.production	79
-./chat-pro/.gitignore	334
-./chat-pro/.lovable/project.json	124
-./chat-pro/.npmrc	170
-./chat-pro/.prettierignore	92
-./chat-pro/.prettierrc	90
-./chat-pro/AGENTS.md	480
-./chat-pro/bun.lock	87348
-./chat-pro/bunfig.toml	386
-./chat-pro/components.json	443
-./chat-pro/eslint.config.js	1250
-./chat-pro/index.html	1088
-./chat-pro/package-lock.json	123454
-./chat-pro/package.json	1184
-./chat-pro/public/_redirects	64
-./chat-pro/public/favicon-bdg.png	192174
-./chat-pro/public/favicon-chat-32.png	1571
-./chat-pro/public/favicon-chat-512.png	23531
-./chat-pro/public/favicon.ico	15086
-./chat-pro/src/App.tsx	28271
-./chat-pro/src/components/ImageLightbox.tsx	2203
-./chat-pro/src/lib/api.ts	6802
-./chat-pro/src/lib/chat-config.ts	5256
-./chat-pro/src/lib/utils.ts	169
-./chat-pro/src/main.tsx	326
-./chat-pro/src/styles.css	6261
-./chat-pro/tsconfig.json	672
-./chat-pro/vite.config.ts	481
-./docs/ARCHITECTURE_V0.7.0A.md	587
-./docs/DEPLOYMENT_CHECKLIST_V0.7.0A.md	1348
-./docs/DEPLOYMENT_V0.7.0A.md	2793
-./docs/ENVIRONMENT_VARIABLES_V0.7.0A.md	1042
-./docs/README_V0.7.0A.md	1243
-./docs/ROLLBACK_V0.7.0A.md	676
-./docs/TEST_RESULT.md	2391
-./guide-pro/.env.production	95
-./guide-pro/.gitignore	334
-./guide-pro/.lovable/project.json	124
-./guide-pro/.npmrc	170
-./guide-pro/.prettierignore	92
-./guide-pro/.prettierrc	90
-./guide-pro/AGENTS.md	480
-./guide-pro/bun.lock	135458
-./guide-pro/bunfig.toml	386
-./guide-pro/components.json	443
-./guide-pro/eslint.config.js	1250
-./guide-pro/index.html	1423
-./guide-pro/package-lock.json	215196
-./guide-pro/package.json	2765
-./guide-pro/public/_redirects	64
-./guide-pro/public/favicon-bdg.png	192174
-./guide-pro/public/favicon.ico	20373
-./guide-pro/src/components/admin/AdminLayout.tsx	5840
-./guide-pro/src/components/admin/GuideEditor.tsx	9058
-./guide-pro/src/components/admin/PageHeader.tsx	630
-./guide-pro/src/components/admin/StatCard.tsx	693
-./guide-pro/src/components/admin/StatusBadge.tsx	794
-./guide-pro/src/components/editor/BlockEditor.tsx	8608
-./guide-pro/src/components/public/CategoryIcon.tsx	539
-./guide-pro/src/components/public/GuideImageLightbox.tsx	2488
-./guide-pro/src/components/public/PublicLayout.tsx	7049
-./guide-pro/src/components/public/ServiceErrorPanel.tsx	1526
-./guide-pro/src/components/ui/accordion.tsx	2015
-./guide-pro/src/components/ui/alert-dialog.tsx	4183
-./guide-pro/src/components/ui/alert.tsx	1589
-./guide-pro/src/components/ui/aspect-ratio.tsx	143
-./guide-pro/src/components/ui/avatar.tsx	1413
-./guide-pro/src/components/ui/badge.tsx	1123
-./guide-pro/src/components/ui/breadcrumb.tsx	2749
-./guide-pro/src/components/ui/button.tsx	1894
-./guide-pro/src/components/ui/calendar.tsx	7210
-./guide-pro/src/components/ui/card.tsx	1817
-./guide-pro/src/components/ui/carousel.tsx	6200
-./guide-pro/src/components/ui/chart.tsx	10570
-./guide-pro/src/components/ui/checkbox.tsx	1043
-./guide-pro/src/components/ui/collapsible.tsx	335
-./guide-pro/src/components/ui/command.tsx	4876
-./guide-pro/src/components/ui/context-menu.tsx	7391
-./guide-pro/src/components/ui/dialog.tsx	3648
-./guide-pro/src/components/ui/drawer.tsx	2973
-./guide-pro/src/components/ui/dropdown-menu.tsx	7596
-./guide-pro/src/components/ui/form.tsx	4201
-./guide-pro/src/components/ui/hover-card.tsx	1246
-./guide-pro/src/components/ui/input-otp.tsx	2161
-./guide-pro/src/components/ui/input.tsx	776
-./guide-pro/src/components/ui/label.tsx	716
-./guide-pro/src/components/ui/menubar.tsx	8546
-./guide-pro/src/components/ui/navigation-menu.tsx	5152
-./guide-pro/src/components/ui/pagination.tsx	2739
-./guide-pro/src/components/ui/popover.tsx	1352
-./guide-pro/src/components/ui/progress.tsx	781
-./guide-pro/src/components/ui/radio-group.tsx	1405
-./guide-pro/src/components/ui/resizable.tsx	1552
-./guide-pro/src/components/ui/scroll-area.tsx	1635
-./guide-pro/src/components/ui/select.tsx	5749
-./guide-pro/src/components/ui/separator.tsx	723
-./guide-pro/src/components/ui/sheet.tsx	4248
-./guide-pro/src/components/ui/sidebar.tsx	23975
-./guide-pro/src/components/ui/skeleton.tsx	239
-./guide-pro/src/components/ui/slider.tsx	1025
-./guide-pro/src/components/ui/sonner.tsx	734
-./guide-pro/src/components/ui/switch.tsx	1156
-./guide-pro/src/components/ui/table.tsx	2820
-./guide-pro/src/components/ui/tabs.tsx	1934
-./guide-pro/src/components/ui/textarea.tsx	677
-./guide-pro/src/components/ui/toggle-group.tsx	1752
-./guide-pro/src/components/ui/toggle.tsx	1534
-./guide-pro/src/components/ui/tooltip.tsx	1278
-./guide-pro/src/hooks/use-mobile.tsx	576
-./guide-pro/src/lib/api.ts	21843
-./guide-pro/src/lib/lovable-error-reporting.ts	830
-./guide-pro/src/lib/utils.ts	169
-./guide-pro/src/main.tsx	471
-./guide-pro/src/mock/data.ts	13350
-./guide-pro/src/routeTree.gen.ts	14374
-./guide-pro/src/router.tsx	711
-./guide-pro/src/routes/README.md	835
-./guide-pro/src/routes/__root.tsx	2880
-./guide-pro/src/routes/_public.faq.tsx	4153
-./guide-pro/src/routes/_public.guides.$slug.tsx	20434
-./guide-pro/src/routes/_public.guides.tsx	7067
-./guide-pro/src/routes/_public.index.tsx	10474
-./guide-pro/src/routes/_public.support.tsx	3366
-./guide-pro/src/routes/_public.tsx	268
-./guide-pro/src/routes/admin.categories.tsx	2712
-./guide-pro/src/routes/admin.faqs.tsx	1782
-./guide-pro/src/routes/admin.guides.$id.tsx	316
-./guide-pro/src/routes/admin.guides.new.tsx	234
-./guide-pro/src/routes/admin.guides.tsx	6426
-./guide-pro/src/routes/admin.index.tsx	3778
-./guide-pro/src/routes/admin.login.tsx	3199
-./guide-pro/src/routes/admin.navigation.tsx	3475
-./guide-pro/src/routes/admin.popular-help.tsx	5472
-./guide-pro/src/routes/admin.site-content.tsx	4537
-./guide-pro/src/routes/admin.tsx	506
-./guide-pro/src/routes/admin.versions.tsx	2057
-./guide-pro/src/styles.css	6217
-./guide-pro/tsconfig.json	672
-./guide-pro/vite.config.ts	677
-./legacy/README.md	625
-./legacy/apps/admin-site-v0.6.8/app.js	26703
-./legacy/apps/admin-site-v0.6.8/config.js	208
-./legacy/apps/admin-site-v0.6.8/index.html	15048
-./legacy/apps/admin-site-v0.6.8/styles.css	8586
-./legacy/apps/backend-v0.6.8/.env.example	602
-./legacy/apps/backend-v0.6.8/app/database.py	609
-./legacy/apps/backend-v0.6.8/app/env.py	791
-./legacy/apps/backend-v0.6.8/app/main.py	31104
-./legacy/apps/backend-v0.6.8/app/models.py	7857
-./legacy/apps/backend-v0.6.8/app/schemas.py	3737
-./legacy/apps/backend-v0.6.8/app/security.py	3068
-./legacy/apps/backend-v0.6.8/app/seed.py	10022
-./legacy/apps/backend-v0.6.8/app/utils.py	3002
-./legacy/apps/backend-v0.6.8/requirements.txt	315
-./legacy/apps/backend-v0.6.8/runtime.txt	14
-./legacy/apps/backend-v0.6.8/uploads/.gitkeep	0
-./legacy/apps/chat-site-v0.6.8/app.js	7317
-./legacy/apps/chat-site-v0.6.8/config.js	205
-./legacy/apps/chat-site-v0.6.8/index.html	2003
-./legacy/apps/chat-site-v0.6.8/styles.css	5656
-./legacy/apps/guide-site-v0.6.8/CHANGELOG_UI.md	2861
-./legacy/apps/guide-site-v0.6.8/app.js	12633
-./legacy/apps/guide-site-v0.6.8/config.js	206
-./legacy/apps/guide-site-v0.6.8/index.html	3923
-./legacy/apps/guide-site-v0.6.8/styles.css	15494
-./legacy/apps/worker-api-v0.6.8/README.md	209
-./legacy/apps/worker-api-v0.6.8/package.json	457
-./legacy/apps/worker-api-v0.6.8/schema/schema.sql	6419
-./legacy/apps/worker-api-v0.6.8/src/index.js	166395
-./legacy/apps/worker-api-v0.6.8/wrangler.toml.example	760
-./legacy/release-history/ADMIN_PRO_MERGE_REPORT.md	2332
-./legacy/release-history/CHANGELOG_V0.5.0.md	1147
-./legacy/release-history/CHANGELOG_V0.5.1.md	570
-./legacy/release-history/CHANGELOG_V0.5.2.md	499
-./legacy/release-history/CHANGELOG_V0.5.3.md	691
-./legacy/release-history/CHANGELOG_V0.5.4.md	715
-./legacy/release-history/CHANGELOG_V0.5.5.md	1189
-./legacy/release-history/CHANGELOG_V0.5.7.md	1619
-./legacy/release-history/CHANGELOG_V0.5.8.md	1471
-./legacy/release-history/CHANGELOG_V0.5.9.md	545
-./legacy/release-history/CHANGELOG_V0.6.0.md	1165
-./legacy/release-history/CHANGELOG_V0.6.1.md	1462
-./legacy/release-history/CHANGELOG_V0.6.2.md	1709
-./legacy/release-history/CHANGELOG_V0.6.3.md	1061
-./legacy/release-history/CHANGELOG_V0.6.4.md	514
-./legacy/release-history/CHANGELOG_V0.6.4_PRECISION_ROUTER.md	1364
-./legacy/release-history/CHANGELOG_V0.6.5.md	741
-./legacy/release-history/CHANGELOG_V0.6.6.md	650
-./legacy/release-history/CHANGELOG_V0.6.7.md	814
-./legacy/release-history/CHANGELOG_V0.6.8.md	634
-./legacy/release-history/CHAT_GUIDE_PRO_MERGE_REPORT.md	1577
-./legacy/release-history/CHECK-BACKEND-WINDOWS.ps1	444
-./legacy/release-history/CHECK-LOCAL-WINDOWS.ps1	825
-./legacy/release-history/CHECK-V0.5.7-WINDOWS.ps1	583
-./legacy/release-history/DEPLOY-ADMIN-PRO-WINDOWS.ps1	149
-./legacy/release-history/DEPLOY-ALL-PRO-WINDOWS.ps1	149
-./legacy/release-history/DEPLOY-ALL-V0.5.2-WINDOWS.ps1	244
-./legacy/release-history/DEPLOY-ALL-V0.5.7-WINDOWS.ps1	686
-./legacy/release-history/DEPLOY-ALL-V0.5.8-WINDOWS.ps1	684
-./legacy/release-history/DEPLOY-ALL-V0.5.9-WINDOWS.ps1	519
-./legacy/release-history/DEPLOY-ALL-V0.6.1-WINDOWS.ps1	733
-./legacy/release-history/DEPLOY-ALL-V0.6.2-WINDOWS.ps1	733
-./legacy/release-history/DEPLOY-ALL-V0.6.2A-WINDOWS.ps1	415
-./legacy/release-history/DEPLOY-ALL-V0.6.2D-WINDOWS.ps1	427
-./legacy/release-history/DEPLOY-ALL-V0.6.3-WINDOWS.ps1	451
-./legacy/release-history/DEPLOY-ALL-V0.6.3D-WINDOWS.ps1	458
-./legacy/release-history/DEPLOY-ALL-V0.6.4-WINDOWS.ps1	482
-./legacy/release-history/DEPLOY-ALL-V0.6.5-WINDOWS.ps1	461
-./legacy/release-history/DEPLOY-ALL-V0.6.6-WINDOWS.ps1	470
-./legacy/release-history/DEPLOY-ALL-V0.6.7-WINDOWS.ps1	461
-./legacy/release-history/DEPLOY-ALL-V0.6.8-WINDOWS.ps1	468
-./legacy/release-history/DEPLOY-CHAT-PRO-WINDOWS.ps1	149
-./legacy/release-history/DEPLOY-GUIDE-PRO-WINDOWS.ps1	149
-./legacy/release-history/DEPLOY-GUIDE-V0.5.9-WINDOWS.ps1	1523
-./legacy/release-history/DEPLOY-PRO-FRONTENDS-WINDOWS.ps1	149
-./legacy/release-history/DEPLOY-PRO-PAGES-FIX-V0.5.7-WINDOWS.ps1	1819
-./legacy/release-history/DEPLOY-PRO-PAGES-FIX-V0.5.8-WINDOWS.ps1	1819
-./legacy/release-history/DEPLOY-PRO-PAGES-V0.6.1-WINDOWS.ps1	1578
-./legacy/release-history/DEPLOY-PRO-PAGES-V0.6.2-WINDOWS.ps1	1578
-./legacy/release-history/DEPLOY-PRO-PAGES-V0.6.3-WINDOWS.ps1	1578
-./legacy/release-history/DEPLOY-PRO-PAGES-V0.6.3D-WINDOWS.ps1	1580
-./legacy/release-history/DEPLOY-PRO-PAGES-V0.6.4-WINDOWS.ps1	1578
-./legacy/release-history/DEPLOY-PRO-PAGES-V0.6.5-WINDOWS.ps1	1578
-./legacy/release-history/DEPLOY-PRO-PAGES-V0.6.6-WINDOWS.ps1	1578
-./legacy/release-history/DEPLOY-PRO-PAGES-V0.6.7-WINDOWS.ps1	1578
-./legacy/release-history/DEPLOY-PRO-PAGES-V0.6.8-WINDOWS.ps1	1578
-./legacy/release-history/DEPLOY-WORKER-FIX-V0.5.7-WINDOWS.ps1	792
-./legacy/release-history/DEPLOY-WORKER-FIX-V0.5.8-WINDOWS.ps1	792
-./legacy/release-history/DEPLOY-WORKER-V0.5.2-WINDOWS.ps1	146
-./legacy/release-history/DEPLOY-WORKER-V0.5.4-WINDOWS.ps1	146
-./legacy/release-history/DEPLOY-WORKER-V0.5.5-WINDOWS.ps1	146
-./legacy/release-history/DEPLOY-WORKER-V0.6.1-WINDOWS.ps1	839
-./legacy/release-history/DEPLOY-WORKER-V0.6.2-WINDOWS.ps1	839
-./legacy/release-history/DEPLOY-WORKER-V0.6.2A-WINDOWS.ps1	863
-./legacy/release-history/DEPLOY-WORKER-V0.6.2D-WINDOWS.ps1	875
-./legacy/release-history/DEPLOY-WORKER-V0.6.3-WINDOWS.ps1	908
-./legacy/release-history/DEPLOY-WORKER-V0.6.3D-WINDOWS.ps1	1234
-./legacy/release-history/DEPLOY-WORKER-V0.6.4-WINDOWS.ps1	1481
-./legacy/release-history/DEPLOY-WORKER-V0.6.5-WINDOWS.ps1	1481
-./legacy/release-history/DEPLOY-WORKER-V0.6.6-WINDOWS.ps1	1481
-./legacy/release-history/DEPLOY-WORKER-V0.6.7-WINDOWS.ps1	1481
-./legacy/release-history/DEPLOY-WORKER-V0.6.8-WINDOWS.ps1	1481
-./legacy/release-history/FIX-WINDOWS-PYTHON-ERROR.md	818
-./legacy/release-history/FIX-WORKER-CONFIG-WINDOWS.ps1	3106
-./legacy/release-history/FIX_WORKER_AI_HANG_V0.4.2.md	1216
-./legacy/release-history/GITHUB-DEPLOY-COMMANDS.md	1832
-./legacy/release-history/LOVABLE_IMPORT_REPORT.md	1187
-./legacy/release-history/MANIFEST_V0.4.0.json	496
-./legacy/release-history/MANIFEST_V0.4.1.json	384
-./legacy/release-history/MANIFEST_V0.5.0.json	501
-./legacy/release-history/MANIFEST_V0.5.1.json	381
-./legacy/release-history/MANIFEST_V0.5.7.json	799
-./legacy/release-history/MANIFEST_V0.5.8.json	618
-./legacy/release-history/MANIFEST_V0.5.9.json	675
-./legacy/release-history/MANIFEST_V0.6.0.json	1124
-./legacy/release-history/MANIFEST_V0.6.1.json	734
-./legacy/release-history/MANIFEST_V0.6.2.json	788
-./legacy/release-history/MANIFEST_V0.6.2C.json	158
-./legacy/release-history/MANIFEST_V0.6.3.json	992
-./legacy/release-history/MANIFEST_V0.6.4.json	467
-./legacy/release-history/MANIFEST_V0.6.4_PRECISION_ROUTER.json	479
-./legacy/release-history/MANIFEST_V0.6.5.json	761
-./legacy/release-history/MANIFEST_V0.6.6.json	553
-./legacy/release-history/MANIFEST_V0.6.7.json	601
-./legacy/release-history/MANIFEST_V0.6.8.json	681
-./legacy/release-history/README_V0.5.2.md	1124
-./legacy/release-history/README_V0.5.3.md	685
-./legacy/release-history/README_V0.5.5.md	1284
-./legacy/release-history/README_V0.5.7.md	1623
-./legacy/release-history/README_V0.5.8.md	609
-./legacy/release-history/README_V0.5.9.md	1354
-./legacy/release-history/README_V0.6.0.md	1869
-./legacy/release-history/README_V0.6.1.md	1123
-./legacy/release-history/README_V0.6.2.md	1033
-./legacy/release-history/README_V0.6.2A.md	940
-./legacy/release-history/README_V0.6.2D.md	1066
-./legacy/release-history/README_V0.6.3.md	2419
-./legacy/release-history/README_V0.6.3D.md	913
-./legacy/release-history/README_V0.6.4.md	1377
-./legacy/release-history/README_V0.6.4_PRECISION_ROUTER.md	1353
-./legacy/release-history/README_V0.6.5.md	1084
-./legacy/release-history/README_V0.6.6.md	1056
-./legacy/release-history/README_V0.6.7.md	1367
-./legacy/release-history/README_V0.6.8.md	1087
-./legacy/release-history/SET-FRONTEND-API-URL.ps1	716
-./legacy/release-history/docs-v0.6.8/CLOUDFLARE_DEPLOY_V0.4.md	2299
-./legacy/release-history/docs-v0.6.8/CLOUDFLARE_PAGES_DEPLOY.md	621
-./legacy/release-history/docs-v0.6.8/DOMAIN_STRUCTURE.md	925
-./legacy/release-history/docs-v0.6.8/NEON_CLOUDFLARE_WORKER_DEPLOY_V0.4.1.md	3151
-./legacy/release-history/docs-v0.6.8/NEXT_STEPS.md	565
-./legacy/release-history/docs-v0.6.8/POSTGRESQL_SCHEMA_V0.4.md	551
-./legacy/release-history/docs-v0.6.8/POSTGRESQL_SCHEMA_V0.5.md	6419
-./legacy/release-history/docs-v0.6.8/RENDER_BACKEND_DEPLOY.md	815
-./legacy/release-history/frontend-merge-notes-v0.6.8/admin-pro-README_MERGE.md	2046
-./legacy/release-history/frontend-merge-notes-v0.6.8/chat-pro-README_MERGE.md	3957
-./legacy/release-history/frontend-merge-notes-v0.6.8/guide-pro-README_MERGE.md	2980
-./legacy/release-history/run-local-windows.ps1	4389
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/ACTIVE_ARCHITECTURE_V0.7.0.md	547
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/APPLY-PATCH-V0.7.0-WINDOWS.ps1	3723
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/CHANGED_FILES_V0.7.0.txt	2617
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/CHANGELOG_V0.7.0.md	2605
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/DEPLOY-CLOUDFLARE-PAGES-V0.7.0-WINDOWS.ps1	1943
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/DEPLOYMENT_CHECKLIST_V0.7.0.md	2047
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/ENVIRONMENT_VARIABLES_V0.7.0.md	1696
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/FILE_CHECKSUMS_V0.7.0.sha256	46282
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/GENERATE-RENDER-SECRETS-WINDOWS.ps1	680
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/MANIFEST_V0.7.0.json	3407
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/MIGRATE-NEON-TO-RENDER-WINDOWS.ps1	2239
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/PREPARE-GITHUB-RENDER-V0.7.0-WINDOWS.ps1	1893
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/README_V0.7.0.md	7142
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/RELEASE_NOTES_V0.7.0.md	1581
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/ROLLBACK-RENDER-DATABASE-WINDOWS.ps1	793
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/ROLLBACK_V0.7.0.md	992
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/TEST_RESULT.md	2854
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/VERIFY-V0.7.0-WINDOWS.ps1	1170
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/ARCHITECTURE_V0.7.0.md	452
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/DEPLOYMENT_CHECKLIST_V0.7.0.md	2047
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/DEPLOYMENT_V0.7.0.md	5287
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/ENVIRONMENT_VARIABLES_V0.7.0.md	1696
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/README_V0.7.0.md	7142
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/ROLLBACK_V0.7.0.md	992
-./legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/TEST_RESULT.md	2854
-./legacy/tools/root-build-scripts-v0.6.8/build-pages.mjs	1532
-./package.json	509
-./render.staging.example.yaml	1828
-./render.yaml	1897
-./scripts/ci/align-pages-production-branches.mjs	2424
-./scripts/ci/align-pages-production-branches.test.mjs	1596
-./scripts/ci/read-api-version.mjs	815
-./scripts/ci/verify-live-pages.mjs	1605
-./scripts/ci/verify-static-release.mjs	1835
-./scripts/ci/wait-for-render.mjs	1426
-./scripts/ci/write-release-marker.mjs	662
+dc4fa6e814368fabf8fa31fd17d522c9e6c77a96253622d90cf1e85ab67c542b	7133	.github/workflows/bdg-production-release.yml
+abed328550bc71df64b8cf099e6be42b1ced30b2685b1cde738d33aaf9f9da16	3109	.github/workflows/ci.yml
+72341495a74959ddd2dfc3b82a4b26207320ce71552d639d8ebb1716fa4beab3	430	.gitignore
+b4ced3e76ace0b5cf6dd4f73bbfd97cd88cfac7b66e72c9eb1112cd42a59b8f8	587	ACTIVE_ARCHITECTURE_V0.7.0A.md
+46d36c7e15b7fa170c6d6c58487c4939fff78e46a5c90bccdbc29d85d372bdcb	4571	AI_FAILURE_ANALYSIS_V1.15.2.md
+1e46307eb29ae1ed577f970e50c21aef14bc810ae33f51a94723ec6d066ad360	2150	AI_WORKFLOW_REPAIR_V1.15.3.md
+91a4c0c7d093686125d32cd7fc5324a51ddaa2052f892dccd82b57801fa3a9b9	3275	APPLY-PATCH-V0.7.0A-WINDOWS.ps1
+9c7af761bdf4737f967c4ae038e819e521a1632a0c8e3b94622441217eafbb7c	1068	APPLY-PATCH-V0.7.1-WINDOWS.ps1
+0b95055ba8ea5f22ff19b6802628c4c9f406b83f5e8f0e268462b4e3a7042c6f	2879	APPLY-PATCH-V0.8.0-WINDOWS.ps1
+1e984e1e3ab0601227255a165239bca8ca4720fc87494cad9dbf4bf56c1f8724	3324	APPLY-PATCH-V0.9.0-WINDOWS.ps1
+98482d06c6c441938f0f07f5f8e8dc5854cf30f63f5965f87e43896cf6a73ecf	4831	APPLY-PATCH-V0.9.0A-WINDOWS.ps1
+f3f95b79c30eb8c2d13d6ce5b0d015b3cfcb9b8d91795a107caf0b40ce84bd1b	4648	APPLY-V0.10.0-WINDOWS.ps1
+ac34600205f0f3bf2e09f4fe398773ec6bdaf8554c299d7cf382086a53cc0d6e	1330	BACKUP-NEON-V0.7.0A-WINDOWS.ps1
+f0711ba2df300c1919fb5d9f47dbfc5fad07929317757b85cae719b9fec4aa8f	373	BDG-RELEASE-PIPELINE-SETUP.json
+b97b1fa8d300663ad7c05186af1b9e0692c77099471ebefce5213115dbb56f48	2875	CHANGED_FILES_V0.7.0A.txt
+c2745e8f093c76361869fdc76a32a932f7f163bef2592993ce0b3a3c4cb7266a	1454	CHANGED_FILES_V0.9.0.txt
+961449750e3130fbc8adfb11b1b675610ed12cb28eec515d611543864acd1cd4	505	CHANGED_FILES_V0.9.0A.txt
+50f8a43d644d0b6f3a7aec295a629e7a33d6ac4d7239ac48945594726736abd5	2022	CHANGED_FILES_V1.15.1.txt
+2c0a6e5c97576ea8d9305b55329282629571b6c4a26967b5d97f7ddf837efca1	1560	CHANGED_FILES_V1.15.2.txt
+45b425e8d7f13b49107f6e07aaba36657ab19eb76b46030e22ea3d6135f79443	1300	CHANGED_FILES_V1.15.3.txt
+2b09abf42e2f90b570a85b80b5fb68fd24315d0fb987a4de850f3eeb75c08c51	557	CHANGED_FILES_V1.15.4-R2.txt
+618d44f7a5d5fd2baaf97559d16e33d9b11bbb2dfcb45bed8c9f150accb15b2c	1533	CHANGED_FILES_V1.15.4.txt
+51003e6bc1a7b30a9b7675d54b1e01561e843505c5fc456eb01f70e1d7149538	2500	CHANGED_FILES_V1.15.5.txt
+239cdf8c2e71229844419ca789b3be697cbe5c492ce39893d230314d050ff546	722	CHANGED_FILES_V1.16.0-R3.txt
+66ae3c1d243293daa4e8efc032af5543eca3b164a22a09088c0494613549e4a7	788	CHANGED_FILES_V1.16.0-R4.txt
+5a364f100fa0737c6615dd7129e241f2cd08eb2b5f9f9f64e7b55f4d08cf2204	763	CHANGED_FILES_V1.16.0-R5.txt
+2b879c01acae53967416d50c4341ec6cc96a124c6e6cb4cf2e041cf45f969a61	1993	CHANGED_FILES_V1.16.0.txt
+c0407bb207bd393ac7c847b1a1d988abe9d8f14c397c64086f06a616fb66143c	2230	CHANGED_FILES_V1.16.1-R2.txt
+89b40fc5f5bb57d5d70ac057b23b15043b8d201965bad085a08ad2dee26fa97a	463	CHANGED_FILES_V1.16.1-R3.txt
+62bdd246dd7fd7c8958d3cdde0cef2be3dd8b462fe965cf39a232327f463c8e5	1870	CHANGED_FILES_V1.16.1.txt
+24f8841917810ea0483db7da0282db84667a439959be91b9c8d32bc9c0f5c06f	1211	CHANGED_FILES_V1.5.0.txt
+15acb12e6b0c0fee93792328f2df5663d72bde7882d68967d66fdc74f7cf5504	1316	CHANGED_FILES_V1.6.0.txt
+e1027bd1d307429412f29c2daacb5dec9b324e6070f8a7610a57ea101eda5042	533	CHANGELOG_V0.7.0A.md
+60926198347268dc1788b9663c0421f8535ccf7ed9946950dd42711009213aea	1207	CI_AI_COMPOSER_FIX_V1.15.2.md
+9662f744efa2487ab22263c43c19320a9d9598ad4f738bc90f6b37472b34ca68	852	CI_INTEGRATION_FIX_V1.15.2.md
+b0b65b4ed3b47dd723da23e4b43483a29e5ef3edcec79b183c61eddabb9f82c2	948	CI_PLATFORM_CONTEXT_HOTFIX_V1.15.1.md
+77ad75727d73fed52f4de79324bf7024722c3b3a530dcb4d9cac31160e1c6bdc	1687	CONVERSATION_CONTINUITY_REALTIME_MEDIA_MATCHING_V1.16.2.md
+a8baa469f5c3e704e56a68b7e2a92d1340280b86a145447549868aab8cdce29b	2129	DEPLOY-CLOUDFLARE-PAGES-V0.7.0A-WINDOWS.ps1
+281e7c7ec67edb7631cf4e20ee2c80fd57fd9db716e7f9effa3bb15b087ca4fe	5320	DEPLOY-V0.10.0-PRODUCTION-WINDOWS.ps1
+e1a3ba6a1da5e46adf1246ba5745f44ace4f824a68ac23ef46bbd1c43dba9bc9	5299	DEPLOY-V0.10.1-PRODUCTION-WINDOWS.ps1
+f7a8d3b182cbbda9c8886e4d666d501ab956831939597a96e4e17c0f19444f86	4774	DEPLOY-V0.8.0-PRODUCTION-WINDOWS.ps1
+acc1d3e063651f236740dd3b6267441345c0b97646b68f309ead9586aad0fefa	6429	DEPLOY-V0.9.0-PRODUCTION-WINDOWS.ps1
+52b623a0b45b30acbd18b3621bd1c0935b82a523878e69a58c62370984d12bd1	5867	DEPLOY-V0.9.0A-PRODUCTION-WINDOWS.ps1
+edc835cb24c6f4e6f1401e966ca76c4ffd9b661d6535461d8bf87bcf8f09aefd	1486	DEPLOYMENT_CHECKLIST_V0.10.0.md
+b846c359ccef9862346df6b73369ed3f4444691da2577470dc197129f1796cb7	825	DEPLOYMENT_CHECKLIST_V0.10.1.md
+bc5f3f67b9e7c4fb4068458763cc3d46325b1672cfa75339c1b5687679a7c7ea	1348	DEPLOYMENT_CHECKLIST_V0.7.0A.md
+693951cd251f89b05ad84da6090461d0795af2033ed004ea8ee0bad4e0348413	1101	DEPLOYMENT_CHECKLIST_V0.7.1.md
+5c726d82fd4011d89ee89bbeb1a8f572e55d20ebaa3e2db850c4962e28ab84a9	1671	DEPLOYMENT_CHECKLIST_V0.8.0.md
+fd1ba8ebb4d12d4404d5b064126f18f34cf6f9d46a62089c11a0e118718a7599	2397	DEPLOYMENT_CHECKLIST_V0.9.0.md
+964b5e31959fd96502b84f5c15831e6d7ea12d518ff1045bc3175b784ecbfd75	962	DEPLOYMENT_CHECKLIST_V0.9.0A.md
+677bd11d6a59eb61f5943fd0a237f2347c991ff1d4064b8ee2ec32227adcc876	2266	DEPLOYMENT_CHECKLIST_V1.15.1.md
+d09922388f20e30e49a08938b053664a320db7c0751bbb2fcc82b7845a6e7359	2500	DEPLOYMENT_CHECKLIST_V1.15.2.md
+381c5bbbd80a1d6c10270082449cd2229198ef36507f6388aca7a0eeaaf2a2f9	2299	DEPLOYMENT_CHECKLIST_V1.15.3.md
+d240145fbfde6bc0285716e99c6c550f8ba1a22a0d13fef25448cbbe8f164f02	814	DEPLOYMENT_CHECKLIST_V1.15.4-R2.md
+470fc9b3aacf70e6a7ff9abbf837588ff08b8b0a309c29fd510036057f045e0e	3207	DEPLOYMENT_CHECKLIST_V1.15.4.md
+4a3bf27e154d2551cdd379b60935f46fdb626ca29092c3f74c88ec37682f0055	5490	DEPLOYMENT_CHECKLIST_V1.15.5.md
+f780688d20bb03012226caefb097c932aca866fff2ed92234f77299471c95d0d	781	DEPLOYMENT_CHECKLIST_V1.16.0-R3.md
+58ad0a77a0c1c287cd29bd09f3131bd165e4ce7b91b3f9b5161ce51273cf97b6	650	DEPLOYMENT_CHECKLIST_V1.16.0-R4.md
+e4f1e8debd19d147101e2415def7d97327832c24b0450b45821e1f94a2c824d9	673	DEPLOYMENT_CHECKLIST_V1.16.0-R5.md
+a06dbb64f64386aa9604b7462c25451051fe111fb4075a09f184bf379fcbc541	3436	DEPLOYMENT_CHECKLIST_V1.16.0.md
+697d2cdc7427b0e7dd3b1a9b89cc6c867ebe06a1b12f3d4378f565b1673248d4	769	DEPLOYMENT_CHECKLIST_V1.16.1-R3.md
+2268ef67df9fe449b67831677981464f8714862af5eab46f897a99e43029d0b5	4474	DEPLOYMENT_CHECKLIST_V1.16.1.md
+dfeaa4ce9b811dd26cf122274c399798263d68516362824f67c6bdb20fed33b2	4189	DEPLOYMENT_CHECKLIST_V1.16.2.md
+97696836583dcfd8dc8e06ddbf86068db075ef81a3070a92d409ab827fc13f65	832	DEPLOYMENT_CHECKLIST_V1.8.0.md
+879969e3b0ec431a8c6af5cbbef96a3665d7d3bcc6efdf463b80c16dbf17446c	1092	DEPLOYMENT_CHECKLIST_V1.9.0.md
+87143c23dd4a8315c662df79afd9428157a9e10136a605899d635ae6469b4fe0	1042	ENVIRONMENT_VARIABLES_V0.7.0A.md
+18bf0064c81dbb277e301ce874c5d6b2f8aa72a2a735eedf7aa809f848c8a2cd	50538	FILE_CHECKSUMS_V0.7.0A.sha256
+6ce42f8093c6cb03fafe46d9874527932352845881b0524aeee7a4149220579e	2438	FILE_CHECKSUMS_V1.15.4-R2.sha256
+6c9b225bc5aaaceb7c5f8330f3313a71a71520155d4ea220e9af94de9d81a8f0	6379	FILE_CHECKSUMS_V1.15.5.sha256
+819485b96e30f9c65454c5e11a7f655f23657dd07927378fb7cebefbe556a730	3083	FILE_CHECKSUMS_V1.16.0-R3.sha256
+9244dd5e8e84a22e22e825d009bf7d3167f801b171190633c6643d933a836be4	3342	FILE_CHECKSUMS_V1.16.0-R4.sha256
+d4d69c144de34c5015b458acdaaec49c0a053aded41685cc335312dc2d3e6a88	3305	FILE_CHECKSUMS_V1.16.0-R5.sha256
+372c3d27f5bfa80f4f7bc649ad6d7dfc3b0bbdd74545fe383ce51a6322ba6a92	5723	FILE_CHECKSUMS_V1.16.0.sha256
+eb723956c5fed092cd1bebdae485e81d5d2073c16fc21351efa0d720d57e024f	9199	FILE_CHECKSUMS_V1.16.1-R2.sha256
+afe3f17ba2448bc8403901404f069bc99ddb2dc02f7dd43c43d097a4ef7bcf67	6657	FILE_CHECKSUMS_V1.16.1.sha256
+d204e56ed135b2b57a4e8852de27a8304e8b3eeed88381d8e5e9cd40be295706	864	GENERATE-RENDER-NEON-SECRETS-WINDOWS.ps1
+c71338a14d1fc1c0439e8a8459277645a8ccffd5222c02f455176b1f5b9f3a2f	2020	HUMAN_SUPPORT_LIVE_CHAT_FOUNDATION_V1.16.0.md
+664a923c63c23020669e8ece59f03c5db710e02cb5b6927345663d02c70bb5de	2922	INSTALL-V1.15.1-STABILIZATION-SECURITY-REPAIR.cmd
+96455a173f4df6d240d2b8916452f8d393c26f8a1dd4aadc08202fb57071d821	3972	INSTALL-V1.15.2-AI-RELIABILITY-REPAIR.cmd
+9abc5ee47d121550856e9b118779560acff4563f4f5dc03e33414ab192bf6dc8	4158	INSTALL-V1.15.3-PROMPT-FIRST-AI-REPAIR.cmd
+ca570b0aee72031c9f4e35f16c4ef3605e704f4a032f1f13751999749afdee51	4975	INSTALL-V1.15.4-PROMPT-RUNTIME-VERSIONING-REPAIR.cmd
+7783bf74048cbdf846d550663734ba451ad0936469baa42654d3d5490c9e8382	4448	INSTALL-V1.15.4-R2-ADMIN-TYPECHECK-HOTFIX.cmd
+0ff1d3880e23ddc05c1531497127b2206c9d2026c9891587956567def634bfbf	6186	INSTALL-V1.15.5-SIMPLIFIED-AI-PRODUCTION-RUNTIME.cmd
+b0630a32c8be6b6d59c8a0132f5120845bbfe3e5a160895c466063dd3bb9daa6	6692	INSTALL-V1.16.0-HUMAN-SUPPORT-LIVE-CHAT-FOUNDATION.cmd
+088c1f7ee2c7bd5cb6508c48941b3d059b3fcdd7f9c152a7d7faae34b91a836c	4272	INSTALL-V1.16.0-R3-CUSTOMER-SERVICE-ROUTE-HOTFIX.cmd
+297d1cf9fe2d26d10967659210ee676d66ca2749904fd6380bc71e834bdf7b67	4902	INSTALL-V1.16.0-R4-CUSTOMER-SERVICE-INSTALLER-HOTFIX.cmd
+c37f6ab91b895da4ddbec1cc85e37070fffdb83c2909495dd7a48f30cc364d70	4951	INSTALL-V1.16.0-R5-CUSTOMER-SERVICE-VERIFIER-HOTFIX.cmd
+a9e97c60211dd065c0f7ca0faf3772ff8b77b8ebab7181c53aa1e0a9f0c743c3	5702	INSTALL-V1.16.1-PLAIN-TEXT-AI-WORKER-REALTIME-DELIVERY.cmd
+a9e97c60211dd065c0f7ca0faf3772ff8b77b8ebab7181c53aa1e0a9f0c743c3	5702	INSTALL-V1.16.1-R2-PLAIN-TEXT-AI-WORKER-REALTIME-DELIVERY.cmd
+389de8ea0708cd12d83f9217d5c443e450efd21e5b22bbc152b8faf736855602	2378	INSTALL-V1.7.0-STRICT-ROUTING.cmd
+8f9b67c7ac2bc268c4c25b682501c65c33d7f7972ee0db6d181496a1ff7885bb	2246	INSTALL-V1.8.0-AI-QA-RICH-FAQ.cmd
+4134d2a5057d1e8bb5f37ed8a6ec1608fa76bac7aa4e274f241cec0aa387147f	2276	INSTALL-V1.8.0A-AI-QA-REPAIR.cmd
+8f4e618a991cf31d0cd45480f5f0885b59860ba3368ccead77a75e29b24e5747	2359	INSTALL-V1.8.0B-ADMIN-QA-ROUTE.cmd
+a584b4a02436843e020c093e5f879c2a53e84b7df553381dfa31d2999a3ffae1	2506	INSTALL-V1.9.0-LOCALE-KNOWLEDGE-STUDIO.cmd
+26f707d90a32bb7fdfbdb4fd74f93c71ab42cf818032ba28d0e610abe62864e3	2393	INSTALL-V130.cmd
+d999f3c08a8f40d742b5e63fcb0947481b0c6884714d305e9bce61c65462ec62	541	MANIFEST_V0.10.0.json
+0592acba14c1347a84011a2aa99bde36a047cce3164707adc325e8121c208cc8	642	MANIFEST_V0.10.1.json
+c22bacf13ce806c20b2f8cead66eb7e0cd5667629040637b03b0fe275fe79a2b	1889	MANIFEST_V0.7.0A.json
+e88ab79a708895b7f41862eaa50288615c4a459bf5ccd23a34a8cf8dcda17989	577	MANIFEST_V0.7.1.json
+7ff053869d7ee2acdd64699515ab2d0b10caa6113c06cbfb018f41febf8f3b32	1209	MANIFEST_V0.8.0.json
+c9fda9a90190a62cb082c7bc289ec6f6065a8532525c290489919063f1bea8fa	1327	MANIFEST_V0.9.0.json
+11f6a8d770cb40333d3723a5e8e212679af31587fb7490078e14490802818c02	717	MANIFEST_V0.9.0A.json
+a2135c4db62e3067258cc10e28878cc561d82ddb6ed892f2775c84e905118461	997	MANIFEST_V1.15.1.json
+65b877b83584fc2d1009a76090b8640e0505350db848baf82261b7f26df6d6fd	877	MANIFEST_V1.15.2.json
+1ac6f914d0edc70ec3e778f69460c75131ccf7a748fd22021680fcdc2d0501b2	882	MANIFEST_V1.15.3.json
+4a562fd62f1bba470b026f424a7ed6bdc14ce6f89abc23aaf609f56daed89243	1021	MANIFEST_V1.15.4-R2.json
+81142bbd1aefc92a9d73b8467efa90c487d6c6c91efc39b31205f7eb52632a9b	3115	MANIFEST_V1.15.4.json
+a00c94dcb309d2e0ab9e16234c7904bdf8b810da0900a451c02efd11f427b233	4186	MANIFEST_V1.15.5.json
+e726d242175705af084cd897b8ae8f8ab7de61e7b27df7d258f9d7dbcb5344fc	1347	MANIFEST_V1.16.0-R3.json
+ed07f46b63a5a28d07d824dfd973d730d6494fbef7efe0745ad26c3b190327a8	1471	MANIFEST_V1.16.0-R4.json
+3d11ccd37f6a5becc748dcf4fd9aae6b87719e6c90049830bca793faa484b532	1609	MANIFEST_V1.16.0-R5.json
+5bcc80107f76093c53f869ce13589aded5c25322167b5e1a019419a4c4e566b8	3119	MANIFEST_V1.16.0.json
+e4e9f472f15f1f0ce40eb740802683e685ae96875c83ffd4c2e4c5b40622e8e3	3480	MANIFEST_V1.16.1-R2.json
+38f5cf884c31f5b5d463016036fa357483b889ca27ae055970111cd8b3222d71	3293	MANIFEST_V1.16.1.json
+29f83ba7491ef4285174eafed845a9d2175c360a59237450dfd591d28cdaa2d5	468	MANIFEST_V1.2.1.json
+629b7a4bd0ed775b061d0d9e39ce851f7a5dfdae6cfdcc0954101490b7f38f54	657	MANIFEST_V1.3.0.json
+369bdfebf6f4a0f933ee3a412fe8e4611cac2aca8bba1cfb2e733d4095102ce7	441	MANIFEST_V1.7.0.json
+09ef1c4a02205087e455ec542c87ee80280738f126b89d80d73c00cabbf4fefa	558	MANIFEST_V1.8.0.json
+4960ed034cf3308e8ea2bc5011e7d8fc80838e4182883598ff0d5d425ee6aaa8	580	MANIFEST_V1.8.0A.json
+e163091f2563892443cac5d8ab05c7bad62dd0286e9af3fd807f7306c68569d1	405	MANIFEST_V1.8.0B.json
+3043b6c093fc04d19b5eacb84cadd5b01ef59003a40718eafb1f7eaa20b8f2c4	533	MANIFEST_V1.9.0.json
+80f630d4732a91a50bfd464bdb261aa9a5599b2d81f345a828a38cb807325bb9	495	MANIFEST_V1.9.1.json
+df225f744a037e8b4d607d2adc026f0833e095af28228e384d860a8d0765ae24	1876	PLAIN_TEXT_AI_WORKER_REALTIME_DELIVERY_V1.16.1.md
+fb8082f54d58cbf57859c27c1b7e599622d5f6c50a4fd35740deb73e0771735e	1902	PREPARE-GITHUB-RENDER-V0.7.0A-WINDOWS.ps1
+c830b739c1816e621337f8fe2340203a8e906f4e5c862dbf002d8b2b0e113d37	3816	PROMPT_RUNTIME_VERSIONING_REPAIR_V1.15.4.md
+45c1f6691340c7001ad7f08be0aefa7b6bdba12ee20919cf8e1dc5aa25005f1f	2628	README-V1.0.0-TENANT-CORE.md
+e7e826b71ce58a53f81c04f61ec11a470cedc5ab79cc503d78007838f8368c58	689	README-V1.15.1.txt
+492655b085e0e81dc9524d2be269c5f68e22ec3072c2e0e82c1a1301bcd440ae	548	README-V1.15.2.txt
+1d379381fa9ee795b46f4434b023c145bb0e4b25c903397a49d2c238a1cf40f4	715	README-V1.15.3.txt
+d6d393f28362c0d220a34332187578e21497c27fd5b9e09c2dee443b1245ddfd	793	README-V1.15.4-R2.txt
+a241a569d7497dd3045e1eb2fcef98770548285bd94e8867c7bec8b0e7cf8e7c	1167	README-V1.15.4.txt
+d6eff3e9a03bd160750e32bb7ce51e43a5a5055118c1c02de863cb7c7cb64f65	2542	README-V1.15.5.txt
+3ff18c716e63d33f732f24a42340bd4f398e0cc4ef6e112918062b02e70fe1ba	1257	README-V1.16.0-R3.txt
+e05ea335165821ba25ae2fed1bbd38e1148a530313fda02fb4332eaadbda9c5a	1278	README-V1.16.0-R4.txt
+23b91cf48a2dd2942213e8a69cb19da95d6fc25339f76e4f3d9419ddf9c87b4a	1285	README-V1.16.0-R5.txt
+377192c77396bc14407bada003c293840ba8148961621a7ad7d4eb48077d335f	1845	README-V1.16.0.txt
+7a5fa23236b94d9cad25ec7c6ee52ee4214d204aca30a1b732cd8cc288b6a291	1087	README-V1.16.1-R2.txt
+dc74f977772068f952b591c3dcb90d8f110e557313daf1f5ec764354355ac8a4	1292	README-V1.16.1.txt
+9d7ee1a4bb285d72591a0c267c5573b2a701ad9859f947f52689eade4432a5b1	536	README-V1.2.1.txt
+6b1469cc9d4b2c330ca86672b77c8441ddcf15b07cb5c0d8761fca67f6df6b59	939	README-V1.3.0.txt
+0b84bf4ac284a41286db79ac9bd247635a1b9765f88ad43c5a56afe1564c321b	5646	README.md
+13b2b6a3edb3320c6f641ea86514f7bdb28dbd6157aa52fc1979aa8cbb1323f8	1243	README_V0.7.0A.md
+150c95fed6ca7ca0c8240b9fc73d92ad7171f682a07da87bf60e20d253c29b0f	1872	RELEASE_NOTES_V0.10.0.md
+99aaa39e41b8df1d32817ef44a52b528d8b21aa7de59ffa8456b46e7ae1fc3ca	1296	RELEASE_NOTES_V0.10.1.md
+92dad251e108d8719c352b0c5dcdff7fd4cc9ba18c4c5e1e4169f14149b8de3a	1328	RELEASE_NOTES_V0.11.0.md
+17ca760721dd7d44c3b302dbb62c1780a2b9fd4112b57f8a31f91f4d6d3119d9	1200	RELEASE_NOTES_V0.7.0A.md
+a5fdd01fbe6d2bbeb5b4a9e2fa264ef6e0dd56431e8114000248345ad2ccbb42	1688	RELEASE_NOTES_V0.7.1.md
+cc1a9fbff68f2e2c33aaf5bc479c687e2afca604a27bc34aea9303dc15a1ca13	2950	RELEASE_NOTES_V0.8.0.md
+701692911bd3d578747366137ebb6afb9bb4f593831e1fdc88d617b04be727c7	3227	RELEASE_NOTES_V0.9.0.md
+fb2adcdf07a2624788d0759f7ada33826796e341f15e478639485704d6236e4b	1309	RELEASE_NOTES_V0.9.0A.md
+3604661888dd40f94818c12dde176886bee5712fa768ae933eb866d96f761356	1086	RELEASE_NOTES_V1.0.0.md
+402309243219590e422ca94723cc36261151a707d907afa63369b8bedb2828ce	1528	RELEASE_NOTES_V1.1.0.md
+d4687d9580a60a45d586e37d8bd0759b8dbec801bec49e7d756569bbba6a26a6	3856	RELEASE_NOTES_V1.15.1.md
+3e484e23a11e4291cd6a8097126d042b02462a399639a22f053702931f3447be	4500	RELEASE_NOTES_V1.15.2.md
+339614701255dd6cbfba7a437add9cac6657075a377b747612cd26dbb799a90e	1996	RELEASE_NOTES_V1.15.3.md
+df5d2eb529cc624eb22a76df4a892a5a3713450dd4c9675b81189671cc4df99a	1305	RELEASE_NOTES_V1.15.4-R2.md
+b7cc92bf25e09308f04ffd448c3e5e3db2ac3275590e8eb443b89f66d7ca151f	2883	RELEASE_NOTES_V1.15.4.md
+6e09b1b247e2d8b1755560cd0a607449b593e601bc6212a77b45e1606936eed0	3807	RELEASE_NOTES_V1.15.5.md
+9377a85d80762ba6056b4cfc2a3805092f25a11e9be10834faf2f2cf4bb7e8eb	978	RELEASE_NOTES_V1.16.0-R3.md
+5d12ddfa99716b330f1406b7df889d90512691ade1b129b43848cf2738e64b31	1187	RELEASE_NOTES_V1.16.0-R4.md
+bfe7f134cba21882fa1203aba90246ab42ad071a765ce915c85bd7f1ab189eae	893	RELEASE_NOTES_V1.16.0-R5.md
+7b98f0fd2093b7a516e8d9d857ef7571192ce5218f63e99d8ff75fe04380fe9a	3333	RELEASE_NOTES_V1.16.0.md
+26292a834c8e15d533a637ecec7ba00648aa823e03917fb78e66309ab4e48cc0	749	RELEASE_NOTES_V1.16.1-R2.md
+d5447a871cbd5640af18d2605bb3959c1ddef8455e6abfe7983c6683462473c8	1567	RELEASE_NOTES_V1.16.1-R3.md
+a7317bda83889d45e28736bc905067190f7df441b9b3878f5683e6806f8e3f4a	3346	RELEASE_NOTES_V1.16.1.md
+8225e84cbb6735bd39c89267cefd73e27be88ba8c72dc38dde4031dad9a5f0a6	3211	RELEASE_NOTES_V1.16.2.md
+b0e94071bf24836476f66bbd72657a5f3d8f6025d6006f7a1fe57862ddead21a	1201	RELEASE_NOTES_V1.2.1.md
+ba2f82344263436dda4ca4b8b2a6fe1dc94828893bc1b3ef6c96431c23dd141c	1684	RELEASE_NOTES_V1.3.0.md
+ee20d1cdcc0d6387d6b1e764724653c76df5c52d8ac61f2b4ae0c7885b41519d	2238	RELEASE_NOTES_V1.5.0.md
+e9238cd437d884a8dfab35fc60955647738fc378841fc4503952d010f2877e57	2263	RELEASE_NOTES_V1.6.0.md
+85f165188476f9770fba8bc5bc6f17bfa7ad62b54f34cc2c8cc72478d7ebb3a2	1315	RELEASE_NOTES_V1.7.0.md
+7b5911d558f33d322ebbb010816d2bc1ae561deeb3ac91de7f65748a7bc9e8c2	1315	RELEASE_NOTES_V1.8.0.md
+34f870c72e642bdd5b9a69e3c253cd1fedc2d1a6fb4ea5df88f8d7050a13d53f	615	RELEASE_NOTES_V1.8.0A.md
+11b8837b1171bd04271bcd1fa64903ddcdacd9024d9b50d962bb8e35a1fb2294	381	RELEASE_NOTES_V1.8.0B.md
+64816185ce60fc02a0500552dac181d84789453b1f0d4f5f5c891eaad9ed091f	1778	RELEASE_NOTES_V1.9.0.md
+f2caaec886162e3a8beb4cb1aaada1e13c4f4082b4354a151ee08ea9a12d2aee	1499	RELEASE_NOTES_V1.9.1.md
+dc9af85c87306a594a64503311ca761a9ed189452f56d385673a16a867c49436	1704	RESTORE-NEON-V0.7.0A-WINDOWS.ps1
+4bf168df9cd63e1c68f669227d7542966e1036a47f5e1183b8850297dab494f7	676	ROLLBACK_V0.7.0A.md
+169fd6da2fe2d5c3e34bdaded0c416017e2a952599a2ff958affb101b08fb821	2351	SIMPLIFIED_AI_PRODUCTION_RUNTIME_V1.15.5.md
+88018eac09dfe1881d40c9fe27f0f84f771b19850c75e5e9a1d5579630d78b44	113	START-HERE-V1.15.2-AI-RELIABILITY-REPAIR.bat
+59424969094d1f2c57c8a25628664e61acad85b5273d37b1139818808fba6b2d	106	START-HERE-V1.15.3-PROMPT-FIRST-AI-REPAIR.bat
+d8a5fccd5a58c3ec3ffdd9bfaaa45b5c5fbad4c62c07775b57b6a15b06bbac35	133	START-HERE-V1.15.4-PROMPT-RUNTIME-VERSIONING-REPAIR.bat
+63b4c033779da732a78d97f194b585681dcfa42170f13d0a134ef2cc30f13033	81	START-HERE-V1.15.4-R2-ADMIN-TYPECHECK-HOTFIX.bat
+21bfe4ee8f1f9f9490d40039da75ddf5b0116d968a8c359aaf95aaea3eb56719	78	START-HERE-V1.15.5-SIMPLIFIED-AI-PRODUCTION-RUNTIME.bat
+11096010ed5682d9901a702a84616e8be64fc6cd685e2409b7016efb51ed60f6	107	START-HERE-V1.16.0-HUMAN-SUPPORT-LIVE-CHAT-FOUNDATION.bat
+094318f8610be9fc170caea899816a3a405150483d200a5adbdfa8aff2042c42	96	START-HERE-V1.16.0-R3-CUSTOMER-SERVICE-ROUTE-HOTFIX.bat
+45edcc12eb7c50b864160fc56afa5637b5ac26b5b8e5973883518121fbacda2f	104	START-HERE-V1.16.0-R4-CUSTOMER-SERVICE-INSTALLER-HOTFIX.bat
+a58359e16e8768a2cd53e01f429b11428a77da206798984321255d0aef015fa8	103	START-HERE-V1.16.0-R5-CUSTOMER-SERVICE-VERIFIER-HOTFIX.bat
+27d3c499a396584f50ff13f3161135c2453c270f44f56129a44a58de7af7f5e9	109	START-HERE-V1.16.1-PLAIN-TEXT-AI-WORKER-REALTIME-DELIVERY.bat
+27d3c499a396584f50ff13f3161135c2453c270f44f56129a44a58de7af7f5e9	109	START-HERE-V1.16.1-R2-PLAIN-TEXT-AI-WORKER-REALTIME-DELIVERY.bat
+27d3c499a396584f50ff13f3161135c2453c270f44f56129a44a58de7af7f5e9	109	START-HERE-WINDOWS.bat
+aebde637b6a6aeb2093bef98c091a3ebfae2d1a4660fe9d913c9010e10a11af7	1061	TECHNICAL_ANALYSIS_V1.15.4-R2.md
+cfcc715961d9df595e28d147864f8be75110052f3f4d9395bf831251c695b9e3	4590	TECHNICAL_ANALYSIS_V1.15.5.md
+e744ee7826214306b64f94df46058d6208874b026069e8985fc18b13fbbe69cc	1231	TECHNICAL_ANALYSIS_V1.16.0-R3.md
+f1082ab0d63afad41e9fd510ae65f7e330a3066ce8291ba29c58cae6f8d2fa14	1227	TECHNICAL_ANALYSIS_V1.16.0-R4.md
+2e7f5de37a29cf41f7084aebf6699f905cc5e3b54fdcf64e86114b1515c48e30	1086	TECHNICAL_ANALYSIS_V1.16.0-R5.md
+077017085e00e33165c741570b210440b85f27d642790e641e2f8ad46bd118af	3322	TECHNICAL_ANALYSIS_V1.16.0.md
+14278b59f3bf9e426561a85731afac30b1ec12d3d2c1699f9ccda8260395629f	863	TECHNICAL_ANALYSIS_V1.16.1-R2.md
+0edd3b056623fc76001be347c24501b104ace370bda3811e884f7408b77448b6	1602	TECHNICAL_ANALYSIS_V1.16.1-R3.md
+b4001e27c5829056b3dd9fe265f089d4ce6e7a53e1d4531f304a6b2f221020ed	3567	TECHNICAL_ANALYSIS_V1.16.1.md
+44be74f3309a0a054c6cde7aad20cc3567971c1bd60cb6e00190717b083349fa	4498	TECHNICAL_ANALYSIS_V1.16.2.md
+9f0940eddbbc110c44b0d20d6d55a066816087261931371d52cbdbf3c1da52ad	2391	TEST_RESULT.md
+5eab5adb635dc4a6d737c90befdf43e863ee632f3bac61e1afdddfb74af92b52	453	TEST_RESULT_V0.10.0.md
+cde7b80ddea1b8ee6eba46820440237469f1ddcc29771b590cf2b77469bab2cd	451	TEST_RESULT_V0.10.1.md
+fadab2c37905c2f4b57a5c06d45efe47671fd3bd74ab8410d3d0a56eec556821	1222	TEST_RESULT_V0.7.1.md
+0e2f15aecd6acc3c0cc70fa8e4ed1c3f3931d720145cbcd250beca74b856afb7	1966	TEST_RESULT_V0.8.0.md
+e78ca4807eebcf2a52ae8db4eb1cb6d4229f52cfd26630d09856142701ce556f	1709	TEST_RESULT_V0.9.0.md
+d2d0c6ecb0509de02eb559b0f226c6c821ebc6f1dff9c7ff670680a95008ab6c	687	TEST_RESULT_V0.9.0A.md
+02ae7579af582dc38fcd852fad24faf8b0dca4b6de9280021e61c13a5256c770	2444	TEST_RESULT_V1.15.1.md
+d08404460b4014efe2a29b82d7bc25a336c77b048e5705d3509c813d1bd431cd	2618	TEST_RESULT_V1.15.2.md
+a02d0a4a6ce3981e160b23429641854a8ab975e5d3f1a96cf3adac32f332edda	1499	TEST_RESULT_V1.15.3.md
+a4800030067663d7a6ff1350ddd62a53313892eb54652968d4e9b953020d3788	1149	TEST_RESULT_V1.15.4-R2.md
+d8d85db3e5643ebad45cc825de24d00dbd369ce05c085ff738877fc0a112c300	2568	TEST_RESULT_V1.15.4.md
+8bb2b95f7e49120a1c9b69c7726a4d64d0d623c44e2916b046b47af730509d26	1903	TEST_RESULT_V1.15.5.md
+643af8e5c22675d425ca9853efd34fb18cf71b7d556c808b6a484a0f9afbc32e	744	TEST_RESULT_V1.16.0-R3.md
+1ba3538f448b229d583406c90965f04fbb2c61dbb0c62c8ec52d66efb9878ba8	1001	TEST_RESULT_V1.16.0-R4.md
+ce1f5f42b3bd79a7d4358888d67a6570205711bfde591ac1ce158dcfb5258f46	725	TEST_RESULT_V1.16.0-R5.md
+cb0aff1a15a98fd62060dba6deb5950fa8e3e9d835b21ba9fe78e01947ca7872	2098	TEST_RESULT_V1.16.0.md
+f962469e72c9821801badcbc53177e93a1c92a86a2dcabb7a36e0051b6f5e9fe	848	TEST_RESULT_V1.16.1-R2.md
+26dd86933a7420ad83cdc5acc6a05cb0aeb39f3c7c800de9709d4c3589d8b60b	819	TEST_RESULT_V1.16.1-R3.md
+6eca9ae2174e48b85fe0106ab4743cace4cf8fc953b2c1910bb151cd172f0a77	1919	TEST_RESULT_V1.16.1.md
+0cf1facae86a8d9623dff69e29208971ad7bb7c4eb788e135702d0b1a7304f3e	2117	TEST_RESULT_V1.16.2.md
+19fe2fa68a3d86b5e383c5844e931a19bb9917d48818764afc6bc1eadd7ca31c	281	TEST_RESULT_V1.3.0.md
+e872f984d7e3108a8592242b7e6a47fcf7331d0463995ba55ea5f6444da077c3	711	TEST_RESULT_V1.5.0.md
+7b234fecf60cefe345578628983ae569f612cc99f77770195599b036942cd8d3	755	TEST_RESULT_V1.6.0.md
+612832fbcf043048c612ba3db82f27ce8bbe36bee903a5e59fbe46303f4d58f9	463	TEST_RESULT_V1.7.0.md
+ee7b22183a862d58967486f257342bdcb8cc976216665648eab5f81c258b9699	533	TEST_RESULT_V1.8.0.md
+3f451dfe95350753a88c0005aa94d9e9696975cc97df824c71fbc4d8a2e12e63	452	TEST_RESULT_V1.8.0A.md
+1656fdf4d7f3e3056a3ae2902a2f9062380336aca458c0c59e6690814acefd42	348	TEST_RESULT_V1.8.0B.md
+013e5626622eb5026b42236877051f03c3c1d4c868b44b6aad8a83a0afd9e482	400	TEST_RESULT_V1.9.0.md
+27be807b15d7127b9e1448fa5d10864d3d80ded257d5e78a656e979abcbcd2eb	2542	V0.11.0_IMPORT_QUICKSTART.md
+ae4f7d2faae39c1e84cde25418f288213e7d873ff092de0d139a60c8b02fbe16	1500	V1.1.0_INSTALL_AND_PUBLISH.md
+a7a5d4a8ada1e4a366def88b0e58862add54993d95007493ee07a8f0534f22b0	248	V1.15.2_AI_RELIABILITY_REPAIR_INSTALLED.txt
+fd4a39c3c5012979cdee2166d3d209b56834457ab02eae69be1b6f4ee2832ccd	232	V1.15.3_PROMPT_FIRST_AI_REPAIR_INSTALLED.txt
+c501bab730d5ad8a16b687ffdd41fd04f2035f0e37681e6a90f134f1a27a3ef0	710	V1.15.4_PROMPT_RUNTIME_VERSIONING_REPAIR_INSTALLED.txt
+26765a36c7bf2184b13554367793f02173f81f1755663f6b19f36abd6c159eea	191	V1.15.4_R2_ADMIN_TYPECHECK_HOTFIX_INSTALLED.txt
+302ec0b120cb4a0e1a6a7acc00a37dc4f238724ab8064abbfdeefc9777bd983b	531	V1.15.5_SIMPLIFIED_AI_PRODUCTION_RUNTIME_INSTALLED.txt
+e5d0c116d5501d4e50d9c19f293ff495f824ec085fb60f97dc045d4a0adeb92c	377	V1.16.0_HUMAN_SUPPORT_LIVE_CHAT_FOUNDATION_INSTALLED.txt
+39b43bd7d2436a873caab7e5fbc931676a6af8cd052edf008491e94674aa408b	135	V1.16.0_R3_CUSTOMER_SERVICE_ROUTE_HOTFIX_INSTALLED.txt
+4dfa5dcfccea2b7fe5ae98954f5c27877aae869bc409e94e0dd76516192b6784	231	V1.16.0_R4_CUSTOMER_SERVICE_INSTALLER_HOTFIX_INSTALLED.txt
+d9dd04802db1bad02e7ece2e1df7b8a8cad719899602f9e51beaa14e6fb2fa4b	220	V1.16.0_R5_CUSTOMER_SERVICE_VERIFIER_HOTFIX_INSTALLED.txt
+7a063a5d65340a72eeb891bd55ed93baf1ad5719c9a89d487bba77c16f040461	444	V1.16.1_PLAIN_TEXT_AI_WORKER_REALTIME_DELIVERY_INSTALLED.txt
+0b1d8a772df9236f66f08b452d41727e528c0a858be192bb74f7696f64c518e8	182	V1.16.1_R2_INSTALLER_BOOTSTRAP_HOTFIX_INSTALLED.txt
+182f7bf4196d6da8d3c9c5e7a59c4b39f04f84b534e5914f96e661d46a8182a5	259	V1.16.1_R3_ASYNC_INTEGRATION_CONTRACT_HOTFIX_INSTALLED.txt
+e66a3dfa24b61f5c75c3adfe962f10565437105eb76f683ae2fc0016d3ea4b89	296	V1.16.2_CONVERSATION_CONTINUITY_REALTIME_MEDIA_MATCHING_INSTALLED.txt
+2085c9fd09d7d0e5ec24680fe70a5c2082416c8e4b4f2761cd73b1c27235c178	1864	VERIFY-NEON-CONNECTIONS-V0.7.0A-WINDOWS.ps1
+841223206af95659900936687c4ff674318f8190587665192a65a9badbcd94cb	2225	VERIFY-V0.10.0-WINDOWS.ps1
+0cae14d87a012db208da011f1453062338b059f6365c03ab446f37d9a373b0f0	4026	VERIFY-V0.10.1-WINDOWS.ps1
+124c9886a50789b21a67b231cd9a16e21b50143242d5fc0764ac76ceca506068	1614	VERIFY-V0.7.0A-WINDOWS.ps1
+8806e652f1073128a2dabaf60deffc62026c6059357ce4fd186457fceef8a3f1	490	VERIFY-V0.7.1-WINDOWS.ps1
+80ba8ab5fcc866c786acdaf8cd51b03d442eec5658ef52852e86ec83eb117bc8	1272	VERIFY-V0.8.0-WINDOWS.ps1
+1124d825235cf1a3e063d0095ed1aa35a06ddf748da3b4f211ceffa383934875	2593	VERIFY-V0.9.0-WINDOWS.ps1
+e6e45ea2c5afc6c38c4a5403e7373cc74ae961f35f3b75877b68be421ab14bc9	1197	VERIFY-V0.9.0A-WINDOWS.ps1
+9f88c9845b9e9899a71cdbe01bcc729c869bfc583f745846dd5b56c2702679ea	1772	VERIFY-V1.16.0-PAYLOAD.ps1
+55ebb89614377e5dbe67d74cfa3b1a7479df15727a78a4e95a1839cde6e0087f	915	VERIFY-V1.16.0-R3-PAYLOAD.ps1
+f623e3062e7dcc6f75eb317ae90b34b696b500947d39b2b716bef8eaf58e26ac	1181	VERIFY-V1.16.0-R4-INSTALLED.ps1
+1ebc83e06b3bea0c5254ec4fd3c216379042c8f102599966b2c9a2c06d24a433	976	VERIFY-V1.16.0-R4-PAYLOAD.ps1
+a50a5cbf013483f53ad17513e1dc8a0d7c6005fe9ce1d4d7f246b40ab033e7d0	1454	VERIFY-V1.16.0-R5-INSTALLED.ps1
+26ac7f3b65c4ae14e7d0b307703ca3035995cccebef960b1d74778f5b7ae8491	976	VERIFY-V1.16.0-R5-PAYLOAD.ps1
+b2f751280b9d08d243ffeaa1c3ce33ded99a8f21d9666e68849e120ab49bdc1c	2119	VERIFY-V1.16.1-PAYLOAD.ps1
+b2f751280b9d08d243ffeaa1c3ce33ded99a8f21d9666e68849e120ab49bdc1c	2119	VERIFY-V1.16.1-R2-PAYLOAD.ps1
+28bbd7a2ee10caf8eac2a468138131faf5f3b739315ff1b68d4b141852d0db05	3965	VERIFY-V1.16.1-R2-TARGET.ps1
+28bbd7a2ee10caf8eac2a468138131faf5f3b739315ff1b68d4b141852d0db05	3965	VERIFY-V1.16.1-TARGET.ps1
+74366d54bcd8375f43e80ebe6c1963c27bfa139cb2f384a5a4ee113a9a462e81	334	admin-pro/.gitignore
+3e6627800a91bdd417f03e572209bb8521552d349575181eb64b42a86bbb2580	124	admin-pro/.lovable/project.json
+9ce612d7ae5d605401d5d9abd9b40c4813f95cee58047a3d5781cc7102cee815	170	admin-pro/.npmrc
+52c7c767ff0615eec4eb64cc71265877f7f423eb597d665b5e439f337c661a5a	92	admin-pro/.prettierignore
+1ed88d3b99eced8dc3b6f58f26645466dd1ceaca6c5a9b818531c941ac28e55b	90	admin-pro/.prettierrc
+4e96b38f10a0bbf0f105f51e6d2c39a889baec12b3386ae3facec4f076714d60	480	admin-pro/AGENTS.md
+a4cecaa790d0297d5e447b436e334925c118cfab9964c02d98c126289b9b9bea	209707	admin-pro/bun.lock
+2606e248dd6fc7c17f87a50f5e2c55120560ca858cd0007c0419704296f25f5a	386	admin-pro/bunfig.toml
+37c484818824d2521eee3367e7aa2c2abbd19635d8103d19734b6e24603d0292	443	admin-pro/components.json
+3266245a1ff610a0b37dbb8b8c77b93a125e0d8758b9838cfd04b2e0a1397d56	1250	admin-pro/eslint.config.js
+0a038ea0a3e081633f2fbc77247be9a9142b69ea7ef9102f2076ebfb22152aad	641	admin-pro/index.html
+d256a9acc3b72d48b339506b9cd753e8edbd063a39a791edcb968d4823367a2c	325959	admin-pro/package-lock.json
+007d5d41a96c707913588c02751786b1f0efd32d17f212ce6360480068b653a7	3684	admin-pro/package.json
+00c6325e24308bb00b12e1b2bfcd3b5dc1e3f842a785bc474fd4004e2b418a6d	687	admin-pro/public/_headers
+64dfa1169d0ca7130f32409ccca1e71374ed490e43fe5323b7efd6ff62fdbabc	59	admin-pro/public/_redirects
+41f4b32e16c5c10adf47511fa6d9c04c726fadbdfecd4783aadae49ab5b86f2e	2545	admin-pro/public/favicon-admin-32.png
+951db371ac8359d746f55e36e924eaa0a3371973878a979b78e578ca1aeb67c7	49541	admin-pro/public/favicon-admin-512.png
+d83bc5adaa0f2a31222194d52921e2e0efad347eede987ec3007701e736d6f3d	192174	admin-pro/public/favicon-bdg.png
+44c13c738105058e4db35d1d89801a02b7a1fe7e52e04f94c5beafc573f08290	15086	admin-pro/public/favicon.ico
+cd3795f6a2383195be757591f2c03665f9591f54a0ade6c783fe5a700649cbc2	1050	admin-pro/scripts/customer-service-route-regression-test.mjs
+db00b5f00a64183e50a2dc8a23be0cbc72460f7ff74196f61b463d88b1813ecf	12779	admin-pro/src/components/AdminLayout.tsx
+40ca19ec9c127c8b3583e6e9e16cddf26b62a58bd58554b3920b35f6fa5874e0	8791	admin-pro/src/components/DataPage.tsx
+e92b35774d49acf96bde7b5a25fc13fbf9795c5b429c6bcfa6400c0d15ae1817	1324	admin-pro/src/components/LocalizedHelp.tsx
+2effd2042d8cd0449b9221659554194ee39bf97a4632734fb22cddb0585eb3bc	7404	admin-pro/src/components/RichKnowledgeEditor.tsx
+0903efcd7b746eef0a10c954a541b0dfa7aa1172f3c380a1a88f4e19a317fda3	2015	admin-pro/src/components/ui/accordion.tsx
+ee4d7f3341a1e5592787b7dac8e924bd226189492819f6704d8a7faf8fe64d20	4183	admin-pro/src/components/ui/alert-dialog.tsx
+e7f4c2e6f78c59270905b4152b7d3ef4d5c6b9e3b2d370daa7b301aa7cbd27b3	1589	admin-pro/src/components/ui/alert.tsx
+d72c73d629e37995a0a71647d851d68d6fdcd7ec120797f36ab83a8ee89f2cab	143	admin-pro/src/components/ui/aspect-ratio.tsx
+0326c9041c5a0b1ba31ff29822c51950b6aeac485cd0985e7df714741a54e7f4	1413	admin-pro/src/components/ui/avatar.tsx
+6519775252fe729f21c60b92c7c9feefd1fe7d0a8c2cf16d6f1c2fa7e153fe75	1123	admin-pro/src/components/ui/badge.tsx
+d5224e87344b3ac0f8b002e5dda6a71ff8fee296db8a5fbe6b034d06bd5c2ae1	2749	admin-pro/src/components/ui/breadcrumb.tsx
+e39813b666ba434660ec088356a0349246b6803a4e99961295d0c82bab1ab862	1894	admin-pro/src/components/ui/button.tsx
+3205837b76f652de06126eb65ab7af601013ca989025cd21ed4cda33bd780b46	7210	admin-pro/src/components/ui/calendar.tsx
+f13878a0078a5ef9f3e92af29259fc1e93ea56ea80cb992e0c4dea4e35396459	1817	admin-pro/src/components/ui/card.tsx
+568e00e8edbfab8af67ee902ca9ef5ceb6d5ed6f3045e7f9b3c15b4f7ef9e974	6200	admin-pro/src/components/ui/carousel.tsx
+81b1f692f9334ba3030213ff37eeaf2dd762b644e5d96e51ada7072109f07430	10570	admin-pro/src/components/ui/chart.tsx
+c44d02535d5c9c92807576804407dd63d01e7189dbde526e925b53885e645fd4	1043	admin-pro/src/components/ui/checkbox.tsx
+5f0a45d8f6ca72d37ed10bf0a85306158b67d7cbc386319186ce013ead9bc0a6	335	admin-pro/src/components/ui/collapsible.tsx
+ba8c0f8b23044ce9a5066e66d7ab7be3a3c79bfc4a0ab7dfae6ffafe439145a3	4876	admin-pro/src/components/ui/command.tsx
+9ba8c0fc29c25f440a1d8806e16d42c1083e9909e7ed1f1b9b0deb2ae00e1d13	7391	admin-pro/src/components/ui/context-menu.tsx
+e3a6de153fb15597ea95be9c4549211a297c060267787915599e3d680d476bd9	3648	admin-pro/src/components/ui/dialog.tsx
+478c487f66245641d5fa0f0d1c53a07d68bd60c4b3c497ec4c41ce08b482e14b	2973	admin-pro/src/components/ui/drawer.tsx
+c6eb5ff28e5bc3cdbe38a11d680aae56d885285e4aca7c8288609811effc04cb	7596	admin-pro/src/components/ui/dropdown-menu.tsx
+1ed53d4ab564a64708938643de590f2bef3718b0b2a309c1019c57e9c1fde23f	4201	admin-pro/src/components/ui/form.tsx
+69dc172ece56ac77bf3a044a1cd60ed601b0041945d16b5da4c6cc4f42116988	1246	admin-pro/src/components/ui/hover-card.tsx
+9b94ff8e296ba320ebec6550e0fd1a9763132d7edfa4cac842d4ca926dd5f2e3	2161	admin-pro/src/components/ui/input-otp.tsx
+92debb7d6d2d96d9e607a42d5ce8f37b2d63384ae5dd9ffbbf5f047b680ffb85	776	admin-pro/src/components/ui/input.tsx
+9f72e2ecf16206593aa9e3c4fbc14cd8e81aa8488d57d92d4a950b30935a9fa9	716	admin-pro/src/components/ui/label.tsx
+e8a3269de7348e04dc1335cf6227bdcdaf2649484da4654f6a6b20f1c8423a84	8546	admin-pro/src/components/ui/menubar.tsx
+755aecc77b7911ab61159c9fbb9b25254009eb4c32c95b1430b6b5b7d37ed8f0	5152	admin-pro/src/components/ui/navigation-menu.tsx
+cbe8559c578ee2d34c7daef5ee75dc3afeb795851e294b111dec375ba44a9a2d	2739	admin-pro/src/components/ui/pagination.tsx
+861c18577ea5988c6f5ca00d1c677200319fd427cf8b424e59a5cca6ff24f830	1352	admin-pro/src/components/ui/popover.tsx
+418f612946a520d1380b7a0d058185bb6a6d09846846dd6d6904a0016152dd4a	781	admin-pro/src/components/ui/progress.tsx
+8c55aa0496b00a27fc4f609ca8b43a7e82c6802f6bf613998438b7632899fa96	1405	admin-pro/src/components/ui/radio-group.tsx
+f0399fec7bc334f06433b41b6ebf34255942ce4916b99173898893fa7fcc8281	1552	admin-pro/src/components/ui/resizable.tsx
+b607f562455152a079d70a22538c95072b0267e0d59a1a1cf16a905a2e373a6f	1635	admin-pro/src/components/ui/scroll-area.tsx
+6d4deee18cf7ced0354eb719300833a83caf46400de6ee9c3d1942fa4c579ad4	5749	admin-pro/src/components/ui/select.tsx
+bf5838b692e5f74fde7083280b99492dd402bce6966e912e79f5e23f14bc98eb	723	admin-pro/src/components/ui/separator.tsx
+a82f9341962e766ee925a2fe883b0a9ab5d5dd8475c402ac8e491ee37dc95fde	4248	admin-pro/src/components/ui/sheet.tsx
+9f44f4523271f965adec608ae1c3b8a2f350f2f45ba1401a2c7ee33bc5eda238	23975	admin-pro/src/components/ui/sidebar.tsx
+f4c42257d73925b0b856a3500e2cbdd918fe6744fcd6be87ef28bb88e7eb7366	239	admin-pro/src/components/ui/skeleton.tsx
+d307cf3ff05b54be4a04389ef4379f9e8b4dc49720197937991ce843a8d4b5ec	1025	admin-pro/src/components/ui/slider.tsx
+3ad40f66c339e799b1a57c00e10b4627294c7d580d99d8a48ae0d8d4c13cf931	734	admin-pro/src/components/ui/sonner.tsx
+c3c298df4ffb56695e4a8f0ff3e37eee08437dec542a677153ec16bed0820107	1156	admin-pro/src/components/ui/switch.tsx
+1e945e564c2cc5ca3ef33019ba7da7a8b94cbc73feb3cbc2b7b33c36ea648d92	2820	admin-pro/src/components/ui/table.tsx
+e9b454d2f987c83b36cc8870bba47d9355db4e8f5c733b310dbc1119a7d27654	1934	admin-pro/src/components/ui/tabs.tsx
+35617a2cf053e52c9e56983bde82d556861d38e462f9e578876c8e99a0432687	677	admin-pro/src/components/ui/textarea.tsx
+d59cd3937c967a3e221fdfcfe4ea5cd57eb97cbe37e1ac98126664c9c7db49c1	1752	admin-pro/src/components/ui/toggle-group.tsx
+62e6e21993f1ab633b9f830cbbf0c181f3d161bae3a7792dbf2d842d42a2f09c	1534	admin-pro/src/components/ui/toggle.tsx
+9682690fc3755d0f4b8684f2d7b1f77945876d41a45b723d0761b26804ad5010	1278	admin-pro/src/components/ui/tooltip.tsx
+21eff740f9e5c965c7f0782925a7e8f67ddfcdf0f58b6613550f99c3e1c454e9	576	admin-pro/src/hooks/use-mobile.tsx
+6d315a55250d2ff62b6f75481818f550ef4a8cd1302e1f6c379e0f26cd59a6d5	47121	admin-pro/src/lib/api.ts
+adc4f6f1c8bdae036c9605b2db8372f2c6ed9fa037487ce288e2947472cfc568	906	admin-pro/src/lib/error-capture.ts
+635915886f5d44a18b6add2a53959dbe2e8ba1bb3f7e597fc714650e74157bb6	1371	admin-pro/src/lib/error-page.ts
+ff65950d5e47a0ee77eb0ca989ca86a6749703afb56e464f5eaeaf313405321e	830	admin-pro/src/lib/lovable-error-reporting.ts
+d1f1e0d62cb8d8d1e04c26e14de842d8a151f75812d81b046c65b5d1fe8e4b27	169	admin-pro/src/lib/utils.ts
+95c5b630f0f4097df0eab2c9612d5bb846745391ffd3cbccb86abb51d6fae16c	463	admin-pro/src/main.tsx
+d8c7645b6fc25fcdb0beae4ac8336e4934e67c4bcc8f21edc89bb8403ec9e317	7144	admin-pro/src/mock/data.ts
+c9198615dcc9561b2c21e71299ed1519692e86ba5422ea944f3ec06da694ef23	25092	admin-pro/src/routeTree.gen.ts
+44db69c7b0eb67d9e2a6c8a64170a2cb04dcdbec2c710f5f799ab9be82f36dab	665	admin-pro/src/router.tsx
+5c8187dbe79dac7a3c494f2600585508f5d15e75f04f21ea364d0de14de10575	835	admin-pro/src/routes/README.md
+ee481a8311ddde30a41c948924fd707243d8e6c654325bcd87e693d0f4700cf4	454	admin-pro/src/routes/__root.tsx
+216de0fe154c33c62f1ceafdcc3d3deb004f6fee924920b798f0c27d2437b126	8325	admin-pro/src/routes/_admin.action-buttons.tsx
+e2ecc0217a88a6929d04d5eb349908656881de037a423665aa2252e2f014bae6	6393	admin-pro/src/routes/_admin.admin-users.tsx
+2a39a30326e204a8d0cfe8815ef619caf8ede86d497fddb1093f75e5e8c0a6b8	25456	admin-pro/src/routes/_admin.ai-content-studio.tsx
+997eaf358252b619ed10fefdbd12a55ba08b18249695a81905957e00398fd712	11770	admin-pro/src/routes/_admin.ai-diagnostics.tsx
+05394dadeb0c2ae0755be8ccf519a0cac9ae04069ce9fe6f4ba270141343b3f3	220	admin-pro/src/routes/_admin.ai-knowledge-import.tsx
+3cd2ab4ee18c2f45d0126b5a4512c8378fcb43c2633934e5f2d0d29a567c986b	213	admin-pro/src/routes/_admin.ai-knowledge.tsx
+f72be5e35edef9bf45052fffdb416b351be7c08b6b0f8b1100e957c9e7992d67	29483	admin-pro/src/routes/_admin.ai-prompt-manager.tsx
+c233301078c31c26045bbf4ae0c52b073e065e65733ed378b28e413835b36389	206	admin-pro/src/routes/_admin.ai-qa.tsx
+f2b75576c16a1221b10086f048a2b8b6dcfabfef366e0de7ffe92d88844ed236	215	admin-pro/src/routes/_admin.ai-reliability.tsx
+9c1c98c8be2a86cb4cfc498d367a2da4f2107d2e337b96f0282934bc7b96cac3	217	admin-pro/src/routes/_admin.ai-response-quality.tsx
+df3ebabef058a336de87e394937a7529527e958f727d5d9641503b6870ddc806	217	admin-pro/src/routes/_admin.ai-source-router.tsx
+28d20dd282d669b69f4a4c279938bd25bf2ebf8b8da3242c624834c30ce25ac0	780	admin-pro/src/routes/_admin.audit-logs.tsx
+9050b1ca3a3f19c019cae2673c0195a7847a975cb27ec66427c42429d2686876	4930	admin-pro/src/routes/_admin.categories.tsx
+5d20bc394df627b2185bc8752fc1a9dc048dc6ba9a96841bbe4c1226caeb7289	8703	admin-pro/src/routes/_admin.chat-logs.tsx
+971d87bb418ba2144efc8fd3fabe74c3610ef2fe836bb2ba1f0b4ca14ef83fb3	832	admin-pro/src/routes/_admin.chat-quick-replies.tsx
+9ef63bf85100a18b048ae4f0d695d8c1b30816fea887f76949063bbc08ff795d	19121	admin-pro/src/routes/_admin.customer-service.tsx
+41698c1a4e4d860f3a1e9f2e78af5f85b322af32821eba5349374cba30c77f7f	4315	admin-pro/src/routes/_admin.dashboard.tsx
+138fe442045da3ae5fdc32931f7ce3f5321b40e5bd30685e68d7b730e504436a	10271	admin-pro/src/routes/_admin.domain-mapping.tsx
+8258dff301a4c4df210b87ebef499a01f2731e873638d241ab2a78d8dabe5ab7	7470	admin-pro/src/routes/_admin.faq.tsx
+f40fc57f7ff796c87b71df820ff9ca9ad78159c8b8c7e63e2e3e743347861ede	30135	admin-pro/src/routes/_admin.guide-images.tsx
+2331c4c0de047ffe0e8f079212b0a8a8bbf6de50999ebf36616aea96027f0e82	810	admin-pro/src/routes/_admin.help-cards.tsx
+96c46d22d22b3a5c3cc8d9dbc549178390b6299bc270e561480f385aeb8db74e	214	admin-pro/src/routes/_admin.locale-studio.tsx
+453b43f174e74b26de6ddf23e9d00274b9f5223384968c5560eaef37bd928819	32192	admin-pro/src/routes/_admin.platform-control-center.tsx
+4dec2671a14a3100d49ae879ba2bc0816ecd29b8b81d24ae5088fc7b81efe69d	215	admin-pro/src/routes/_admin.prompt-history.tsx
+37c6b56ca480597e9bcd3cbea651a6ad3eba2c639bc23831789776f86217ade8	1758	admin-pro/src/routes/_admin.site-content.tsx
+8bfe33205d3a5cd98495390958c88559da9bbe6e527804e7e69082eb37380e76	17107	admin-pro/src/routes/_admin.theme-settings.tsx
+664d8ac9191c0de22d9e5dddf066a32a42293598f9da90e24a37d9a99f7c2605	489	admin-pro/src/routes/_admin.tsx
+491796b50f7aafd5d207cee81c8b0064ba271d63b03e22627e46a996772eff12	2405	admin-pro/src/routes/_admin.unmatched-questions.tsx
+10cee8243c8a2734ec3f032eba9f25196df105a7861ea8ddd6731e97ff44f7a4	186	admin-pro/src/routes/index.tsx
+366b80208f174fc72c60e19dda9e6342f835bfd39b6f970297778694c23d1112	3461	admin-pro/src/routes/login.tsx
+f0ee683067afee145f81a63a3af76b3d3767e2a1f61f0e82582f8da184ad3ef6	2048	admin-pro/src/server.ts
+7b2a35cfb8f08b2db762d78245ee906491a22bd807066ef40bb21bb080e68c20	619	admin-pro/src/start.ts
+074dd00f1e37260fa9e471489030b4d0b67dab59cd41473e6e1e05364597357e	6475	admin-pro/src/styles.css
+8f085c1d4841928370f6922fc9b8cabe3dfe84d266fc734a08d3e0dc3f92490d	672	admin-pro/tsconfig.json
+cf8fdf9983c61e534770665eacc7914c15586daa46c1ad6d12a9282ac8f0cc48	639	admin-pro/vite.config.ts
+9ce612d7ae5d605401d5d9abd9b40c4813f95cee58047a3d5781cc7102cee815	170	backend-api/.npmrc
+c2bcae4cbae24facf5b4caa94d097d0bea0d350d3b8972a9d3cf8cb931044e47	3701	backend-api/README.md
+f41ea158517a0248f1b11be1d7b01e00b28f681c5bb43df0140a6dd348acdf2c	513	backend-api/migrations/001_v0.7.0a_render_neon_backend.sql
+11f5002f1f5d00db24c4219fdf68515bc7fc117165eba3451a5389d8eba7d578	961	backend-api/migrations/002_v0.7.1_admin_stability_reliable_fallback.sql
+dab6735f447dd7dd89627eef49852515d4d8623e9dbc69df1dc68629a85ace2c	807	backend-api/migrations/003_v0.8.0_structured_rich_responses_precision_guide_delivery.sql
+8f3dec09e81dc1cb21741d685e80df823242a76d508cc74128da2ec59ce7b365	1712	backend-api/migrations/004_v0.9.0_prompt_first_ai_content_studio.sql
+04678bcc796dbb780cd9eecd3739ec22418e681b60a0334b55e50f62eaaacc5d	3726	backend-api/migrations/005_v0.10.0_ai_knowledge_orchestrator_visual_guide_studio.sql
+58ce951eac362535e4f7add1f95b2906c97a560961f80e2381ceda8c2b1c44de	3153	backend-api/migrations/006_v0.11.0_advanced_ai_knowledge_import_multi_platform_router.sql
+efd456cfda17e39b6f18961c2e0090e1d2869220666856e6d0785caee1f667f5	4637	backend-api/migrations/007_v1.0.0_tenant_core_platform_control_center.sql
+00336c1ac6af5b9c22d232b1ab676228da654db2cdb71c87f7abff4509e872bc	770	backend-api/migrations/008_v1.0.1_automatic_platform_access_links.sql
+7c9a5543996cf537578e5efcd4e44647b584842c17962c09354f055cc22cd784	2904	backend-api/migrations/009_v1.1.0_tenant_data_isolation_platform_scoped_admin.sql
+e140f2d7203c4c39e38bd2033dade35ead22587056682aea833a9a1b29ae2f97	1145	backend-api/migrations/010_v1.2.0_tenant_brand_studio_one_platform_guard.sql
+04903d0eed611c45324e62718f78458be78d5dd1e75d0240541f3b47becca4e6	453	backend-api/migrations/011_v1.2.0a_safe_bootstrap_deduplication_repair.sql
+895275eafac9d687fcdf011d797b6d85b2752b98a737560bd8b1a4f5a7c735f8	356	backend-api/migrations/012_v1.2.0a2_scoped_backfill_conflict_repair.sql
+55501d945729a8c892427682883b7d09c01ab38861cefade79a00c668ccc4782	527	backend-api/migrations/013_v1.2.0a4_safe_active_platform_bootstrap_repair.sql
+2b8f6f49a87ae0b89a333b15d17c6b7a85f019bd1bde0a3ea49e7c1b927b3ca5	706	backend-api/migrations/014_v1.2.1_platform_context_no_fallback_repair.sql
+ac25105365b796b6e7fcc578d42e8715fd97ebb25703b9e0cf4a0add0e05e578	458	backend-api/migrations/015_v1.3.0_chat_start_module_experience_studio.sql
+d9a79632897ca8f9a2d2e162dd429032b7050264320fd607cda5a5c3b532ae45	1672	backend-api/migrations/016_v1.4.0_operations_connector_gateway.sql
+7ac1c8154c19d36a4b5690cc3272bfa174033726f807a4d9690661ecad0a7e75	813	backend-api/migrations/017_v1.5.0_tenant_platform_experience_owner_controls.sql
+234310e2a4460da400243cc3a87678c0ec215cc7f2f89a5c90143fdb9410965b	1675	backend-api/migrations/018_v1.6.0_tenant_experience_studio_resilient_knowledge_import.sql
+cb56c6a7386cdf50f7e4c345a9fcc0016df3df09bf18c94cf7be2bc777bc7dc4	754	backend-api/migrations/019_v1.7.0_strict_tenant_routing_quick_reply_lifecycle.sql
+9139ec0e0aefe2d272110cb7a812dbc61b2aa6686e386a23817c17d7c1435e60	1325	backend-api/migrations/020_v1.8.0_ai_qa_rich_faq_studio.sql
+705178b6481f8864c5af84271f3f4397b374ee8428f1661f697d76a0f4498ccb	780	backend-api/migrations/021_v1.9.0_locale_aware_knowledge_studio.sql
+b86d425f826bcc38fc77f9f4ead38f636fdc8a353cd00fc1828b0af168690f92	1713	backend-api/migrations/022_v1.9.1_faq_sql_repair_locale_registry.sql
+2c370b0391041c6290d82f73bf209cf54800193b65d89ed0cc1d337a8d3253c9	1568	backend-api/migrations/023_v1.9.2_guide_locale_studio_dynamic_translation_variants.sql
+6ba585f6ab6d0350961ac1093a51640429e8a9391cf306223349da29ad446470	1085	backend-api/migrations/024_v1.10.0_unified_ai_source_router.sql
+830ea3fabf83b650174893dca9a1fa37392b239318b2791252c10dc01431f3f2	1263	backend-api/migrations/025_v1.11.0_batch_import_approval_publishing_rollback.sql
+9761d10bba3cc33860166c3edb37ba1499770e008687f46e0acfa78483bc128d	2145	backend-api/migrations/026_v1.12.0_production_domain_mapping_ai_reliability_foundation.sql
+eb54bc8d030f4926c0d38767bf1c4848521f9d95886f5f262dbd9cfd49fabd04	966	backend-api/migrations/027_v1.12.1_ai_platform_context_lock_domain_mapping_sql_repair.sql
+8de920452942cc53b86d32546836eab99f93dc56b45fb0df2fa2e415771451b5	1939	backend-api/migrations/028_v1.13.0_bring_your_own_domain_cloudflare_custom_hostnames.sql
+b8dc1535df3cbebe43a77584bd34dd9e0a636d87390f1230aeced3146c548816	3457	backend-api/migrations/030_v1.14.0_ai_response_quality_center.sql
+dec90acf311e2fc6e0b05c27219036c8a83c49e9181a16f1a049cb86b8a7a8ab	2076	backend-api/migrations/031_v1.14.3_guide_publishing_state_repair_platform_self_service_upload.sql
+bb69f348efd6bfa21d33fece2743abca7bbbe14fcafe363a8e73d219b525fb84	1922	backend-api/migrations/032_v1.15.0_advanced_visual_guide_studio_motion_media.sql
+16760e6e2bb5e61bdcd2d2a9c598eda6e7fb33fc52fc8ed231c2a1d4e3a37b4a	871	backend-api/migrations/033_v1.15.1_stabilization_security_repair.sql
+f9a9baed8962cc39de5d90c7818a3b27a8d60abb2fed229075d8ac92cbac6f67	1550	backend-api/migrations/034_v1.15.2_ai_response_reliability_repair.sql
+a93d70e50867052138ad6050eaac5dd6eb3d3afb9e59ed15d9fe34ce62f05aa5	2444	backend-api/migrations/035_v1.15.3_prompt_first_ai_repair.sql
+f22fcf5c30eaf2ff256e9dc22a9f9e74562598aff7c11f6d7d70385b3dd79c59	2943	backend-api/migrations/036_v1.15.4_prompt_runtime_versioning_repair.sql
+4bcd1729821424097f5a777ad56842f0b5c727ced525542b868ff7986a665ad5	1778	backend-api/migrations/037_v1.15.5_simplified_ai_production_runtime.sql
+b1957753322d41f1c5ecfd8c8eee5f263c7b4a012b5df3cd8a2c88f095db15e2	15341	backend-api/migrations/038_v1.16.0_human_support_live_chat_foundation.sql
+38efaff2a3a4bac5bba1c665c68d554609d5ee350eba36699794e5978c962fcc	6062	backend-api/migrations/039_v1.16.1_plain_text_ai_worker_realtime_delivery.sql
+01535cee2b591f1499dad86f62ea4f9ceb2c2456ad17662b54278ce13fe777a2	3076	backend-api/migrations/040_v1.16.2_conversation_continuity_realtime_media_matching.sql
+b24d1b78293daedd4ad560a3350b15248f37a57e44430d36b34e578bbb38760f	2325	backend-api/migrations/README.md
+c619781470b2612f95189a158e47bd63ed271993de49e7f0e62ee4b08a193d9b	69253	backend-api/package-lock.json
+57c09370fb592be3e7bb8fb3c074b7048e3192bba8aa1230adaa063753ac9c74	2077	backend-api/package.json
+88850586323d503d4802164b903d4c34cb57cda57633f0e5fd699cc798a17c32	2906	backend-api/scripts/chat-reliability-regression-test.js
+6c00e66e1f53862af6d5d95e1b3ef594bb97f25fccc148c731ba069ae92f6598	25305	backend-api/scripts/integration-test.js
+4046a954a271893bb94b84bf99aa54cd98cdde5a5099dd955151fc7c9fff48ef	938	backend-api/scripts/knowledge-import-preview-return-regression-test.js
+1850bc76daadf6895a6f3e331bfd3c9fc4599e8adab2adda7e3ac76be2ce2570	2479	backend-api/scripts/knowledge-import-regression-test.js
+6521777a3fbccd0e33b600e3c3bbe0efad83dda4529a89dcf4f8ab517dca68c3	2101	backend-api/scripts/operations-connector-regression-test.js
+d8cc25c7b11c40b67b797727c387cfe3d3bde5fba6aee0fb1c4f9371f105451d	3541	backend-api/scripts/prompt-runtime-regression-test.js
+e9d929981b5908b1710651c3ca1a25b9db059bd7ca3d6bb0a7c4bb7edea82a78	17743	backend-api/scripts/regression-test.js
+43d6c4dca994f601f7da3575a601fd356be7426717dc5abcc54c5f7648796d24	1890	backend-api/scripts/security-regression-test.js
+e3222b600bc647d976ecaacca127433decd108970b2cd3deaa1000b0f5f1dec5	4095	backend-api/scripts/simplified-ai-runtime-regression-test.js
+eb2ada8099974b022f6d2eeec50c0883233db68409d24dbace42421d3f2fd437	823	backend-api/scripts/smoke-test.js
+04ec6f2a46c0582d281617efa1f461dd334d8152e52b04d1704bfedfd028936a	2086	backend-api/scripts/structured-response-test.js
+1ad344a9d8d704365cb2be1618c1914e286098d4589aba4431f53d4f5d513935	4541	backend-api/scripts/support-foundation-regression-test.js
+1bdca5be05a999754a1165afa94c5cf47b3ef62b3d81074caf80177d6a32378a	2340	backend-api/scripts/tenant-platform-experience-regression-test.js
+ae4d32c8bcd38097e1b1949e9e0fba3f90d44b00dae3107a23d009299185b299	7022	backend-api/scripts/upload-regression-test.js
+54d965fbb29b97fd2236e95dcfab787cb89ced6414cdfef6e2cc69531bb5e3eb	5707	backend-api/scripts/v1.16.1-realtime-ai-worker-regression-test.js
+58aafe21a04c4095f6d774cf2a6c557a5874f5729781351ed83937a0e58c1484	8759	backend-api/scripts/v1.16.2-conversation-continuity-regression-test.js
+dc4caa9e2cec3cbbc4e30022157110ca514286c663d95a1a7696e996cece15b3	1547	backend-api/scripts/v1.6.0-regression-test.js
+45d0710eee0b8a7bef03112510b39202a5dfd8b68a2b26f708b251be9e9f8bea	2202	backend-api/scripts/v1.7.0-regression-test.js
+55bb71b7558e58c3cb7a4d44f22eaa3939db5a6547893f1b43440fd05053f351	2457	backend-api/scripts/v1.8.0-regression-test.js
+acb552614649ecf9d38baabd6ab9856a7d7cfe86fb4a2f471f64fb6c73beb94c	3384	backend-api/scripts/v1.9.0-regression-test.js
+bd915739f3fca33200efed2d9d9b81bac1be22c4354d9b0fb1f546f2b011f036	1353	backend-api/src/ai-job-worker.js
+a2fb19a87c0692cda3fb6539afb4b292cc154f350a440c0528967e08697a617e	12929	backend-api/src/chat-reliability.js
+c9415935c04dd4dc42da52ac23179395ba4e0fcf94977b961bc3b4737237b036	562384	backend-api/src/core.js
+8e5ee87f453a5f571b0b60c4d3d09b8e33a61365656b34e399f70a1ed4f1a4e0	8592	backend-api/src/env.js
+b604d540a265b44d61af40967ba17d4645e312fada281430a12898e0dd92f882	8873	backend-api/src/knowledge-import.js
+b74762d486327c3f4dce01dbc7eaf159c15a5ec5a22bb8355b13de39c6802e6f	905	backend-api/src/migrate.js
+e95561c1bda5dea1c87b991382976cd49512c567908eb912e7a286befb265534	2003	backend-api/src/migration-files.js
+7e07352a211fcb22bfa509db1cd2cb824e9c145d03d5d2e4653ab56e63a783b1	5205	backend-api/src/network-safety.js
+cd1fec7570de0d94301ba7aca64726dbc5c49282a5024a3a27bf51ebe9dd5793	14097	backend-api/src/plain-text-ai.js
+6a16dc9d570b569f9abb4a51e2867c796ce5ecd35285bdb7942112bc29a7e330	6111	backend-api/src/prompt-runtime.js
+ebb90264ff3d956d572a31c1deb71d8306e532188328bb80ce213d2aadfba699	2938	backend-api/src/r2-adapter.js
+58540f339defa53a7054d5b08864357cbbcd838fa88df27cb52621713f9ac1db	1978	backend-api/src/rich-html.js
+62585783b0cb7a3ef5e59924c20de3a98f99759f82336987c197ace04f69fc5d	12329	backend-api/src/server.js
+842f7de4e26eb2ddd81c4fe272c205f04f98ef7a351570f91f50aaa00f7d8c6d	2200	backend-api/src/support-auth.js
+8a83a97d82d542500f1e5e6433c03e9b1db4b124ed25466374ed7ff88b6d79dc	683	backend-api/src/support-events.js
+91a15dc85c895c300167e3636490af66547e504a220540da5c0b76d57ebdbb10	8300	backend-api/src/support-realtime.js
+168dbb06d1b03e47d85d2a20853a961602cc46bd35397858433b5825fd428f96	110015	backend-api/src/support-service.js
+74366d54bcd8375f43e80ebe6c1963c27bfa139cb2f384a5a4ee113a9a462e81	334	chat-pro/.gitignore
+3e6627800a91bdd417f03e572209bb8521552d349575181eb64b42a86bbb2580	124	chat-pro/.lovable/project.json
+9ce612d7ae5d605401d5d9abd9b40c4813f95cee58047a3d5781cc7102cee815	170	chat-pro/.npmrc
+52c7c767ff0615eec4eb64cc71265877f7f423eb597d665b5e439f337c661a5a	92	chat-pro/.prettierignore
+1ed88d3b99eced8dc3b6f58f26645466dd1ceaca6c5a9b818531c941ac28e55b	90	chat-pro/.prettierrc
+4e96b38f10a0bbf0f105f51e6d2c39a889baec12b3386ae3facec4f076714d60	480	chat-pro/AGENTS.md
+ad9ad7359a14dfe666bfcda6e8094905297ffb1d1e5c408d0059c0ae10aea027	87307	chat-pro/bun.lock
+2606e248dd6fc7c17f87a50f5e2c55120560ca858cd0007c0419704296f25f5a	386	chat-pro/bunfig.toml
+37c484818824d2521eee3367e7aa2c2abbd19635d8103d19734b6e24603d0292	443	chat-pro/components.json
+3266245a1ff610a0b37dbb8b8c77b93a125e0d8758b9838cfd04b2e0a1397d56	1250	chat-pro/eslint.config.js
+8f301c1530b0bff01e9d401e0a7273d0a02aff2ce4a416b52f35d11771dec195	1088	chat-pro/index.html
+4b3c8aaf0113b74bb539c0fcfb197cc2d135728781c96f10165427580505e251	122105	chat-pro/package-lock.json
+00fa93ffa72b6fe8acc4585e5e99ef4fbd46368088c03a0cd3f205af19b1db68	1180	chat-pro/package.json
+5eebedbb2e3ff875839e11ada6e7d542170c676f494a67ea75ac60fb30a52c25	653	chat-pro/public/_headers
+b698e6b1f73693270432ca2c4a0e365262b1ac8e231fda26ba100ce78ed0ede6	64	chat-pro/public/_redirects
+d83bc5adaa0f2a31222194d52921e2e0efad347eede987ec3007701e736d6f3d	192174	chat-pro/public/favicon-bdg.png
+89e3c1f8c8cddd2723183bc4f08eca3730cb05298670fe1a20ce37eec7425f96	1571	chat-pro/public/favicon-chat-32.png
+9f2fed68b7aa2e9b62c7b6b74afae27db8a7e1143dda410976605c589b6c6e17	23531	chat-pro/public/favicon-chat-512.png
+82f205128d76f8c89e2eb101dedb99a0931257fdaa4d087d3a171f52d7f112e6	15086	chat-pro/public/favicon.ico
+0ae9c42121f59122a8baa9b67a8e65778126e3f06729b0090314496d07dda4a2	53684	chat-pro/src/App.tsx
+53a7ec2bab99b79a7b40fb89af6edaca012106f6800f51b79ca930939a6ebd3b	2203	chat-pro/src/components/ImageLightbox.tsx
+03e6b7d04588511ac36613c9ac20e6b940c4d0589358e3176d4f9aa3840fce7c	15186	chat-pro/src/lib/api.ts
+68225297f3d5b77aab0bbe86e51cae9e404c154b437f6a3790af8432c1a69988	7764	chat-pro/src/lib/chat-config.ts
+d1f1e0d62cb8d8d1e04c26e14de842d8a151f75812d81b046c65b5d1fe8e4b27	169	chat-pro/src/lib/utils.ts
+420f2e94c98ce4fc7d9ebc458ef615d77d40bfd088f288d85d6946cb34c77166	326	chat-pro/src/main.tsx
+ea9d09842a107d823b5b435b035eb92c58af45959d2462bb1f6f41cfcc5f96bb	6990	chat-pro/src/styles.css
+8f085c1d4841928370f6922fc9b8cabe3dfe84d266fc734a08d3e0dc3f92490d	672	chat-pro/tsconfig.json
+0b2b5c6f3f8cb6dcfc15ab075a4e3f9f86c67750b051d34f9677ed679453943b	451	chat-pro/vite.config.ts
+b4ced3e76ace0b5cf6dd4f73bbfd97cd88cfac7b66e72c9eb1112cd42a59b8f8	587	docs/ARCHITECTURE_V0.7.0A.md
+bc5f3f67b9e7c4fb4068458763cc3d46325b1672cfa75339c1b5687679a7c7ea	1348	docs/DEPLOYMENT_CHECKLIST_V0.7.0A.md
+b6f1e919f224fea08c343f6abd36142dcb858c04c77e1764e87e1b25393a50a8	2793	docs/DEPLOYMENT_V0.7.0A.md
+87143c23dd4a8315c662df79afd9428157a9e10136a605899d635ae6469b4fe0	1042	docs/ENVIRONMENT_VARIABLES_V0.7.0A.md
+13b2b6a3edb3320c6f641ea86514f7bdb28dbd6157aa52fc1979aa8cbb1323f8	1243	docs/README_V0.7.0A.md
+4bf168df9cd63e1c68f669227d7542966e1036a47f5e1183b8850297dab494f7	676	docs/ROLLBACK_V0.7.0A.md
+9f0940eddbbc110c44b0d20d6d55a066816087261931371d52cbdbf3c1da52ad	2391	docs/TEST_RESULT.md
+74366d54bcd8375f43e80ebe6c1963c27bfa139cb2f384a5a4ee113a9a462e81	334	guide-pro/.gitignore
+3e6627800a91bdd417f03e572209bb8521552d349575181eb64b42a86bbb2580	124	guide-pro/.lovable/project.json
+9ce612d7ae5d605401d5d9abd9b40c4813f95cee58047a3d5781cc7102cee815	170	guide-pro/.npmrc
+52c7c767ff0615eec4eb64cc71265877f7f423eb597d665b5e439f337c661a5a	92	guide-pro/.prettierignore
+1ed88d3b99eced8dc3b6f58f26645466dd1ceaca6c5a9b818531c941ac28e55b	90	guide-pro/.prettierrc
+4e96b38f10a0bbf0f105f51e6d2c39a889baec12b3386ae3facec4f076714d60	480	guide-pro/AGENTS.md
+1a37043cb573fc38dd9a36f53f1f3a050fef1a1cd1825d754c94c8822f767d6a	135825	guide-pro/bun.lock
+2606e248dd6fc7c17f87a50f5e2c55120560ca858cd0007c0419704296f25f5a	386	guide-pro/bunfig.toml
+37c484818824d2521eee3367e7aa2c2abbd19635d8103d19734b6e24603d0292	443	guide-pro/components.json
+3266245a1ff610a0b37dbb8b8c77b93a125e0d8758b9838cfd04b2e0a1397d56	1250	guide-pro/eslint.config.js
+54839f32710a2ec26483b88b1f84c6e5a6c2a4f4d8bc0bc477e859854973120b	1423	guide-pro/index.html
+55262e9434274a1c690d7b881f606fc20971506d9464907fcb988d35d629f76f	214566	guide-pro/package-lock.json
+37760010cc974fca681716913216fdfc1ddb26bb941697b521b776d624434364	2788	guide-pro/package.json
+00c6325e24308bb00b12e1b2bfcd3b5dc1e3f842a785bc474fd4004e2b418a6d	687	guide-pro/public/_headers
+b698e6b1f73693270432ca2c4a0e365262b1ac8e231fda26ba100ce78ed0ede6	64	guide-pro/public/_redirects
+d83bc5adaa0f2a31222194d52921e2e0efad347eede987ec3007701e736d6f3d	192174	guide-pro/public/favicon-bdg.png
+dd821076a9b03adc2173c93956226aea3d92482d7578fc4339c5d3a2e9c24586	20373	guide-pro/public/favicon.ico
+ae7dbecc11dee05f33b53aa94101f07cbd5d804df562e4de4648e53070045b31	5840	guide-pro/src/components/admin/AdminLayout.tsx
+65bf51fcae713b0f1c665af5bed12ad4788e0c4c2929b4cd1a1dc3d423b1fb27	9058	guide-pro/src/components/admin/GuideEditor.tsx
+683208f6b6c81a8cacca246c6d50ade60dbe0dfe94d89da57cc3d253c0c93c96	630	guide-pro/src/components/admin/PageHeader.tsx
+8734422389788ce099288fb2c0b186bf07eba608c0038dcc61069b77761c7d95	693	guide-pro/src/components/admin/StatCard.tsx
+64673ebc8188106a1b3722e76065be2c1bc10146cf0046200b0e22fe5af6e912	794	guide-pro/src/components/admin/StatusBadge.tsx
+a1643c4a16757f74f1c1d08c6a6d7eacd7bbb80318fa51069d0a8d983d7af4cd	8608	guide-pro/src/components/editor/BlockEditor.tsx
+9eebb2cbce304f817d3b77efadf4b571aede3a93002aed7e135f9f05ba27bbee	539	guide-pro/src/components/public/CategoryIcon.tsx
+3080649b8aca1283f1c884a6ebb141337a5f82fe66179ae7298f726596d06f0c	2488	guide-pro/src/components/public/GuideImageLightbox.tsx
+da8cb6985cce521fe158c4d21b4994c2d0e3366c9379eb92817cc0507d2f4ad6	7049	guide-pro/src/components/public/PublicLayout.tsx
+eeac02c7b9a3c54262757bdd6deed16e027aa1855a4141f0323b52347d5bb367	1521	guide-pro/src/components/public/ServiceErrorPanel.tsx
+0903efcd7b746eef0a10c954a541b0dfa7aa1172f3c380a1a88f4e19a317fda3	2015	guide-pro/src/components/ui/accordion.tsx
+ee4d7f3341a1e5592787b7dac8e924bd226189492819f6704d8a7faf8fe64d20	4183	guide-pro/src/components/ui/alert-dialog.tsx
+e7f4c2e6f78c59270905b4152b7d3ef4d5c6b9e3b2d370daa7b301aa7cbd27b3	1589	guide-pro/src/components/ui/alert.tsx
+d72c73d629e37995a0a71647d851d68d6fdcd7ec120797f36ab83a8ee89f2cab	143	guide-pro/src/components/ui/aspect-ratio.tsx
+0326c9041c5a0b1ba31ff29822c51950b6aeac485cd0985e7df714741a54e7f4	1413	guide-pro/src/components/ui/avatar.tsx
+6519775252fe729f21c60b92c7c9feefd1fe7d0a8c2cf16d6f1c2fa7e153fe75	1123	guide-pro/src/components/ui/badge.tsx
+d5224e87344b3ac0f8b002e5dda6a71ff8fee296db8a5fbe6b034d06bd5c2ae1	2749	guide-pro/src/components/ui/breadcrumb.tsx
+e39813b666ba434660ec088356a0349246b6803a4e99961295d0c82bab1ab862	1894	guide-pro/src/components/ui/button.tsx
+3205837b76f652de06126eb65ab7af601013ca989025cd21ed4cda33bd780b46	7210	guide-pro/src/components/ui/calendar.tsx
+f13878a0078a5ef9f3e92af29259fc1e93ea56ea80cb992e0c4dea4e35396459	1817	guide-pro/src/components/ui/card.tsx
+568e00e8edbfab8af67ee902ca9ef5ceb6d5ed6f3045e7f9b3c15b4f7ef9e974	6200	guide-pro/src/components/ui/carousel.tsx
+81b1f692f9334ba3030213ff37eeaf2dd762b644e5d96e51ada7072109f07430	10570	guide-pro/src/components/ui/chart.tsx
+c44d02535d5c9c92807576804407dd63d01e7189dbde526e925b53885e645fd4	1043	guide-pro/src/components/ui/checkbox.tsx
+5f0a45d8f6ca72d37ed10bf0a85306158b67d7cbc386319186ce013ead9bc0a6	335	guide-pro/src/components/ui/collapsible.tsx
+ba8c0f8b23044ce9a5066e66d7ab7be3a3c79bfc4a0ab7dfae6ffafe439145a3	4876	guide-pro/src/components/ui/command.tsx
+9ba8c0fc29c25f440a1d8806e16d42c1083e9909e7ed1f1b9b0deb2ae00e1d13	7391	guide-pro/src/components/ui/context-menu.tsx
+e3a6de153fb15597ea95be9c4549211a297c060267787915599e3d680d476bd9	3648	guide-pro/src/components/ui/dialog.tsx
+478c487f66245641d5fa0f0d1c53a07d68bd60c4b3c497ec4c41ce08b482e14b	2973	guide-pro/src/components/ui/drawer.tsx
+c6eb5ff28e5bc3cdbe38a11d680aae56d885285e4aca7c8288609811effc04cb	7596	guide-pro/src/components/ui/dropdown-menu.tsx
+1ed53d4ab564a64708938643de590f2bef3718b0b2a309c1019c57e9c1fde23f	4201	guide-pro/src/components/ui/form.tsx
+69dc172ece56ac77bf3a044a1cd60ed601b0041945d16b5da4c6cc4f42116988	1246	guide-pro/src/components/ui/hover-card.tsx
+9b94ff8e296ba320ebec6550e0fd1a9763132d7edfa4cac842d4ca926dd5f2e3	2161	guide-pro/src/components/ui/input-otp.tsx
+92debb7d6d2d96d9e607a42d5ce8f37b2d63384ae5dd9ffbbf5f047b680ffb85	776	guide-pro/src/components/ui/input.tsx
+9f72e2ecf16206593aa9e3c4fbc14cd8e81aa8488d57d92d4a950b30935a9fa9	716	guide-pro/src/components/ui/label.tsx
+e8a3269de7348e04dc1335cf6227bdcdaf2649484da4654f6a6b20f1c8423a84	8546	guide-pro/src/components/ui/menubar.tsx
+755aecc77b7911ab61159c9fbb9b25254009eb4c32c95b1430b6b5b7d37ed8f0	5152	guide-pro/src/components/ui/navigation-menu.tsx
+cbe8559c578ee2d34c7daef5ee75dc3afeb795851e294b111dec375ba44a9a2d	2739	guide-pro/src/components/ui/pagination.tsx
+861c18577ea5988c6f5ca00d1c677200319fd427cf8b424e59a5cca6ff24f830	1352	guide-pro/src/components/ui/popover.tsx
+418f612946a520d1380b7a0d058185bb6a6d09846846dd6d6904a0016152dd4a	781	guide-pro/src/components/ui/progress.tsx
+8c55aa0496b00a27fc4f609ca8b43a7e82c6802f6bf613998438b7632899fa96	1405	guide-pro/src/components/ui/radio-group.tsx
+f0399fec7bc334f06433b41b6ebf34255942ce4916b99173898893fa7fcc8281	1552	guide-pro/src/components/ui/resizable.tsx
+b607f562455152a079d70a22538c95072b0267e0d59a1a1cf16a905a2e373a6f	1635	guide-pro/src/components/ui/scroll-area.tsx
+6d4deee18cf7ced0354eb719300833a83caf46400de6ee9c3d1942fa4c579ad4	5749	guide-pro/src/components/ui/select.tsx
+bf5838b692e5f74fde7083280b99492dd402bce6966e912e79f5e23f14bc98eb	723	guide-pro/src/components/ui/separator.tsx
+a82f9341962e766ee925a2fe883b0a9ab5d5dd8475c402ac8e491ee37dc95fde	4248	guide-pro/src/components/ui/sheet.tsx
+9f44f4523271f965adec608ae1c3b8a2f350f2f45ba1401a2c7ee33bc5eda238	23975	guide-pro/src/components/ui/sidebar.tsx
+f4c42257d73925b0b856a3500e2cbdd918fe6744fcd6be87ef28bb88e7eb7366	239	guide-pro/src/components/ui/skeleton.tsx
+d307cf3ff05b54be4a04389ef4379f9e8b4dc49720197937991ce843a8d4b5ec	1025	guide-pro/src/components/ui/slider.tsx
+3ad40f66c339e799b1a57c00e10b4627294c7d580d99d8a48ae0d8d4c13cf931	734	guide-pro/src/components/ui/sonner.tsx
+c3c298df4ffb56695e4a8f0ff3e37eee08437dec542a677153ec16bed0820107	1156	guide-pro/src/components/ui/switch.tsx
+1e945e564c2cc5ca3ef33019ba7da7a8b94cbc73feb3cbc2b7b33c36ea648d92	2820	guide-pro/src/components/ui/table.tsx
+e9b454d2f987c83b36cc8870bba47d9355db4e8f5c733b310dbc1119a7d27654	1934	guide-pro/src/components/ui/tabs.tsx
+35617a2cf053e52c9e56983bde82d556861d38e462f9e578876c8e99a0432687	677	guide-pro/src/components/ui/textarea.tsx
+d59cd3937c967a3e221fdfcfe4ea5cd57eb97cbe37e1ac98126664c9c7db49c1	1752	guide-pro/src/components/ui/toggle-group.tsx
+62e6e21993f1ab633b9f830cbbf0c181f3d161bae3a7792dbf2d842d42a2f09c	1534	guide-pro/src/components/ui/toggle.tsx
+9682690fc3755d0f4b8684f2d7b1f77945876d41a45b723d0761b26804ad5010	1278	guide-pro/src/components/ui/tooltip.tsx
+21eff740f9e5c965c7f0782925a7e8f67ddfcdf0f58b6613550f99c3e1c454e9	576	guide-pro/src/hooks/use-mobile.tsx
+6e8ae3562e8309c690fc730ce7657f5601e0365f2930081adf61cec94cd616a7	21843	guide-pro/src/lib/api.ts
+ff65950d5e47a0ee77eb0ca989ca86a6749703afb56e464f5eaeaf313405321e	830	guide-pro/src/lib/lovable-error-reporting.ts
+0a32d6178d400c34524d1dbc6398d80bd6eeacb60cbb20c5e4414219327e45ff	1015	guide-pro/src/lib/sanitize-html.ts
+d1f1e0d62cb8d8d1e04c26e14de842d8a151f75812d81b046c65b5d1fe8e4b27	169	guide-pro/src/lib/utils.ts
+540e575a90a59d43281be53bb27c9179801ad1334ae426af713ea78a8ca9366d	471	guide-pro/src/main.tsx
+3badb47792f600088a34ea121a0fa347ecdec2fa4a5458fa716f0515308921be	13350	guide-pro/src/mock/data.ts
+5da9e32665a3dc98bb9c17e053bd31e7200ca0d679844874cd81095991a21b5b	14374	guide-pro/src/routeTree.gen.ts
+b531c2fcb667a76618c428d4b9a5544171d21f69a127f26b8757743ba41c861f	711	guide-pro/src/router.tsx
+5c8187dbe79dac7a3c494f2600585508f5d15e75f04f21ea364d0de14de10575	835	guide-pro/src/routes/README.md
+833ce274c1b22e44acde01a4be1d494f3a07970cba2c018ab22f5aec5eb4c20a	2880	guide-pro/src/routes/__root.tsx
+fecd8433227c8f8b5b25b1ed31f60a96dc73d2cb5a3693d57b82b99cbcdde804	3962	guide-pro/src/routes/_public.faq.tsx
+98bdf6fc7b2c431b8e490ae4290ff6ef0ff6f1735b8c07edbcf4a7f3a78baed4	20412	guide-pro/src/routes/_public.guides.$slug.tsx
+7fffed2f21c793d35544d61cf1a6d2386a3e02cfe9718c1f047c791540a3949f	7067	guide-pro/src/routes/_public.guides.tsx
+abf91a5a39ea31d828c5d62fd06a2da816b6759e78a391cd92e3460c75078a9c	10452	guide-pro/src/routes/_public.index.tsx
+6b0e4042bab130a9eb8c6b08644756bf038532b2704b2f59fd0add53f7708ab1	3366	guide-pro/src/routes/_public.support.tsx
+982a6157fd05072d73de6e57a3e618c3382fa5cf3e43660d0478bd5301c296c8	268	guide-pro/src/routes/_public.tsx
+268dc39af7acea3321e66ca6b644ef6f31a6fd582110b0188c1e627803fb2804	2712	guide-pro/src/routes/admin.categories.tsx
+cf74e47ea437abff0bfe4688f5a15f7ce9a14f22c0ce16223a14d1dc562a14a4	1782	guide-pro/src/routes/admin.faqs.tsx
+ec8a599c6418d2624ff91f363e2f2652367894c5f4786712bc025fc1395ab526	316	guide-pro/src/routes/admin.guides.$id.tsx
+1bbf6317aff20478abbe9898f0b5e3dae171f5256ae9b2eb046e8611a9768aec	234	guide-pro/src/routes/admin.guides.new.tsx
+ace797e5d711cf123b8e8a09b7b9148e1e61387013d54a7bd940e8c07f30e02f	6426	guide-pro/src/routes/admin.guides.tsx
+f1973412302aceae3978c7bfa595e21b2a09acefdd1ccc0e95ab94b2e18762f3	3778	guide-pro/src/routes/admin.index.tsx
+63ce2e952dd3172fac71d80ea9ae403a7e81adbb070da8e65edd0ee3ba6d9dae	3199	guide-pro/src/routes/admin.login.tsx
+4b2b1dc1de9160ed14d9aacf86e984debdcc75bd9859c0291b6aa8720406f5be	3475	guide-pro/src/routes/admin.navigation.tsx
+efde40b4050349970dcbc61bca7e7eed430ee2818aed31cde89d872976ecec7d	5472	guide-pro/src/routes/admin.popular-help.tsx
+0bf33b752b81442e8dd9aef630bba6fac4506674abb62ffff9d5edbadd6508f9	4537	guide-pro/src/routes/admin.site-content.tsx
+7a68a9bd7dc1dcb517c61fae5523ec289df12e5a8d4cfa117b50a00a25199ea9	506	guide-pro/src/routes/admin.tsx
+5d965990c8ae82f8c1a5ac8d0f5db23a95c9ca398f8fa980f05cec78a50fea12	2057	guide-pro/src/routes/admin.versions.tsx
+e56cc5c20b36389874e174e08e25f33442e1315ff7d4626a3e2fb7760ab2a842	6217	guide-pro/src/styles.css
+8f085c1d4841928370f6922fc9b8cabe3dfe84d266fc734a08d3e0dc3f92490d	672	guide-pro/tsconfig.json
+2811aee63bdccb8fde3bd2113ca13c2865a198304475bafd8b628c4975359876	633	guide-pro/vite.config.ts
+b74eb4a6704da3052febd5b2b4361a402dd4d6bdc2e6d4984c35e020dabda38f	625	legacy/README.md
+eb98b2d8623da71a6c7314cb9d8a4742b104afd9c14a2c9710a80619741e64ce	26703	legacy/apps/admin-site-v0.6.8/app.js
+3522ddaa6f339426860a7da2d7d3529f1d96e2e587415b5a7fdb32c70fbc5206	208	legacy/apps/admin-site-v0.6.8/config.js
+eb10e8a4349bc7a931308d17e4b9ffbc5fd0f81ee2e36e60119e31c8a9c7e03c	15048	legacy/apps/admin-site-v0.6.8/index.html
+c5e041d4d533de5629d471e4406e5123b6ffc7a12ee75be32e3c72b507eef0a5	8586	legacy/apps/admin-site-v0.6.8/styles.css
+443d4ec95731d726a2162ba888fc9313aeb8cabb8a0057fe1d3d58533094dacf	609	legacy/apps/backend-v0.6.8/app/database.py
+e6d395eac917a6de09f04c347631da3124604d5415b29ed8875f2b5cb42ca14f	791	legacy/apps/backend-v0.6.8/app/env.py
+44234397ea826623de491ac5b2d64314d5e300a2d84c490fb27895027caabda5	31104	legacy/apps/backend-v0.6.8/app/main.py
+24669dabbd196cfa0b11f3038c3251b8a337eff18e4ada654ae1ee702aa89ee4	7857	legacy/apps/backend-v0.6.8/app/models.py
+dfcf217ba6f8f42bbc3e68c8557a3dd478ba6f3aca5cb8878f7de09e55c02689	3737	legacy/apps/backend-v0.6.8/app/schemas.py
+881bc0b690799bb04b5ff37efaa7e2237e05236310fd87c80c9207d49ab3b116	3068	legacy/apps/backend-v0.6.8/app/security.py
+a5822d42fe579fe4957e31453ccd8944adda0bf044ce02344fdc1e24a3afd6c4	10022	legacy/apps/backend-v0.6.8/app/seed.py
+42167497eec2a6259372319d0d899f168d7fb1fe67c61e64ce1da837a7c8d104	3002	legacy/apps/backend-v0.6.8/app/utils.py
+587203ac338bba4696fab7dfe14a97e462c7dc83a8d448f87d685dc19456411d	315	legacy/apps/backend-v0.6.8/requirements.txt
+981f92338dd4ba770bdcccb22cc55514d7d3a27d9f8b9e817ce6c7ef32341535	14	legacy/apps/backend-v0.6.8/runtime.txt
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855	0	legacy/apps/backend-v0.6.8/uploads/.gitkeep
+76228106eff40e0ed216d59c6791389d3f2b55c2c98e7b486f05b7447f5491c7	7317	legacy/apps/chat-site-v0.6.8/app.js
+d53152efdcf8c9d92abb56f00441b935d16d377cb6dfc585eba65bf89f576189	205	legacy/apps/chat-site-v0.6.8/config.js
+8f62db2ac9b578bd79221bfccd1ffe6f2ab6b373d7d8f5a961dc08737b13d59a	2003	legacy/apps/chat-site-v0.6.8/index.html
+2e1aab989a29416ab21cfa13c273baec3fdc63d4aba0276f3fb5a267e380685f	5656	legacy/apps/chat-site-v0.6.8/styles.css
+d4eeb7b65fa720e53e933339c5e201b73963248470805986ff81ffd19617909d	2861	legacy/apps/guide-site-v0.6.8/CHANGELOG_UI.md
+89ad6fa74fe415469be98406ab4319438093362cc1d0b379269f478548153733	12633	legacy/apps/guide-site-v0.6.8/app.js
+e97689e6266ea9d6641b0faac4e734d0c16a1c67450e3f87fdc7ded54ac63796	206	legacy/apps/guide-site-v0.6.8/config.js
+94da972524a98b9c7f49b254afa631a5c9e084b8067d1f4d7e9624613baa7f1b	3923	legacy/apps/guide-site-v0.6.8/index.html
+f06534bb015d9a859cbd4c4ccc77d56756515ea351b4822d7564b4f5cdaff68c	15494	legacy/apps/guide-site-v0.6.8/styles.css
+e6eed140b3180af2e6198e1924b8cfdc15782e6615354db6d0dc35e44e8a4c36	209	legacy/apps/worker-api-v0.6.8/README.md
+b01be156e5a8fe29297644d023cb4292d729940b3ea568c9d8c44e06a6e66133	457	legacy/apps/worker-api-v0.6.8/package.json
+edebdef395ed8542b0f71d65a04a88e6fdb58e433accc4e028e734f7d31b17b5	6419	legacy/apps/worker-api-v0.6.8/schema/schema.sql
+d28dde88467437af13c96627b8ccad1b58c6c0372bf8a7f0e5607029a9efebf2	166395	legacy/apps/worker-api-v0.6.8/src/index.js
+c5b4863fa55e68276faff39b0ae92027e1325730767e661f3e3902dc020b2e4c	760	legacy/apps/worker-api-v0.6.8/wrangler.toml.example
+6af311d18b31bb4425872756e88c3f37b9173a4dc1e3b2878acdcbaa74c396bc	2332	legacy/release-history/ADMIN_PRO_MERGE_REPORT.md
+0db1684aa9460c76eb59f9fcfa8385851ec8a010ea32aa0397fc5a7425f46bb1	1147	legacy/release-history/CHANGELOG_V0.5.0.md
+6cb7f7f81ef39478422eecaed255a64ee0aaf12e0593a097aeb8882dd7d3577e	570	legacy/release-history/CHANGELOG_V0.5.1.md
+a923e12f2f20d389ac780d5bfe06bea3b5e8aad88a031d6a6b7e623e565f96c2	499	legacy/release-history/CHANGELOG_V0.5.2.md
+d81dcbb36b1f03282f9efffda7405f543f2465946237cb8865ac47d6d4379ffa	691	legacy/release-history/CHANGELOG_V0.5.3.md
+dce9e994aa658013c8b18e3e04ca5fcea488063f2b6e2b941028f103a231dec2	715	legacy/release-history/CHANGELOG_V0.5.4.md
+0be372d82449084779621cc525c73cdb356c29355ebad4cc3ea755f7a2dfd21d	1189	legacy/release-history/CHANGELOG_V0.5.5.md
+1b91da3473c10bf8067b2a8292ae91a33f2b9b79f1e78f586ae5a7f7447b36a9	1619	legacy/release-history/CHANGELOG_V0.5.7.md
+6ac2d51e4a7a6e0ededf4e3b3b19b54e3b311d45982a0f6df1c8ba8c24556624	1471	legacy/release-history/CHANGELOG_V0.5.8.md
+3f8c1017e127cfa172f05fe0db507a7e34b1720cd7a270d606b53f2a0987b8e4	545	legacy/release-history/CHANGELOG_V0.5.9.md
+fb156dad09bb9d20314ae2a6da657f71d6179e7a11730171ffa31f9a73307e58	1165	legacy/release-history/CHANGELOG_V0.6.0.md
+316a0c58936146293a696dc4d0066970d49f67582ed75c0b59083164d2faf5a3	1462	legacy/release-history/CHANGELOG_V0.6.1.md
+4d7e276af4cead2308b56bdceefc8de033a011487802fb48ab312cfb067eeebf	1709	legacy/release-history/CHANGELOG_V0.6.2.md
+0b7e45c8f9c4da2126d72661ed0d7ebd9fe7ce98dd567adfa4dde4b8a8a7b1ce	1061	legacy/release-history/CHANGELOG_V0.6.3.md
+db6d2f05f00a4075dc68396e0acd4622f77fa73b1c88e7b1f25f93257d3cdd21	514	legacy/release-history/CHANGELOG_V0.6.4.md
+35d893d63876c33457923b4d0a1fd1001178cf9ca2747471e6944441b3f8f42c	1364	legacy/release-history/CHANGELOG_V0.6.4_PRECISION_ROUTER.md
+28404190505dfc16f76166c3810dd40da27eeb1566b69aed5bceb49f2360c26e	741	legacy/release-history/CHANGELOG_V0.6.5.md
+6dd76f622180906d9168f185cfd794311b4544a3e90405b765a2488f42598be5	650	legacy/release-history/CHANGELOG_V0.6.6.md
+f1a74a67342a3e456363054be2af32495e835d449dd1c7b146d4071c801450eb	814	legacy/release-history/CHANGELOG_V0.6.7.md
+4de994dadd61cc0d5553fc6ea12184a6c711a22eecf9b3dc28cc25e7c63eebf3	634	legacy/release-history/CHANGELOG_V0.6.8.md
+3af70d731847473eaea845364ca39ddd48433cedc09875cedaef0e46e7e74f4c	1577	legacy/release-history/CHAT_GUIDE_PRO_MERGE_REPORT.md
+d5eb7edd8f1214303a678ae5ef84585d1037ec7e4d4bb7daf6bdadf5318a3231	444	legacy/release-history/CHECK-BACKEND-WINDOWS.ps1
+a8c69adecb29af97f9cfd155c30ae5cb895285c006ccc38bad65402e63e18f7d	825	legacy/release-history/CHECK-LOCAL-WINDOWS.ps1
+6d0adf5be929aeb2d318610320a02205877fc5c20ffa7d75bef9e02c8398d459	583	legacy/release-history/CHECK-V0.5.7-WINDOWS.ps1
+e38eaf26644a74f7df9dabf572dd93cf069e908761c1658057f7f3e97cc7ee08	149	legacy/release-history/DEPLOY-ADMIN-PRO-WINDOWS.ps1
+e38eaf26644a74f7df9dabf572dd93cf069e908761c1658057f7f3e97cc7ee08	149	legacy/release-history/DEPLOY-ALL-PRO-WINDOWS.ps1
+6b0eb56e7f74b76c06d947d771bc46a39062713200e7840e5192a28ce48669da	244	legacy/release-history/DEPLOY-ALL-V0.5.2-WINDOWS.ps1
+9a7c36b01151c5234bb76fdbb3487c819f3f856379f1a4d248dfcfa272a5800d	686	legacy/release-history/DEPLOY-ALL-V0.5.7-WINDOWS.ps1
+a623ab50390c189271bf0ca4d74710c8bc96d94a42494a86830e069c40f3f2a4	684	legacy/release-history/DEPLOY-ALL-V0.5.8-WINDOWS.ps1
+5af0e289c414f4395030be9255739abfa63ad96cbc66c9281cc5741718aa475e	519	legacy/release-history/DEPLOY-ALL-V0.5.9-WINDOWS.ps1
+ffd223183010c70844ffebb7681023a7420092b926d4312c9c3bf6c587ffe210	733	legacy/release-history/DEPLOY-ALL-V0.6.1-WINDOWS.ps1
+32c8ff7e28692a9c1f3f469ea580f42c4427f1667a476b3a8bc4e9554180dd0a	733	legacy/release-history/DEPLOY-ALL-V0.6.2-WINDOWS.ps1
+92b3034e4b5d795439e16ecf3b02471266b47cf006c2d48307dddc7bc59eba3a	415	legacy/release-history/DEPLOY-ALL-V0.6.2A-WINDOWS.ps1
+479b8a0bf86d757762502169a70c6543a7e2dfd45336426c2efa39c7965007a0	427	legacy/release-history/DEPLOY-ALL-V0.6.2D-WINDOWS.ps1
+f6799090bd50cb7fb02980d9c707f28f14bf1d8ac8ba8d3c33b5ded323e5be83	451	legacy/release-history/DEPLOY-ALL-V0.6.3-WINDOWS.ps1
+fb54355b001dda60f08c37100577ebb67d5c312c951aec957389972fcbcda02f	458	legacy/release-history/DEPLOY-ALL-V0.6.3D-WINDOWS.ps1
+82bf22b8aaeb255264c7f7054b2d2dcaa505710b2b9d944b407295c71147e167	482	legacy/release-history/DEPLOY-ALL-V0.6.4-WINDOWS.ps1
+fe8046d4946b185bb368143fc61c0ff5035fd54b19bfcc716513008c840e8d8c	461	legacy/release-history/DEPLOY-ALL-V0.6.5-WINDOWS.ps1
+1ba82de92ff458aec7147f37cc66a06e4bdcad6baa63af9f3617e10588615d8a	470	legacy/release-history/DEPLOY-ALL-V0.6.6-WINDOWS.ps1
+ed3a0366d17f89ddec6f481a7f518370b51411a2cdce437f92f05f8e28ae8d1a	461	legacy/release-history/DEPLOY-ALL-V0.6.7-WINDOWS.ps1
+161b5c7317ca95cd1c53c2635e1c4b791e1419bac6a30d3537bad5315535c2ae	468	legacy/release-history/DEPLOY-ALL-V0.6.8-WINDOWS.ps1
+e38eaf26644a74f7df9dabf572dd93cf069e908761c1658057f7f3e97cc7ee08	149	legacy/release-history/DEPLOY-CHAT-PRO-WINDOWS.ps1
+e38eaf26644a74f7df9dabf572dd93cf069e908761c1658057f7f3e97cc7ee08	149	legacy/release-history/DEPLOY-GUIDE-PRO-WINDOWS.ps1
+24e7e14a07c7634a59ad68b41fb9bf6aa35981d56ac8ba3035943203bc11c349	1523	legacy/release-history/DEPLOY-GUIDE-V0.5.9-WINDOWS.ps1
+e38eaf26644a74f7df9dabf572dd93cf069e908761c1658057f7f3e97cc7ee08	149	legacy/release-history/DEPLOY-PRO-FRONTENDS-WINDOWS.ps1
+a66b039e882091f62296df6b9ba7f965bbc5c1437a0a5149253870ff24127277	1819	legacy/release-history/DEPLOY-PRO-PAGES-FIX-V0.5.7-WINDOWS.ps1
+a66b039e882091f62296df6b9ba7f965bbc5c1437a0a5149253870ff24127277	1819	legacy/release-history/DEPLOY-PRO-PAGES-FIX-V0.5.8-WINDOWS.ps1
+bcfec4dd1284bb6e70c4ce159df2d4d89ca088cb1442d5410bb1b4a71e4aa87d	1578	legacy/release-history/DEPLOY-PRO-PAGES-V0.6.1-WINDOWS.ps1
+b4acf87dbdccbcf3d3ca7d37829b652f3f811444054be338e8b0d28502bf02f9	1578	legacy/release-history/DEPLOY-PRO-PAGES-V0.6.2-WINDOWS.ps1
+513069e2956911e61b0e2c2c329c6dfeb1ecff2e0633a70a41574d12c27cfaf0	1578	legacy/release-history/DEPLOY-PRO-PAGES-V0.6.3-WINDOWS.ps1
+90fdfb9ce2af8fdbc2afdbfc900cbb4b236556d492bd8fe1daad807d921e48cb	1580	legacy/release-history/DEPLOY-PRO-PAGES-V0.6.3D-WINDOWS.ps1
+b803a78ee804507d60126c049c6da1a2485e261beebeaae8deb6fff885f846c0	1578	legacy/release-history/DEPLOY-PRO-PAGES-V0.6.4-WINDOWS.ps1
+f31c80571bb57675078bf1e47d5360254f423594bd94ae8148f23094bfbd97dc	1578	legacy/release-history/DEPLOY-PRO-PAGES-V0.6.5-WINDOWS.ps1
+57b4c19caa7545ba34fc795b22905809dbf289e1a17553ce95e9d1f80c8743f3	1578	legacy/release-history/DEPLOY-PRO-PAGES-V0.6.6-WINDOWS.ps1
+ea3e5bfeceafca5a39caf31f1e9351a6a1fc3960e80cd956c38a13e5da853b87	1578	legacy/release-history/DEPLOY-PRO-PAGES-V0.6.7-WINDOWS.ps1
+af427ee1ee2a242180e59f7cc1a0867c0314d1c11906f58b1c78a51c48843f0f	1578	legacy/release-history/DEPLOY-PRO-PAGES-V0.6.8-WINDOWS.ps1
+d9dc75761f69e95da3917b832b8fc26db0df40a39a71f57f84c5697b2a9cfffd	792	legacy/release-history/DEPLOY-WORKER-FIX-V0.5.7-WINDOWS.ps1
+716fed68b4b386cc9aa1e470aefaa01a95e4f1983950fcf8f3c4b8a0bbca1050	792	legacy/release-history/DEPLOY-WORKER-FIX-V0.5.8-WINDOWS.ps1
+772c46bab3faf85481fae2e8e1cc6c6b27eb2835dc13b688f44c4ff9bd857b15	146	legacy/release-history/DEPLOY-WORKER-V0.5.2-WINDOWS.ps1
+772c46bab3faf85481fae2e8e1cc6c6b27eb2835dc13b688f44c4ff9bd857b15	146	legacy/release-history/DEPLOY-WORKER-V0.5.4-WINDOWS.ps1
+772c46bab3faf85481fae2e8e1cc6c6b27eb2835dc13b688f44c4ff9bd857b15	146	legacy/release-history/DEPLOY-WORKER-V0.5.5-WINDOWS.ps1
+1df6cb1c3f042ec3a01ef6d7210fa89f8dc339e16de571450cb8e9b799fdfb21	839	legacy/release-history/DEPLOY-WORKER-V0.6.1-WINDOWS.ps1
+374fc3d3c346d7a3a26834cd46465f9878bc4fd01f17bedd2ea84a46ebf9cf43	839	legacy/release-history/DEPLOY-WORKER-V0.6.2-WINDOWS.ps1
+c0f077b8b5db4466997d4951468e6e94aa74aed39c152373c872ff82d92cadbd	863	legacy/release-history/DEPLOY-WORKER-V0.6.2A-WINDOWS.ps1
+e4cde35a269d94f2877269b011d656caa0b586f678f838c828ed8dffd9c19bd2	875	legacy/release-history/DEPLOY-WORKER-V0.6.2D-WINDOWS.ps1
+7389416c016c309fb1ad972dc5ddf354a073d05d88d116ac292b69afb6106d94	908	legacy/release-history/DEPLOY-WORKER-V0.6.3-WINDOWS.ps1
+2505d26537d574a6dddedbfc197fb43a4eec669b117cb21f5406d201e693628e	1234	legacy/release-history/DEPLOY-WORKER-V0.6.3D-WINDOWS.ps1
+1ead048e34e6b1e32c4b2efaa0c1f30b0a0cbe23137ccca70a239636817eee90	1481	legacy/release-history/DEPLOY-WORKER-V0.6.4-WINDOWS.ps1
+20c233c8d61fb494b0fc530db9bb9ed2ca7b2af06fb89345696a198165befc0f	1481	legacy/release-history/DEPLOY-WORKER-V0.6.5-WINDOWS.ps1
+6fec86c679ea730c51c77a3e1fde00e7edaef238b9752af53c79f488489b3c33	1481	legacy/release-history/DEPLOY-WORKER-V0.6.6-WINDOWS.ps1
+27028ba86e6ae459365a9f987b8f8e281f3caa1f39cbc8f6a01affbfb379a59a	1481	legacy/release-history/DEPLOY-WORKER-V0.6.7-WINDOWS.ps1
+31499402dfa564dc41fba9f6c85cf4d709bc228e51a3cad62cfb72ac46425a6c	1481	legacy/release-history/DEPLOY-WORKER-V0.6.8-WINDOWS.ps1
+593bd174dfa562f87d6c4f92d15815e87b2e7c2127d2f654b7e229be83d097c6	818	legacy/release-history/FIX-WINDOWS-PYTHON-ERROR.md
+3586bda3b46f13fb443385faeddc24494a6179483219fb61045e0fa971decff7	3106	legacy/release-history/FIX-WORKER-CONFIG-WINDOWS.ps1
+926eced1b78a4f3385a311e8f2b289fbe0685090dbc16a27b4596c47b72284ec	1216	legacy/release-history/FIX_WORKER_AI_HANG_V0.4.2.md
+80161eab427b32d121133e31607f0087c6c65c7c2b606927c72407023ead30fc	1832	legacy/release-history/GITHUB-DEPLOY-COMMANDS.md
+d41a436cf78739b79ab45d033de4e4348925723e5fa2a45d2406c5b0cdd66554	1187	legacy/release-history/LOVABLE_IMPORT_REPORT.md
+211153142ba5de7776412143cc2e78190b0257effec1fb143d1a8b64179f8e72	496	legacy/release-history/MANIFEST_V0.4.0.json
+36f6e0f90eb6364c9a994061cec0da261899ed57a6c7744696fe28562ec302f4	384	legacy/release-history/MANIFEST_V0.4.1.json
+d6adf41ad958d367b1c2c47ccbc886cbf13271b3b9064ff994161fbef7eb7943	501	legacy/release-history/MANIFEST_V0.5.0.json
+36d1b38658d041854d2302bab1b31145da68678814e7d7754f929495d79c0877	381	legacy/release-history/MANIFEST_V0.5.1.json
+e63cf5a95b412f2f11bcfbf9bf56e52f04d6b44c0fe4edb22735cdc95678bdf4	799	legacy/release-history/MANIFEST_V0.5.7.json
+cca5d2dfa25dc5703a3ef6b16427f854e92d0db8fb41bbee433a3f6a0d11f0a5	618	legacy/release-history/MANIFEST_V0.5.8.json
+9c19ff15e8d8f4d3e78256131ad3918518422c270249f8a5d4557069035b6a07	675	legacy/release-history/MANIFEST_V0.5.9.json
+cc508743a48f04fd59e2442e02c7329fa0f8064febd2e1143390cb9b12171527	1124	legacy/release-history/MANIFEST_V0.6.0.json
+7c00e191994013b62d250fcbd9014a1fb55746ec2721dcb4084719edf4c5e68e	734	legacy/release-history/MANIFEST_V0.6.1.json
+66f32c21f15be987d4dbc2e98449e8aec973a273be980ae59861d954fef43a3b	788	legacy/release-history/MANIFEST_V0.6.2.json
+3231da142bbf23e5a1d173014ad299db27a8acadd1048c0967a1172d3fc9bb4d	158	legacy/release-history/MANIFEST_V0.6.2C.json
+d0e73dc6b5ffc24a3d399f92d001216213eea8a41fc3dd1dbcdd654f48c422eb	992	legacy/release-history/MANIFEST_V0.6.3.json
+5187dd4b372313c6b17c552438e7c5ad3a87527164ac626d6cc266fba49e5321	467	legacy/release-history/MANIFEST_V0.6.4.json
+019866251088fcb4fadfa88599b6ade91f8736e406516da4895fa5a2d5834359	479	legacy/release-history/MANIFEST_V0.6.4_PRECISION_ROUTER.json
+457a56cafb920766f142c856ea4d101c1b5df834273b1fedf2812076c5fe9b2c	761	legacy/release-history/MANIFEST_V0.6.5.json
+46b554a5d6c2a8f945288251db591bd6c4092b8a9d42954a80b5c19f471d6928	553	legacy/release-history/MANIFEST_V0.6.6.json
+dfeb203aacd50f91bd1e3c22f1e4ccd8e19bb7378e3cbd123e6d930c8f2e2e63	601	legacy/release-history/MANIFEST_V0.6.7.json
+c4a0510951ba5a023f0b84cbf25dd4dac8a27e88a5c1895b89d7afb33ffe8dc2	681	legacy/release-history/MANIFEST_V0.6.8.json
+bdbd15d897133b6f0667a622a4389d724034e97a9b5953b2eddba9c527d3c84b	1124	legacy/release-history/README_V0.5.2.md
+c805a1023c040f019bbccb9f805c14b55e55d548657ea889c079a8be4d69df53	685	legacy/release-history/README_V0.5.3.md
+dff149bcb917f6f9dff20abc7215e260ef99c52b2082a694aeb5817500908761	1284	legacy/release-history/README_V0.5.5.md
+e8e44c7a1a56fd3b51e7d8e0269fdd93bbdf9addeca7da905479c666d2e0f85c	1623	legacy/release-history/README_V0.5.7.md
+f7d5a77536934d80f6a8c61de884fb67fd38d156cac96b67efc9492d2c399eab	609	legacy/release-history/README_V0.5.8.md
+6be4f03a2184920d66b7885b2159636f39b6e7b20a78fad8661a00e26ab50cf4	1354	legacy/release-history/README_V0.5.9.md
+8918c6abd35ca7c2513685eb8889d42d2407f0ea32ce9432e4eaea822de85a17	1869	legacy/release-history/README_V0.6.0.md
+ba07f3d71dc66c8722e9657477cd07f81986a8c9f6c08a0fc759979a6e89ccad	1123	legacy/release-history/README_V0.6.1.md
+88bba309978db2d30e5fa160533e8ce38db21d71f894cc6df7752d23857ecea2	1033	legacy/release-history/README_V0.6.2.md
+9259a8f85453c972dc04ee1ac0ba9e77e0d3c307803789f30f027ac6f32a3c43	940	legacy/release-history/README_V0.6.2A.md
+d61a2a748ec856d4c506cc16fa22c6c84c21c61bc4dae5fb936b0a56ec078572	1066	legacy/release-history/README_V0.6.2D.md
+b72abe0387c70a7a4375b1eda581b8079626f663747ab91811593a4f5e7610cc	2419	legacy/release-history/README_V0.6.3.md
+7b230ba924f198be70b01769397450d87a082205fb86ddc6cc9ed589992cc2b3	913	legacy/release-history/README_V0.6.3D.md
+71a9d8a7713bada49ed0ceaf623fdc1bb066b5c05889e3e53023018a535b6076	1377	legacy/release-history/README_V0.6.4.md
+90fe8d3ab2aa79eecf66e135340c1c6320ed94f9a564a97f0b81d77c85984942	1353	legacy/release-history/README_V0.6.4_PRECISION_ROUTER.md
+8bd4fdf2a0972ff696abedc6897e2233174a0aa1ae000962b303f846760ce080	1084	legacy/release-history/README_V0.6.5.md
+904d9da0f217a1fe7848b62f7e723fbdd959a76b7e8f7ba0d5d80534fe21bf35	1056	legacy/release-history/README_V0.6.6.md
+b44c43b8d7788d53769f04673b1f4f38bda702caa0d4cb5413fdc80f8ce4b6d2	1367	legacy/release-history/README_V0.6.7.md
+978c4e843b24c2b382f96c5a667e0c31fd951973add7f1838820b1e0e16708cd	1087	legacy/release-history/README_V0.6.8.md
+f84c7f159e0ed354972939cd999b778ce724e2a22bcd6744b7493fefb520115b	716	legacy/release-history/SET-FRONTEND-API-URL.ps1
+4a13b37681cfe42bd4a81dca501d2f968f35e77b5de202831a821cbfb71654ab	2299	legacy/release-history/docs-v0.6.8/CLOUDFLARE_DEPLOY_V0.4.md
+f0012d6afb7fbbe13f8d5156ae9f03cb6453e76865ba02d7d1e69035a235ad0e	621	legacy/release-history/docs-v0.6.8/CLOUDFLARE_PAGES_DEPLOY.md
+3729de85c772bca9f96191041d1a8c5a43c4e5a41f0e5ad5631f2d53a7e81d80	925	legacy/release-history/docs-v0.6.8/DOMAIN_STRUCTURE.md
+887169ca4dc5239742253aaced9c12e583bba03d0f8cf3c1e55b046aac14adab	3151	legacy/release-history/docs-v0.6.8/NEON_CLOUDFLARE_WORKER_DEPLOY_V0.4.1.md
+b19d0ad4a670aeb51e3d5e7271e138b677ba827f65113f65f45503eeee0e7549	565	legacy/release-history/docs-v0.6.8/NEXT_STEPS.md
+ad2b51ff9076ca070467ddfa2deca2380d927cd7ca2970d3fdca5f00dd6d8a0c	551	legacy/release-history/docs-v0.6.8/POSTGRESQL_SCHEMA_V0.4.md
+edebdef395ed8542b0f71d65a04a88e6fdb58e433accc4e028e734f7d31b17b5	6419	legacy/release-history/docs-v0.6.8/POSTGRESQL_SCHEMA_V0.5.md
+d86a54ac1b74682c4cefed79e86c9894713f73b0d64317eb3b2f9a530886ac28	815	legacy/release-history/docs-v0.6.8/RENDER_BACKEND_DEPLOY.md
+b112b5de4abb0cb5d3696c8b12e096b579f3314469bc5e19798e19386bd3750c	2046	legacy/release-history/frontend-merge-notes-v0.6.8/admin-pro-README_MERGE.md
+679add23228bc4de29f8497044b9315668e95f6aa87d6cd1e6461e46bf1fea44	3957	legacy/release-history/frontend-merge-notes-v0.6.8/chat-pro-README_MERGE.md
+6508cfa22033eafd5b5a95d70f9aebfa7f7a426b40f20fc0c23a60aefcee6c2a	2980	legacy/release-history/frontend-merge-notes-v0.6.8/guide-pro-README_MERGE.md
+76e3eb438173e447ce5c30aedb01aa9bb6c52cac8963dfbeda959403090ad3fe	4389	legacy/release-history/run-local-windows.ps1
+11c8479246cd6f6807ed2f64e28832f53d8f514c1794f078fc631edafb788b2a	547	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/ACTIVE_ARCHITECTURE_V0.7.0.md
+0c46b6e40fe45693cd19345de18f7ee548d47b21071cd9088a6e3a781fc90f6b	3723	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/APPLY-PATCH-V0.7.0-WINDOWS.ps1
+28b2996a1d68ae863a8e83a42242b881893e869c2084b039065a69a541e39a2a	2617	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/CHANGED_FILES_V0.7.0.txt
+b65562ded2420557a449a3a4eaa72f7e46e25d88fb88a757b434d46de5e02c4e	2605	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/CHANGELOG_V0.7.0.md
+4ea5e2847b08a31063a554610bdd0ffd67b4a4117c346bae64ee147039241d91	1943	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/DEPLOY-CLOUDFLARE-PAGES-V0.7.0-WINDOWS.ps1
+c7fda1f9a0d2cb75e7a13930a0339b9285d5d570c5b2b946d71abe8c9b0817fa	2047	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/DEPLOYMENT_CHECKLIST_V0.7.0.md
+478bf24e54aa46845efd639263b7d71d662ae1bf05eb2884fd346cedc17f7530	1696	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/ENVIRONMENT_VARIABLES_V0.7.0.md
+e04c2918bfcdc7bdad65cbe0a5445a2d0b910836580f1432e4e99eae2b2fc489	46282	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/FILE_CHECKSUMS_V0.7.0.sha256
+47f01b5023dc5a3855370ecc6ac46f0a40631fe095b90b8f0e34e0994133c16c	680	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/GENERATE-RENDER-SECRETS-WINDOWS.ps1
+d58a3f25259113648509236608f6de3aabd0a833254a09a6a760e7101df52852	3407	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/MANIFEST_V0.7.0.json
+2d10d068d79a9abfa2dd7943b04cc13bfbe62d1281b17c765c3a0276eccc9530	2239	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/MIGRATE-NEON-TO-RENDER-WINDOWS.ps1
+1a5d7090cb2ed5e3b25191358cc59749699bceee8bad0caa1433f2013e4c6028	1893	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/PREPARE-GITHUB-RENDER-V0.7.0-WINDOWS.ps1
+fdaab0781a8fc62ee10533c49129d695d32f8e118ef382e9c3c779d1e4e47afb	7142	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/README_V0.7.0.md
+795acaae22a634122c80f8f8720bc01db342c12940ce0934004701467c5c5e32	1581	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/RELEASE_NOTES_V0.7.0.md
+7f378b45c3abc052429d8963d1bda3ea2680c4b2c2e0742f0af657dbc288f43d	793	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/ROLLBACK-RENDER-DATABASE-WINDOWS.ps1
+e44a4cb8b514796fcf727dcac7ba9c1760cdfc21780ee341a3f7d4b5bc4fc2a2	992	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/ROLLBACK_V0.7.0.md
+cdcfd6aaeb6250126f4febce9fec26ef39c43f2f0749706023c1e0048dee4028	2854	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/TEST_RESULT.md
+b21a48e8d7dc81f16f85c21318eec2b9827c3f7e3efcbb0de680cbdf52feadb4	1170	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/VERIFY-V0.7.0-WINDOWS.ps1
+29073e6476980564b2140ac9262d0c508c98fd644325965190c05c7ae32d9ae8	452	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/ARCHITECTURE_V0.7.0.md
+c7fda1f9a0d2cb75e7a13930a0339b9285d5d570c5b2b946d71abe8c9b0817fa	2047	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/DEPLOYMENT_CHECKLIST_V0.7.0.md
+873981de2b70b969f143de11c28502325ef16212f133cd0837f1150470915f37	5287	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/DEPLOYMENT_V0.7.0.md
+478bf24e54aa46845efd639263b7d71d662ae1bf05eb2884fd346cedc17f7530	1696	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/ENVIRONMENT_VARIABLES_V0.7.0.md
+fdaab0781a8fc62ee10533c49129d695d32f8e118ef382e9c3c779d1e4e47afb	7142	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/README_V0.7.0.md
+e44a4cb8b514796fcf727dcac7ba9c1760cdfc21780ee341a3f7d4b5bc4fc2a2	992	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/ROLLBACK_V0.7.0.md
+cdcfd6aaeb6250126f4febce9fec26ef39c43f2f0749706023c1e0048dee4028	2854	legacy/release-history/v0.7.0-render-postgres-candidate-not-deployed/docs/TEST_RESULT.md
+c60a9d9b436dc643934adb9464d4b7984b2334115be4f2050ae310041fa28f77	1532	legacy/tools/root-build-scripts-v0.6.8/build-pages.mjs
+1c8f59ac557d2c2f6a1d45bde097bcb82188d276f54a68538b2c42f95cd6d202	1464	package.json
+6ad1a8e5996aaf976632cb82e604e56bd5a964e958f1fde4ab4723ff8d3ecaad	1832	render.staging.example.yaml
+10252f53d86cc0866c5f68d521c9a75e61512adf6e6a3a407646be94e06f8bf2	1901	render.yaml
+5ef633747bf43a79d3882278aea45fe6a65b4c06e10af7c2b2c35953df4bbdb5	3111	scripts/ci/align-pages-production-branches.mjs
+43c3c2f024c11b0ff40ebe1caf52d3772a828553340665178ba795a0e7fa53bc	2543	scripts/ci/align-pages-production-branches.test.mjs
+3eaadf4c0936f919fc968c33c6120c54f47cff90c9720edc4f04dca59fa9555f	815	scripts/ci/read-api-version.mjs
+06e99220f1ae219aa89413bdcf824fc50cac47583146adf024bffc7e0704b315	1664	scripts/ci/verify-live-pages.mjs
+8eb1d220f8e60626a08024d646efa584cd8f73d584568a9e4dc4b99edb087fd8	1889	scripts/ci/verify-static-release.mjs
+c18cfce1a55ced103412f95812b63dd362a0ed96d47c85c78765923aa7d0a1d4	1426	scripts/ci/wait-for-render.mjs
+103d04fa7217046e073d868695306ec003418a4e5ed73c91d5a5398be68cfe68	662	scripts/ci/write-release-marker.mjs
+b4b43a5d0c68b8091808fd3af8d9d1240b1761faea3170076f7b7c2a2a5e79a7	313	staff-pro/index.html
+65ca693fc4e77814cc1888c3e80b33a9ad41b26077a0024edaec0d0a9ff21a86	121507	staff-pro/package-lock.json
+0f7f210a0c395b6ec50c77f7c2e16b28abeee55aa9677df125438b6de12cd6d0	511	staff-pro/package.json
+b566449f459ada50a6afb1b9c31c7e4822c8046605ccd8d6e65eb8362b97dc5e	201	staff-pro/public/_headers
+818282340e6108bd8942424b4c5a6a2a7f7686d761727c502894a342c9be9ab6	33866	staff-pro/src/App.tsx
+0cce3ee2153ab11948a7ebd6375953d70ae599f79f2abfa27f5fcbd5a0ad258a	6053	staff-pro/src/api.ts
+ea5484f74b7ddb475e9fb1e59032271c607339d4855e1d9b93b39012b1961161	220	staff-pro/src/main.tsx
+4a6e245babe3ef02c76ef537505162dba9ead227020fa7fc999cc0c58b262823	19547	staff-pro/src/styles.css
+ccfc4422c462f40399f37760e5a70a61e7faf567c23123217e1ca4e4917f0832	357	staff-pro/tsconfig.json
+089dd9586eb615d3dafa9c2a4ed25e8c456c881cfe931736fd12c39895e64736	158	staff-pro/vite.config.ts

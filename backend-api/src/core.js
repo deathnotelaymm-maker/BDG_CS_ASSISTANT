@@ -9,7 +9,7 @@ import { sanitizeRichHtml } from './rich-html.js';
 import { compilePromptRuntime } from './prompt-runtime.js';
 import { createSupportToken } from './support-auth.js';
 import { emitSupportEvent } from './support-events.js';
-import { buildPlainTextSystemPrompt, enforceHandoffDisabledReply, normalizePlainTextReply, providerFailureCustomerText, rankApprovedMenuCandidates, safeUnknownBusinessFactText } from './plain-text-ai.js';
+import { buildPlainTextSystemPrompt, enforceHandoffDisabledReply, explainMenuCandidateRanking, normalizePlainTextReply, providerFailureCustomerText, rankApprovedMenuCandidates, safeUnknownBusinessFactText } from './plain-text-ai.js';
 import {
   getHumanSupportSettings,
   handleSupportAdminRoute,
@@ -17,6 +17,7 @@ import {
   handleSupportStaffRoute,
   handoffOfferForResponse,
   customerExplicitlyRequestsHuman,
+  customerRequestsContactInformation,
   normalizeAiHandoffResult,
   messageMatchesEscalationKeyword,
   verifySupportRealtimeAccess,
@@ -35,7 +36,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.16.1-plain-text-ai-worker-realtime-delivery';
+const VERSION = '1.16.2-conversation-continuity-realtime-media-matching';
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
@@ -132,7 +133,10 @@ async function route(request, env, url) {
     if (supportResponse) return supportResponse;
   }
   if (path.startsWith('/support/customer/')) {
-    const supportResponse = await handleSupportPublicRoute({ request, env, url, path, method, scope:null, deps:supportDependencies() });
+    const supportScope = path === '/support/customer/resume'
+      ? await resolvePublicPlatformScope(env, publicReference, publicContext)
+      : null;
+    const supportResponse = await handleSupportPublicRoute({ request, env, url, path, method, scope:supportScope, deps:supportDependencies() });
     if (supportResponse) return supportResponse;
   }
   if (method === 'GET' && path === '/public/platform-context') return json(await getPublicPlatformMapping(env, publicReference, publicContext), 200, env);
@@ -1054,7 +1058,9 @@ function aiContentOut(row, score = null, reason = '') {
     source_type: row.source_type || 'prompt_image',
     status: row.status || 'draft',
     priority: row.priority ?? 100,
-    confidence_threshold: row.confidence_threshold ?? 86,
+    confidence_threshold: row.confidence_threshold ?? 55,
+    category: row.category || '',
+    matching_aliases: parsedJson(row.matching_aliases_json, {}),
     keywords: row.keywords || '',
     positive_examples: row.positive_examples || '',
     negative_examples: row.negative_examples || '',
@@ -1105,7 +1111,9 @@ function normalizeAiContentPayload(p = {}) {
     source_type: ['prompt_image','qa'].includes(String(p.source_type || '').toLowerCase()) ? String(p.source_type).toLowerCase() : 'prompt_image',
     status,
     priority: Math.max(1, Number(p.priority ?? 100)),
-    confidence_threshold: Math.max(70, Math.min(99, Number(p.confidence_threshold ?? 86))),
+    confidence_threshold: Math.max(25, Math.min(85, Number(p.confidence_threshold ?? 55))),
+    category: String(p.category || '').trim().slice(0,120),
+    matching_aliases_json: typeof p.matching_aliases_json === 'string' ? p.matching_aliases_json : JSON.stringify(p.matching_aliases || {}),
     keywords: Array.isArray(p.keywords) ? p.keywords.join('\n') : String(p.keywords || ''),
     positive_examples: Array.isArray(p.positive_examples) ? p.positive_examples.join('\n') : String(p.positive_examples || ''),
     negative_examples: Array.isArray(p.negative_examples) ? p.negative_examples.join('\n') : String(p.negative_examples || ''),
@@ -1523,7 +1531,7 @@ async function updateAiContent(env, id, p, scope) {
   return aiContentOut(stored);
 }
 async function updateAiContentExtensions(env, id, item) {
-  await q(env, `UPDATE ai_content_items SET platform_scope=$1,route_policy=$2,import_batch_id=$3,import_source_key=$4,source_sheet=$5,source_row=$6,source_ticket_label=$7,source_image_ref=$8,updated_at=NOW() WHERE id=$9`, [item.platform_scope,item.route_policy,item.import_batch_id,item.import_source_key,item.source_sheet,item.source_row,item.source_ticket_label,item.source_image_ref,id]);
+  await q(env, `UPDATE ai_content_items SET platform_scope=$1,route_policy=$2,import_batch_id=$3,import_source_key=$4,source_sheet=$5,source_row=$6,source_ticket_label=$7,source_image_ref=$8,category=$9,matching_aliases_json=$10::jsonb,updated_at=NOW() WHERE id=$11`, [item.platform_scope,item.route_policy,item.import_batch_id,item.import_source_key,item.source_sheet,item.source_row,item.source_ticket_label,item.source_image_ref,item.category,item.matching_aliases_json,id]);
 }
 async function publishAiQa(env, id, scope) {
   const { rows } = await q(env, `UPDATE ai_content_items SET status='published',approval_status='approved',updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND source_type='qa' AND deleted_at IS NULL RETURNING *`, [id, scope.tenant_id, scope.platform_id]);
@@ -4234,7 +4242,8 @@ async function testAiContent(env, p = {}, scope = null) {
     runtime_mode:'assistant_profile_menu_image',
     platform:result.platform,
     decision:result.diagnostics?.decision || null,
-    selected_content:result.diagnostics?.selected_content || null,
+    selected_content:result.selected_content || result.diagnostics?.selected_content || null,
+    match_diagnostics:result.match_diagnostics || result.diagnostics?.match_diagnostics || null,
     catalog_size:result.diagnostics?.candidate_catalog_size || 0,
     reply:result.reply,
     provider_error:result.response_status === 'success' ? null : result.degraded_reason || 'AI provider unavailable',
@@ -5453,7 +5462,8 @@ async function promptFirstAiResponse(env, settings, message, lang, session, plat
   const platform = await getSupportPlatformForScope(env, scope);
   const runtime = promptRuntime || await getActivePromptRuntime(env, scope);
   const ranked = rankApprovedMenuCandidates(message, unified.rows, 3);
-  const selected = ranked[0]?.row || null;
+  const selectedEntry = ranked[0] || null;
+  const selected = selectedEntry?.row || null;
   const approvedContexts = ranked.map((entry, index) => `Candidate ${index + 1}:\n${aiContentPromptContext(entry.row, lang)}`).join('\n\n---\n\n');
   const systemPrompt = buildPlainTextSystemPrompt({
     platformName:platform.name,
@@ -5477,7 +5487,7 @@ async function promptFirstAiResponse(env, settings, message, lang, session, plat
   const reply = normalizePlainTextReply(provider.reply, 12000);
   const assets = selected ? await approvedAssetsForContent(env, selected, lang, platformKey, scope) : { images:[], buttons:[] };
   if (!reply) return {
-    ok:false, provider, selected, fallback_selected:selected, router, prompt_runtime:runtime,
+    ok:false, provider, selected, selected_entry:selectedEntry, ranked, fallback_selected:selected, router, prompt_runtime:runtime,
     rows:unified.rows, catalog:ranked.map((entry) => judgeCatalogItem(entry.row, lang)), source_counts:unified.source_counts,
     catalog_budget:{ rows:ranked.map((entry)=>entry.row), catalog:ranked.map((entry)=>judgeCatalogItem(entry.row,lang)), characters:approvedContexts.length, truncated:ranked.length < unified.rows.length, eligible_count:unified.rows.length }, platform, assets,
   };
@@ -5485,11 +5495,11 @@ async function promptFirstAiResponse(env, settings, message, lang, session, plat
   if (assets.images[0]) blocks.push({ type:'image', url:assets.images[0].url, alt:assets.images[0].alt, caption:assets.images[0].caption });
   for (const button of assets.buttons.slice(0, 4)) blocks.push({ type:'button', ...button });
   return {
-    ok:true, provider, reply, blocks:normalizeResponseBlocks(blocks), selected, assets, router, prompt_runtime:runtime,
+    ok:true, provider, reply, blocks:normalizeResponseBlocks(blocks), selected, selected_entry:selectedEntry, ranked, assets, router, prompt_runtime:runtime,
     rows:unified.rows, catalog:ranked.map((entry) => judgeCatalogItem(entry.row, lang)), source_counts:unified.source_counts,
     catalog_budget:{ rows:ranked.map((entry)=>entry.row), catalog:ranked.map((entry)=>judgeCatalogItem(entry.row,lang)), characters:approvedContexts.length, truncated:ranked.length < unified.rows.length, eligible_count:unified.rows.length }, platform,
     ai_result:'ANSWERED', handoff_reason:null,
-    decision:{ decision:selected ? 'match' : 'general', item_id:selected ? Number(selected.id) : null, intent_key:selected?.intent_key || '', confidence:selected ? 100 : null, user_intent:'plain_text_answer', desired_outcome:'direct_answer', clarification_question:'', reason:selected ? 'Server-selected approved Menu & Images candidate' : 'General Assistant Setup answer', tool_call:null, ai_result:'ANSWERED', handoff_reason:null },
+    decision:{ decision:selected ? 'match' : 'general', item_id:selected ? Number(selected.id) : null, intent_key:selected?.intent_key || '', confidence:selectedEntry ? selectedEntry.score : null, user_intent:'plain_text_answer', desired_outcome:'direct_answer', clarification_question:'', reason:selectedEntry ? `Server-selected approved Menu & Images candidate via ${selectedEntry.method}` : 'General Assistant Setup answer', tool_call:null, ai_result:'ANSWERED', handoff_reason:null },
   };
 }
 function reliabilityHandoffBlock() { return null; }
@@ -5695,7 +5705,7 @@ async function runAiChat(env, payload, adminTest, activeScope = null, contextRes
   }
   let aiResult = local ? 'BLOCKED' : (promptFirst?.ai_result || promptFirst?.decision?.ai_result || (responseStatus === 'degraded' ? 'PROVIDER_ERROR' : 'ANSWERED'));
   let handoffReason = local ? null : (promptFirst?.handoff_reason || promptFirst?.decision?.handoff_reason || (responseStatus === 'degraded' ? 'PROVIDER_FAILURE' : null));
-  if (customerExplicitlyRequestsHuman(message)) { aiResult = 'HUMAN_RECOMMENDED'; handoffReason = 'CUSTOMER_REQUESTED_HUMAN'; }
+  if (!customerRequestsContactInformation(message) && customerExplicitlyRequestsHuman(message)) { aiResult = 'HUMAN_RECOMMENDED'; handoffReason = 'CUSTOMER_REQUESTED_HUMAN'; }
   else if (messageMatchesEscalationKeyword(message,humanSupportSettings)) { aiResult = 'HUMAN_RECOMMENDED'; handoffReason = 'ADMIN_KEYWORD'; }
   let clarificationAttempts = Number(session.clarification_attempts || 0);
   if (!adminTest) {
@@ -5727,7 +5737,7 @@ async function runAiChat(env, payload, adminTest, activeScope = null, contextRes
   const legacyContentImages = imageDelivery.image_count ? [] : contentImages;
   const contentButtons = responseBlocks.filter((block) => block.type === 'button').map((block) => block.id).filter(Boolean);
   const sourceLabel = selected ? `${selected.source_type || 'prompt_image'}: ${selected.title}` : local ? 'Local conversation safety layer' : 'No verified source selected';
-  const providerAttempts = Number(judge.provider?.attempts || 0) + Number(composed?.provider?.attempts || 0);
+  const providerAttempts = Number(promptFirst?.provider?.attempts || 0) + Number(judge.provider?.attempts || 0) + Number(composed?.provider?.attempts || 0);
   const providerStatus = responseStatus === 'success' && usedDeepSeek ? 'success' : 'fallback';
   const memorySummary = await finishChatTurn(env, session, settings, adminTest, message, reply, uploaded, {
     sources: sourceLabel,
@@ -5807,12 +5817,15 @@ async function runAiChat(env, payload, adminTest, activeScope = null, contextRes
     ai_result:aiResult,
     handoff_reason:handoffReason || null,
     human_support:{ enabled:humanSupportSettings.human_support_enabled,offered:supportOffer.offered,active:false,button_text:supportOffer.button_text || humanSupportSettings.handoff_button_text,suggestion_message:supportOffer.suggestion_message || humanSupportSettings.ai_suggestion_message,clarification_attempts:clarificationAttempts },
+    selected_content: selected ? { ...aiContentOut(selected, decision.confidence, decision.reason), match_score:promptFirst?.selected_entry?.score ?? null, match_threshold:promptFirst?.selected_entry?.threshold ?? null, match_method:promptFirst?.selected_entry?.method || '', matched_phrase:promptFirst?.selected_entry?.matchedPhrase || '' } : null,
+    match_diagnostics: explainMenuCandidateRanking(message, promptFirst?.rows || [], 10),
     diagnostics: adminTest ? {
       engine: 'assistant-profile-menu-image-one-call-v1',
       workflow_mode: 'prompt_first',
       backend_keyword_scoring: false,
       decision,
-      selected_content: selected ? aiContentOut(selected, decision.confidence, decision.reason) : null,
+      selected_content: selected ? { ...aiContentOut(selected, decision.confidence, decision.reason), match_score:promptFirst?.selected_entry?.score ?? null, match_threshold:promptFirst?.selected_entry?.threshold ?? null, match_method:promptFirst?.selected_entry?.method || '', matched_phrase:promptFirst?.selected_entry?.matchedPhrase || '' } : null,
+      match_diagnostics: explainMenuCandidateRanking(message, promptFirst?.rows || [], 10),
       candidate_catalog_size: judge.catalog?.length || 0,
       eligible_candidate_count:judge.catalog_budget?.eligible_count || judge.catalog?.length || 0,
       catalog_truncated:judge.catalog_budget?.truncated === true,
@@ -5857,7 +5870,7 @@ function supportConversationPayload(row = {}) {
     chat_session_id:row.chat_session_id || '', customer_identifier:row.customer_identifier || '', customer_display_name:row.customer_display_name || '',
     customer_locale:row.customer_locale || '', status:row.status || 'AI_ACTIVE', control_mode:row.control_mode || 'AI',
     handoff_reason:row.handoff_reason || '', assigned_staff_id:row.assigned_staff_id ? Number(row.assigned_staff_id) : null,
-    last_message_sequence:Number(row.last_message_sequence || 0), return_to_ai_on_resolve:row.return_to_ai_on_resolve !== false,
+    last_message_sequence:Number(row.last_message_sequence || 0), version:Number(row.version || 1), last_customer_read_sequence:Number(row.last_customer_read_sequence || 0), last_staff_read_sequence:Number(row.last_staff_read_sequence || 0), return_to_ai_on_resolve:row.return_to_ai_on_resolve !== false,
     updated_at:row.updated_at ? String(row.updated_at) : '', created_at:row.created_at ? String(row.created_at) : '',
   };
 }
@@ -5865,8 +5878,8 @@ function supportConversationPayload(row = {}) {
 function aiProcessingExperience(settings = {}) {
   return {
     enabled:settings.processing_message_enabled !== false,
-    message:settings.processing_message_text || 'I’m preparing your answer. Please give me a moment…',
-    secondary_message:settings.processing_message_secondary_text || 'I’m still working on your answer…',
+    message:settings.processing_message_text || 'Your answer is being prepared. Please give us a moment…',
+    secondary_message:settings.processing_message_secondary_text || 'Your answer is still being prepared…',
     show_after_ms:Math.max(0,Number(settings.processing_message_delay_ms || 700)),
     secondary_after_ms:Math.max(1000,Number(settings.processing_message_secondary_delay_ms || 8000)),
     max_visible_ms:Math.max(5000,Number(settings.processing_message_max_visible_ms || 45000)),
@@ -5888,14 +5901,18 @@ async function enqueuePublicAiMessage(env, payload = {}, contextResolution = {})
   const customerIdentifier = String(payload.customer_identifier || session.session_id).slice(0,255);
   const customerDisplayName = String(payload.customer_display_name || '').slice(0,160);
   const allowAdditional = settings.allow_messages_while_ai_processing !== false;
+  const resumeKey = randomBytes(32).toString('base64url');
+  const resumeKeyHash = createHash('sha256').update(resumeKey).digest('hex');
 
   const result = await withTransaction(env,async (tq) => {
     let conversation = (await tq(`SELECT * FROM support_conversations WHERE tenant_id=$1 AND platform_id=$2 AND chat_session_id=$3 FOR UPDATE`,[scope.tenant_id,scope.platform_id,session.session_id])).rows[0];
     if (!conversation) {
-      conversation = (await tq(`INSERT INTO support_conversations(tenant_id,platform_id,chat_session_id,customer_identifier,customer_display_name,customer_locale,status,control_mode,return_to_ai_on_resolve,last_message_at)
-        VALUES($1,$2,$3,$4,$5,$6,'AI_ACTIVE','AI',$7,NOW()) RETURNING *`,[scope.tenant_id,scope.platform_id,session.session_id,customerIdentifier,customerDisplayName,language,settings.return_to_ai_on_resolve !== false])).rows[0];
+      conversation = (await tq(`INSERT INTO support_conversations(tenant_id,platform_id,chat_session_id,customer_identifier,customer_display_name,customer_locale,status,control_mode,return_to_ai_on_resolve,last_message_at,customer_resume_key_hash)
+        VALUES($1,$2,$3,$4,$5,$6,'AI_ACTIVE','AI',$7,NOW(),$8) RETURNING *`,[scope.tenant_id,scope.platform_id,session.session_id,customerIdentifier,customerDisplayName,language,settings.return_to_ai_on_resolve !== false,resumeKeyHash])).rows[0];
     } else if (['RESOLVED'].includes(conversation.status) && conversation.return_to_ai_on_resolve !== false) {
-      conversation = (await tq(`UPDATE support_conversations SET status='AI_ACTIVE',control_mode='AI',assigned_staff_id=NULL,resolved_at=NULL,closed_at=NULL,handoff_reason=NULL,handoff_detail=NULL,updated_at=NOW(),version=version+1 WHERE id=$1 RETURNING *`,[conversation.id])).rows[0];
+      conversation = (await tq(`UPDATE support_conversations SET status='AI_ACTIVE',control_mode='AI',assigned_staff_id=NULL,resolved_at=NULL,closed_at=NULL,handoff_reason=NULL,handoff_detail=NULL,customer_resume_key_hash=$2,updated_at=NOW(),version=version+1 WHERE id=$1 RETURNING *`,[conversation.id,resumeKeyHash])).rows[0];
+    } else {
+      conversation = (await tq(`UPDATE support_conversations SET customer_resume_key_hash=$2,customer_locale=COALESCE(NULLIF($3,''),customer_locale),customer_display_name=COALESCE(NULLIF($4,''),customer_display_name),updated_at=NOW() WHERE id=$1 RETURNING *`,[conversation.id,resumeKeyHash,language,customerDisplayName])).rows[0];
     }
 
     const duplicate = (await tq(`SELECT * FROM support_messages WHERE conversation_id=$1 AND client_message_id=$2 LIMIT 1`,[conversation.id,clientMessageId])).rows[0];
@@ -5942,7 +5959,7 @@ async function enqueuePublicAiMessage(env, payload = {}, contextResolution = {})
     mode:result.human ? 'HUMAN' : 'AI_PROCESSING',
     session_id:session.session_id, conversation:supportConversationPayload(result.conversation), message:messagePayload,
     ai_job:result.job ? { id:Number(result.job.id),public_id:String(result.job.public_id),status:String(result.job.status),attempt_count:Number(result.job.attempt_count || 0) } : null,
-    processing:result.human ? { enabled:false } : aiProcessingExperience(settings), support_token:token,
+    processing:result.human ? { enabled:false } : aiProcessingExperience(settings), support_token:token, resume_key:resumeKey, poll_interval_ms:Number(settings.realtime_poll_interval_ms || 2500),
     human_support:{ enabled:settings.human_support_enabled === true,active:result.human,offered:false },
   };
 }
@@ -6048,14 +6065,16 @@ export async function processNextAiJob(env, workerId = 'ai-worker') {
       const conversation = (await tq(`SELECT * FROM support_conversations WHERE id=$1 FOR UPDATE`,[job.conversation_id])).rows[0];
       if (!conversation || conversation.control_mode !== 'AI') return null;
       const sequence = Number((await tq(`UPDATE support_conversations SET last_message_sequence=last_message_sequence+1,last_message_at=NOW(),active_ai_job_id=NULL,status=CASE WHEN $2 THEN 'HANDOFF_OFFERED' ELSE 'AI_ACTIVE' END,handoff_reason=CASE WHEN $2 THEN $3 ELSE NULL END,updated_at=NOW(),version=version+1 WHERE id=$1 RETURNING last_message_sequence`,[job.conversation_id,result.human_support?.offered === true,result.handoff_reason || null])).rows[0]?.last_message_sequence || 0);
+      const selectedContent=result.selected_content || result.diagnostics?.selected_content || null;
+      const assetManifest={ response_blocks:result.response_blocks || [], content_images:result.content_images || [], image_delivery:result.image_delivery || {}, recommended_buttons:result.recommended_buttons || [] };
       const metadata = {
-        response_blocks:result.response_blocks || [], content_images:result.content_images || [], image_delivery:result.image_delivery || {},
+        response_blocks:result.response_blocks || [], content_images:result.content_images || [], image_delivery:result.image_delivery || {}, selected_content:selectedContent,
         human_support:result.human_support || {}, response_status:result.response_status || 'success', resolution_path:result.resolution_path || '',
         request_id:result.request_id || '', model:result.model || '', ai_result:result.ai_result || 'ANSWERED', handoff_reason:result.handoff_reason || null,
       };
       const row = (await tq(`INSERT INTO support_messages(tenant_id,platform_id,conversation_id,sender_type,client_message_id,message_type,body_text,sentence_count,message_sequence,delivered_at,metadata_json,ai_job_id)
         VALUES($1,$2,$3,'AI',$4,'text',$5,$6,$7,NOW(),$8::jsonb,$9) RETURNING *`,[job.tenant_id,job.platform_id,job.conversation_id,`ai-job:${job.id}`,normalizePlainTextReply(result.reply,12000),Math.max(1,String(result.reply || '').split(/(?<=[.!?။！？])\s+|\n+/u).filter(Boolean).length),sequence,JSON.stringify(metadata),job.id])).rows[0];
-      await tq(`UPDATE ai_jobs SET status='COMPLETED',completed_at=NOW(),locked_at=NULL,locked_by=NULL,provider_status=$2,provider_attempts=$3,result_message_id=$4,result_json=$5::jsonb,updated_at=NOW() WHERE id=$1`,[job.id,result.response_status === 'success' ? 'success' : 'fallback',Number(result.diagnostics?.provider_attempts || 0),row.id,JSON.stringify(metadata)]);
+      await tq(`UPDATE ai_jobs SET status='COMPLETED',completed_at=NOW(),locked_at=NULL,locked_by=NULL,provider_status=$2,provider_attempts=$3,result_message_id=$4,result_json=$5::jsonb,selected_content_id=$6,selected_match_score=$7,selected_match_method=$8,selected_asset_manifest=$9::jsonb,updated_at=NOW() WHERE id=$1`,[job.id,result.response_status === 'success' ? 'success' : 'fallback',Number(result.diagnostics?.provider_attempts || 0),row.id,JSON.stringify(metadata),selectedContent?.id || null,selectedContent?.match_score ?? null,selectedContent?.match_method || null,JSON.stringify(assetManifest)]);
       return row;
     });
     if (!saved) {
@@ -6081,7 +6100,8 @@ export async function syncSupportConversationMessages(env, access, conversationI
   const conversation = (await q(env,`SELECT * FROM support_conversations WHERE id=$1 LIMIT 1`,[id])).rows[0];
   const activeJobs = (await q(env,`SELECT id,public_id,status,attempt_count,created_at,started_at FROM ai_jobs WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING') ORDER BY id ASC LIMIT 20`,[id])).rows;
   const normalizedJobs=activeJobs.map((item)=>({ id:Number(item.id),public_id:String(item.public_id),status:item.status,attempt_count:Number(item.attempt_count || 0),created_at:String(item.created_at || ''),started_at:String(item.started_at || '') }));
-  return { conversation:supportConversationPayload(conversation),messages:rows.map(supportMessagePayload),active_ai_job:normalizedJobs[0] || null,active_ai_jobs:normalizedJobs };
+  const settings=conversation ? await getHumanSupportSettings(env,{ tenant_id:conversation.tenant_id,platform_id:conversation.platform_id },supportDependencies()) : {};
+  return { conversation:supportConversationPayload(conversation),messages:rows.map(supportMessagePayload),active_ai_job:normalizedJobs[0] || null,active_ai_jobs:normalizedJobs,poll_interval_ms:Number(settings.realtime_poll_interval_ms || 2500) };
 }
 
 
@@ -6095,6 +6115,10 @@ export async function markSupportMessageState(env, access, conversationId, throu
     ? `delivered_at=COALESCE(delivered_at,NOW()),read_at=COALESCE(read_at,NOW())`
     : `delivered_at=COALESCE(delivered_at,NOW())`;
   const rows=(await q(env,`UPDATE support_messages SET ${assignment} WHERE conversation_id=$1 AND message_sequence<=$2 AND ${senderFilter} RETURNING id,message_sequence,delivered_at,read_at`,[id,sequence])).rows;
+  if (state === 'read') {
+    const column=access.kind === 'customer' ? 'last_customer_read_sequence' : 'last_staff_read_sequence';
+    await q(env,`UPDATE support_conversations SET ${column}=GREATEST(COALESCE(${column},0),$2),updated_at=NOW() WHERE id=$1`,[id,sequence]);
+  }
   const data={ conversation_id:id,through_sequence:sequence,state,actor:access.kind,updated_count:rows.length,updated_at:new Date().toISOString() };
   emitSupportEvent({ event:'support:message_state',platform_id:Number(access.platform_id),conversation_id:id,data });
   return data;

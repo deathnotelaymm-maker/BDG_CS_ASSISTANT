@@ -19,8 +19,18 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.16.1-plain-text-ai-worker-realtime-delivery';
+const API_VERSION = '1.16.2-conversation-continuity-realtime-media-matching';
 const API_FEATURES = [
+  'one-time-realtime-tickets',
+  'conversation-resume-key-rotation',
+  'websocket-with-http-catchup-fallback',
+  'sequence-based-conversation-continuity',
+  'localized-customer-system-messages',
+  'neutral-customer-brand-status',
+  'hybrid-menu-media-matching',
+  'server-owned-media-attachment',
+  'menu-match-diagnostics',
+  'contact-information-intent-separation',
   'plain-text-deepseek-output',
   'postgresql-ai-job-queue',
   'ephemeral-ai-processing-message',

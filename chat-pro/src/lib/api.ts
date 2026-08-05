@@ -1,4 +1,4 @@
-// BDG Chat Pro API client — v1.16.1 async AI and realtime support.
+// BDG Chat Pro API client — v1.16.2 continuity, ticketed realtime and fallback sync.
 
 const configuredApiBase =
   (import.meta.env.VITE_BDG_API_BASE as string | undefined) ??
@@ -117,6 +117,9 @@ export interface SupportConversation {
   assigned_staff_id?: number | null;
   last_message_sequence?: number;
   return_to_ai_on_resolve?: boolean;
+  version?: number;
+  last_customer_read_sequence?: number;
+  last_staff_read_sequence?: number;
 }
 
 export interface ChatAcceptedResponse {
@@ -134,6 +137,8 @@ export interface ChatAcceptedResponse {
   processing?: ProcessingExperience;
   support_token: string;
   human_support?: { enabled: boolean; active?: boolean; offered?: boolean };
+  resume_key?: string;
+  poll_interval_ms?: number;
 }
 
 export class ChatApiError extends Error {
@@ -163,6 +168,7 @@ export interface ChatRequest {
 const SESSION_KEY = "bdg_chat_session_id";
 const SUPPORT_TOKEN_KEY = "bdg_customer_support_token";
 const SUPPORT_CONVERSATION_KEY = "bdg_customer_support_conversation";
+const SUPPORT_RESUME_KEY = "bdg_customer_support_resume_key";
 
 function platformReferenceFromLocation(): string {
   if (typeof window === "undefined") return "";
@@ -197,23 +203,26 @@ function supportStorageKey(base: string, platformKey = getPlatformKey()) {
   return `${base}:${normalized}`;
 }
 
-export function saveCustomerSupportSession(token: string, publicId: string, platformKey = getPlatformKey()) {
+export function saveCustomerSupportSession(token: string, publicId: string, platformKey = getPlatformKey(), resumeKey = "") {
   if (typeof window === "undefined") return;
   if (token) localStorage.setItem(supportStorageKey(SUPPORT_TOKEN_KEY, platformKey), token);
   if (publicId) localStorage.setItem(supportStorageKey(SUPPORT_CONVERSATION_KEY, platformKey), publicId);
+  if (resumeKey) localStorage.setItem(supportStorageKey(SUPPORT_RESUME_KEY, platformKey), resumeKey);
 }
 
 export function getCustomerSupportSession(platformKey = getPlatformKey()) {
   if (typeof window === "undefined") return null;
   const token = localStorage.getItem(supportStorageKey(SUPPORT_TOKEN_KEY, platformKey));
   const publicId = localStorage.getItem(supportStorageKey(SUPPORT_CONVERSATION_KEY, platformKey));
-  return token && publicId ? { token, publicId } : null;
+  const resumeKey = localStorage.getItem(supportStorageKey(SUPPORT_RESUME_KEY, platformKey)) || "";
+  return publicId && (token || resumeKey) ? { token: token || "", publicId, resumeKey } : null;
 }
 
 export function clearCustomerSupportSession(platformKey = getPlatformKey()) {
   if (typeof window === "undefined") return;
   localStorage.removeItem(supportStorageKey(SUPPORT_TOKEN_KEY, platformKey));
   localStorage.removeItem(supportStorageKey(SUPPORT_CONVERSATION_KEY, platformKey));
+  localStorage.removeItem(supportStorageKey(SUPPORT_RESUME_KEY, platformKey));
 }
 
 export async function sendChatMessage(
@@ -258,7 +267,7 @@ export async function sendChatMessage(
       requestId: res.headers.get("x-request-id") || "",
     });
   }
-  saveCustomerSupportSession(accepted.support_token, accepted.conversation.public_id, platformKey);
+  saveCustomerSupportSession(accepted.support_token, accepted.conversation.public_id, platformKey, accepted.resume_key || "");
   return accepted;
 }
 
@@ -280,13 +289,17 @@ async function supportRequest<T>(path: string, init: RequestInit = {}, supportTo
   headers.set("Content-Type", "application/json");
   if (supportToken) headers.set("Authorization", `Bearer ${supportToken}`);
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: "no-store" });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body?.error || body?.message || `Support request failed (${res.status})`);
+  const body = await res.json().catch(() => ({} as Record<string, unknown>));
+  if (!res.ok) throw new ChatApiError(String((body as any)?.error || (body as any)?.message || `Support request failed (${res.status})`), {
+    status: res.status,
+    code: String((body as any)?.code || "SUPPORT_REQUEST_FAILED"),
+    requestId: String((body as any)?.request_id || res.headers.get("x-request-id") || ""),
+  });
   return body as T;
 }
 
 export async function requestHumanSupport(platformKey: string, language: string, handoffReason?: string) {
-  const res = await supportRequest<{ support_token: string; conversation: SupportConversation; message: string }>(
+  const res = await supportRequest<{ support_token: string; resume_key?: string; poll_interval_ms?: number; conversation: SupportConversation; message: string }>(
     `/support/handoff?platform=${encodeURIComponent(platformKey)}`,
     {
       method: "POST",
@@ -297,7 +310,7 @@ export async function requestHumanSupport(platformKey: string, language: string,
       }),
     },
   );
-  saveCustomerSupportSession(res.support_token, res.conversation.public_id, platformKey);
+  saveCustomerSupportSession(res.support_token, res.conversation.public_id, platformKey, (res as any).resume_key || "");
   return res;
 }
 
@@ -322,10 +335,53 @@ export async function sendCustomerSupportMessage(
   );
 }
 
-export function supportWebSocketUrl() {
+
+export async function resumeCustomerConversation(platformKey = getPlatformKey()) {
+  const saved = getCustomerSupportSession(platformKey);
+  if (!saved) throw new ChatApiError("No saved conversation is available", { status: 404, code: "SUPPORT_RESUME_NOT_FOUND" });
+  const response = await supportRequest<{
+    ok: true;
+    conversation: SupportConversation;
+    messages: SupportMessage[];
+    active_ai_jobs?: AiJobSummary[];
+    support_token: string;
+    resume_key: string;
+    poll_interval_ms?: number;
+  }>(`/support/customer/resume?platform=${encodeURIComponent(platformKey)}`, {
+    method: "POST",
+    body: JSON.stringify({ session_id: getSessionId(platformKey), resume_key: saved.resumeKey || "" }),
+  }, saved.token || undefined);
+  saveCustomerSupportSession(response.support_token, response.conversation.public_id, platformKey, response.resume_key);
+  return response;
+}
+
+export async function createCustomerRealtimeTicket(supportToken: string) {
+  return supportRequest<{ ok: true; ticket: string; expires_at: string }>("/support/customer/realtime-ticket", { method: "POST", body: "{}" }, supportToken);
+}
+
+export async function syncCustomerSupport(publicId: string, supportToken: string, afterSequence = 0) {
+  return supportRequest<{
+    ok: true;
+    conversation: SupportConversation;
+    messages: SupportMessage[];
+    active_ai_job?: AiJobSummary | null;
+    active_ai_jobs?: AiJobSummary[];
+    poll_interval_ms?: number;
+  }>(`/support/customer/conversations/${publicId}/sync?after_sequence=${Math.max(0, Number(afterSequence || 0))}`, {}, supportToken);
+}
+
+export async function cancelCustomerHandoff(publicId: string, supportToken: string) {
+  return supportRequest<{ ok: true; conversation: SupportConversation; return_to_ai: boolean }>(
+    `/support/customer/conversations/${publicId}/cancel-handoff`,
+    { method: "POST", body: "{}" },
+    supportToken,
+  );
+}
+
+export function supportWebSocketUrl(ticket = "") {
   const u = new URL(API_BASE || location.origin, location.origin);
   u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
   u.pathname = "/support";
-  u.search = "";
+  u.search = ticket ? `?ticket=${encodeURIComponent(ticket)}` : "";
   return u.toString();
 }
