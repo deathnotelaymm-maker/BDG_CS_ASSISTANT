@@ -1,0 +1,8 @@
+BDG v1.16.1 Plain-Text AI Worker and Realtime Delivery Repair
+Release marker: 1.16.1-plain-text-ai-worker-realtime-delivery
+Migration: 039_v1.16.1_plain_text_ai_worker_realtime_delivery.sql
+Next migration: 040
+
+This marker confirms that the reviewed v1.16.1 application files were copied.
+It does not confirm that Git was committed, Render deployed, migration 039 was
+applied, Cloudflare Pages published, or production acceptance tests passed.

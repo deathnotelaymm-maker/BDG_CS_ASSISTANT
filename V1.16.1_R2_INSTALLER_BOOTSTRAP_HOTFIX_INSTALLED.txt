@@ -1,0 +1,4 @@
+BDG v1.16.1-r2 installer bootstrap hotfix installed.
+Application version remains 1.16.1.
+Release marker remains 1.16.1-plain-text-ai-worker-realtime-delivery.
+Migration remains 039.

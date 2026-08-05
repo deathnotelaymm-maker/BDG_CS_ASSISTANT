@@ -15,7 +15,7 @@ test('migration 038 creates staff profiles',migration.includes('CREATE TABLE IF 
 test('migration 038 creates support conversations',migration.includes('CREATE TABLE IF NOT EXISTS support_conversations'));
 test('migration 038 creates immutable support messages',migration.includes('CREATE TABLE IF NOT EXISTS support_messages'));
 test('migration 038 creates transfers and audits',migration.includes('support_transfers')&&migration.includes('support_audit_events'));
-test('AI JSON contract carries hidden handoff result',core.includes('HUMAN_RECOMMENDED')&&core.includes('handoff_reason'));
+test('Backend controls hidden handoff result separately from plain-text AI output',core.includes('HUMAN_RECOMMENDED')&&core.includes('handoff_reason')&&core.includes('json:false'));
 test('AI stops while a human conversation is active',core.includes("resolution_path:'human_support_active'"));
 test('WebSocket gateway uses authenticated /support path',realtime.includes("requestPath(request) !== '/support'")&&realtime.includes('verifyAccess(env,token)'));
 test('assignment ownership conflict is atomic',service.includes("status='WAITING_FOR_AGENT' AND assigned_staff_id IS NULL"));
@@ -27,7 +27,7 @@ test('internal handoff URL survives response normalization',core.includes("url =
 test('public handoff validates tenant and platform chat session scope',service.includes('SUPPORT_CHAT_SESSION_SCOPE_MISMATCH'));
 test('staff console can accept or reject incoming transfers',staff.includes('transferDecision')&&staff.includes('transfer request'));
 test('logout and heartbeat expiry release assigned work safely',service.includes('releaseAssignedConversations')&&service.includes('heartbeat_timeout'));
-test('dedicated staff console exists',staff.includes('Customer Service Console')&&staff.includes('Team Conversations'));
+test('dedicated staff console exists',staff.includes('Customer Service Console')&&staff.includes('{ key: "team", label: "Team" }'));
 test('admin Customer Service center exists',admin.includes('Handoff Settings')&&admin.includes('Staff Accounts'));
 test('explicit English human request detected',customerExplicitlyRequestsHuman('I need a real person'));
 test('explicit Burmese human request detected',customerExplicitlyRequestsHuman('ဝန်ထမ်းနဲ့ ပြောချင်တယ်'));

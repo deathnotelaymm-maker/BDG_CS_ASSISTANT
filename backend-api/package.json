@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-render-backend",
-  "version": "1.16.0",
+  "version": "1.16.1",
   "private": true,
   "type": "module",
   "description": "Production Render backend using the existing Neon PostgreSQL database for BDG Guide Pro, Chat Pro, and Admin Pro.",
@@ -11,7 +11,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "migrate": "node src/migrate.js",
-    "check": "node --check src/server.js && node --check src/core.js && node --check src/chat-reliability.js && node --check src/prompt-runtime.js && node --check src/support-auth.js && node --check src/support-events.js && node --check src/support-service.js && node --check src/support-realtime.js && node --check src/r2-adapter.js && node --check src/env.js && node --check src/rich-html.js && node --check src/network-safety.js && node --check src/migration-files.js",
+    "check": "node --check src/server.js && node --check src/core.js && node --check src/chat-reliability.js && node --check src/prompt-runtime.js && node --check src/support-auth.js && node --check src/support-events.js && node --check src/support-service.js && node --check src/support-realtime.js && node --check src/plain-text-ai.js && node --check src/ai-job-worker.js && node --check src/r2-adapter.js && node --check src/env.js && node --check src/rich-html.js && node --check src/network-safety.js && node --check src/migration-files.js",
     "smoke": "node scripts/smoke-test.js",
     "test:regression": "node scripts/regression-test.js",
     "test:upload": "node scripts/upload-regression-test.js",
@@ -22,7 +22,8 @@
     "test:integration": "node scripts/integration-test.js",
     "test:prompt-runtime": "node scripts/prompt-runtime-regression-test.js",
     "test:simplified-ai": "node scripts/simplified-ai-runtime-regression-test.js",
-    "test:support": "node scripts/support-foundation-regression-test.js"
+    "test:support": "node scripts/support-foundation-regression-test.js",
+    "test:v1161": "node scripts/v1.16.1-realtime-ai-worker-regression-test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1085.0",

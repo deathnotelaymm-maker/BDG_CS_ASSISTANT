@@ -1,4 +1,4 @@
-name: v1.16.0 Human Support Production Checks
+name: v1.16.1 Realtime AI Worker Production Checks
 
 on:
   push:
@@ -59,6 +59,7 @@ jobs:
           npm run test:prompt-runtime
           npm run test:simplified-ai
           npm run test:support
+          npm run test:v1161
           npm run test:chat-reliability
           npm run test:security
           npm run test:structured

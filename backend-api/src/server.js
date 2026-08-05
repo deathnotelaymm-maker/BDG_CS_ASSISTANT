@@ -8,15 +8,27 @@ import api, {
   updateSupportWebSocketPresence,
   heartbeatSupportWebSocket,
   canSubscribeSupportConversation,
+  processNextAiJob,
+  syncSupportConversationMessages,
+  markSupportMessageState,
 } from './core.js';
 import { attachSupportRealtimeGateway } from './support-realtime.js';
 import { closeSupportEventBus } from './support-events.js';
+import { startAiJobWorker } from './ai-job-worker.js';
 import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } from './env.js';
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.16.0-human-support-live-chat-foundation';
+const API_VERSION = '1.16.1-plain-text-ai-worker-realtime-delivery';
 const API_FEATURES = [
+  'plain-text-deepseek-output',
+  'postgresql-ai-job-queue',
+  'ephemeral-ai-processing-message',
+  'ordered-realtime-message-sequences',
+  'websocket-reconnect-catchup',
+  'client-message-idempotency',
+  'server-selected-approved-media',
+  'automatic-return-to-ai',
   'tenant-core',
   'human-support-live-chat',
   'dedicated-staff-console',
@@ -252,14 +264,19 @@ const supportGateway = await attachSupportRealtimeGateway({
   heartbeat:heartbeatSupportWebSocket,
   presence:updateSupportWebSocketPresence,
   canSubscribe:canSubscribeSupportConversation,
+  syncConversation:syncSupportConversationMessages,
+  markMessageState:markSupportMessageState,
 });
+
+const aiWorker = startAiJobWorker({ env, processNext:processNextAiJob, intervalMs:750, concurrency:1 });
 
 async function shutdown(signal) {
   console.log(JSON.stringify({ level: 'info', event: 'shutdown_started', signal }));
   server.close(async () => {
+    await aiWorker.close().catch(() => undefined);
     await supportGateway.close().catch(() => undefined);
-  await closeSupportEventBus().catch(() => undefined);
-  await closeDatabasePools();
+    await closeSupportEventBus().catch(() => undefined);
+    await closeDatabasePools();
     process.exit(0);
   });
   setTimeout(() => process.exit(1), 25_000).unref();

@@ -13,7 +13,7 @@ function requestPath(request) {
   catch { return ''; }
 }
 
-export async function attachSupportRealtimeGateway({ server, env, verifyAccess, heartbeat, presence, canSubscribe }) {
+export async function attachSupportRealtimeGateway({ server, env, verifyAccess, heartbeat, presence, canSubscribe, syncConversation, markMessageState }) {
   await configureSupportEventBus(env);
   const wss = new WebSocketServer({ noServer:true, clientTracking:true, maxPayload:64 * 1024 });
   const connections = new Set();
@@ -74,6 +74,26 @@ export async function attachSupportRealtimeGateway({ server, env, verifyAccess, 
           }
           connection.conversation_ids.add(conversationId);
           return send(socket,'support:subscribed',{ conversation_id:conversationId });
+        }
+        if (event === 'support:sync') {
+          const conversationId=Number(data.conversation_id || access.conversation_id);
+          const afterSequence=Math.max(0,Number(data.after_sequence || 0));
+          if (!Number.isSafeInteger(conversationId) || conversationId < 1 || !await canSubscribe(env,access,conversationId)) {
+            return send(socket,'support:error',{ code:'SYNC_DENIED',message:'Conversation access denied' });
+          }
+          connection.conversation_ids.add(conversationId);
+          const snapshot=await syncConversation(env,access,conversationId,afterSequence);
+          return send(socket,'support:snapshot',{ conversation_id:conversationId,after_sequence:afterSequence,...snapshot });
+        }
+        if (event === 'support:delivered' || event === 'support:read') {
+          const conversationId=Number(data.conversation_id || access.conversation_id);
+          const throughSequence=Math.max(0,Number(data.through_sequence || data.message_sequence || 0));
+          if (!Number.isSafeInteger(conversationId) || conversationId < 1 || !await canSubscribe(env,access,conversationId)) {
+            return send(socket,'support:error',{ code:'MESSAGE_STATE_DENIED',message:'Conversation access denied' });
+          }
+          const state=event === 'support:read' ? 'read' : 'delivered';
+          const updated=await markMessageState(env,access,conversationId,throughSequence,state);
+          return send(socket,'support:message_state_ack',updated);
         }
         if (event === 'support:unsubscribe') {
           const conversationId=Number(data.conversation_id);

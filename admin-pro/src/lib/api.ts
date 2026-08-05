@@ -1008,6 +1008,7 @@ export const api = {
   },
 
   getSupportOverview: async () => request("/admin/support/overview"),
+  listSupportAiJobs: async (status = "") => request(`/admin/support/ai-jobs${status ? `?status=${encodeURIComponent(status)}` : ""}`),
   getSupportSettings: async () => request("/admin/support/settings"),
   updateSupportSettings: async (data: any) => request("/admin/support/settings", { method: "PUT", body: JSON.stringify(data) }),
   listSupportStaff: async () => request("/admin/support/staff"),

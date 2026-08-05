@@ -38,8 +38,9 @@ const adminHeaders = read("admin-pro/public/_headers");
 const integrationTest = read("backend-api/scripts/integration-test.js");
 const chatApp = read("chat-pro/src/App.tsx");
 const chatConfig = read("chat-pro/src/lib/chat-config.ts");
+const plainTextAi = read("backend-api/src/plain-text-ai.js");
 
-expect("Backend and server expose the v1.16.0 human support runtime", core.includes("1.16.0-human-support-live-chat-foundation") && server.includes("1.16.0-human-support-live-chat-foundation"));
+expect("Backend and server expose the v1.16.1 realtime AI worker runtime", core.includes("1.16.1-plain-text-ai-worker-realtime-delivery") && server.includes("1.16.1-plain-text-ai-worker-realtime-delivery"));
 expect("Domain route IDs are extracted from the numeric path segment", core.includes("function domainIdFromPath") && core.includes("Number.isSafeInteger(id)") && core.includes("DOMAIN_ID_INVALID"));
 expect("Provision uses the validated domain ID", core.includes("provisionMappedDomain(env, domainIdFromPath(path), scope)") && !core.includes("provisionMappedDomain(env, idFromParts(path, 3), scope)"));
 expect("Sync, verify, and delete use the validated domain ID", ["syncMappedDomain(env, domainIdFromPath(path), scope)", "verifyMappedDomain(env, domainIdFromPath(path), scope)", "deleteMappedDomain(env, domainIdFromPath(path), scope)"].every((item) => core.includes(item)));
@@ -50,7 +51,7 @@ expect("Domain mapping exposes missing configuration names", core.includes("cons
 expect("Render environment validation covers Cloudflare prerequisites", env.includes("CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED") && env.includes("CLOUDFLARE_API_TOKEN") && env.includes("CLOUDFLARE_ZONE_ID") && env.includes("CLOUDFLARE_SAAS_CNAME_TARGET"));
 expect("Admin disables Provision until Cloudflare is configured", domainPage.includes("const cloudflareReady = data?.cloudflare?.configured === true") && domainPage.includes("disabled={!cloudflareReady}"));
 expect("Admin displays the exact missing Render variables", domainPage.includes("data?.cloudflare?.missing_env") && domainPage.includes("Set these Render variables before provisioning"));
-expect("Admin release marker is v1.16.0", adminLayout.includes('const ADMIN_VERSION = "v1.16.0"'));
+expect("Admin release marker is v1.16.1", adminLayout.includes('const ADMIN_VERSION = "v1.16.1"'));
 expect("v1.14.1 single-image contract remains present", core.includes("const legacyContentImages = imageDelivery.image_count ? [] : contentImages") && core.includes("A response without procedural steps has one canonical visual at most"));
 expect("Platform context remains strict with no fallback", core.includes("PLATFORM_CONTEXT_REQUIRED") && core.includes("fallback_applied: false") && !core.includes("publicReference || 'default'"));
 expect("v1.14.3 migration repairs existing parent Guide drafts", publishingMigration.includes("UPDATE guides g") && publishingMigration.includes("gt.status = 'published'"));
@@ -76,16 +77,16 @@ expect("Only allowlisted motion presets reach the renderer", core.includes("GUID
 expect("R2 media delivery supports HTTP byte ranges", r2Adapter.includes("supportsHttpRange: true") && r2Adapter.includes("Range: range") && core.includes("'Content-Range'"));
 expect("Retired AI modules are absent from navigation and blocked by backend 410", !adminLayout.includes('path: "/ai-response-quality"') && !adminLayout.includes('path: "/ai-qa"') && !adminLayout.includes('path: "/ai-source-router"') && core.includes("AI_MODULE_RETIRED") && core.includes("retiredAiAdminEndpoint(path)"));
 expect("Only hard safety boundaries bypass the active Prompt Manager runtime", core.includes("localCandidate?.intent === 'boundary'") && core.includes("resolutionPath = 'local_conversation'") && core.includes("ordinary messages must flow"));
-expect("Saved reliability settings drive bounded provider retries", core.includes("attempts:1 + Number(reliability?.max_retries || 0)") && core.includes("deadline_at:deadlineAt") && core.includes("turnDeadlineAt = turnStarted + 20000"));
+expect("Saved reliability settings drive bounded synchronous retries while the durable worker owns background retries", core.includes("attempts:background ? 1 : 1 + Number(reliability?.max_retries || 0)") && core.includes("deadline_at:deadlineAt") && core.includes("payload.background_job === true ? 0 : turnStarted + 20000"));
 expect("Simplified runtime always answers through one prompt-first provider stage", core.includes("async function promptFirstAiResponse") && core.includes("prompt_first_grounded_answer") && core.includes("prompt_first_general_answer") && core.includes("promptFirstMode = !local") && core.includes("assistant-profile-menu-image-one-call-v1"));
-expect("Prompt-first answers attach only validated source assets", core.includes("const selected = Number.isFinite(requestedItemId) ? budgeted.rows.find") && core.includes("if (assets.images[0]) blocks.push") && core.includes("matched_source_images_are_attached:true"));
+expect("Prompt-first answers attach only server-selected validated source assets", core.includes("rankApprovedMenuCandidates(message, unified.rows, 3)") && core.includes("const assets = selected ? await approvedAssetsForContent") && core.includes("if (assets.images[0]) blocks.push"));
 expect("Current DeepSeek model replaces retired defaults", env.includes("deepseek-v4-flash") && core.includes("DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash'") && promptFirstMigration.includes("deepseek-chat','deepseek-reasoner") && promptFirstMigration.includes("model='deepseek-v4-flash'"));
 expect("Assistant Setup owns production provider and memory controls", adminApi.includes("getAiSettings") && adminApi.includes("updateAiSettings") && promptManagerPage.includes("Production AI settings") && promptManagerPage.includes("One DeepSeek call") && promptManagerPage.includes("Save production settings"));
 expect("Admin reliability test calls the real provider safely", core.includes("This is a provider connectivity test") && core.includes("provider_http_status") && core.includes("API key configured"));
 expect("Only approved Menu & Images are loaded into the live catalog", core.includes("async function buildPromptImageCatalog") && core.includes("source_type='prompt_image'") && core.includes("approval_status='approved'") && core.includes("status='published'"));
-expect("General questions remain allowed when no approved menu matches", core.includes("general_prompt_answers_allowed:true") && core.includes("When no menu item matches, answer naturally from the Assistant Setup prompt") && core.includes("require_approved_context:false"));
+expect("General questions remain allowed when no approved menu matches", core.includes("general_prompt_answers_allowed:true") && plainTextAi.includes("No approved Menu & Images item matched this message. Answer from the Assistant Setup") && core.includes("require_approved_context:false"));
 expect("Locale routing can use the platform default without crossing tenants", core.includes("exact_then_default") && core.includes("defaultLocale = normalizeLocale(scope.default_locale") && reliabilityMigration.includes("locale_strategy='exact_then_default'"));
-expect("Customer responses never expose raw provider failures", !core.includes("provider_error: usedDeepSeek") && core.includes("degraded_reason: degradedReason || undefined") && chatApp.includes('type: "notice"'));
+expect("Customer responses never expose raw provider failures", !core.includes("provider_error: usedDeepSeek") && plainTextAi.includes("I couldn’t complete that answer just now") && core.includes("provider_failure_retry_exhausted") && chatApp.includes("AsyncProcessingIndicator"));
 expect("Chat has Indonesian, Chinese, Burmese, Hindi, and English safety copy", ["id:","zh:","my:","hi:","en:"].every((token) => chatConfig.includes(token)) && chatConfig.includes("Layanan sedang mengalami gangguan"));
 expect("Diagnostics expose the simplified runtime and retired modules", core.includes("runtime_mode:'assistant_profile_menu_image'") && core.includes("retired_modules:source_router.retired_modules") && diagnosticsPage.includes("Retired AI modules"));
 expect("Rich HTML is sanitized on both server and Guide client", richHtml.includes("sanitize-html") && core.includes("sanitizeRichHtml") && guideSanitizer.includes("DOMPurify.sanitize"));
@@ -104,5 +105,5 @@ expect("Admin UI exposes only the simplified production AI workflow", adminLayou
 
 for (const check of checks) console.log(`${check.ok ? "PASS" : "FAIL"} ${check.name}`);
 const failed = checks.filter((check) => !check.ok);
-console.log(`\n${checks.length - failed.length}/${checks.length} v1.16.0 regression checks passed`);
+console.log(`\n${checks.length - failed.length}/${checks.length} v1.16.1 regression checks passed`);
 if (failed.length) process.exitCode = 1;

@@ -23,8 +23,8 @@ const redirects = [
   '_admin.ai-knowledge.tsx',
 ].map((file) => read(`admin-pro/src/routes/${file}`));
 
-assert.match(core, /1\.16\.0-human-support-live-chat-foundation/);
-assert.match(server, /1\.16\.0-human-support-live-chat-foundation/);
+assert.match(core, /1\.16\.1-plain-text-ai-worker-realtime-delivery/);
+assert.match(server, /1\.16\.1-plain-text-ai-worker-realtime-delivery/);
 assert.match(core, /source_order:\['prompt_image'\]/);
 assert.match(core, /enabled_sources:\['prompt_image'\]/);
 assert.match(core, /source_type='prompt_image'/);

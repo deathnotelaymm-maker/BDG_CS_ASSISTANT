@@ -1,5 +1,4 @@
-// BDG Chat Pro API client
-// Chat Pro client for the v0.7.0 Render API. Configurable via VITE_BDG_API_BASE.
+// BDG Chat Pro API client — v1.16.1 async AI and realtime support.
 
 const configuredApiBase =
   (import.meta.env.VITE_BDG_API_BASE as string | undefined) ??
@@ -54,43 +53,87 @@ export interface ChatContent {
   platforms?: { platform_key: string; name: string; support_mode: "none" | "tickets" | "hybrid" }[];
 }
 
-export interface ChatSource {
-  title?: string;
-  url?: string;
-}
-
+export interface ChatSource { title?: string; url?: string }
 export type RichSegment = { text: string; marks?: { bold?: boolean; italic?: boolean; underline?: boolean; color?: string; highlight?: string } };
-
 export type ResponseBlock =
   | { type: "heading"; text: string; segments?: RichSegment[]; level?: 2 | 3 }
   | { type: "paragraph"; text: string; segments?: RichSegment[] }
   | { type: "steps" | "list"; title?: string; items: string[]; rich_items?: RichSegment[][]; ordered?: boolean }
   | { type: "warning" | "notice" | "success" | "error"; text: string }
-  | { type: "link" | "button"; id?: number; label: string; subtitle?: string; url: string; icon_url?: string; target?: string; action_type?: string }
+  | { type: "link" | "button"; id?: number | string; label: string; subtitle?: string; url: string; icon_url?: string; target?: string; action_type?: string }
   | { type: "image"; url: string; alt?: string; caption?: string }
   | { type: "divider" };
 
-export interface ChatResponse {
-  reply: string;
-  content_images?: string[];
-  sources?: ChatSource[];
-  memory_note?: string;
-  technical_failure?: boolean;
-  response_status?: "success" | "degraded" | string;
-  resolution_path?: string;
-  degraded?: boolean;
-  degraded_reason?: string;
-  response_format?: "structured-v1" | "structured-v2" | string;
-  response_blocks?: ResponseBlock[];
-  resolution_state?: "open" | "confirmed_by_user" | string;
-  request_id?: string;
-  error?: string;
-  code?: string;
-  retry_after_ms?: number;
-  ai_result?: "ANSWERED" | "NEEDS_CLARIFICATION" | "HUMAN_RECOMMENDED" | "BLOCKED" | "PROVIDER_ERROR" | string;
-  handoff_reason?: string | null;
-  human_support?: { enabled:boolean; offered:boolean; active?:boolean; button_text?:string; suggestion_message?:string; conversation_id?:number; conversation_public_id?:string; status?:string };
-  session_id?: string;
+export interface ProcessingExperience {
+  enabled: boolean;
+  message?: string;
+  secondary_message?: string;
+  show_after_ms?: number;
+  secondary_after_ms?: number;
+  max_visible_ms?: number;
+  allow_additional_messages?: boolean;
+}
+
+export interface AiJobSummary {
+  id: number;
+  public_id?: string;
+  status: "QUEUED" | "PROCESSING" | "RETRYING" | "COMPLETED" | "FAILED" | "CANCELLED" | "SUPPRESSED" | string;
+  attempt_count?: number;
+  created_at?: string;
+  started_at?: string;
+  processing?: ProcessingExperience;
+}
+
+export interface SupportMessage {
+  id: number;
+  public_id: string;
+  conversation_id?: number;
+  client_message_id?: string;
+  ai_job_id?: number | null;
+  message_sequence: number;
+  sender_type: "CUSTOMER" | "AI" | "STAFF" | "SYSTEM";
+  sender_name?: string;
+  message_type?: string;
+  body_text: string;
+  is_internal?: boolean;
+  delivered_at?: string;
+  read_at?: string;
+  metadata?: {
+    response_blocks?: ResponseBlock[];
+    content_images?: string[];
+    human_support?: { enabled?: boolean; offered?: boolean; active?: boolean; button_text?: string };
+    [key: string]: unknown;
+  };
+  created_at: string;
+}
+
+export interface SupportConversation {
+  id: number;
+  public_id: string;
+  status: string;
+  control_mode: "AI" | "HUMAN" | "CLOSED" | string;
+  handoff_reason?: string;
+  assigned_staff_name?: string;
+  assigned_staff_id?: number | null;
+  last_message_sequence?: number;
+  return_to_ai_on_resolve?: boolean;
+}
+
+export interface ChatAcceptedResponse {
+  ok: true;
+  accepted: true;
+  duplicate?: boolean;
+  message_id: number;
+  client_message_id: string;
+  status: string;
+  mode: "AI_PROCESSING" | "HUMAN" | string;
+  session_id: string;
+  conversation: SupportConversation;
+  message: SupportMessage;
+  ai_job?: AiJobSummary | null;
+  processing?: ProcessingExperience;
+  support_token: string;
+  human_support?: { enabled: boolean; active?: boolean; offered?: boolean };
 }
 
 export class ChatApiError extends Error {
@@ -111,18 +154,27 @@ export class ChatApiError extends Error {
 export interface ChatRequest {
   message: string;
   session_id: string;
+  client_message_id: string;
   image_urls: string[];
   language?: string;
   platform_key?: string;
 }
 
 const SESSION_KEY = "bdg_chat_session_id";
+const SUPPORT_TOKEN_KEY = "bdg_customer_support_token";
+const SUPPORT_CONVERSATION_KEY = "bdg_customer_support_conversation";
 
 function platformReferenceFromLocation(): string {
   if (typeof window === "undefined") return "";
   const fromQuery = new URLSearchParams(window.location.search).get("platform");
   if (fromQuery) return fromQuery;
   return window.location.pathname.match(/^\/p\/([a-z0-9-]+)(?:\/|$)/i)?.[1] || "";
+}
+
+export function getPlatformKey(defaultKey = "default"): string {
+  if (typeof window === "undefined") return defaultKey;
+  const fromQuery = platformReferenceFromLocation();
+  return String(fromQuery || defaultKey).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || defaultKey;
 }
 
 export function getSessionId(platformKey = getPlatformKey()): string {
@@ -136,57 +188,82 @@ export function getSessionId(platformKey = getPlatformKey()): string {
   return id;
 }
 
-export function getPlatformKey(defaultKey = "default"): string {
-  if (typeof window === "undefined") return defaultKey;
-  const fromQuery = platformReferenceFromLocation();
-  return String(fromQuery || defaultKey).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || defaultKey;
+function requireApiBase() {
+  if (!API_BASE) throw new Error("Chat API is not configured. Set VITE_BDG_API_BASE during the Cloudflare Pages build.");
+}
+
+function supportStorageKey(base: string, platformKey = getPlatformKey()) {
+  const normalized = String(platformKey || "default").trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || "default";
+  return `${base}:${normalized}`;
+}
+
+export function saveCustomerSupportSession(token: string, publicId: string, platformKey = getPlatformKey()) {
+  if (typeof window === "undefined") return;
+  if (token) localStorage.setItem(supportStorageKey(SUPPORT_TOKEN_KEY, platformKey), token);
+  if (publicId) localStorage.setItem(supportStorageKey(SUPPORT_CONVERSATION_KEY, platformKey), publicId);
+}
+
+export function getCustomerSupportSession(platformKey = getPlatformKey()) {
+  if (typeof window === "undefined") return null;
+  const token = localStorage.getItem(supportStorageKey(SUPPORT_TOKEN_KEY, platformKey));
+  const publicId = localStorage.getItem(supportStorageKey(SUPPORT_CONVERSATION_KEY, platformKey));
+  return token && publicId ? { token, publicId } : null;
+}
+
+export function clearCustomerSupportSession(platformKey = getPlatformKey()) {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(supportStorageKey(SUPPORT_TOKEN_KEY, platformKey));
+  localStorage.removeItem(supportStorageKey(SUPPORT_CONVERSATION_KEY, platformKey));
 }
 
 export async function sendChatMessage(
   message: string,
-  language: string = "en",
-  platform_key = getPlatformKey(),
+  language = "en",
+  platformKey = getPlatformKey(),
+  clientMessageId = crypto.randomUUID(),
   signal?: AbortSignal,
-): Promise<ChatResponse> {
+): Promise<ChatAcceptedResponse> {
+  requireApiBase();
   const body: ChatRequest = {
     message,
-    session_id: getSessionId(platform_key),
+    session_id: getSessionId(platformKey),
+    client_message_id: clientMessageId,
     image_urls: [],
     language,
-    platform_key,
+    platform_key: platformKey,
   };
-
-  if (!API_BASE)
-    throw new Error(
-      "Chat API is not configured. Set VITE_BDG_API_BASE during the Cloudflare Pages build.",
-    );
-  const timeoutSignal = AbortSignal.timeout(25000);
+  const timeoutSignal = AbortSignal.timeout(15000);
   const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   const res = await fetch(`${API_BASE}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal: combinedSignal,
+    cache: "no-store",
   });
-
+  const payload = await res.json().catch(() => ({} as Record<string, unknown>));
   if (!res.ok) {
-    const payload = await res.json().catch(() => ({} as any));
-    throw new ChatApiError(payload?.error || `Chat API error: ${res.status}`, {
+    throw new ChatApiError(String(payload.error || `Chat API error: ${res.status}`), {
       status: res.status,
-      code: payload?.code,
-      requestId: payload?.request_id || res.headers.get("x-request-id") || "",
-      retryAfterMs: Number(payload?.retry_after_ms || 0) || undefined,
+      code: String(payload.code || ""),
+      requestId: String(payload.request_id || res.headers.get("x-request-id") || ""),
+      retryAfterMs: Number(payload.retry_after_ms || 0) || undefined,
     });
   }
-
-  return (await res.json()) as ChatResponse;
+  const accepted = payload as unknown as ChatAcceptedResponse;
+  if (!accepted.accepted || !accepted.support_token || !accepted.conversation?.public_id) {
+    throw new ChatApiError("Chat service returned an incomplete async response", {
+      status: 502,
+      code: "CHAT_ASYNC_RESPONSE_INVALID",
+      requestId: res.headers.get("x-request-id") || "",
+    });
+  }
+  saveCustomerSupportSession(accepted.support_token, accepted.conversation.public_id, platformKey);
+  return accepted;
 }
 
 export async function fetchChatContent(platformKey = getPlatformKey(), signal?: AbortSignal): Promise<ChatContent> {
-  if (!API_BASE)
-    throw new Error(
-      "Chat API is not configured. Set VITE_BDG_API_BASE during the Cloudflare Pages build.",
-    );
+  requireApiBase();
   const timeoutSignal = AbortSignal.timeout(15000);
   const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   const res = await fetch(`${API_BASE}/chat/content?platform=${encodeURIComponent(platformKey)}`, {
@@ -197,15 +274,58 @@ export async function fetchChatContent(platformKey = getPlatformKey(), signal?: 
   return (await res.json()) as ChatContent;
 }
 
+async function supportRequest<T>(path: string, init: RequestInit = {}, supportToken?: string) {
+  requireApiBase();
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "application/json");
+  if (supportToken) headers.set("Authorization", `Bearer ${supportToken}`);
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: "no-store" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error || body?.message || `Support request failed (${res.status})`);
+  return body as T;
+}
 
-export interface SupportMessage { id:number; public_id:string; sender_type:"CUSTOMER"|"AI"|"STAFF"|"SYSTEM"; sender_name?:string; body_text:string; is_internal?:boolean; created_at:string; }
-export interface SupportConversation { id:number; public_id:string; status:string; handoff_reason?:string; assigned_staff_name?:string; }
-const SUPPORT_TOKEN_KEY = "bdg_customer_support_token";
-const SUPPORT_CONVERSATION_KEY = "bdg_customer_support_conversation";
-export function getCustomerSupportSession() { if (typeof window === "undefined") return null; const token=localStorage.getItem(SUPPORT_TOKEN_KEY); const publicId=localStorage.getItem(SUPPORT_CONVERSATION_KEY); return token&&publicId?{token,publicId}:null; }
-export function clearCustomerSupportSession(){ if(typeof window!=="undefined"){localStorage.removeItem(SUPPORT_TOKEN_KEY);localStorage.removeItem(SUPPORT_CONVERSATION_KEY);} }
-async function supportRequest<T>(path:string,init:RequestInit={},supportToken?:string){const headers=new Headers(init.headers);headers.set("Content-Type","application/json");if(supportToken)headers.set("Authorization",`Bearer ${supportToken}`);const res=await fetch(`${API_BASE}${path}`,{...init,headers,cache:"no-store"});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body?.error||body?.message||`Support request failed (${res.status})`);return body as T;}
-export async function requestHumanSupport(platformKey:string,language:string,handoffReason?:string){const res=await supportRequest<{support_token:string;conversation:SupportConversation;message:string}>(`/support/handoff?platform=${encodeURIComponent(platformKey)}`,{method:"POST",body:JSON.stringify({session_id:getSessionId(platformKey),language,handoff_reason:handoffReason||"CUSTOMER_REQUESTED_HUMAN"})});localStorage.setItem(SUPPORT_TOKEN_KEY,res.support_token);localStorage.setItem(SUPPORT_CONVERSATION_KEY,res.conversation.public_id);return res;}
-export async function fetchCustomerSupport(publicId:string,supportToken:string){return supportRequest<{conversation:SupportConversation;messages:SupportMessage[]}>(`/support/customer/conversations/${publicId}`,{},supportToken);}
-export async function sendCustomerSupportMessage(publicId:string,supportToken:string,message:string){return supportRequest<{message:SupportMessage}>(`/support/customer/conversations/${publicId}/messages`,{method:"POST",body:JSON.stringify({message,client_message_id:crypto.randomUUID()})},supportToken);}
-export function supportWebSocketUrl(){const u=new URL(API_BASE||location.origin,location.origin);u.protocol=u.protocol==="https:"?"wss:":"ws:";u.pathname="/support";u.search="";return u.toString();}
+export async function requestHumanSupport(platformKey: string, language: string, handoffReason?: string) {
+  const res = await supportRequest<{ support_token: string; conversation: SupportConversation; message: string }>(
+    `/support/handoff?platform=${encodeURIComponent(platformKey)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: getSessionId(platformKey),
+        language,
+        handoff_reason: handoffReason || "CUSTOMER_REQUESTED_HUMAN",
+      }),
+    },
+  );
+  saveCustomerSupportSession(res.support_token, res.conversation.public_id, platformKey);
+  return res;
+}
+
+export async function fetchCustomerSupport(publicId: string, supportToken: string) {
+  return supportRequest<{ conversation: SupportConversation; messages: SupportMessage[]; notes?: unknown[]; transfers?: unknown[] }>(
+    `/support/customer/conversations/${publicId}`,
+    {},
+    supportToken,
+  );
+}
+
+export async function sendCustomerSupportMessage(
+  publicId: string,
+  supportToken: string,
+  message: string,
+  clientMessageId = crypto.randomUUID(),
+) {
+  return supportRequest<{ message: SupportMessage }>(
+    `/support/customer/conversations/${publicId}/messages`,
+    { method: "POST", body: JSON.stringify({ message, client_message_id: clientMessageId }) },
+    supportToken,
+  );
+}
+
+export function supportWebSocketUrl() {
+  const u = new URL(API_BASE || location.origin, location.origin);
+  u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+  u.pathname = "/support";
+  u.search = "";
+  return u.toString();
+}

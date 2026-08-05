@@ -1,20 +1,42 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Bot,
   CheckCircle2,
   ExternalLink,
+  Headphones,
   Info,
   Languages,
   RefreshCw,
   Send,
   Sparkles,
+  Wifi,
+  WifiOff,
   XCircle,
 } from "lucide-react";
-import { ChatApiError, clearCustomerSupportSession, fetchChatContent, fetchCustomerSupport, getCustomerSupportSession, getPlatformKey, requestHumanSupport, sendChatMessage, sendCustomerSupportMessage, supportWebSocketUrl, type ChatContent, type ResponseBlock, type SupportMessage } from "@/lib/api";
+import {
+  ChatApiError,
+  clearCustomerSupportSession,
+  fetchChatContent,
+  fetchCustomerSupport,
+  getCustomerSupportSession,
+  getPlatformKey,
+  requestHumanSupport,
+  sendChatMessage,
+  sendCustomerSupportMessage,
+  supportWebSocketUrl,
+  type AiJobSummary,
+  type ChatContent,
+  type ProcessingExperience,
+  type ResponseBlock,
+  type SupportConversation,
+  type SupportMessage,
+} from "@/lib/api";
 import { CHAT_LANGUAGE_OPTIONS, getChatConfig, normalizeChatLocale, type PublicLanguage } from "@/lib/chat-config";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
 type Role = "user" | "assistant";
+type ConnectionState = "disconnected" | "connecting" | "connected" | "reconnecting" | "offline";
 
 interface Message {
   id: string;
@@ -26,6 +48,28 @@ interface Message {
   retryOf?: string;
   errorInfo?: string;
   senderName?: string;
+  senderType?: SupportMessage["sender_type"];
+  sequence?: number;
+  clientMessageId?: string;
+  deliveredAt?: string;
+  readAt?: string;
+}
+
+interface CustomerRealtimeSession {
+  token: string;
+  publicId: string;
+  conversationId: number;
+  status: string;
+  controlMode: string;
+  handoffReason?: string;
+  assignedStaffName?: string;
+  lastSequence: number;
+  returnToAiOnResolve: boolean;
+}
+
+interface ActiveJob extends AiJobSummary {
+  processing: ProcessingExperience;
+  queuedAt: number;
 }
 
 function uid() {
@@ -64,8 +108,96 @@ function safeFontFamily(value: string | undefined) {
   return allowed[String(value || "inter").toLowerCase()] || allowed.inter;
 }
 
+function supportMessageToUi(item: SupportMessage): Message {
+  const blocks = Array.isArray(item.metadata?.response_blocks) ? item.metadata?.response_blocks : undefined;
+  const images = Array.isArray(item.metadata?.content_images) ? item.metadata?.content_images : undefined;
+  return {
+    id: `support-${item.id}`,
+    role: item.sender_type === "CUSTOMER" ? "user" : "assistant",
+    content: cleanDisplayText(item.body_text),
+    senderName: item.sender_name || item.sender_type,
+    senderType: item.sender_type,
+    sequence: Number(item.message_sequence || 0),
+    clientMessageId: item.client_message_id || undefined,
+    deliveredAt: item.delivered_at,
+    readAt: item.read_at,
+    blocks,
+    images,
+  };
+}
+
+function mergeSupportMessage(current: Message[], item: SupportMessage) {
+  if (item.is_internal) return current;
+  const next = supportMessageToUi(item);
+  const filtered = current.filter((message) => {
+    if (message.id === next.id) return false;
+    if (next.clientMessageId && message.clientMessageId === next.clientMessageId) return false;
+    return true;
+  });
+  return [...filtered, next].sort((left, right) => {
+    const a = Number(left.sequence || Number.MAX_SAFE_INTEGER);
+    const b = Number(right.sequence || Number.MAX_SAFE_INTEGER);
+    return a - b;
+  });
+}
+
+function sessionFromConversation(token: string, conversation: SupportConversation): CustomerRealtimeSession {
+  return {
+    token,
+    publicId: conversation.public_id,
+    conversationId: Number(conversation.id),
+    status: conversation.status,
+    controlMode: conversation.control_mode || "AI",
+    handoffReason: conversation.handoff_reason,
+    assignedStaffName: conversation.assigned_staff_name,
+    lastSequence: Number(conversation.last_message_sequence || 0),
+    returnToAiOnResolve: conversation.return_to_ai_on_resolve !== false,
+  };
+}
+
+function processingLabel(job: ActiveJob | undefined, count: number, secondary: boolean) {
+  if (!job) return "";
+  const base = secondary && job.processing.secondary_message
+    ? job.processing.secondary_message
+    : job.processing.message || "I’m preparing your answer. Please give me a moment…";
+  return count > 1 ? `${base} (${count} answers queued)` : base;
+}
+
+function AsyncProcessingIndicator({ jobs }: { jobs: ActiveJob[] }) {
+  const job = jobs[0];
+  const [visible, setVisible] = useState(false);
+  const [secondary, setSecondary] = useState(false);
+  useEffect(() => {
+    setVisible(false);
+    setSecondary(false);
+    if (!job || job.processing.enabled === false) return;
+    const elapsed = Math.max(0, Date.now() - job.queuedAt);
+    const firstDelay = Math.max(0, Number(job.processing.show_after_ms || 700) - elapsed);
+    const secondDelay = Math.max(firstDelay, Number(job.processing.secondary_after_ms || 8000) - elapsed);
+    const maxDelay = Math.max(firstDelay + 1000, Number(job.processing.max_visible_ms || 45000) - elapsed);
+    const first = window.setTimeout(() => setVisible(true), firstDelay);
+    const second = window.setTimeout(() => { setVisible(true); setSecondary(true); }, secondDelay);
+    const maximum = window.setTimeout(() => setVisible(false), maxDelay);
+    return () => { window.clearTimeout(first); window.clearTimeout(second); window.clearTimeout(maximum); };
+  }, [job?.id, job?.status, job?.queuedAt, job?.processing.show_after_ms, job?.processing.secondary_after_ms, job?.processing.max_visible_ms]);
+  if (!job || !visible) return null;
+  return (
+    <div className="flex justify-start msg-in" aria-live="polite">
+      <div className="ai-processing-card max-w-[88%] rounded-2xl rounded-bl-sm border border-border bg-bubble-ai px-4 py-3 text-sm text-bubble-ai-foreground">
+        <div className="flex items-center gap-2">
+          <span className="typing-dot" />
+          <span>{processingLabel(job, jobs.length, secondary)}</span>
+        </div>
+        <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+          {job.status === "RETRYING" ? "Retrying safely" : job.status === "PROCESSING" ? "AI processing" : "Queued"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
-  const [preview, setPreview] = useState<{ src:string; alt:string } | null>(null);
+  const [preview, setPreview] = useState<{ src: string; alt: string } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [usedQuickReplies, setUsedQuickReplies] = useState<Set<string>>(() => new Set());
   const [input, setInput] = useState("");
@@ -74,6 +206,23 @@ export default function App() {
     if (typeof window === "undefined") return "en";
     return (window.localStorage.getItem("bdg_chat_language") as PublicLanguage) || "en";
   });
+  const [started, setStarted] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [waitHint, setWaitHint] = useState(false);
+  const [supportSession, setSupportSession] = useState<CustomerRealtimeSession | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+  const [staffTyping, setStaffTyping] = useState(false);
+  const [activeJobs, setActiveJobs] = useState<Record<number, ActiveJob>>({});
+  const [defaultProcessing, setDefaultProcessing] = useState<ProcessingExperience>({
+    enabled: true,
+    message: "I’m preparing your answer. Please give me a moment…",
+    secondary_message: "I’m still working on your answer…",
+    show_after_ms: 700,
+    secondary_after_ms: 8000,
+    max_visible_ms: 45000,
+    allow_additional_messages: true,
+  });
+
   const platformKey = getPlatformKey();
   const effectiveLanguage = normalizeChatLocale(language, normalizeChatLocale(content?.default_locale, "en"));
   const chatConfig = getChatConfig(effectiveLanguage, platformKey);
@@ -81,24 +230,17 @@ export default function App() {
   const startModule = content?.start_module;
   const languageOptions = content?.languages?.length ? content.languages : CHAT_LANGUAGE_OPTIONS;
   const startEnabled = Boolean(content && startModule?.enabled !== false);
-  const [started, setStarted] = useState(false);
   const headerTitle = content?.branding?.title || dynamicTexts.title || chatConfig.chatTitle;
   const onlineText = content?.branding?.online || dynamicTexts.online || chatConfig.onlineLabel;
   const welcomeTitle = dynamicTexts.welcome_title || chatConfig.welcomeTitle;
   const welcomeText = dynamicTexts.welcome || chatConfig.welcomeText;
   const iconUrl = content?.branding?.chat_icon_url || "";
-  // Never render built-in quick replies while tenant content is loading or
-  // unavailable. That prevents the previous platform's actions leaking into
-  // a child tenant. Each visible reply is consumed after its first use.
-  const quickQuestions = content
-    ? (content.quick_replies || []).slice(0, 5).map((q) => q.query || q.text)
-    : [];
+  const quickQuestions = content ? (content.quick_replies || []).slice(0, 5).map((q) => q.query || q.text) : [];
   const visibleQuickQuestions = quickQuestions.filter((question) => !usedQuickReplies.has(question));
   const actionButtons = content?.action_buttons || [];
   const layout = safePreset(startModule?.layout || content?.settings?.chat_layout, SAFE_LAYOUTS, "standard");
   const bubbleStyle = safePreset(startModule?.bubble_style || content?.settings?.chat_bubble_style, SAFE_BUBBLES, "soft");
   const inputStyle = safePreset(startModule?.input_style || content?.settings?.chat_input_style, SAFE_INPUTS, "rounded");
-  const animation = safePreset(startModule?.animation, SAFE_ANIMATIONS, "fade");
   const backgroundUrl = safeVisualUrl(startModule?.background_url || content?.settings?.chat_background_url);
   const themeStyle = {
     "--brand": content?.settings?.accent_color || undefined,
@@ -109,50 +251,166 @@ export default function App() {
     fontFamily: safeFontFamily(content?.settings?.font_family),
   } as React.CSSProperties;
 
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [waitHint, setWaitHint] = useState(false);
-  const [supportSession, setSupportSession] = useState<{token:string;publicId:string;status:string;handoffReason?:string}|null>(null);
+  const processingRef = useRef(defaultProcessing);
+  processingRef.current = defaultProcessing;
   const supportSocket = useRef<WebSocket | null>(null);
+  const reconnectTimer = useRef<number | null>(null);
+  const reconnectAttempt = useRef(0);
+  const socketGeneration = useRef(0);
+  const lastSequenceRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const humanControlled = Boolean(supportSession && (supportSession.controlMode === "HUMAN" || ["WAITING_FOR_AGENT", "ASSIGNED", "AGENT_ACTIVE", "TRANSFER_REQUESTED"].includes(supportSession.status)));
+  const closed = supportSession?.controlMode === "CLOSED" || supportSession?.status === "CLOSED";
+  const jobs = useMemo(() => Object.values(activeJobs).sort((a, b) => a.queuedAt - b.queuedAt || a.id - b.id), [activeJobs]);
+  const allowAdditionalMessages = jobs[0]?.processing.allow_additional_messages ?? defaultProcessing.allow_additional_messages ?? true;
+  const composerDisabled = closed || isSending || (jobs.length > 0 && !allowAdditionalMessages);
+
+  const updateSession = useCallback((conversation: SupportConversation, tokenValue?: string) => {
+    setSupportSession((current) => sessionFromConversation(tokenValue || current?.token || "", conversation));
+    lastSequenceRef.current = Math.max(lastSequenceRef.current, Number(conversation.last_message_sequence || 0));
+  }, []);
+
+  const ingestMessage = useCallback((item: SupportMessage) => {
+    if (item.is_internal) return;
+    setMessages((current) => mergeSupportMessage(current, item));
+    lastSequenceRef.current = Math.max(lastSequenceRef.current, Number(item.message_sequence || 0));
+    setSupportSession((current) => current ? { ...current, lastSequence: Math.max(current.lastSequence, Number(item.message_sequence || 0)) } : current);
+    if (item.sender_type === "AI") {
+      setActiveJobs((current) => {
+        const next = { ...current };
+        if (item.ai_job_id) delete next[item.ai_job_id];
+        else {
+          const oldest = Object.values(next).sort((a, b) => a.queuedAt - b.queuedAt)[0];
+          if (oldest) delete next[oldest.id];
+        }
+        return next;
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
     setUsedQuickReplies(new Set());
-    fetchChatContent(platformKey, controller.signal)
-      .then(setContent)
-      .catch(() => null);
+    fetchChatContent(platformKey, controller.signal).then(setContent).catch(() => null);
     return () => controller.abort();
   }, [platformKey]);
 
   useEffect(() => {
-    const saved = getCustomerSupportSession();
+    const saved = getCustomerSupportSession(platformKey);
     if (!saved) return;
-    fetchCustomerSupport(saved.publicId, saved.token).then((data) => {
-      if (["RESOLVED","CLOSED"].includes(data.conversation.status)) { clearCustomerSupportSession(); return; }
-      setSupportSession({ token:saved.token, publicId:saved.publicId, status:data.conversation.status, handoffReason:data.conversation.handoff_reason });
-      setStarted(true);
-      setMessages(data.messages.filter((item) => !item.is_internal).map((item) => ({ id:`support-${item.id}`, role:item.sender_type === "CUSTOMER" ? "user" : "assistant", content:item.body_text, senderName:item.sender_name || item.sender_type })));
-    }).catch(() => clearCustomerSupportSession());
+    fetchCustomerSupport(saved.publicId, saved.token)
+      .then((data) => {
+        if (data.conversation.status === "CLOSED" || data.conversation.control_mode === "CLOSED") {
+          clearCustomerSupportSession(platformKey);
+          return;
+        }
+        const session = sessionFromConversation(saved.token, data.conversation);
+        setSupportSession(session);
+        lastSequenceRef.current = Number(data.conversation.last_message_sequence || 0);
+        setStarted(true);
+        setMessages((data.messages || []).filter((item) => !item.is_internal).map(supportMessageToUi));
+      })
+      .catch(() => clearCustomerSupportSession());
   }, [platformKey]);
 
   useEffect(() => {
-    if (!supportSession) return;
-    const socket = new WebSocket(supportWebSocketUrl(), ["bdg-support", supportSession.token]);
-    supportSocket.current = socket;
-    socket.onmessage = (event) => {
-      try {
-        const packet = JSON.parse(event.data);
-        if (packet.data?.message && !packet.data.message.is_internal) {
-          const item = packet.data.message as SupportMessage;
-          setMessages((current) => current.some((message) => message.id === `support-${item.id}`) ? current : [...current,{ id:`support-${item.id}`,role:item.sender_type === "CUSTOMER" ? "user" : "assistant",content:item.body_text,senderName:item.sender_name || item.sender_type }]);
+    if (!supportSession?.token || !supportSession.publicId) return;
+    const generation = ++socketGeneration.current;
+    let disposed = false;
+
+    const connect = () => {
+      if (disposed || generation !== socketGeneration.current) return;
+      setConnectionState(reconnectAttempt.current > 0 ? "reconnecting" : "connecting");
+      const socket = new WebSocket(supportWebSocketUrl(), ["bdg-support", supportSession.token]);
+      supportSocket.current = socket;
+      socket.onopen = () => {
+        if (disposed || generation !== socketGeneration.current) return socket.close();
+        reconnectAttempt.current = 0;
+        setConnectionState("connected");
+        socket.send(JSON.stringify({ event: "support:sync", data: { conversation_id: supportSession.conversationId, after_sequence: lastSequenceRef.current } }));
+      };
+      socket.onmessage = (event) => {
+        try {
+          const packet = JSON.parse(String(event.data || "{}"));
+          const data = packet.data || {};
+          if (packet.event === "support:snapshot") {
+            if (data.conversation) updateSession(data.conversation);
+            for (const item of (data.messages || []) as SupportMessage[]) ingestMessage(item);
+            const active = Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : data.active_ai_job ? [data.active_ai_job] : [];
+            if (active.length) {
+              setActiveJobs((current) => {
+                const next = { ...current };
+                for (const job of active as AiJobSummary[]) next[Number(job.id)] = { ...job, processing: current[Number(job.id)]?.processing || processingRef.current, queuedAt: current[Number(job.id)]?.queuedAt || Date.parse(job.created_at || "") || Date.now() };
+                return next;
+              });
+            }
+          }
+          if ((packet.event === "support:message_created" || packet.event === "ai:message_created") && data.message) ingestMessage(data.message as SupportMessage);
+          if (["ai:job_queued", "ai:processing_started", "ai:processing_updated"].includes(packet.event)) {
+            const id = Number(data.job_id || 0);
+            if (id) setActiveJobs((current) => ({
+              ...current,
+              [id]: {
+                ...(current[id] || { id, queuedAt: Date.now(), processing: data.processing || processingRef.current }),
+                id,
+                status: data.status || current[id]?.status || "QUEUED",
+                attempt_count: Number(data.attempt_count || current[id]?.attempt_count || 0),
+                processing: data.processing || current[id]?.processing || processingRef.current,
+              },
+            }));
+          }
+          if (["ai:processing_failed", "ai:processing_cancelled"].includes(packet.event)) {
+            const id = Number(data.job_id || 0);
+            if (id) setActiveJobs((current) => { const next = { ...current }; delete next[id]; return next; });
+          }
+          if (packet.event === "support:message_state" && data.actor === "staff") {
+            const through = Number(data.through_sequence || 0);
+            setMessages((current) => current.map((message) => message.role === "user" && Number(message.sequence || 0) <= through
+              ? { ...message, deliveredAt: data.updated_at || message.deliveredAt, readAt: data.state === "read" ? (data.updated_at || message.readAt) : message.readAt }
+              : message));
+          }
+          if (packet.event === "support:conversation_assigned") {
+            setSupportSession((current) => current ? { ...current, status: "AGENT_ACTIVE", controlMode: "HUMAN", assignedStaffName: data.staff?.display_name || data.conversation?.assigned_staff_name || current.assignedStaffName } : current);
+          }
+          if (packet.event === "support:conversation_resolved") {
+            const returnToAi = data.return_to_ai !== false && data.conversation?.control_mode !== "CLOSED";
+            setSupportSession((current) => current ? { ...current, status: data.conversation?.status || "RESOLVED", controlMode: returnToAi ? "AI" : "CLOSED", assignedStaffName: "" } : current);
+            setActiveJobs({});
+          }
+          if (packet.event === "support:typing" && data.actor === "staff") {
+            setStaffTyping(data.is_typing === true);
+            if (data.is_typing) window.setTimeout(() => setStaffTyping(false), 5000);
+          }
+          if (packet.event === "support:message_created" || packet.event === "ai:message_created") {
+            const seq = Number(data.message?.message_sequence || 0);
+            if (seq && socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ event: "support:read", data: { conversation_id: supportSession.conversationId, through_sequence: seq } }));
+            }
+          }
+        } catch {
+          // Ignore malformed realtime packets and recover with support:sync.
         }
-        if (packet.event === "support:conversation_assigned") setSupportSession((value)=>value?{...value,status:"AGENT_ACTIVE"}:value);
-        if (packet.event === "support:conversation_resolved") { setSupportSession((value)=>value?{...value,status:"RESOLVED"}:value); clearCustomerSupportSession(); }
-      } catch { /* ignore malformed realtime packets */ }
+      };
+      socket.onerror = () => setConnectionState("offline");
+      socket.onclose = () => {
+        if (disposed || generation !== socketGeneration.current) return;
+        setConnectionState("reconnecting");
+        const attempt = Math.min(8, reconnectAttempt.current++);
+        const delay = Math.min(15000, 750 * 2 ** attempt) + Math.floor(Math.random() * 300);
+        reconnectTimer.current = window.setTimeout(connect, delay);
+      };
     };
-    return () => socket.close();
-  }, [supportSession?.token, supportSession?.publicId]);
+
+    connect();
+    return () => {
+      disposed = true;
+      if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current);
+      supportSocket.current?.close(1000, "Chat session changed");
+      supportSocket.current = null;
+      setConnectionState("disconnected");
+    };
+  }, [supportSession?.token, supportSession?.publicId, supportSession?.conversationId, ingestMessage, updateSession]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -168,9 +426,7 @@ export default function App() {
       link.setAttribute("data-platform-favicon", "true");
       link.href = favicon;
       if (!existing) document.head.appendChild(link);
-    } else if (existing) {
-      existing.remove();
-    }
+    } else if (existing) existing.remove();
   }, [content?.branding?.favicon_url, headerTitle, platformKey]);
 
   const scrollToBottom = useCallback(() => {
@@ -178,99 +434,77 @@ export default function App() {
     if (!el) return;
     requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }));
   }, []);
+  useEffect(() => { scrollToBottom(); }, [messages, jobs.length, staffTyping, scrollToBottom]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isProcessing, scrollToBottom]);
-
-  const send = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) return;
-      if (isProcessing) {
-        setWaitHint(true);
-        setTimeout(() => setWaitHint(false), 2000);
-        return;
-      }
-
-      setStarted(true);
-
-      setMessages((m) => [...m, { id: uid(), role: "user", content: trimmed }]);
-      setInput("");
-      setIsProcessing(true);
-
-      try {
-        if (supportSession && !["RESOLVED","CLOSED"].includes(supportSession.status)) {
-          const sent = await sendCustomerSupportMessage(supportSession.publicId,supportSession.token,trimmed);
-          setMessages((current)=>current.map((message)=>message.content===trimmed && message.role==="user" ? message : message));
-          if (sent.message?.id) setMessages((current)=>current.map((message,index)=>index===current.length-1&&message.role==="user"?{...message,id:`support-${sent.message.id}`} : message));
-          return;
+  const send = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || closed) return;
+    if (composerDisabled) {
+      setWaitHint(true);
+      window.setTimeout(() => setWaitHint(false), 2200);
+      return;
+    }
+    setStarted(true);
+    setInput("");
+    setIsSending(true);
+    const clientMessageId = crypto.randomUUID();
+    const pendingId = `pending-${clientMessageId}`;
+    setMessages((current) => [...current, { id: pendingId, role: "user", content: trimmed, clientMessageId }]);
+    try {
+      if (humanControlled && supportSession) {
+        const sent = await sendCustomerSupportMessage(supportSession.publicId, supportSession.token, trimmed, clientMessageId);
+        ingestMessage(sent.message);
+      } else {
+        const accepted = await sendChatMessage(trimmed, effectiveLanguage, platformKey, clientMessageId);
+        updateSession(accepted.conversation, accepted.support_token);
+        ingestMessage(accepted.message);
+        const processing = accepted.processing || defaultProcessing;
+        setDefaultProcessing(processing);
+        if (accepted.ai_job) {
+          const jobId = Number(accepted.ai_job.id);
+          setActiveJobs((current) => ({
+            ...current,
+            [jobId]: { ...accepted.ai_job!, processing, queuedAt: Date.now() },
+          }));
         }
-        const res = await sendChatMessage(trimmed, effectiveLanguage, platformKey);
-        // During a rolling deployment an older API may still return a usable
-        // fallback as an `error` block. Treat that as information, not as a
-        // false red network failure.
-        const safeBlocks = (res.response_blocks || []).map((block) =>
-          res.technical_failure && block.type === "error"
-            ? ({ ...block, type: "notice" } as ResponseBlock)
-            : block,
-        );
-        setMessages((m) => [
-          ...m,
-          {
-            id: uid(),
-            role: "assistant",
-            content: cleanDisplayText(res.reply || chatConfig.fallbackMessage),
-            blocks: safeBlocks,
-            images: res.content_images || [],
-          },
-        ]);
-      } catch (error) {
-        const errorInfo = error instanceof ChatApiError
-          ? `${error.message}${error.requestId ? ` · Request ${error.requestId}` : ""}`
-          : "The support service did not return a usable response.";
-        setMessages((m) => [
-          ...m,
-          {
-            id: uid(),
-            role: "assistant",
-            content: chatConfig.fallbackMessage,
-            error: true,
-            retryOf: trimmed,
-            errorInfo,
-          },
-        ]);
-      } finally {
-        setIsProcessing(false);
-        setTimeout(() => inputRef.current?.focus(), 30);
       }
-    },
-    [isProcessing, effectiveLanguage, platformKey, chatConfig.fallbackMessage, supportSession],
-  );
+    } catch (error) {
+      setMessages((current) => current.filter((message) => message.id !== pendingId).concat({
+        id: uid(),
+        role: "assistant",
+        content: chatConfig.fallbackMessage,
+        error: true,
+        retryOf: trimmed,
+        errorInfo: error instanceof ChatApiError
+          ? `${error.message}${error.requestId ? ` · Request ${error.requestId}` : ""}`
+          : error instanceof Error ? error.message : "The service did not accept the message.",
+      }));
+    } finally {
+      setIsSending(false);
+      window.setTimeout(() => inputRef.current?.focus(), 30);
+    }
+  }, [chatConfig.fallbackMessage, closed, composerDisabled, defaultProcessing, effectiveLanguage, humanControlled, ingestMessage, platformKey, supportSession, updateSession]);
 
   const startHumanSupport = useCallback(async (reason?: string) => {
-    if (isProcessing || supportSession) return;
-    setIsProcessing(true);
+    if (isSending || humanControlled || closed) return;
+    setIsSending(true);
     try {
-      const handoff = await requestHumanSupport(platformKey,effectiveLanguage,reason);
-      setSupportSession({ token:handoff.support_token,publicId:handoff.conversation.public_id,status:handoff.conversation.status,handoffReason:handoff.conversation.handoff_reason });
-      setMessages((current)=>[...current,{id:uid(),role:"assistant",content:handoff.message,senderName:"Customer Service"}]);
+      const handoff = await requestHumanSupport(platformKey, effectiveLanguage, reason);
+      updateSession(handoff.conversation, handoff.support_token);
+      setActiveJobs({});
     } catch (error) {
-      setMessages((current)=>[...current,{id:uid(),role:"assistant",content:error instanceof Error?error.message:chatConfig.fallbackMessage,error:true}]);
-    } finally { setIsProcessing(false); }
-  },[isProcessing,supportSession,platformKey,effectiveLanguage,chatConfig.fallbackMessage]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    send(input);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send(input);
+      setMessages((current) => [...current, { id: uid(), role: "assistant", content: error instanceof Error ? error.message : chatConfig.fallbackMessage, error: true }]);
+    } finally {
+      setIsSending(false);
     }
-  };
+  }, [chatConfig.fallbackMessage, closed, effectiveLanguage, humanControlled, isSending, platformKey, updateSession]);
+
+  const connectionCopy = connectionState === "connected" ? "Live" : connectionState === "reconnecting" ? "Reconnecting" : connectionState === "connecting" ? "Connecting" : supportSession ? "Offline" : onlineText;
+  const modeCopy = closed
+    ? "Conversation closed"
+    : humanControlled
+      ? supportSession?.status === "WAITING_FOR_AGENT" ? "Waiting for customer service" : `Customer Service${supportSession?.assignedStaffName ? ` · ${supportSession.assignedStaffName}` : ""}`
+      : supportSession?.status === "RESOLVED" ? "AI Assistant is available again" : "AI Assistant";
 
   return (
     <div className="min-h-[100dvh] w-full bg-background flex justify-center" style={themeStyle}>
@@ -280,117 +514,57 @@ export default function App() {
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div className="relative shrink-0">
                 <div className="w-10 h-10 rounded-full bg-brand text-brand-foreground grid place-items-center font-bold shadow-sm overflow-hidden">
-                  {iconUrl ? (
-                    <img src={iconUrl} alt={`${headerTitle} logo`} className="h-full w-full object-cover" />
-                  ) : (
-                    platformKey === "default" ? <Sparkles className="w-5 h-5" /> : <span className="text-xs font-bold">?</span>
-                  )}
+                  {iconUrl ? <img src={iconUrl} alt={`${headerTitle} logo`} className="h-full w-full object-cover" /> : platformKey === "default" ? <Sparkles className="w-5 h-5" /> : <span className="text-xs font-bold">?</span>}
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-background" />
+                <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${connectionState === "connected" || !supportSession ? "bg-emerald-400" : "bg-amber-400"}`} />
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">{headerTitle}</div>
-                <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  {onlineText}
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                  {connectionState === "connected" || !supportSession ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+                  <span>{connectionCopy}</span>
+                  <span>·</span>
+                  <span>{modeCopy}</span>
                 </div>
               </div>
             </div>
-
             <label className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground">
               <Languages className="h-3.5 w-3.5" />
-              <select
-                value={language}
-                onChange={(e) => {
-                  const next = e.target.value as PublicLanguage;
-                  setLanguage(next);
-                  if (typeof window !== "undefined")
-                    window.localStorage.setItem("bdg_chat_language", next);
-                }}
-                disabled={isProcessing}
-                className="bg-transparent text-foreground outline-none"
-                aria-label={chatConfig.languageLabel}
-              >
-                {languageOptions.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
-                ))}
+              <select value={language} onChange={(e) => { const next = e.target.value as PublicLanguage; setLanguage(next); localStorage.setItem("bdg_chat_language", next); }} disabled={isSending} className="bg-transparent text-foreground outline-none" aria-label={chatConfig.languageLabel}>
+                {languageOptions.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
               </select>
             </label>
           </div>
+          {supportSession && (
+            <div className={`chat-mode-strip ${humanControlled ? "human" : supportSession.status === "RESOLVED" ? "resolved" : "ai"}`}>
+              {humanControlled ? <Headphones className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+              <span>{modeCopy}</span>
+              {humanControlled && supportSession.status === "WAITING_FOR_AGENT" && <span className="ml-auto text-[10px] opacity-80">Your request is in the live queue</span>}
+            </div>
+          )}
         </header>
 
         <div ref={scrollRef} className="chat-scroll flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {startEnabled && !started ? (
-            <ChatStartModule
-              module={startModule}
-              iconUrl={iconUrl}
-              actionButtons={actionButtons}
-              onStart={() => {
-                setStarted(true);
-                setTimeout(() => inputRef.current?.focus(), 30);
-              }}
-              onPrompt={send}
-            />
+            <ChatStartModule module={startModule} iconUrl={iconUrl} actionButtons={actionButtons} onStart={() => { setStarted(true); setTimeout(() => inputRef.current?.focus(), 30); }} onPrompt={send} />
           ) : (
-            <>
-              <section className="rounded-2xl bg-gradient-to-br from-surface-elevated to-surface border border-border p-4 msg-in">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-brand/15 text-brand grid place-items-center shrink-0 overflow-hidden">
-                    {iconUrl ? (
-                      <img src={iconUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <Sparkles className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="font-semibold text-sm">{welcomeTitle}</h2>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{welcomeText}</p>
-                  </div>
-                </div>
-              </section>
-
-            </>
+            <section className="rounded-2xl bg-gradient-to-br from-surface-elevated to-surface border border-border p-4 msg-in">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-brand/15 text-brand grid place-items-center shrink-0 overflow-hidden">{iconUrl ? <img src={iconUrl} alt="" className="h-full w-full object-cover" /> : <Sparkles className="w-5 h-5" />}</div>
+                <div className="min-w-0"><h2 className="font-semibold text-sm">{welcomeTitle}</h2><p className="text-xs text-muted-foreground mt-1 leading-relaxed">{welcomeText}</p></div>
+              </div>
+            </section>
           )}
-
-          {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} onRetry={() => m.retryOf && send(m.retryOf)} onPrompt={send} onPreview={(src,alt)=>setPreview({src,alt})} onHandoff={startHumanSupport} />
-          ))}
-          {isProcessing && <TypingIndicator />}
+          {messages.map((message) => <MessageBubble key={message.id} message={message} onRetry={() => message.retryOf && send(message.retryOf)} onPrompt={send} onPreview={(src, alt) => setPreview({ src, alt })} onHandoff={startHumanSupport} />)}
+          <AsyncProcessingIndicator jobs={jobs} />
+          {staffTyping && humanControlled && <div className="text-xs text-muted-foreground px-2">Customer service is typing…</div>}
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur-md px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
-        >
-          {waitHint && (
-            <div className="text-[11px] text-muted-foreground px-2 pb-1">
-              {chatConfig.waitInlineNote}
-            </div>
-          )}
-          {isProcessing && !waitHint && (
-            <div className="text-[11px] text-brand/90 px-2 pb-1 flex items-center gap-1.5">
-              <span className="typing-dot" />
-              {chatConfig.replyingLabel}
-            </div>
-          )}
-          {visibleQuickQuestions.length > 0 && (
+        <form onSubmit={(event) => { event.preventDefault(); void send(input); }} className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur-md px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          {waitHint && <div className="text-[11px] text-muted-foreground px-2 pb-1">{jobs.length ? "Your previous message is still being processed." : chatConfig.waitInlineNote}</div>}
+          {visibleQuickQuestions.length > 0 && !humanControlled && (
             <div className="mb-2 flex flex-wrap gap-2" aria-label="Quick replies">
-              {visibleQuickQuestions.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  disabled={isProcessing}
-                  onClick={() => {
-                    setUsedQuickReplies((previous) => new Set(previous).add(q));
-                    void send(q);
-                  }}
-                  className="text-xs px-3 py-1.5 rounded-full border border-border bg-surface hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {q}
-                </button>
-              ))}
+              {visibleQuickQuestions.map((question) => <button key={question} type="button" disabled={composerDisabled} onClick={() => { setUsedQuickReplies((previous) => new Set(previous).add(question)); void send(question); }} className="text-xs px-3 py-1.5 rounded-full border border-border bg-surface hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors">{question}</button>)}
             </div>
           )}
           <div className="flex items-end gap-2">
@@ -398,29 +572,19 @@ export default function App() {
               ref={inputRef}
               rows={1}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isProcessing}
-              placeholder={
-                isProcessing
-                  ? dynamicTexts.busy || chatConfig.placeholderBusy
-                  : dynamicTexts.placeholder || chatConfig.placeholderIdle
-              }
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(input); } }}
+              disabled={composerDisabled}
+              placeholder={closed ? "This conversation is closed" : humanControlled ? "Message customer service…" : jobs.length && !allowAdditionalMessages ? "Please wait for the current answer…" : dynamicTexts.placeholder || chatConfig.placeholderIdle}
               className="flex-1 resize-none max-h-32 rounded-2xl bg-surface border border-border px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 placeholder:text-muted-foreground"
               style={{ minHeight: "42px" }}
             />
-            <button
-              type="submit"
-              disabled={isProcessing || !input.trim()}
-              aria-label="Send message"
-              className="shrink-0 w-11 h-11 rounded-full bg-brand text-brand-foreground grid place-items-center hover:bg-brand-glow disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-            >
-              <Send className="w-4.5 h-4.5" strokeWidth={2.25} />
-            </button>
+            <button type="submit" disabled={composerDisabled || !input.trim()} aria-label="Send message" className="shrink-0 w-11 h-11 rounded-full bg-brand text-brand-foreground grid place-items-center hover:bg-brand-glow disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"><Send className="w-4.5 h-4.5" strokeWidth={2.25} /></button>
           </div>
+          {supportSession && connectionState !== "connected" && <div className="mt-1 px-2 text-[10px] text-amber-300">Realtime connection is {connectionState}. Messages will synchronize automatically.</div>}
         </form>
       </div>
-      {preview && <ImageLightbox src={preview.src} alt={preview.alt} onClose={()=>setPreview(null)} />}
+      {preview && <ImageLightbox src={preview.src} alt={preview.alt} onClose={() => setPreview(null)} />}
     </div>
   );
 }
