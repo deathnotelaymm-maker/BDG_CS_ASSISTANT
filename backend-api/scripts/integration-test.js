@@ -50,9 +50,11 @@ globalThis.fetch = async (input, init = {}) => {
   const request = JSON.parse(String(init.body || '{}'));
   assert.equal(request.model, 'deepseek-v4-flash', 'Integration provider calls must use the current DeepSeek model');
   const systemPrompt = String(request.messages?.[0]?.content || '');
+  const isPlainTextPrompt = /Return only the customer-facing answer as plain text/i.test(systemPrompt)
+    && /ACTIVE ASSISTANT SETUP RUNTIME/i.test(systemPrompt);
   const requestKind = systemPrompt.startsWith('This is a provider connectivity test')
     ? 'connectivity'
-    : systemPrompt.startsWith('You are the production AI assistant') ? 'prompt_first'
+    : isPlainTextPrompt ? 'prompt_first'
     : systemPrompt.startsWith('You are the AI Meaning Judge') ? 'judge' : 'composer';
   providerRequestKinds.push(requestKind);
   providerSystemPrompts.push(systemPrompt);

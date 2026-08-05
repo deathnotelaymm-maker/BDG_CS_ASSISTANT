@@ -17,6 +17,7 @@ const staff = read('staff-pro/src/App.tsx');
 const staffApi = read('staff-pro/src/api.ts');
 const admin = read('admin-pro/src/routes/_admin.customer-service.tsx');
 const contentStudio = read('admin-pro/src/routes/_admin.ai-content-studio.tsx');
+const integrationTest = read('backend-api/scripts/integration-test.js');
 
 const checks = [];
 function test(name, condition) {
@@ -68,5 +69,6 @@ test('Customer Service Admin exposes localized customer messages', admin.include
 test('Customer Service Admin exposes selected media diagnostics', admin.includes('selected_match_method') && admin.includes('selected_asset_manifest'));
 test('all customer system messages are localized centrally', service.includes('DEFAULT_CUSTOMER_MESSAGES') && ['my','id','zh','hi'].every((locale)=>service.includes(`${locale}:{`)));
 test('server advertises continuity and hybrid media features', server.includes('websocket-with-http-catchup-fallback') && server.includes('hybrid-menu-media-matching') && server.includes('neutral-customer-brand-status'));
+test('integration provider classifies the plain-text runtime by contract markers', integrationTest.includes('isPlainTextPrompt') && integrationTest.includes('Return only the customer-facing answer as plain text') && integrationTest.includes('ACTIVE ASSISTANT SETUP RUNTIME') && !integrationTest.includes("systemPrompt.startsWith('You are the production AI assistant') ? 'prompt_first'"));
 
 console.log(`\n${checks.length}/${checks.length} v1.16.2 conversation continuity checks passed.`);

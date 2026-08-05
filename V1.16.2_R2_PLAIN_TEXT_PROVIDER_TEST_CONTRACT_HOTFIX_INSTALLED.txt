@@ -1,0 +1,7 @@
+BDG v1.16.2-r2 Plain-Text Provider Test Contract Hotfix
+
+This marker confirms that the PostgreSQL integration provider recognizes the v1.16.2 plain-text worker from stable contract markers instead of the obsolete assistant-title prefix.
+
+Runtime version: 1.16.2
+Migration: 040 unchanged
+Next migration: 041
