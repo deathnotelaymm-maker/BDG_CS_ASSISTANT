@@ -1,0 +1,9 @@
+BDG CS Assistant
+Version: 1.17.0
+Release: Professional Customer Service Workspace & Chat Media Upgrade
+Release marker: 1.17.0-professional-support-workspace-chat-media
+Database migration: 043_v1.17.0_professional_support_workspace_media_quick_replies.sql
+Next migration: 044
+
+This marker confirms that the v1.17.0 source payload was installed. It does not
+confirm that migration 043 or production deployment has completed.

@@ -4,6 +4,11 @@ import {
   CheckCircle2,
   ExternalLink,
   Headphones,
+  Image as ImageIcon,
+  Paperclip,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
   Info,
   RefreshCw,
   Send,
@@ -15,6 +20,8 @@ import {
   cancelCustomerHandoff,
   clearCustomerSupportSession,
   fetchChatContent,
+  fetchChatPromotions,
+  fetchPublicSupportSettings,
   fetchCustomerSupport,
   fetchOlderCustomerMessages,
   getCustomerSupportSession,
@@ -23,11 +30,14 @@ import {
   resumeCustomerConversation,
   sendChatMessage,
   sendCustomerSupportMessage,
+  uploadCustomerSupportAttachment,
+  saveCustomerSupportContext,
   syncCustomerSupport,
   openCustomerSupportStream,
   consumeSupportEventStream,
   type AiJobSummary,
   type ChatContent,
+  type ChatPromotion,
   type ProcessingExperience,
   type ResponseBlock,
   type SupportConversation,
@@ -54,6 +64,10 @@ interface Message {
   clientMessageId?: string;
   deliveredAt?: string;
   readAt?: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentContentType?: string;
+  attachmentSizeBytes?: number;
 }
 
 interface CustomerRealtimeSession {
@@ -125,6 +139,10 @@ function supportMessageToUi(item: SupportMessage): Message {
     readAt: item.read_at,
     blocks,
     images,
+    attachmentUrl: item.attachment_url || undefined,
+    attachmentName: item.attachment_name || undefined,
+    attachmentContentType: item.attachment_content_type || undefined,
+    attachmentSizeBytes: item.attachment_size_bytes || undefined,
   };
 }
 
@@ -217,6 +235,10 @@ export default function App() {
   const [usedQuickReplies, setUsedQuickReplies] = useState<Set<string>>(() => new Set());
   const [input, setInput] = useState("");
   const [content, setContent] = useState<ChatContent | null>(null);
+  const [promotions, setPromotions] = useState<ChatPromotion[]>([]);
+  const [promotionIndex, setPromotionIndex] = useState(0);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [customerAttachmentsEnabled,setCustomerAttachmentsEnabled]=useState(false);
   const [started, setStarted] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [waitHint, setWaitHint] = useState(false);
@@ -277,11 +299,16 @@ export default function App() {
   const syncInFlightRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const humanControlled = Boolean(supportSession && (supportSession.controlMode === "HUMAN" || ["WAITING_FOR_AGENT", "ASSIGNED", "AGENT_ACTIVE", "TRANSFER_REQUESTED"].includes(supportSession.status)));
   const closed = supportSession?.controlMode === "CLOSED" || supportSession?.status === "CLOSED";
   const jobs = useMemo(() => Object.values(activeJobs).sort((a, b) => a.queuedAt - b.queuedAt || a.id - b.id), [activeJobs]);
   const allowAdditionalMessages = false;
-  const composerDisabled = closed || isSending || jobs.length > 0;
+  const composerDisabled = closed || isSending || jobs.length > 0 || uploadingAttachment;
+  const humanAttachmentsAllowed = Boolean(customerAttachmentsEnabled && supportSession && supportSession.controlMode === "HUMAN" && ["ASSIGNED","AGENT_ACTIVE","TRANSFER_REQUESTED"].includes(supportSession.status));
+  const promotionTheme = content?.settings || {};
+  const displayPromotions = promotions.filter((item)=>messages.length===0&&!started ? ["welcome","before_first_message"].includes(String(item.placement||"welcome")) : String(item.placement||"welcome")==="conversation_top");
+  const showPromotions = Boolean(promotionTheme.promotion_enabled && displayPromotions.length > 0 && !(humanControlled && promotionTheme.promotion_hide_during_human !== false));
 
   const updateSession = useCallback((conversation: SupportConversation, tokenValue?: string) => {
     setSupportSession((current) => sessionFromConversation(tokenValue || current?.token || "", conversation));
@@ -312,8 +339,16 @@ export default function App() {
     const controller = new AbortController();
     setUsedQuickReplies(new Set());
     fetchChatContent(platformKey, controller.signal).then(setContent).catch(() => null);
+    fetchChatPromotions(platformKey, controller.signal).then((data)=>setPromotions(data.items || [])).catch(()=>setPromotions([]));
+    fetchPublicSupportSettings(platformKey,controller.signal).then((data)=>setCustomerAttachmentsEnabled(data.support?.attachments?.customer_enabled===true)).catch(()=>setCustomerAttachmentsEnabled(false));
     return () => controller.abort();
   }, [platformKey]);
+
+  useEffect(() => {
+    if (!showPromotions || displayPromotions.length < 2 || promotionTheme.promotion_autoplay === false) return;
+    const timer=window.setInterval(()=>setPromotionIndex((index)=>promotionTheme.promotion_loop === false && index >= displayPromotions.length-1 ? index : (index+1)%displayPromotions.length),Math.max(2500,Number(promotionTheme.promotion_interval_ms || 5000)));
+    return ()=>window.clearInterval(timer);
+  },[showPromotions,displayPromotions.length,promotionTheme.promotion_autoplay,promotionTheme.promotion_interval_ms,promotionTheme.promotion_loop]);
 
   useEffect(() => {
     const saved = getCustomerSupportSession(platformKey);
@@ -546,6 +581,19 @@ export default function App() {
   }, [chatConfig.fallbackMessage, closed, effectiveLanguage, humanControlled, isSending, platformKey, updateSession]);
 
   const connectionCopy=(connectionState === "reconnecting" || connectionState === "connecting") && !fallbackHealthy ? uiCopy.reconnecting : (onlineText || uiCopy.online);
+  useEffect(()=>{
+    if (!supportSession?.token || !supportSession.publicId) return;
+    void saveCustomerSupportContext(supportSession.publicId,supportSession.token).catch(()=>null);
+  },[supportSession?.publicId,supportSession?.token]);
+
+  const uploadAttachment=useCallback(async(file:File)=>{
+    if (!supportSession || !humanAttachmentsAllowed || uploadingAttachment) return;
+    setUploadingAttachment(true);
+    try { const result=await uploadCustomerSupportAttachment(supportSession.publicId,supportSession.token,file); if (result.message) ingestMessage(result.message); }
+    catch (error) { setMessages((current)=>[...current,{ id:`upload-error-${uid()}`,role:"assistant",content:error instanceof Error?error.message:"File upload failed",error:true }]); }
+    finally { setUploadingAttachment(false); if (fileInputRef.current) fileInputRef.current.value=""; }
+  },[humanAttachmentsAllowed,ingestMessage,supportSession,uploadingAttachment]);
+
   const loadOlder=useCallback(async()=>{
     if(!supportSession || loadingOlder || !hasOlderMessages) return;
     const oldest=Math.min(...messages.map((m)=>Number(m.sequence||Number.MAX_SAFE_INTEGER)));
@@ -597,6 +645,7 @@ export default function App() {
 
         <div ref={scrollRef} onScroll={handleScroll} className="chat-scroll flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {hasOlderMessages && <button type="button" disabled={loadingOlder} onClick={()=>void loadOlder()} className="mx-auto block rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold disabled:opacity-50">{loadingOlder?"Loading…":"Show previous messages"}</button>}
+          {showPromotions && <PromotionCarousel items={displayPromotions} index={Math.min(promotionIndex,displayPromotions.length-1)} setIndex={setPromotionIndex} theme={promotionTheme} />}
           {startEnabled && !started && messages.length === 0 ? (
             <ChatStartModule module={startModule} iconUrl={iconUrl} actionButtons={actionButtons} onStart={() => { setStarted(true); setTimeout(() => inputRef.current?.focus(), 30); }} onPrompt={send} />
           ) : (
@@ -621,6 +670,10 @@ export default function App() {
             </div>
           )}
           <div className="flex items-end gap-2">
+            {humanAttachmentsAllowed && <>
+              <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,application/pdf,text/plain" className="hidden" onChange={(event)=>{const file=event.target.files?.[0]; if(file) void uploadAttachment(file);}} />
+              <button type="button" disabled={uploadingAttachment} onClick={()=>fileInputRef.current?.click()} aria-label="Attach image or file" className="shrink-0 w-10 h-10 rounded-full border border-border bg-surface grid place-items-center hover:bg-accent disabled:opacity-50"><Paperclip className="h-4 w-4" /></button>
+            </>}
             <textarea
               ref={inputRef}
               rows={1}
@@ -717,6 +770,13 @@ function StartCopy({ text }: { text: string }) {
   );
 }
 
+function PromotionCarousel({ items,index,setIndex,theme }:{ items:ChatPromotion[];index:number;setIndex:(index:number)=>void;theme:NonNullable<ChatContent["settings"]> }) {
+  const item=items[index]; if(!item) return null;
+  const previous=()=>setIndex((index-1+items.length)%items.length); const next=()=>setIndex((index+1)%items.length);
+  const card=<div className="relative overflow-hidden border border-border bg-surface shadow-sm" style={{borderRadius:Math.max(0,Number(theme.promotion_border_radius || 16))}}><img src={item.image_url} alt={item.title || "Promotion"} className="w-full object-cover" style={{height:`clamp(120px, ${Number(theme.promotion_mobile_height || 160)}px, ${Number(theme.promotion_desktop_height || 220)}px)`}}/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4 text-white">{item.title && <div className="text-sm font-semibold">{item.title}</div>}{item.subtitle && <div className="mt-1 text-xs text-white/80">{item.subtitle}</div>}</div></div>;
+  return <section className="relative" aria-label="Promotional messages">{item.link_url?<a href={item.link_url} target="_blank" rel="noreferrer">{card}</a>:card}{theme.promotion_show_arrows !== false && items.length>1 && <><button type="button" onClick={previous} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-2 text-white"><ChevronLeft className="h-4 w-4"/></button><button type="button" onClick={next} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-2 text-white"><ChevronRight className="h-4 w-4"/></button></>}{theme.promotion_show_indicators !== false && items.length>1 && <div className="mt-2 flex justify-center gap-1.5">{items.map((_,i)=><button key={i} type="button" onClick={()=>setIndex(i)} className={`h-1.5 rounded-full ${i===index?"w-5 bg-brand":"w-1.5 bg-muted-foreground/40"}`} aria-label={`Promotion ${i+1}`}/>)}</div>}</section>;
+}
+
 function MessageBubble({ message, onRetry, onPrompt, onPreview, onHandoff, onMediaLoad }: { message: Message; onRetry: () => void; onPrompt: (text:string) => void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void; onMediaLoad:()=>void }) {
   const isUser = message.role === "user";
   return (
@@ -747,6 +807,15 @@ function MessageBubble({ message, onRetry, onPrompt, onPreview, onHandoff, onMed
                 />
               </button>
             ))}
+          </div>
+        )}
+        {message.attachmentUrl && (
+          <div className="mt-3">
+            {String(message.attachmentContentType || "").startsWith("image/") ? (
+              <button type="button" onClick={()=>onPreview(message.attachmentUrl || "",message.attachmentName || "Attachment")} className="block overflow-hidden rounded-xl border border-border"><img src={message.attachmentUrl} alt={message.attachmentName || "Attachment"} className="max-h-80 w-full object-contain" onLoad={onMediaLoad}/></button>
+            ) : (
+              <a href={message.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl border border-border bg-surface/60 p-3"><FileText className="h-5 w-5"/><span className="min-w-0 flex-1 truncate text-xs font-semibold">{message.attachmentName || "Download file"}</span><ExternalLink className="h-3.5 w-3.5"/></a>
+            )}
           </div>
         )}
         {message.error && (

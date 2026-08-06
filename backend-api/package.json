@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-render-backend",
-  "version": "1.16.4",
+  "version": "1.17.0",
   "private": true,
   "type": "module",
   "description": "Production Render backend using the existing Neon PostgreSQL database for BDG Guide Pro, Chat Pro, and Admin Pro.",
@@ -26,7 +26,8 @@
     "test:v1161": "node scripts/v1.16.1-realtime-ai-worker-regression-test.js",
     "test:v1162": "node scripts/v1.16.2-conversation-continuity-regression-test.js",
     "test:v1163": "node scripts/v1.16.3-admin-chat-theme-regression-test.js",
-    "test:v1164": "node scripts/v1.16.4-sse-delivery-regression-test.js"
+    "test:v1164": "node scripts/v1.16.4-sse-delivery-regression-test.js",
+    "test:v1170": "node scripts/v1.17.0-professional-support-workspace-regression-test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1085.0",

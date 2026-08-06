@@ -1,0 +1,75 @@
+{
+  "release": "v1.17.0-r2",
+  "application_version": "1.17.0",
+  "release_name": "Windows Regression Path Hotfix",
+  "release_marker": "1.17.0-professional-support-workspace-chat-media",
+  "base_version": "1.17.0",
+  "migration": "043_v1.17.0_professional_support_workspace_media_quick_replies.sql",
+  "next_migration": "044",
+  "supersedes": "BDG-v1170-professional-customer-service-workspace-chat-media-upgrade.zip",
+  "payload_file_count": 10,
+  "changed_files": [
+    "backend-api/scripts/v1.17.0-professional-support-workspace-regression-test.js",
+    "CHANGED_FILES_V1.17.0-R2.txt",
+    "DEPLOYMENT_CHECKLIST_V1.17.0-R2.md",
+    "FILE_CHECKSUMS_V1.17.0-R2.sha256",
+    "MANIFEST_V1.17.0-R2.json",
+    "README-V1.17.0-R2.txt",
+    "RELEASE_NOTES_V1.17.0-R2.md",
+    "TECHNICAL_ANALYSIS_V1.17.0-R2.md",
+    "TEST_RESULT_V1.17.0-R2.md",
+    "V1.17.0_R2_WINDOWS_REGRESSION_PATH_HOTFIX_INSTALLED.txt"
+  ],
+  "payload_files": [
+    {
+      "path": "backend-api/scripts/v1.17.0-professional-support-workspace-regression-test.js",
+      "sha256": "660ee3bda81bd535a4d90a500aff54db1dc1d45a23f61debb79ee97d467d4b76",
+      "size": 5030
+    },
+    {
+      "path": "CHANGED_FILES_V1.17.0-R2.txt",
+      "sha256": "05b3d1f70238d3f6960ecb9601b88db1f118589de0d1ae81181ac6ae6469d2a2",
+      "size": 365
+    },
+    {
+      "path": "DEPLOYMENT_CHECKLIST_V1.17.0-R2.md",
+      "sha256": "ed00ccac6cd9c83a18fb8ff0ebbd2f8cb27fe235261316fce20bd114dcb7c33c",
+      "size": 603
+    },
+    {
+      "path": "FILE_CHECKSUMS_V1.17.0-R2.sha256",
+      "sha256": "da7893c3e4b5abb394612e742e3a3c44546d6a46de5bda6c0c9b2a8c313f6f57",
+      "size": 926
+    },
+    {
+      "path": "MANIFEST_V1.17.0-R2.json",
+      "sha256": null,
+      "size": 2620
+    },
+    {
+      "path": "README-V1.17.0-R2.txt",
+      "sha256": "d1a40e312ef17bcb2ff1675f3406242f66fafcea19fad9a17acf5a7cd6af077f",
+      "size": 420
+    },
+    {
+      "path": "RELEASE_NOTES_V1.17.0-R2.md",
+      "sha256": "ca184cef508aef85d8b085326bb86e1671d48cf4e05296276981f05ac23e3306",
+      "size": 845
+    },
+    {
+      "path": "TECHNICAL_ANALYSIS_V1.17.0-R2.md",
+      "sha256": "84eda3c5db0149a21082fd8b053654a198f2dff3ebd80b47c8b9f84172794f5f",
+      "size": 790
+    },
+    {
+      "path": "TEST_RESULT_V1.17.0-R2.md",
+      "sha256": "22617e50b0f22710ce446cf28e9ec277020ade14020d45d6d985cf1dff434bcc",
+      "size": 672
+    },
+    {
+      "path": "V1.17.0_R2_WINDOWS_REGRESSION_PATH_HOTFIX_INSTALLED.txt",
+      "sha256": "201a061eebeadabf2a1abc555c91c6eff5b82030e9dcf8a5b74c0085b047dca0",
+      "size": 369
+    }
+  ]
+}

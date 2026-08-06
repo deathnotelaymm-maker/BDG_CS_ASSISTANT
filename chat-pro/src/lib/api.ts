@@ -1,4 +1,4 @@
-// BDG Chat Pro API client — v1.16.4 SSE delivery, durable queue, and HTTP recovery.
+// BDG Chat Pro API client — v1.17.0 professional support workspace and human-only attachments.
 
 const configuredApiBase =
   (import.meta.env.VITE_BDG_API_BASE as string | undefined) ??
@@ -17,6 +17,16 @@ export interface ChatContent {
     chat_layout?: "standard" | "compact" | "centered" | string;
     chat_bubble_style?: "soft" | "sharp" | "minimal" | string;
     chat_input_style?: "rounded" | "square" | "minimal" | string;
+    promotion_enabled?: boolean;
+    promotion_autoplay?: boolean;
+    promotion_interval_ms?: number;
+    promotion_loop?: boolean;
+    promotion_show_indicators?: boolean;
+    promotion_show_arrows?: boolean;
+    promotion_hide_during_human?: boolean;
+    promotion_mobile_height?: number;
+    promotion_desktop_height?: number;
+    promotion_border_radius?: number;
   };
   start_module?: {
     enabled?: boolean;
@@ -84,6 +94,16 @@ export interface AiJobSummary {
   processing?: ProcessingExperience;
 }
 
+export interface ChatPromotion {
+  id: number;
+  title?: string;
+  subtitle?: string;
+  image_url: string;
+  link_url?: string;
+  placement?: "welcome" | "conversation_top" | "before_first_message" | string;
+  display_order?: number;
+}
+
 export interface SupportMessage {
   id: number;
   public_id: string;
@@ -95,6 +115,10 @@ export interface SupportMessage {
   sender_name?: string;
   message_type?: string;
   body_text: string;
+  attachment_url?: string;
+  attachment_name?: string;
+  attachment_content_type?: string;
+  attachment_size_bytes?: number;
   is_internal?: boolean;
   delivered_at?: string;
   read_at?: string;
@@ -281,6 +305,38 @@ export async function fetchChatContent(platformKey = getPlatformKey(), signal?: 
   });
   if (!res.ok) throw new Error(`Chat content API error: ${res.status}`);
   return (await res.json()) as ChatContent;
+}
+
+export async function fetchPublicSupportSettings(platformKey = getPlatformKey(), signal?: AbortSignal) {
+  requireApiBase();
+  const res=await fetch(`${API_BASE}/public/support/settings?platform=${encodeURIComponent(platformKey)}`,{signal,cache:"no-store"});
+  if(!res.ok) throw new ChatApiError(`Support settings error: ${res.status}`,{status:res.status,code:"SUPPORT_SETTINGS_FAILED"});
+  return (await res.json()) as { ok:true; support:{ attachments?:{ customer_enabled?:boolean; max_bytes?:number; allowed_types?:string[] } } };
+}
+
+export async function fetchChatPromotions(platformKey = getPlatformKey(), signal?: AbortSignal) {
+  requireApiBase();
+  const res = await fetch(`${API_BASE}/public/chat-promotions?platform=${encodeURIComponent(platformKey)}`, { signal, cache: "no-store" });
+  if (!res.ok) throw new ChatApiError(`Promotion API error: ${res.status}`, { status: res.status, code: "CHAT_PROMOTIONS_FAILED" });
+  return (await res.json()) as { ok: true; items: ChatPromotion[] };
+}
+
+async function uploadCustomerSupportFile(publicId: string, supportToken: string, file: File, caption = "") {
+  requireApiBase();
+  const form = new FormData();
+  form.set("file", file);
+  form.set("caption", caption);
+  form.set("client_message_id", crypto.randomUUID());
+  const res = await fetch(`${API_BASE}/support/customer/conversations/${encodeURIComponent(publicId)}/attachments`, { method: "POST", headers: { Authorization: `Bearer ${supportToken}` }, body: form });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ChatApiError(String((body as any).error || `Upload failed (${res.status})`), { status: res.status, code: String((body as any).code || "SUPPORT_ATTACHMENT_UPLOAD_FAILED") });
+  return body as { ok: true; message: SupportMessage; attachment: Record<string, unknown> };
+}
+
+export const uploadCustomerSupportAttachment = uploadCustomerSupportFile;
+
+export async function saveCustomerSupportContext(publicId: string, supportToken: string) {
+  return supportRequest<{ ok: true; context: Record<string, unknown> }>(`/support/customer/conversations/${publicId}/context`, { method: "POST", body: JSON.stringify({ current_url: location.href, referrer_url: document.referrer || "", screen_width: window.screen?.width || 0, screen_height: window.screen?.height || 0 }) }, supportToken);
 }
 
 async function supportRequest<T>(path: string, init: RequestInit = {}, supportToken?: string) {

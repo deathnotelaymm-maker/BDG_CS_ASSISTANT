@@ -45,7 +45,12 @@ export type SupportMessage = {
   message_sequence: number;
   sender_type: "CUSTOMER" | "AI" | "STAFF" | "SYSTEM";
   sender_name?: string;
+  message_type?: string;
   body_text: string;
+  attachment_url?: string;
+  attachment_name?: string;
+  attachment_content_type?: string;
+  attachment_size_bytes?: number;
   is_internal?: boolean;
   delivered_at?: string;
   read_at?: string;
@@ -67,6 +72,10 @@ export type StaffSettings = {
   allow_staff_timezone_override?: boolean;
   return_to_ai_on_resolve?: boolean;
   realtime_poll_interval_ms?: number;
+  customer_attachments_enabled?: boolean;
+  staff_attachments_enabled?: boolean;
+  attachment_max_bytes?: number;
+  attachment_allowed_types?: string[];
 };
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -82,6 +91,19 @@ async function request<T>(path: string, init: RequestInit = {}) {
   const response = await fetch(`${API}${path}`, { ...init, headers, cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.message || data?.error || `Request failed (${response.status})`);
+  return data as T;
+}
+
+
+async function uploadRequest<T>(path: string, file: File, caption = "") {
+  if (!API) throw new Error("Staff API is not configured. Set VITE_API_BASE_URL during the production build.");
+  const body = new FormData();
+  body.append("file", file);
+  body.append("client_message_id", crypto.randomUUID());
+  if (caption) body.append("caption", caption);
+  const response = await fetch(`${API}${path}`, { method: "POST", headers: token() ? { Authorization: `Bearer ${token()}` } : {}, body, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.message || data?.error || `Upload failed (${response.status})`);
   return data as T;
 }
 
@@ -105,6 +127,11 @@ export const api = {
   transferDecision: (id: number, action: "accept" | "reject") => request(`/staff/transfers/${id}/${action}`, { method: "POST" }),
   changePassword: (password: string) => request("/staff/me/password", { method: "POST", body: JSON.stringify({ password }) }),
   performance: (period: "day" | "week" | "month" = "day") => request<Record<string, unknown>>(`/staff/performance?period=${period}`),
+  quickReplies: () => request<Array<{ id:number; scope_kind:string; title:string; shortcut?:string; category:string; message_text:string }>>("/staff/quick-replies"),
+  createQuickReply: (data: { title:string; shortcut?:string; category?:string; message_text:string }) => request("/staff/quick-replies", { method: "POST", body: JSON.stringify(data) }),
+  deleteQuickReply: (id:number) => request(`/staff/quick-replies/${id}`, { method: "DELETE" }),
+  customerContext: (id:number) => request<{ context?: Record<string, any> | null }>(`/staff/conversations/${id}/context`),
+  uploadAttachment: (id:number,file:File,caption="") => uploadRequest<{ message:SupportMessage }>(`/staff/conversations/${id}/attachments`,file,caption),
   realtimeTicket: () => request<{ ticket: string; expires_at: string }>("/staff/realtime-ticket", { method: "POST", body: "{}" }),
   sync: (id: number, afterSequence = 0) => request<{ conversation: Conversation; messages: SupportMessage[]; active_ai_jobs?: Array<{ id:number; status:string }>; poll_interval_ms?: number }>(`/staff/conversations/${id}/sync?after_sequence=${Math.max(0,Number(afterSequence || 0))}`),
 };

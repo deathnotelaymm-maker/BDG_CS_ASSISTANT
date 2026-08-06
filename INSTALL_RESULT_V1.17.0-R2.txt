@@ -1,0 +1,4 @@
+﻿Installed: 2026-08-06T19:16:37.2972514+07:00
+Release: v1.17.0-r2 Windows Regression Path Hotfix
+Backup: C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.17.0-r2-20260806-191636
+Migration 043 unchanged.

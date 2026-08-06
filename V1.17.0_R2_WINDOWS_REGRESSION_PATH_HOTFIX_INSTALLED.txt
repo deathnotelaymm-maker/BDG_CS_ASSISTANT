@@ -1,0 +1,8 @@
+BDG v1.17.0-r2 — Windows Regression Path Hotfix
+
+Application version: 1.17.0
+Release marker: 1.17.0-professional-support-workspace-chat-media
+Database migration: 043 (unchanged)
+Package revision: r2
+
+Fix: use Node.js fileURLToPath(import.meta.url) so the v1.17.0 dependency-free regression script resolves its repository root correctly on Windows drive-letter paths.

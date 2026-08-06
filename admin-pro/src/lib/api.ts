@@ -426,6 +426,23 @@ async function uploadAdminFile(file: File, path: string) {
   return payload as { url: string; filename?: string; content_type?: string; size_bytes?: number; media_id?: number };
 }
 
+
+async function uploadSupportFile(file: File, path: string, caption = "") {
+  const token = getToken();
+  const fd = new FormData();
+  fd.append("file", file);
+  if (caption) fd.append("caption", caption);
+  fd.append("client_message_id", crypto.randomUUID());
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...platformHeaders() },
+    body: fd,
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(payload?.error || payload?.message || `Upload failed (${res.status})`);
+  return payload;
+}
+
 export const api = {
   login: async (email: string, password: string, twofa_code?: string) => {
     if (MOCK_MODE)
@@ -1028,6 +1045,16 @@ export const api = {
   resolveSupportConversation: async (id: string | number, action: "resolve" | "reopen") => request(`/admin/support/conversations/${id}/${action}`, { method: "POST", body: JSON.stringify({}) }),
   getSupportPerformance: async () => request("/admin/support/performance"),
   getSupportAudit: async () => request("/admin/support/audit"),
+  getSupportCustomerContext: async (id: string | number) => request(`/admin/support/conversations/${id}/context`),
+  uploadSupportAttachment: async (id: string | number, file: File, caption = "") => uploadSupportFile(file, `/admin/support/conversations/${id}/attachments`, caption),
+  sendAdminSupportMessage: async (id: string | number, message: string, client_message_id = crypto.randomUUID()) => request(`/admin/support/conversations/${id}/messages`, { method: "POST", body: JSON.stringify({ message, client_message_id }) }),
+  listSupportQuickReplies: async () => request("/admin/support/quick-replies"),
+  createSupportQuickReply: async (data: any) => request("/admin/support/quick-replies", { method: "POST", body: JSON.stringify(data) }),
+  updateSupportQuickReply: async (id: string | number, data: any) => request(`/admin/support/quick-replies/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteSupportQuickReply: async (id: string | number) => request(`/admin/support/quick-replies/${id}`, { method: "DELETE" }),
+  listChatPromotions: async () => request("/admin/support/promotions"),
+  createChatPromotion: async (data: any) => request("/admin/support/promotions", { method: "POST", body: JSON.stringify(data) }),
+  deleteChatPromotion: async (id: string | number) => request(`/admin/support/promotions/${id}`, { method: "DELETE" }),
 
   testAI: async (message: string) => {
     if (MOCK_MODE)
@@ -1045,3 +1072,18 @@ export const api = {
     return { ...res, latencyMs: Date.now() - started };
   },
 };
+
+export type AdminSupportStreamPacket = { id?: string; event: string; data: Record<string, any> };
+export async function openAdminSupportConversationStream(conversationId: number, afterSequence = 0, signal?: AbortSignal) {
+  if (!API_BASE_URL) throw new Error("Admin API is not configured. Set VITE_API_BASE_URL during the production build.");
+  const headers: Record<string,string> = { Accept: "text/event-stream", ...platformHeaders() };
+  const auth = getToken(); if (auth) headers.Authorization = `Bearer ${auth}`;
+  const response = await fetch(`${API_BASE_URL}/admin/support/conversations/${conversationId}/stream?after_sequence=${Math.max(0,Number(afterSequence||0))}`, { headers, cache:"no-store", signal });
+  if (!response.ok || !response.body) throw new Error(`Admin conversation stream failed (${response.status})`);
+  return response;
+}
+export async function consumeAdminSupportEventStream(response: Response, onPacket: (packet: AdminSupportStreamPacket)=>void, signal?: AbortSignal) {
+  if (!response.body) throw new Error("Stream body is unavailable");
+  const reader=response.body.getReader(); const decoder=new TextDecoder(); let buffer="";
+  try { while(!signal?.aborted) { const {done,value}=await reader.read(); if(done) break; buffer+=decoder.decode(value,{stream:true}); while(true){const match=buffer.match(/\r?\n\r?\n/);if(!match||match.index===undefined)break;const boundary=match.index;const block=buffer.slice(0,boundary);buffer=buffer.slice(boundary+match[0].length);let id="",event="message";const data:string[]=[];for(const line of block.split(/\r?\n/)){if(!line||line.startsWith(":"))continue;if(line.startsWith("id:"))id=line.slice(3).trim();else if(line.startsWith("event:"))event=line.slice(6).trim()||"message";else if(line.startsWith("data:"))data.push(line.slice(5).trimStart());}if(!data.length)continue;try{onPacket({id,event,data:JSON.parse(data.join("\n"))});}catch{onPacket({id,event,data:{text:data.join("\n")}});}} } } finally { try{await reader.cancel();}catch{} try{reader.releaseLock();}catch{} }
+}

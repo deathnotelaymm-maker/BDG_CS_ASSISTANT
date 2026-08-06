@@ -17,6 +17,17 @@ export const SUPPORT_PERMISSIONS = [
   'support.assignments.override',
   'support.force_logout',
   'support.audit.view',
+  'support.attachments.send',
+  'support.attachments.download',
+  'support.quick_replies.view',
+  'support.quick_replies.create_personal',
+  'support.quick_replies.manage_platform',
+  'support.conversations.view_customer_device',
+  'support.conversations.view_customer_ip',
+  'support.tags.manage',
+  'support.admin.join_conversation',
+  'support.admin.force_transfer',
+  'support.admin.force_close',
 ];
 
 const DEFAULT_AGENT_PERMISSIONS = new Set([
@@ -28,6 +39,11 @@ const DEFAULT_AGENT_PERMISSIONS = new Set([
   'support.conversations.resolve',
   'support.notes.create',
   'support.reports.view_own',
+  'support.attachments.send',
+  'support.attachments.download',
+  'support.quick_replies.view',
+  'support.quick_replies.create_personal',
+  'support.conversations.view_customer_device',
 ]);
 
 const CONVERSATION_STATES = new Set([
@@ -158,6 +174,17 @@ async function customerSupportStreamResponse(request, env, url, publicId, deps) 
 }
 
 
+async function adminSupportStreamResponse(request,env,url,conversationId,scope,deps) {
+  const after=Math.max(0,Number(url.searchParams.get('after_sequence') || request.headers.get('last-event-id') || 0));
+  const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 ORDER BY sm.message_sequence ASC LIMIT 500`,[conversationId,after])).rows.map(messageOut);
+  const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`,[conversationId,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!conversation) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+  const settings=supportSettingsOut(await ensureSettings(deps.q,env,scope)); const heartbeatMs=settings.customer_stream_heartbeat_seconds*1000;
+  const encoder=new TextEncoder(); let cleanup=()=>{};
+  const stream=new ReadableStream({start(controller){let closed=false;const push=(name,payload,id='')=>{if(!closed){try{controller.enqueue(encoder.encode(encodeSseEvent(name,payload,id)))}catch{}}};push('session',{conversation:conversationOut(conversation),messages:rows,after_sequence:after,transport:'sse-admin'},String(rows.at(-1)?.message_sequence||after||''));const unsubscribe=onSupportEvent((event)=>{if(Number(event.platform_id||0)!==Number(scope.platform_id))return;const conversationMatch=Number(event.conversation_id||event.data?.conversation_id||0)===Number(conversationId);if(!conversationMatch)return;const message=event.data?.message;push(streamEventName(event.event),{...event.data,event_id:event.id,conversation_id:Number(conversationId),created_at:event.created_at,source_event:event.event},message?.message_sequence||event.id);});const heartbeat=setInterval(()=>push('heartbeat',{server_time:new Date().toISOString()}),heartbeatMs);const close=()=>{if(closed)return;closed=true;clearInterval(heartbeat);unsubscribe();try{controller.close()}catch{}};cleanup=close;request.signal?.addEventListener('abort',close,{once:true});},cancel(){cleanup();}});
+  return new Response(stream,{status:200,headers:{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-store, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no','X-Content-Type-Options':'nosniff'}});
+}
+
 async function staffSupportStreamResponse(request, env, url, conversationId, staff, deps) {
   const scope={ tenant_id:staff.tenant_id,platform_id:staff.platform_id };
   if (!await supportRealtimeCanSubscribe(env,{ kind:'staff',staff,tenant_id:scope.tenant_id,platform_id:scope.platform_id,staff_id:staff.id },conversationId,deps)) throw supportError('Conversation access denied',403,'SUPPORT_SUBSCRIBE_DENIED');
@@ -213,6 +240,10 @@ function supportSettingsOut(row = {}) {
     offline_timeout_seconds:Number(row.offline_timeout_seconds || 90), idle_timeout_seconds:Number(row.idle_timeout_seconds || 300),
     force_logout_assignment_policy:row.force_logout_assignment_policy || 'return_to_queue',
     attachments_enabled:row.attachments_enabled === true,
+    customer_attachments_enabled:row.customer_attachments_enabled !== false,
+    staff_attachments_enabled:row.staff_attachments_enabled !== false,
+    attachment_max_bytes:Math.max(1048576,Math.min(26214400,Number(row.attachment_max_bytes || 10485760))),
+    attachment_allowed_types_json:Array.isArray(row.attachment_allowed_types_json) ? row.attachment_allowed_types_json : (()=>{try{return JSON.parse(row.attachment_allowed_types_json || '[]')}catch{return []}})(),
     processing_message_enabled:row.processing_message_enabled !== false,
     processing_message_text:row.processing_message_text || 'I’m preparing your answer. Please give me a moment…',
     processing_message_secondary_text:row.processing_message_secondary_text || 'I’m still working on your answer…',
@@ -247,7 +278,7 @@ function messageOut(row = {}) {
     id:Number(row.id || 0), public_id:String(row.public_id || ''), conversation_id:Number(row.conversation_id || 0),
     client_message_id:row.client_message_id || '', ai_job_id:row.ai_job_id ? Number(row.ai_job_id) : null,
     sender_type:row.sender_type || 'SYSTEM', sender_staff_id:row.sender_staff_id ? Number(row.sender_staff_id) : null,
-    sender_name:row.sender_name || row.display_name || '', message_type:row.message_type || 'text',
+    sender_name:row.sender_name || row.display_name || parseJsonObject(row.metadata_json,{}).sender_name || '', message_type:row.message_type || 'text',
     body_text:row.body_text || '', attachment_url:row.attachment_url || '', attachment_name:row.attachment_name || '',
     attachment_content_type:row.attachment_content_type || '', attachment_size_bytes:Number(row.attachment_size_bytes || 0),
     is_internal:row.is_internal === true, sentence_count:Number(row.sentence_count || 0),
@@ -270,6 +301,9 @@ function conversationOut(row = {}) {
     last_message:row.last_message || '', waiting_seconds:Number(row.waiting_seconds || 0), version:Number(row.version || 1),
     last_message_sequence:Number(row.last_message_sequence || 0), return_to_ai_on_resolve:row.return_to_ai_on_resolve !== false,
     last_customer_read_sequence:Number(row.last_customer_read_sequence || 0), last_staff_read_sequence:Number(row.last_staff_read_sequence || 0),
+    pinned_at:rowDate(row.pinned_at), pinned_by:row.pinned_by || '',
+    tags:Array.isArray(row.tags_json) ? row.tags_json : (()=>{try{return JSON.parse(row.tags_json || '[]')}catch{return []}})(),
+    customer_context:row.customer_context || null,
   };
 }
 
@@ -536,7 +570,100 @@ async function customerMessageWindow(q,env,conversation,limit=10,beforeSequence=
   return { messages:rows,has_older_messages:hasOlder,oldest_sequence:oldest };
 }
 
+
+
+function safeFilename(value='file') {
+  const cleaned=String(value || 'file').normalize('NFKC').replace(/[^\p{L}\p{N}._ -]/gu,'_').replace(/\s+/g,' ').trim().slice(0,220);
+  return cleaned || 'file';
+}
+function supportAttachmentType(bytes,mime='') {
+  const type=String(mime || '').toLowerCase();
+  if (bytes.length>=8 && bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4e && bytes[3]===0x47 && bytes[4]===0x0d && bytes[5]===0x0a && bytes[6]===0x1a && bytes[7]===0x0a) return type==='image/png' ? 'image/png' : '';
+  if (bytes.length>=3 && bytes[0]===0xff && bytes[1]===0xd8 && bytes[2]===0xff) return type==='image/jpeg' ? 'image/jpeg' : '';
+  if (bytes.length>=12 && String.fromCharCode(...bytes.slice(0,4))==='RIFF' && String.fromCharCode(...bytes.slice(8,12))==='WEBP') return type==='image/webp' ? 'image/webp' : '';
+  if (bytes.length>=5 && String.fromCharCode(...bytes.slice(0,5))==='%PDF-') return type==='application/pdf' ? 'application/pdf' : '';
+  if (type==='text/plain' && bytes.length && !bytes.slice(0,Math.min(bytes.length,8192)).some((x)=>x===0)) return 'text/plain';
+  return '';
+}
+function supportExtForMime(mime) { return ({'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp','application/pdf':'.pdf','text/plain':'.txt'})[mime] || ''; }
+function maskIp(value='') {
+  const ip=String(value || '').split(',')[0].trim();
+  if (!ip) return '';
+  if (ip.includes(':')) return `${ip.split(':').slice(0,4).join(':')}::`;
+  const parts=ip.split('.'); return parts.length===4 ? `${parts[0]}.${parts[1]}.${parts[2]}.0` : ip.slice(0,80);
+}
+function parseCustomerDevice(userAgent='') {
+  const ua=String(userAgent || '').slice(0,1000);
+  const browser=/Edg\/([\d.]+)/.exec(ua) ? ['Edge',RegExp.$1] : /Chrome\/([\d.]+)/.exec(ua) ? ['Chrome',RegExp.$1] : /Firefox\/([\d.]+)/.exec(ua) ? ['Firefox',RegExp.$1] : /Version\/([\d.]+).*Safari/.exec(ua) ? ['Safari',RegExp.$1] : ['Other',''];
+  const os=/Windows NT/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS/iPadOS' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : 'Other';
+  const device=/Mobile|Android|iPhone/.test(ua) ? 'Mobile' : /iPad|Tablet/.test(ua) ? 'Tablet' : 'Desktop';
+  return { device_type:device,operating_system:os,browser_name:browser[0],browser_version:browser[1],user_agent:ua };
+}
+async function saveCustomerContext(deps,env,scope,conversationId,request,payload={}) {
+  const conversation=(await deps.q(env,`SELECT id FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`,[conversationId,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!conversation) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+  const forwarded=request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || '';
+  const device=parseCustomerDevice(request.headers.get('user-agent') || payload.user_agent || '');
+  const row=(await deps.q(env,`INSERT INTO support_customer_context(tenant_id,platform_id,conversation_id,ip_address,ip_masked,country_code,region_name,device_type,operating_system,browser_name,browser_version,user_agent,current_url,referrer_url,metadata_json)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb) RETURNING *`,[
+      scope.tenant_id,scope.platform_id,conversationId,cleanText(forwarded,100),maskIp(forwarded),cleanText(request.headers.get('cf-ipcountry') || payload.country_code,8),cleanText(payload.region_name,160),device.device_type,device.operating_system,device.browser_name,device.browser_version,device.user_agent,cleanText(payload.current_url || request.headers.get('referer'),2000),cleanText(payload.referrer_url,2000),JSON.stringify(payload.metadata || {})
+    ])).rows[0];
+  await deps.q(env,`UPDATE support_conversations SET last_customer_context_id=$2,updated_at=NOW() WHERE id=$1`,[conversationId,row.id]);
+  return { ...row,id:Number(row.id),conversation_id:Number(row.conversation_id),ip_address:row.ip_address || '',ip_masked:row.ip_masked || '' };
+}
+async function customerContext(deps,env,scope,conversationId,showIp=false) {
+  const row=(await deps.q(env,`SELECT x.* FROM support_customer_context x WHERE x.conversation_id=$1 AND x.tenant_id=$2 AND x.platform_id=$3 ORDER BY x.id DESC LIMIT 1`,[conversationId,scope.tenant_id,scope.platform_id])).rows[0];
+  if (!row) return null;
+  return { id:Number(row.id),ip_address:showIp ? (row.ip_address || '') : (row.ip_masked || ''),ip_masked:row.ip_masked || '',country_code:row.country_code || '',region_name:row.region_name || '',device_type:row.device_type || '',operating_system:row.operating_system || '',browser_name:row.browser_name || '',browser_version:row.browser_version || '',current_url:row.current_url || '',referrer_url:row.referrer_url || '',captured_at:rowDate(row.captured_at) };
+}
+async function uploadSupportAttachment({ request,env,deps,scope,conversation,actorType,actorId,staff=null }) {
+  if (!env.GUIDE_IMAGES) throw supportError('Attachment storage is not configured',503,'SUPPORT_ATTACHMENT_STORAGE_UNAVAILABLE');
+  const settings=supportSettingsOut(await ensureSettings(deps.q,env,scope));
+  if (actorType==='CUSTOMER' && settings.customer_attachments_enabled === false) throw supportError('Customer attachments are disabled',403,'SUPPORT_CUSTOMER_ATTACHMENTS_DISABLED');
+  if (actorType!=='CUSTOMER' && settings.staff_attachments_enabled === false) throw supportError('Staff attachments are disabled',403,'SUPPORT_STAFF_ATTACHMENTS_DISABLED');
+  if (conversation.control_mode!=='HUMAN' || !['ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED'].includes(conversation.status)) throw supportError('Attachments are available only during an active human-support conversation',409,'SUPPORT_ATTACHMENTS_HUMAN_ONLY');
+  if (actorType==='STAFF' && Number(conversation.assigned_staff_id || 0)!==Number(staff?.id || 0)) throw supportError('Only the assigned staff member may send attachments',403,'SUPPORT_REPLY_OWNER_REQUIRED');
+  const form=await request.formData(); const file=form.get('file');
+  if (!file || typeof file==='string') throw supportError('Choose a file to upload',400,'SUPPORT_ATTACHMENT_REQUIRED');
+  const max=Math.max(1024*1024,Math.min(25*1024*1024,Number(settings.attachment_max_bytes || 10*1024*1024)));
+  if (!Number.isFinite(file.size) || file.size<1 || file.size>max) throw supportError(`File must be between 1 byte and ${Math.floor(max/1024/1024)} MB`,413,'SUPPORT_ATTACHMENT_SIZE_INVALID');
+  const bytes=new Uint8Array(await file.arrayBuffer()); const detected=supportAttachmentType(bytes,file.type);
+  const allowed=Array.isArray(settings.attachment_allowed_types_json) ? settings.attachment_allowed_types_json : [];
+  if (!detected || !allowed.includes(detected)) throw supportError('Only approved JPG, PNG, WebP, PDF, and TXT files are allowed',415,'SUPPORT_ATTACHMENT_TYPE_NOT_ALLOWED');
+  const original=safeFilename(file.name); const extension=supportExtForMime(detected); const safeBase=original.replace(/\.[a-z0-9]+$/i,'').slice(0,160) || 'file';
+  const safeName=`${safeBase}${extension}`; const key=`tenant-${scope.tenant_id}/platform-${scope.platform_id}/support/conversation-${conversation.id}/${Date.now()}-${randomUUID()}${extension}`;
+  await env.GUIDE_IMAGES.put(key,bytes,{ httpMetadata:{ contentType:detected },contentLength:bytes.byteLength });
+  const publicUrl=`${new URL(request.url).origin}/uploads/${key}`; const digest=createHash('sha256').update(bytes).digest('hex');
+  const inserted=(await deps.q(env,`INSERT INTO support_attachments(tenant_id,platform_id,conversation_id,uploaded_by_type,uploaded_by_id,original_name,safe_name,mime_type,size_bytes,storage_key,public_url,sha256,scan_status,status)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'pending','active') RETURNING *`,[scope.tenant_id,scope.platform_id,conversation.id,actorType,String(actorId || ''),original,safeName,detected,bytes.byteLength,key,publicUrl,digest])).rows[0];
+  const isImage=detected.startsWith('image/');
+  const message=await appendSupportMessage(deps,env,scope,conversation.id,{ sender_type:actorType==='ADMIN'?'STAFF':actorType,sender_staff_id:staff?.id || null,client_message_id:cleanText(form.get('client_message_id'),120) || randomUUID(),message_type:isImage?'image':'attachment',body_text:cleanText(form.get('caption'),2000),attachment_url:publicUrl,attachment_name:original,attachment_content_type:detected,attachment_size_bytes:bytes.byteLength,sentence_count:0,metadata:{ attachment_id:Number(inserted.id),uploaded_by_type:actorType,scan_status:'pending',signature_validated:true,malware_scan:'not_configured' } });
+  await deps.q(env,`UPDATE support_attachments SET message_id=$2 WHERE id=$1`,[inserted.id,message.id]);
+  emitSupportEvent({ event:'support:message_created',platform_id:scope.platform_id,conversation_id:conversation.id,data:{ message:messageOut({ ...message,sender_name:staff?.display_name || (actorType==='ADMIN'?'Administrator':'Customer') }) } });
+  return { attachment:{ ...inserted,id:Number(inserted.id),conversation_id:Number(inserted.conversation_id),message_id:Number(message.id),created_at:rowDate(inserted.created_at) },message:messageOut({ ...message,sender_name:staff?.display_name || (actorType==='ADMIN'?'Administrator':'Customer') }) };
+}
+function quickReplyOut(row={}) { return { id:Number(row.id || 0),scope_kind:row.scope_kind || 'platform',owner_staff_id:row.owner_staff_id ? Number(row.owner_staff_id) : null,title:row.title || '',shortcut:row.shortcut || '',category:row.category || 'General',message_text:row.message_text || '',enabled:row.enabled !== false,display_order:Number(row.display_order || 100),created_at:rowDate(row.created_at),updated_at:rowDate(row.updated_at) }; }
+async function listSupportQuickReplies(deps,env,scope,staffId=null) {
+  const rows=(await deps.q(env,`SELECT * FROM support_quick_replies WHERE tenant_id=$1 AND platform_id=$2 AND archived_at IS NULL AND enabled=TRUE AND (scope_kind='platform' OR owner_staff_id=$3) ORDER BY category,display_order,id`,[scope.tenant_id,scope.platform_id,staffId || null])).rows;
+  return rows.map(quickReplyOut);
+}
+async function createSupportQuickReply(deps,env,scope,payload,actorType,actorId,ownerStaffId=null) {
+  const scopeKind=actorType==='STAFF' ? 'personal' : (payload.scope_kind==='personal' && ownerStaffId ? 'personal' : 'platform');
+  const message=cleanText(payload.message_text || payload.message,6000); const title=cleanText(payload.title,160);
+  if (!title || !message) throw supportError('Quick reply title and message are required',400,'SUPPORT_QUICK_REPLY_REQUIRED');
+  const row=(await deps.q(env,`INSERT INTO support_quick_replies(tenant_id,platform_id,scope_kind,owner_staff_id,title,shortcut,category,message_text,enabled,display_order,created_by_type,created_by_id)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,[scope.tenant_id,scope.platform_id,scopeKind,scopeKind==='personal'?ownerStaffId:null,title,cleanText(payload.shortcut,80),cleanText(payload.category,100)||'General',message,payload.enabled!==false,Math.max(0,Math.min(9999,Number(payload.display_order || 100))),actorType,String(actorId || '')])).rows[0];
+  return quickReplyOut(row);
+}
+function safePromotionUrl(value,{allowEmpty=true,image=false}={}) { const raw=cleanText(value,2000); if(!raw&&allowEmpty)return ''; if(/^\/uploads\//i.test(raw)&&image)return raw; try { const parsed=new URL(raw); if(parsed.protocol!=='https:') throw new Error('https'); return parsed.toString(); } catch { throw supportError(image?'Promotion image must be a safe HTTPS or uploaded URL':'Promotion link must use HTTPS',400,image?'PROMOTION_IMAGE_URL_INVALID':'PROMOTION_LINK_URL_INVALID'); } }
+async function listPromotions(deps,env,scope,admin=false) {
+  const live=admin ? '' : `AND enabled=TRUE AND (starts_at IS NULL OR starts_at<=NOW()) AND (ends_at IS NULL OR ends_at>NOW())`;
+  const rows=(await deps.q(env,`SELECT * FROM chat_promotional_items WHERE tenant_id=$1 AND platform_id=$2 AND archived_at IS NULL ${live} ORDER BY display_order,id`,[scope.tenant_id,scope.platform_id])).rows;
+  return rows.map((row)=>({ ...row,id:Number(row.id),platform_id:Number(row.platform_id),tenant_id:Number(row.tenant_id),enabled:row.enabled!==false,display_order:Number(row.display_order || 100),created_at:rowDate(row.created_at),updated_at:rowDate(row.updated_at) }));
+}
+
 export async function handleSupportPublicRoute({ request, env, url, path, method, scope, deps }) {
+  if (method === 'GET' && path === '/public/chat-promotions') return deps.jsonNoStore({ ok:true,items:await listPromotions(deps,env,scope,false) },200,env);
   if (method === 'GET' && (path === '/public/support/settings' || path === '/support/settings')) {
     const settings = await getHumanSupportSettings(env, scope, deps);
     return deps.jsonNoStore({ ok:true, support:{
@@ -551,6 +678,7 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
       stream_enabled:settings.customer_stream_enabled,
       stream_heartbeat_seconds:settings.customer_stream_heartbeat_seconds,
       customer_messages:settings.customer_messages_json,
+      attachments:{ customer_enabled:settings.customer_attachments_enabled === true, staff_enabled:settings.staff_attachments_enabled !== false, max_bytes:Number(settings.attachment_max_bytes || 10485760), allowed_types:settings.attachment_allowed_types_json || [] },
       processing:{
         enabled:settings.processing_message_enabled,
         message:settings.processing_message_text,
@@ -582,6 +710,7 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
       RETURNING *`, [scope.tenant_id,scope.platform_id,chatSessionId,cleanText(payload.customer_identifier,255),cleanText(payload.customer_display_name,160),cleanText(payload.language || payload.locale,35),reason,detail,settings.return_to_ai_on_resolve !== false,sha256(resumeKey)])).rows[0];
     await deps.q(env,`UPDATE ai_jobs SET status=CASE WHEN status='PROCESSING' THEN 'SUPPRESSED' ELSE 'CANCELLED' END,completed_at=NOW(),last_error_code='HUMAN_HANDOFF_STARTED',locked_at=NULL,locked_by=NULL,updated_at=NOW() WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING')`,[conversation.id]);
     await copyAiHistoryIntoSupport(deps.q, env, scope, conversation);
+    try { await saveCustomerContext(deps,env,scope,conversation.id,request,{ current_url:payload.current_url,referrer_url:payload.referrer_url,user_agent:payload.user_agent,country_code:payload.country_code,region_name:payload.region_name }); } catch (_) {}
     await deps.q(env, `UPDATE chat_sessions SET human_support_state='WAITING_FOR_AGENT',updated_at=NOW() WHERE session_id=$1 AND tenant_id=$2 AND platform_id=$3`, [chatSessionId,scope.tenant_id,scope.platform_id]);
     await deps.q(env, `UPDATE chat_logs SET support_conversation_id=$1,handoff_reason=COALESCE(NULLIF(handoff_reason,''),$2) WHERE id=(SELECT id FROM chat_logs WHERE session_id=$3 AND tenant_id=$4 AND platform_id=$5 ORDER BY id DESC LIMIT 1)`, [conversation.id,reason,chatSessionId,scope.tenant_id,scope.platform_id]);
     const systemMessage = customerMessage(settings,payload.language || payload.locale,'waiting',settings.waiting_message);
@@ -623,10 +752,12 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
   const customerCancelMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/cancel-handoff$/i);
   const customerMessagesMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/messages$/i);
   const customerHistoryMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/history$/i);
+  const customerAttachmentMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/attachments$/i);
+  const customerContextMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/context$/i);
   if (customerStreamMatch && method === 'GET') return customerSupportStreamResponse(request,env,url,customerStreamMatch[1],deps);
-  if (customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch || customerHistoryMatch) {
+  if (customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch || customerHistoryMatch || customerAttachmentMatch || customerContextMatch) {
     const customer = await getCustomerByToken(env, bearerToken(request), deps);
-    if (String(customer.conversation.public_id) !== String((customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch || customerHistoryMatch)[1])) throw supportError('Conversation token does not match this conversation', 403, 'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
+    if (String(customer.conversation.public_id) !== String((customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch || customerHistoryMatch || customerAttachmentMatch || customerContextMatch)[1])) throw supportError('Conversation token does not match this conversation', 403, 'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
     if (method === 'GET' && customerConversationMatch) return deps.jsonNoStore({ conversation:conversationOut(customer.conversation),...await customerMessageWindow(deps.q,env,customer.conversation,10,0) },200,env);
     if (method === 'GET' && customerHistoryMatch) return deps.jsonNoStore({ ok:true,...await customerMessageWindow(deps.q,env,customer.conversation,Number(url.searchParams.get('limit') || 10),Number(url.searchParams.get('before_sequence') || 0)) },200,env);
     if (method === 'GET' && customerSyncMatch) {
@@ -643,6 +774,17 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
       emitSupportEvent({ event:'support:conversation_resolved',platform_id:row.platform_id,conversation_id:row.id,data:{ conversation:conversationOut(row),return_to_ai:true,cancelled_by_customer:true } });
       emitSupportEvent({ event:'support:queue_updated',platform_id:row.platform_id,data:{ reason:'customer_cancelled_handoff',conversation_id:row.id } });
       return deps.jsonNoStore({ ok:true,conversation:conversationOut(row),return_to_ai:true },200,env);
+    }
+
+    if (method === 'POST' && customerContextMatch) {
+      const payload=await deps.readJson(request);
+      const context=await saveCustomerContext(deps,env,{ tenant_id:customer.conversation.tenant_id,platform_id:customer.conversation.platform_id },customer.conversation.id,request,payload);
+      return deps.jsonNoStore({ ok:true,context },201,env);
+    }
+    if (method === 'POST' && customerAttachmentMatch) {
+      const latest=(await deps.q(env,`SELECT * FROM support_conversations WHERE id=$1`,[customer.conversation.id])).rows[0];
+      const result=await uploadSupportAttachment({ request,env,deps,scope:{ tenant_id:latest.tenant_id,platform_id:latest.platform_id },conversation:latest,actorType:'CUSTOMER',actorId:latest.chat_session_id });
+      return deps.jsonNoStore({ ok:true,...result },201,env);
     }
     if (method === 'POST' && customerMessagesMatch) {
       const payload = await deps.readJson(request);
@@ -716,7 +858,7 @@ export async function handleSupportStaffRoute({ request, env, url, path, method,
   }
   if (method === 'GET' && path === '/staff/me') {
     const settings = supportSettingsOut(await ensureSettings(deps.q,env,scope));
-    return deps.jsonNoStore({ ok:true,staff,settings:{ platform_timezone:settings.platform_timezone,allow_staff_timezone_override:settings.allow_staff_timezone_override,heartbeat_interval_seconds:settings.heartbeat_interval_seconds,offline_timeout_seconds:settings.offline_timeout_seconds,return_to_ai_on_resolve:settings.return_to_ai_on_resolve } },200,env);
+    return deps.jsonNoStore({ ok:true,staff,settings:{ platform_timezone:settings.platform_timezone,allow_staff_timezone_override:settings.allow_staff_timezone_override,heartbeat_interval_seconds:settings.heartbeat_interval_seconds,offline_timeout_seconds:settings.offline_timeout_seconds,return_to_ai_on_resolve:settings.return_to_ai_on_resolve,customer_attachments_enabled:settings.customer_attachments_enabled,staff_attachments_enabled:settings.staff_attachments_enabled,attachment_max_bytes:settings.attachment_max_bytes,attachment_allowed_types:settings.attachment_allowed_types_json } },200,env);
   }
   if (method === 'POST' && path === '/staff/logout') {
     await deps.q(env,`UPDATE support_staff_sessions SET signed_out_at=NOW() WHERE id=$1 AND staff_id=$2`,[staff.session_id,staff.id]);
@@ -867,6 +1009,42 @@ export async function handleSupportStaffRoute({ request, env, url, path, method,
     emitSupportEvent({ event:'support:transfer_requested',platform_id:scope.platform_id,conversation_id:id,staff_id:targetId,data:{ transfer:{ ...transfer,id:Number(transfer.id) },from_staff:staff.display_name } });
     return deps.jsonNoStore({ ok:true,transfer:{ ...transfer,id:Number(transfer.id) } },201,env);
   }
+
+  if (method === 'GET' && path === '/staff/quick-replies') {
+    requirePermission(staff,'support.quick_replies.view');
+    return deps.jsonNoStore(await listSupportQuickReplies(deps,env,scope,staff.id),200,env);
+  }
+  if (method === 'POST' && path === '/staff/quick-replies') {
+    requirePermission(staff,'support.quick_replies.create_personal');
+    const row=await createSupportQuickReply(deps,env,scope,await deps.readJson(request),'STAFF',staff.id,staff.id);
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'quick_reply_created','support_quick_reply',row.id,row.title);
+    return deps.jsonNoStore({ ok:true,quick_reply:row },201,env);
+  }
+  const staffQuickDelete=path.match(/^\/staff\/quick-replies\/(\d+)$/);
+  if (method === 'DELETE' && staffQuickDelete) {
+    requirePermission(staff,'support.quick_replies.create_personal');
+    const row=(await deps.q(env,`UPDATE support_quick_replies SET archived_at=NOW(),updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND scope_kind='personal' AND owner_staff_id=$4 RETURNING id`,[numericId(staffQuickDelete[1]),scope.tenant_id,scope.platform_id,staff.id])).rows[0];
+    if (!row) throw supportError('Personal quick reply not found',404,'SUPPORT_QUICK_REPLY_NOT_FOUND');
+    return deps.jsonNoStore({ ok:true },200,env);
+  }
+  const staffContextMatch=path.match(/^\/staff\/conversations\/(\d+)\/context$/);
+  if (method === 'GET' && staffContextMatch) {
+    requirePermission(staff,'support.conversations.view_customer_device');
+    const id=numericId(staffContextMatch[1]);
+    if (!await supportRealtimeCanSubscribe(env,{ kind:'staff',staff_id:staff.id,staff,platform_id:staff.platform_id,tenant_id:staff.tenant_id },id,{ q:deps.q })) throw supportError('Conversation access denied',403,'SUPPORT_SUBSCRIBE_DENIED');
+    return deps.jsonNoStore({ ok:true,context:await customerContext(deps,env,scope,id,staff.permissions.includes('support.conversations.view_customer_ip')) },200,env);
+  }
+  const staffAttachmentMatch=path.match(/^\/staff\/conversations\/(\d+)\/attachments$/);
+  if (method === 'POST' && staffAttachmentMatch) {
+    requirePermission(staff,'support.attachments.send');
+    const id=numericId(staffAttachmentMatch[1]);
+    const conversation=(await deps.q(env,`SELECT * FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!conversation) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+    const result=await uploadSupportAttachment({ request,env,deps,scope,conversation,actorType:'STAFF',actorId:staff.id,staff });
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'attachment_sent','support_conversation',id,result.attachment.original_name);
+    return deps.jsonNoStore({ ok:true,...result },201,env);
+  }
+
   if (method === 'GET' && path === '/staff/transfers') {
     requirePermission(staff,'support.conversations.transfer');
     const status = ['requested','accepted','rejected','cancelled','forced'].includes(String(url.searchParams.get('status') || 'requested')) ? String(url.searchParams.get('status') || 'requested') : 'requested';
@@ -960,6 +1138,8 @@ async function adminListStaff(env,scope,deps) {
 export async function handleSupportAdminRoute({ request, env, url, path, method, scope, admin, deps }) {
   if (!path.startsWith('/admin/support')) return null;
   requireSupportAdmin(scope);
+  const adminStreamMatch=path.match(/^\/admin\/support\/conversations\/(\d+)\/stream$/i);
+  if (adminStreamMatch && method==='GET') return adminSupportStreamResponse(request,env,url,numericId(adminStreamMatch[1]),scope,deps);
   if (method === 'GET' && path === '/admin/support/overview') {
     await expireStalePresence(deps.q,env,scope);
     const counts = (await deps.q(env,`SELECT
@@ -1046,6 +1226,13 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
         Math.min(45,Math.max(10,Number(payload.customer_stream_heartbeat_seconds ?? current.customer_stream_heartbeat_seconds ?? 15))),
         scope.tenant_id,scope.platform_id,
       ])).rows[0];
+    row = (await deps.q(env,`UPDATE support_settings SET customer_attachments_enabled=$1,staff_attachments_enabled=$2,attachment_max_bytes=$3,attachment_allowed_types_json=$4::jsonb,updated_at=NOW() WHERE tenant_id=$5 AND platform_id=$6 RETURNING *`,[
+      bool(payload.customer_attachments_enabled,current.customer_attachments_enabled),
+      bool(payload.staff_attachments_enabled,current.staff_attachments_enabled),
+      Math.max(1048576,Math.min(26214400,Number(payload.attachment_max_bytes ?? current.attachment_max_bytes ?? 10485760))),
+      JSON.stringify(Array.isArray(payload.attachment_allowed_types_json) ? payload.attachment_allowed_types_json.filter((x)=>['image/png','image/jpeg','image/webp','application/pdf','text/plain'].includes(String(x))) : current.attachment_allowed_types_json || []),
+      scope.tenant_id,scope.platform_id,
+    ])).rows[0];
     await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_settings_updated','support_settings',row.id,'Human support and AI processing settings updated');
     return deps.jsonNoStore(supportSettingsOut(row),200,env);
   }
@@ -1164,6 +1351,62 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
     emitSupportEvent({ event:action === 'resolve' ? 'support:conversation_resolved' : 'support:queue_updated',platform_id:scope.platform_id,conversation_id:id,data:{ conversation:conversationOut(row),admin:true,return_to_ai:resolution?.returnsToAi === true } });
     return deps.jsonNoStore({ ok:true,conversation:conversationOut(row),return_to_ai:resolution?.returnsToAi === true },200,env);
   }
+
+  if (method === 'GET' && path === '/admin/support/quick-replies') return deps.jsonNoStore(await listSupportQuickReplies(deps,env,scope,null),200,env);
+  if (method === 'POST' && path === '/admin/support/quick-replies') {
+    const row=await createSupportQuickReply(deps,env,scope,await deps.readJson(request),'ADMIN',admin.email,null);
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'quick_reply_created','support_quick_reply',row.id,row.title);
+    return deps.jsonNoStore({ ok:true,quick_reply:row },201,env);
+  }
+  const adminQuick=path.match(/^\/admin\/support\/quick-replies\/(\d+)$/);
+  if (adminQuick && method === 'PUT') {
+    const id=numericId(adminQuick[1]); const payload=await deps.readJson(request);
+    const row=(await deps.q(env,`UPDATE support_quick_replies SET title=$4,shortcut=$5,category=$6,message_text=$7,enabled=$8,display_order=$9,updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND scope_kind='platform' AND archived_at IS NULL RETURNING *`,[id,scope.tenant_id,scope.platform_id,cleanText(payload.title,160),cleanText(payload.shortcut,80),cleanText(payload.category,100)||'General',cleanText(payload.message_text,6000),payload.enabled!==false,Math.max(0,Math.min(9999,Number(payload.display_order||100)))] )).rows[0];
+    if (!row) throw supportError('Platform quick reply not found',404,'SUPPORT_QUICK_REPLY_NOT_FOUND');
+    return deps.jsonNoStore({ ok:true,quick_reply:quickReplyOut(row) },200,env);
+  }
+  if (adminQuick && method === 'DELETE') {
+    const row=(await deps.q(env,`UPDATE support_quick_replies SET archived_at=NOW(),updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND scope_kind='platform' RETURNING id`,[numericId(adminQuick[1]),scope.tenant_id,scope.platform_id])).rows[0];
+    if (!row) throw supportError('Platform quick reply not found',404,'SUPPORT_QUICK_REPLY_NOT_FOUND');
+    return deps.jsonNoStore({ ok:true },200,env);
+  }
+  const adminContext=path.match(/^\/admin\/support\/conversations\/(\d+)\/context$/);
+  if (method === 'GET' && adminContext) return deps.jsonNoStore({ ok:true,context:await customerContext(deps,env,scope,numericId(adminContext[1]),true) },200,env);
+  const adminMessage=path.match(/^\/admin\/support\/conversations\/(\d+)\/messages$/);
+  if (method === 'POST' && adminMessage) {
+    const id=numericId(adminMessage[1]); const payload=await deps.readJson(request); const body=cleanText(payload.body_text || payload.message,12000);
+    if (!body) throw supportError('Message is required',400,'SUPPORT_MESSAGE_REQUIRED');
+    const conversation=(await deps.q(env,`SELECT * FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!conversation) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+    if (conversation.control_mode!=='HUMAN' || !['WAITING_FOR_AGENT','ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED'].includes(conversation.status)) throw supportError('Admin replies are available only during human support',409,'SUPPORT_CONVERSATION_NOT_ACTIVE');
+    const senderName=cleanText(admin.name || admin.email || 'Administrator',160);
+    const row=await appendSupportMessage(deps,env,scope,id,{ sender_type:'STAFF',client_message_id:cleanText(payload.client_message_id,120)||randomUUID(),body_text:body,sentence_count:countSentences(body),metadata:{ source:'admin_workspace',sender_name:senderName,admin:true } });
+    await deps.q(env,`UPDATE support_conversations SET first_agent_reply_at=COALESCE(first_agent_reply_at,NOW()),status='AGENT_ACTIVE',control_mode='HUMAN',updated_at=NOW() WHERE id=$1`,[id]);
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'admin_reply_sent','support_conversation',id,'Administrator joined and replied');
+    emitSupportEvent({ event:'support:message_created',platform_id:scope.platform_id,conversation_id:id,data:{ message:messageOut({ ...row,sender_name:senderName }) } });
+    return deps.jsonNoStore({ ok:true,message:messageOut({ ...row,sender_name:senderName }) },201,env);
+  }
+  const adminAttachment=path.match(/^\/admin\/support\/conversations\/(\d+)\/attachments$/);
+  if (method === 'POST' && adminAttachment) {
+    const id=numericId(adminAttachment[1]); const conversation=(await deps.q(env,`SELECT * FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!conversation) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+    const result=await uploadSupportAttachment({ request,env,deps,scope,conversation,actorType:'ADMIN',actorId:admin.email,staff:{ id:null,display_name:admin.name || admin.email } });
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'attachment_sent','support_conversation',id,result.attachment.original_name);
+    return deps.jsonNoStore({ ok:true,...result },201,env);
+  }
+  if (method === 'GET' && path === '/admin/support/promotions') return deps.jsonNoStore({ ok:true,items:await listPromotions(deps,env,scope,true) },200,env);
+  if (method === 'POST' && path === '/admin/support/promotions') {
+    const payload=await deps.readJson(request); const image=safePromotionUrl(payload.image_url,{allowEmpty:false,image:true}); const link=safePromotionUrl(payload.link_url,{allowEmpty:true});
+    const row=(await deps.q(env,`INSERT INTO chat_promotional_items(tenant_id,platform_id,title,subtitle,image_url,link_url,placement,enabled,display_order,starts_at,ends_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[scope.tenant_id,scope.platform_id,cleanText(payload.title,180),cleanText(payload.subtitle,2000),image,link,['welcome','conversation_top','before_first_message'].includes(payload.placement)?payload.placement:'welcome',payload.enabled!==false,Math.max(0,Math.min(9999,Number(payload.display_order||100))),payload.starts_at || null,payload.ends_at || null])).rows[0];
+    return deps.jsonNoStore({ ok:true,item:{ ...row,id:Number(row.id) } },201,env);
+  }
+  const adminPromotion=path.match(/^\/admin\/support\/promotions\/(\d+)$/);
+  if (adminPromotion && method === 'DELETE') {
+    const row=(await deps.q(env,`UPDATE chat_promotional_items SET archived_at=NOW(),updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 RETURNING id`,[numericId(adminPromotion[1]),scope.tenant_id,scope.platform_id])).rows[0];
+    if (!row) throw supportError('Promotion not found',404,'PROMOTION_NOT_FOUND');
+    return deps.jsonNoStore({ ok:true },200,env);
+  }
+
   if (method === 'GET' && path === '/admin/support/performance') {
     const rows = (await deps.q(env,`SELECT sp.id,sp.display_name,au.email,
       COALESCE(a.conversations_served,0)::int AS conversations_served,

@@ -19,8 +19,17 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.16.4-sse-customer-delivery-durable-queue';
+const API_VERSION = '1.17.0-professional-support-workspace-chat-media';
 const API_FEATURES = [
+  'professional-support-workspace',
+  'admin-support-sse-workspace',
+  'staff-self-accept-queue',
+  'human-only-support-attachments',
+  'support-attachment-signature-validation',
+  'support-customer-device-context',
+  'platform-and-personal-quick-replies',
+  'chat-promotional-carousel',
+  'staff-domain-mapping',
   'customer-sse-stream',
   'staff-sse-message-stream',
   'sse-last-sequence-resume',

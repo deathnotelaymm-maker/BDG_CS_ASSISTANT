@@ -26,7 +26,7 @@ function test(name, condition) {
   console.log(`PASS ${name}`);
 }
 
-test('v1.16.2 release marker is active', core.includes('1.16.4-sse-customer-delivery-durable-queue') && server.includes('1.16.4-sse-customer-delivery-durable-queue'));
+test('v1.16.2 release marker is active', core.includes('1.17.0-professional-support-workspace-chat-media') && server.includes('1.17.0-professional-support-workspace-chat-media'));
 test('migration 040 adds resume and read continuity fields', migration.includes('customer_resume_key_hash') && migration.includes('last_customer_read_sequence') && migration.includes('last_staff_read_sequence'));
 test('migration 040 creates one-time realtime tickets', migration.includes('CREATE TABLE IF NOT EXISTS support_realtime_tickets') && migration.includes('consumed_at') && migration.includes('expires_at'));
 test('migration 040 adds localized customer messages and fallback interval', migration.includes('customer_messages_json') && migration.includes('realtime_poll_interval_ms'));
@@ -41,7 +41,7 @@ test('realtime gateway accepts query tickets', realtime.includes("requestUrl.sea
 test('customer HTTP catch-up returns messages after sequence', service.includes('/sync') && service.includes('message_sequence>$2') && chatApi.includes('syncCustomerSupport'));
 test('staff HTTP catch-up returns messages after sequence', service.includes('staffSyncMatch') && staffApi.includes('sync:'));
 test('customer client uses connected and fallback synchronization intervals', chat.includes('pollIntervalMs') && chat.includes('12000') && chat.includes('2500'));
-test('staff client uses connected and fallback synchronization intervals', staff.includes('pollIntervalMs') && staff.includes('12000') && staff.includes('2500'));
+test('staff client uses connected and fallback synchronization intervals', staff.includes('socketState') && staff.includes('12000') && staff.includes('2500') && staff.includes('api.sync'));
 test('customer restores conversation through resume before old-token fallback', chat.includes('resumeCustomerConversation') && chatApi.includes('resume_key'));
 test('customer resume key is platform scoped', chatApi.includes('supportStorageKey(SUPPORT_RESUME_KEY') && chatApi.includes('getPlatformKey()'));
 test('refresh restores the latest message anchor', chat.includes('initialAnchorRef') && chat.includes('scrollToBottom') && chat.includes('newMessageCount'));
