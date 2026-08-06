@@ -117,3 +117,18 @@ export function websocketUrl(ticket = "") {
   url.search = ticket ? `?ticket=${encodeURIComponent(ticket)}` : "";
   return url.toString();
 }
+
+export type StaffStreamPacket = { id?: string; event: string; data: Record<string, any> };
+export async function openStaffConversationStream(conversationId: number, afterSequence = 0, signal?: AbortSignal) {
+  if (!API) throw new Error("Staff API is not configured. Set VITE_API_BASE_URL during the production build.");
+  const response=await fetch(`${API}/staff/conversations/${conversationId}/stream?after_sequence=${Math.max(0,Number(afterSequence||0))}`,{
+    headers:{ Authorization:`Bearer ${token()}`,Accept:"text/event-stream" },cache:"no-store",signal,
+  });
+  if (!response.ok || !response.body) throw new Error(`Conversation stream failed (${response.status})`);
+  return response;
+}
+export async function consumeStaffEventStream(response:Response,onPacket:(packet:StaffStreamPacket)=>void,signal?:AbortSignal){
+  if(!response.body)throw new Error("Stream body is unavailable");
+  const reader=response.body.getReader(); const decoder=new TextDecoder(); let buffer="";
+  try{while(!signal?.aborted){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});while(true){const match=buffer.match(/\r?\n\r?\n/);if(!match||match.index===undefined)break;const boundary=match.index;const block=buffer.slice(0,boundary);buffer=buffer.slice(boundary+match[0].length);let id="",event="message";const data:string[]=[];for(const line of block.split(/\r?\n/)){if(!line||line.startsWith(":"))continue;if(line.startsWith("id:"))id=line.slice(3).trim();else if(line.startsWith("event:"))event=line.slice(6).trim()||"message";else if(line.startsWith("data:"))data.push(line.slice(5).trimStart());}if(!data.length)continue;try{onPacket({id,event,data:JSON.parse(data.join("\n"))});}catch{onPacket({id,event,data:{text:data.join("\n")}});}}}}finally{try{await reader.cancel();}catch{}try{reader.releaseLock();}catch{}}
+}

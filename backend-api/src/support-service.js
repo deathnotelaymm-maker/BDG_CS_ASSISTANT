@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { bearerToken, createSupportToken, readSupportToken } from './support-auth.js';
-import { emitSupportEvent } from './support-events.js';
+import { emitSupportEvent, onSupportEvent } from './support-events.js';
 
 export const SUPPORT_PERMISSIONS = [
   'support.conversations.view_own',
@@ -97,6 +97,101 @@ function customerMessage(settings, locale, key, fallback = '') {
   return cleanText(configured?.[code]?.[key] || configured?.en?.[key] || DEFAULT_CUSTOMER_MESSAGES[code]?.[key] || DEFAULT_CUSTOMER_MESSAGES.en[key] || fallback, 3000);
 }
 function createResumeKey() { return randomBytes(32).toString('base64url'); }
+
+function encodeSseEvent(eventName, payload, id = '') {
+  const lines=[];
+  if (id) lines.push(`id: ${String(id).replace(/[\r\n]/g,'')}`);
+  lines.push(`event: ${String(eventName || 'message').replace(/[\r\n]/g,'')}`);
+  const data=JSON.stringify(payload ?? {});
+  for (const line of data.split(/\r?\n/)) lines.push(`data: ${line}`);
+  return `${lines.join('\n')}\n\n`;
+}
+function streamEventName(event = '') {
+  const mapping={
+    'support:message_created':'message.created',
+    'ai:message_created':'response.completed',
+    'ai:job_queued':'response.queued',
+    'ai:processing_started':'response.processing',
+    'ai:processing_updated':'response.processing',
+    'ai:processing_failed':'response.failed',
+    'ai:processing_cancelled':'response.cancelled',
+    'support:conversation_assigned':'conversation.assigned',
+    'support:conversation_resolved':'conversation.resolved',
+    'support:message_state':'message.state',
+    'support:typing':'conversation.typing',
+    'support:force_logout':'session.revoked',
+  };
+  return mapping[event] || 'conversation.updated';
+}
+async function customerSupportStreamResponse(request, env, url, publicId, deps) {
+  const customer=await getCustomerByToken(env,bearerToken(request),deps);
+  if (String(customer.conversation.public_id)!==String(publicId)) throw supportError('Conversation token does not match this conversation',403,'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
+  const after=Math.max(0,Number(url.searchParams.get('after_sequence') || request.headers.get('last-event-id') || 0));
+  const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 AND sm.is_internal=FALSE ORDER BY sm.message_sequence ASC LIMIT 500`,[customer.conversation.id,after])).rows.map(messageOut);
+  const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1`,[customer.conversation.id])).rows[0];
+  const jobs=(await deps.q(env,`SELECT id,public_id,status,attempt_count,created_at,started_at FROM ai_jobs WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING') ORDER BY id LIMIT 20`,[customer.conversation.id])).rows.map((job)=>({ ...job,id:Number(job.id),attempt_count:Number(job.attempt_count || 0) }));
+  const settings=supportSettingsOut(await ensureSettings(deps.q,env,customer.conversation));
+  if (settings.customer_stream_enabled === false) throw supportError('Customer stream is disabled',409,'SUPPORT_STREAM_DISABLED');
+  const heartbeatMs=settings.customer_stream_heartbeat_seconds*1000;
+  const encoder=new TextEncoder();
+  let cleanup=()=>{};
+  const stream=new ReadableStream({
+    start(controller) {
+      let closed=false;
+      const push=(name,payload,id='')=>{ if (!closed) { try { controller.enqueue(encoder.encode(encodeSseEvent(name,payload,id))); } catch {} } };
+      push('session',{ conversation:conversationOut(conversation),messages:rows,active_ai_jobs:jobs,after_sequence:after,transport:'sse' },String(rows.at(-1)?.message_sequence || after || ''));
+      const unsubscribe=onSupportEvent((event)=>{
+        if (Number(event.platform_id || 0)!==Number(customer.conversation.platform_id)) return;
+        if (Number(event.conversation_id || event.data?.conversation_id || 0)!==Number(customer.conversation.id)) return;
+        const message=event.data?.message;
+        const eventId=message?.message_sequence || event.id;
+        push(streamEventName(event.event),{ ...event.data,event_id:event.id,conversation_id:Number(customer.conversation.id),created_at:event.created_at,source_event:event.event },eventId);
+      });
+      const heartbeat=setInterval(()=>push('heartbeat',{ server_time:new Date().toISOString() }),heartbeatMs);
+      const close=()=>{ if (closed) return; closed=true; clearInterval(heartbeat); unsubscribe(); try { controller.close(); } catch {} };
+      cleanup=close;
+      request.signal?.addEventListener('abort',close,{ once:true });
+    },
+    cancel(){ cleanup(); },
+  });
+  return new Response(stream,{ status:200,headers:{ 'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-store, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no','X-Content-Type-Options':'nosniff' } });
+}
+
+
+async function staffSupportStreamResponse(request, env, url, conversationId, staff, deps) {
+  const scope={ tenant_id:staff.tenant_id,platform_id:staff.platform_id };
+  if (!await supportRealtimeCanSubscribe(env,{ kind:'staff',staff,tenant_id:scope.tenant_id,platform_id:scope.platform_id,staff_id:staff.id },conversationId,deps)) throw supportError('Conversation access denied',403,'SUPPORT_SUBSCRIBE_DENIED');
+  const after=Math.max(0,Number(url.searchParams.get('after_sequence') || request.headers.get('last-event-id') || 0));
+  const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 ORDER BY sm.message_sequence ASC LIMIT 500`,[conversationId,after])).rows.map(messageOut);
+  const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`,[conversationId,scope.tenant_id,scope.platform_id])).rows[0];
+  const settings=supportSettingsOut(await ensureSettings(deps.q,env,scope));
+  const heartbeatMs=settings.customer_stream_heartbeat_seconds*1000;
+  const encoder=new TextEncoder();
+  let cleanup=()=>{};
+  const stream=new ReadableStream({
+    start(controller) {
+      let closed=false;
+      const push=(name,payload,id='')=>{ if (!closed) { try { controller.enqueue(encoder.encode(encodeSseEvent(name,payload,id))); } catch {} } };
+      push('session',{ conversation:conversationOut(conversation),messages:rows,after_sequence:after,transport:'sse' },String(rows.at(-1)?.message_sequence || after || ''));
+      const unsubscribe=onSupportEvent((event)=>{
+        if (Number(event.platform_id || 0)!==Number(scope.platform_id)) return;
+        const conversationMatch=Number(event.conversation_id || event.data?.conversation_id || 0)===Number(conversationId);
+        const staffMatch=Number(event.staff_id || event.data?.staff_id || 0)===Number(staff.id);
+        if (!conversationMatch && !staffMatch) return;
+        const message=event.data?.message;
+        const eventId=message?.message_sequence || event.id;
+        push(streamEventName(event.event),{ ...event.data,event_id:event.id,conversation_id:Number(conversationId),created_at:event.created_at,source_event:event.event },eventId);
+      });
+      const heartbeat=setInterval(()=>push('heartbeat',{ server_time:new Date().toISOString() }),heartbeatMs);
+      const close=()=>{ if (closed) return; closed=true; clearInterval(heartbeat); unsubscribe(); try { controller.close(); } catch {} };
+      cleanup=close;
+      request.signal?.addEventListener('abort',close,{ once:true });
+    },
+    cancel(){ cleanup(); },
+  });
+  return new Response(stream,{ status:200,headers:{ 'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-store, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no','X-Content-Type-Options':'nosniff' } });
+}
+
 function supportSettingsOut(row = {}) {
   return {
     id:Number(row.id || 0), tenant_id:Number(row.tenant_id || 0), platform_id:Number(row.platform_id || 0),
@@ -129,6 +224,8 @@ function supportSettingsOut(row = {}) {
     return_to_ai_on_resolve:row.return_to_ai_on_resolve !== false,
     customer_messages_json:parseJsonObject(row.customer_messages_json, {}),
     realtime_poll_interval_ms:Math.min(15000,Math.max(1500,Number(row.realtime_poll_interval_ms || 2500))),
+    customer_stream_enabled:row.customer_stream_enabled !== false,
+    customer_stream_heartbeat_seconds:Math.min(45,Math.max(10,Number(row.customer_stream_heartbeat_seconds || 15))),
     updated_at:rowDate(row.updated_at),
   };
 }
@@ -451,6 +548,8 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
       heartbeat_interval_seconds:settings.heartbeat_interval_seconds,
       return_to_ai_on_resolve:settings.return_to_ai_on_resolve,
       poll_interval_ms:settings.realtime_poll_interval_ms,
+      stream_enabled:settings.customer_stream_enabled,
+      stream_heartbeat_seconds:settings.customer_stream_heartbeat_seconds,
       customer_messages:settings.customer_messages_json,
       processing:{
         enabled:settings.processing_message_enabled,
@@ -519,10 +618,12 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
     return deps.jsonNoStore({ ok:true,...await issueRealtimeTicket(env,access,deps) },201,env);
   }
   const customerConversationMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)$/i);
+  const customerStreamMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/stream$/i);
   const customerSyncMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/sync$/i);
   const customerCancelMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/cancel-handoff$/i);
   const customerMessagesMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/messages$/i);
   const customerHistoryMatch = path.match(/^\/support\/customer\/conversations\/([0-9a-f-]+)\/history$/i);
+  if (customerStreamMatch && method === 'GET') return customerSupportStreamResponse(request,env,url,customerStreamMatch[1],deps);
   if (customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch || customerHistoryMatch) {
     const customer = await getCustomerByToken(env, bearerToken(request), deps);
     if (String(customer.conversation.public_id) !== String((customerConversationMatch || customerSyncMatch || customerCancelMatch || customerMessagesMatch || customerHistoryMatch)[1])) throw supportError('Conversation token does not match this conversation', 403, 'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
@@ -676,6 +777,8 @@ export async function handleSupportStaffRoute({ request, env, url, path, method,
   }
   const detailMatch = path.match(/^\/staff\/conversations\/(\d+)$/);
   const staffSyncMatch = path.match(/^\/staff\/conversations\/(\d+)\/sync$/);
+  const staffStreamMatch = path.match(/^\/staff\/conversations\/(\d+)\/stream$/);
+  if (method === 'GET' && staffStreamMatch) return staffSupportStreamResponse(request,env,url,numericId(staffStreamMatch[1],'Conversation ID'),staff,deps);
   if (method === 'GET' && staffSyncMatch) {
     const id=numericId(staffSyncMatch[1],'Conversation ID');
     if (!await supportRealtimeCanSubscribe(env,{ kind:'staff',staff,tenant_id:scope.tenant_id,platform_id:scope.platform_id,staff_id:staff.id },id,deps)) throw supportError('Conversation access denied',403,'SUPPORT_SUBSCRIBE_DENIED');
@@ -926,8 +1029,8 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
       processing_message_enabled=$1,processing_message_text=$2,processing_message_secondary_text=$3,
       processing_message_delay_ms=$4,processing_message_secondary_delay_ms=$5,processing_message_max_visible_ms=$6,
       allow_messages_while_ai_processing=$7,provider_failure_message=$8,return_to_ai_on_resolve=$9,
-      customer_messages_json=$10::jsonb,realtime_poll_interval_ms=$11,updated_at=NOW()
-      WHERE tenant_id=$12 AND platform_id=$13 RETURNING *`,[
+      customer_messages_json=$10::jsonb,realtime_poll_interval_ms=$11,customer_stream_enabled=$12,customer_stream_heartbeat_seconds=$13,updated_at=NOW()
+      WHERE tenant_id=$14 AND platform_id=$15 RETURNING *`,[
         bool(payload.processing_message_enabled,current.processing_message_enabled),
         cleanText(payload.processing_message_text ?? current.processing_message_text,3000),
         cleanText(payload.processing_message_secondary_text ?? current.processing_message_secondary_text,3000),
@@ -939,6 +1042,8 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
         bool(payload.return_to_ai_on_resolve,current.return_to_ai_on_resolve),
         JSON.stringify(payload.customer_messages_json && typeof payload.customer_messages_json === 'object' ? payload.customer_messages_json : current.customer_messages_json || {}),
         Math.min(15000,Math.max(1500,Number(payload.realtime_poll_interval_ms ?? current.realtime_poll_interval_ms ?? 2500))),
+        bool(payload.customer_stream_enabled,current.customer_stream_enabled),
+        Math.min(45,Math.max(10,Number(payload.customer_stream_heartbeat_seconds ?? current.customer_stream_heartbeat_seconds ?? 15))),
         scope.tenant_id,scope.platform_id,
       ])).rows[0];
     await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_settings_updated','support_settings',row.id,'Human support and AI processing settings updated');

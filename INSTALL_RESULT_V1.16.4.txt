@@ -1,0 +1,4 @@
+﻿Installed: 2026-08-06T15:49:21.8546448+07:00
+Release: v1.16.4 SSE Customer Delivery and Durable Queue Integration
+Backup: C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.16.4-20260806-154918
+Migration 042 is included but was not applied by this installer.

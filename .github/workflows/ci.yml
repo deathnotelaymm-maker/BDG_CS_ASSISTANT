@@ -62,6 +62,7 @@ jobs:
           npm run test:v1161
           npm run test:v1162
           npm run test:v1163
+          npm run test:v1164
           npm run test:chat-reliability
           npm run test:security
           npm run test:structured

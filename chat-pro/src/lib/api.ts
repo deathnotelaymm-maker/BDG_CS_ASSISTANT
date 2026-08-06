@@ -1,4 +1,4 @@
-// BDG Chat Pro API client — v1.16.3 single-pending flow and progressive history.
+// BDG Chat Pro API client — v1.16.4 SSE delivery, durable queue, and HTTP recovery.
 
 const configuredApiBase =
   (import.meta.env.VITE_BDG_API_BASE as string | undefined) ??
@@ -391,4 +391,61 @@ export function supportWebSocketUrl(ticket = "") {
   u.pathname = "/support";
   u.search = ticket ? `?ticket=${encodeURIComponent(ticket)}` : "";
   return u.toString();
+}
+
+export type SupportStreamPacket = { id?: string; event: string; data: Record<string, any> };
+
+export async function openCustomerSupportStream(publicId: string, supportToken: string, afterSequence = 0, signal?: AbortSignal) {
+  requireApiBase();
+  const response = await fetch(`${API_BASE}/support/customer/conversations/${encodeURIComponent(publicId)}/stream?after_sequence=${Math.max(0, Number(afterSequence || 0))}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${supportToken}`, Accept: "text/event-stream" },
+    cache: "no-store",
+    signal,
+  });
+  if (!response.ok || !response.body) {
+    const body = await response.json().catch(() => ({} as Record<string, unknown>));
+    throw new ChatApiError(String((body as any)?.error || `Stream request failed (${response.status})`), {
+      status: response.status,
+      code: String((body as any)?.code || "SUPPORT_STREAM_FAILED"),
+      requestId: String((body as any)?.request_id || response.headers.get("x-request-id") || ""),
+    });
+  }
+  return response;
+}
+
+export async function consumeSupportEventStream(response: Response, onPacket: (packet: SupportStreamPacket) => void, signal?: AbortSignal) {
+  if (!response.body) throw new Error("Stream body is unavailable");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (!signal?.aborted) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      while (true) {
+        const boundary = buffer.search(/\r?\n\r?\n/);
+        if (boundary < 0) break;
+        const block = buffer.slice(0, boundary);
+        const separatorLength = buffer.slice(boundary).startsWith("\r\n\r\n") ? 4 : 2;
+        buffer = buffer.slice(boundary + separatorLength);
+        let id = "";
+        let event = "message";
+        const data: string[] = [];
+        for (const line of block.split(/\r?\n/)) {
+          if (!line || line.startsWith(":")) continue;
+          if (line.startsWith("id:")) id = line.slice(3).trim();
+          else if (line.startsWith("event:")) event = line.slice(6).trim() || "message";
+          else if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
+        }
+        if (!data.length) continue;
+        try { onPacket({ id, event, data: JSON.parse(data.join("\n")) }); }
+        catch { onPacket({ id, event, data: { text: data.join("\n") } }); }
+      }
+    }
+  } finally {
+    try { await reader.cancel(); } catch {}
+    try { reader.releaseLock(); } catch {}
+  }
 }

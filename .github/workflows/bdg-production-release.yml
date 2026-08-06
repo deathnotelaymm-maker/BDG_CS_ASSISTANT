@@ -87,6 +87,7 @@ jobs:
           npm --prefix backend-api run test:v1161
           npm --prefix backend-api run test:v1162
           npm --prefix backend-api run test:v1163
+          npm --prefix backend-api run test:v1164
           npm --prefix backend-api run test:security
           npm --prefix backend-api run test:chat-reliability
           npm --prefix backend-api run test:structured

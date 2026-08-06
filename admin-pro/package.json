@@ -102,5 +102,5 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.16"
   },
-  "version": "1.16.3"
+  "version": "1.16.4"
 }

@@ -26,7 +26,7 @@ function test(name, condition) {
   console.log(`PASS ${name}`);
 }
 
-test('v1.16.2 release marker is active', core.includes('1.16.3-admin-contract-chat-flow-theme-separation') && server.includes('1.16.3-admin-contract-chat-flow-theme-separation'));
+test('v1.16.2 release marker is active', core.includes('1.16.4-sse-customer-delivery-durable-queue') && server.includes('1.16.4-sse-customer-delivery-durable-queue'));
 test('migration 040 adds resume and read continuity fields', migration.includes('customer_resume_key_hash') && migration.includes('last_customer_read_sequence') && migration.includes('last_staff_read_sequence'));
 test('migration 040 creates one-time realtime tickets', migration.includes('CREATE TABLE IF NOT EXISTS support_realtime_tickets') && migration.includes('consumed_at') && migration.includes('expires_at'));
 test('migration 040 adds localized customer messages and fallback interval', migration.includes('customer_messages_json') && migration.includes('realtime_poll_interval_ms'));
@@ -65,10 +65,10 @@ test('menu diagnostics expose score, threshold, method, phrase and images', diag
 test('server persists its selected asset manifest', core.includes('selected_asset_manifest') && core.includes('selectedContent?.id'));
 test('Menu & Images Admin exposes aliases, category and threshold', contentStudio.includes('matching_aliases') && contentStudio.includes('Category') && contentStudio.includes('Match threshold'));
 test('Menu & Images Admin exposes hybrid match diagnostics', contentStudio.includes('Hybrid Menu & Images Match Tester') && contentStudio.includes('matched_phrase') && contentStudio.includes('approved image(s)'));
-test('Customer Service Admin exposes localized customer messages', admin.includes('Localized Customer Messages') && admin.includes('customer_messages_json') && admin.includes('Fallback synchronization interval'));
+test('Customer Service Admin exposes localized customer messages', admin.includes('Localized Customer Messages') && admin.includes('customer_messages_json') && admin.includes('HTTP recovery interval'));
 test('Customer Service Admin exposes selected media diagnostics', admin.includes('selected_match_method') && admin.includes('selected_asset_manifest'));
 test('all customer system messages are localized centrally', service.includes('DEFAULT_CUSTOMER_MESSAGES') && ['my','id','zh','hi'].every((locale)=>service.includes(`${locale}:{`)));
-test('server advertises continuity and hybrid media features', server.includes('websocket-with-http-catchup-fallback') && server.includes('hybrid-menu-media-matching') && server.includes('neutral-customer-brand-status'));
+test('server advertises continuity and hybrid media features', server.includes('customer-sse-stream') && server.includes('sse-last-sequence-resume') && server.includes('hybrid-menu-media-matching') && server.includes('neutral-customer-brand-status'));
 test('integration provider classifies the plain-text runtime by contract markers', integrationTest.includes('isPlainTextPrompt') && integrationTest.includes('Return only the customer-facing answer as plain text') && integrationTest.includes('ACTIVE ASSISTANT SETUP RUNTIME') && !integrationTest.includes("systemPrompt.startsWith('You are the production AI assistant') ? 'prompt_first'"));
 
 console.log(`\n${checks.length}/${checks.length} v1.16.2 conversation continuity checks passed.`);

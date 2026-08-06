@@ -1,0 +1,5 @@
+BDG CS Assistant v1.16.4
+SSE Customer Delivery and Durable Queue Integration Repair
+Release marker: 1.16.4-sse-customer-delivery-durable-queue
+Migration: 042_v1.16.4_sse_customer_delivery_durable_queue.sql
+Installed marker only. This file does not prove that migration 042 was applied.

@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-center-business-platform",
-  "version": "1.16.3",
+  "version": "1.16.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -22,6 +22,7 @@
     "typecheck:staff": "npm --prefix staff-pro run typecheck",
     "test:support": "npm --prefix backend-api run test:support",
     "test:v1161": "npm --prefix backend-api run test:v1161",
-    "test:v1162": "npm --prefix backend-api run test:v1162"
+    "test:v1162": "npm --prefix backend-api run test:v1162",
+    "test:v1164": "npm --prefix backend-api run test:v1164"
   }
 }

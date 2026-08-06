@@ -14,7 +14,6 @@ import {
   ChatApiError,
   cancelCustomerHandoff,
   clearCustomerSupportSession,
-  createCustomerRealtimeTicket,
   fetchChatContent,
   fetchCustomerSupport,
   fetchOlderCustomerMessages,
@@ -24,8 +23,9 @@ import {
   resumeCustomerConversation,
   sendChatMessage,
   sendCustomerSupportMessage,
-  supportWebSocketUrl,
   syncCustomerSupport,
+  openCustomerSupportStream,
+  consumeSupportEventStream,
   type AiJobSummary,
   type ChatContent,
   type ProcessingExperience,
@@ -222,6 +222,7 @@ export default function App() {
   const [waitHint, setWaitHint] = useState(false);
   const [supportSession, setSupportSession] = useState<CustomerRealtimeSession | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+  const [fallbackHealthy,setFallbackHealthy]=useState(true);
   const [pollIntervalMs, setPollIntervalMs] = useState(2500);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const [staffTyping, setStaffTyping] = useState(false);
@@ -266,10 +267,10 @@ export default function App() {
 
   const processingRef = useRef(defaultProcessing);
   processingRef.current = defaultProcessing;
-  const supportSocket = useRef<WebSocket | null>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
   const reconnectTimer = useRef<number | null>(null);
   const reconnectAttempt = useRef(0);
-  const socketGeneration = useRef(0);
+  const streamGeneration = useRef(0);
   const lastSequenceRef = useRef(0);
   const nearBottomRef = useRef(true);
   const initialAnchorRef = useRef(false);
@@ -354,64 +355,54 @@ export default function App() {
 
   useEffect(() => {
     if (!supportSession?.token || !supportSession.publicId) return;
-    const generation=++socketGeneration.current;
+    const generation=++streamGeneration.current;
     let disposed=false;
-    const connect=async () => {
-      if (disposed || generation !== socketGeneration.current) return;
-      setConnectionState(reconnectAttempt.current > 0 ? "reconnecting" : "connecting");
-      try {
-        const ticket=await createCustomerRealtimeTicket(supportSession.token);
-        if (disposed || generation !== socketGeneration.current) return;
-        const socket=new WebSocket(supportWebSocketUrl(ticket.ticket));
-        supportSocket.current=socket;
-        socket.onopen=()=>{
-          if (disposed || generation !== socketGeneration.current) return socket.close();
-          reconnectAttempt.current=0; setConnectionState("connected");
-          socket.send(JSON.stringify({ event:"support:sync",data:{ conversation_id:supportSession.conversationId,after_sequence:lastSequenceRef.current } }));
-        };
-        socket.onmessage=(event)=>{
-          try {
-            const packet=JSON.parse(String(event.data || "{}")); const data=packet.data || {};
-            if (packet.event === "support:snapshot") {
-              if (data.conversation) updateSession(data.conversation);
-              for (const item of (data.messages || []) as SupportMessage[]) ingestMessage(item);
-              const active=Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : data.active_ai_job ? [data.active_ai_job] : [];
-              const activeIds=new Set((active as AiJobSummary[]).map((job)=>Number(job.id)));
-              setActiveJobs((current)=>{
-                const next:Record<number,ActiveJob>={};
-                for (const job of active as AiJobSummary[]) next[Number(job.id)]={ ...job,processing:current[Number(job.id)]?.processing || processingRef.current,queuedAt:current[Number(job.id)]?.queuedAt || Date.parse(job.created_at || "") || Date.now() };
-                for (const [id,job] of Object.entries(current)) if (activeIds.has(Number(id))) next[Number(id)]=next[Number(id)] || job;
-                return next;
-              });
-            }
-            if ((packet.event === "support:message_created" || packet.event === "ai:message_created") && data.message) ingestMessage(data.message as SupportMessage);
-            if (["ai:job_queued","ai:processing_started","ai:processing_updated"].includes(packet.event)) {
-              const id=Number(data.job_id || 0); if (id) setActiveJobs((current)=>({ ...current,[id]:{ ...(current[id] || { id,queuedAt:Date.now(),processing:data.processing || processingRef.current }),id,status:data.status || current[id]?.status || "QUEUED",attempt_count:Number(data.attempt_count || current[id]?.attempt_count || 0),processing:data.processing || current[id]?.processing || processingRef.current } }));
-            }
-            if (["ai:processing_failed","ai:processing_cancelled"].includes(packet.event)) { const id=Number(data.job_id || 0); if (id) setActiveJobs((current)=>{ const next={ ...current }; delete next[id]; return next; }); }
-            if (packet.event === "support:conversation_assigned") setSupportSession((current)=>current ? { ...current,status:"AGENT_ACTIVE",controlMode:"HUMAN",assignedStaffName:data.staff?.display_name || data.conversation?.assigned_staff_name || current.assignedStaffName,version:Number(data.conversation?.version || current.version) } : current);
-            if (packet.event === "support:conversation_resolved") { if (data.conversation) updateSession(data.conversation); else setSupportSession((current)=>current ? { ...current,status:"AI_ACTIVE",controlMode:data.return_to_ai === false ? "CLOSED" : "AI",assignedStaffName:"",version:current.version+1 } : current); setActiveJobs({}); }
-            if (packet.event === "support:typing" && data.actor === "staff") { setStaffTyping(data.is_typing === true); if (data.is_typing) window.setTimeout(()=>setStaffTyping(false),5000); }
-            if (packet.event === "support:message_state" && data.actor === "staff") { const through=Number(data.through_sequence || 0); setMessages((current)=>current.map((message)=>message.role === "user" && Number(message.sequence || 0) <= through ? { ...message,deliveredAt:data.updated_at || message.deliveredAt,readAt:data.state === "read" ? (data.updated_at || message.readAt) : message.readAt } : message)); }
-          } catch {}
-        };
-        socket.onerror=()=>setConnectionState("offline");
-        socket.onclose=()=>{
-          if (disposed || generation !== socketGeneration.current) return;
+    const controller=new AbortController();
+    streamAbortRef.current=controller;
+    const handlePacket=(packet:{ event:string; data:Record<string,any> })=>{
+      const data=packet.data || {};
+      if (packet.event === "session") {
+        if (data.conversation) updateSession(data.conversation);
+        for (const item of (data.messages || []) as SupportMessage[]) ingestMessage(item);
+        const active=Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : [];
+        setActiveJobs(Object.fromEntries((active as AiJobSummary[]).map((job)=>[Number(job.id),{ ...job,processing:processingRef.current,queuedAt:Date.parse(job.created_at || "") || Date.now() }])));
+        return;
+      }
+      if (packet.event === "message.created" && data.message) ingestMessage(data.message as SupportMessage);
+      if (["response.queued","response.processing"].includes(packet.event)) {
+        const id=Number(data.job_id || 0);
+        if (id) setActiveJobs((current)=>({ ...current,[id]:{ ...(current[id] || { id,queuedAt:Date.now(),processing:data.processing || processingRef.current }),id,status:data.status || current[id]?.status || "PROCESSING",attempt_count:Number(data.attempt_count || current[id]?.attempt_count || 0),processing:data.processing || current[id]?.processing || processingRef.current } }));
+      }
+      if (["response.completed","response.failed","response.cancelled"].includes(packet.event)) {
+        const id=Number(data.job_id || 0); if (id) setActiveJobs((current)=>{ const next={ ...current }; delete next[id]; return next; });
+      }
+      if (packet.event === "conversation.assigned") setSupportSession((current)=>current ? { ...current,status:"AGENT_ACTIVE",controlMode:"HUMAN",assignedStaffName:data.staff?.display_name || data.conversation?.assigned_staff_name || current.assignedStaffName,version:Number(data.conversation?.version || current.version) } : current);
+      if (packet.event === "conversation.resolved") { if (data.conversation) updateSession(data.conversation); else setSupportSession((current)=>current ? { ...current,status:"AI_ACTIVE",controlMode:data.return_to_ai === false ? "CLOSED" : "AI",assignedStaffName:"",version:current.version+1 } : current); setActiveJobs({}); }
+      if (packet.event === "message.state" && data.actor === "staff") { const through=Number(data.through_sequence || 0); setMessages((current)=>current.map((message)=>message.role === "user" && Number(message.sequence || 0) <= through ? { ...message,deliveredAt:data.updated_at || message.deliveredAt,readAt:data.state === "read" ? (data.updated_at || message.readAt) : message.readAt } : message)); }
+      if (packet.event === "conversation.typing" && data.actor === "staff") { setStaffTyping(data.is_typing === true); if (data.is_typing) window.setTimeout(()=>setStaffTyping(false),5000); }
+    };
+    const connect=async()=>{
+      while (!disposed && generation===streamGeneration.current && !controller.signal.aborted) {
+        setConnectionState(reconnectAttempt.current > 0 ? "reconnecting" : "connecting");
+        try {
+          const response=await openCustomerSupportStream(supportSession.publicId,supportSession.token,lastSequenceRef.current,controller.signal);
+          if (disposed || generation!==streamGeneration.current) return;
+          reconnectAttempt.current=0;
+          setConnectionState("connected");
+          setFallbackHealthy(true);
+          await consumeSupportEventStream(response,handlePacket,controller.signal);
+        } catch (error) {
+          if (controller.signal.aborted || disposed) return;
           setConnectionState("reconnecting");
-          const attempt=Math.min(8,reconnectAttempt.current++); const delay=Math.min(15000,750*2**attempt)+Math.floor(Math.random()*300);
-          reconnectTimer.current=window.setTimeout(()=>void connect(),delay);
-        };
-      } catch {
-        if (disposed || generation !== socketGeneration.current) return;
-        setConnectionState("reconnecting");
-        const attempt=Math.min(8,reconnectAttempt.current++); const delay=Math.min(15000,750*2**attempt)+Math.floor(Math.random()*300);
-        reconnectTimer.current=window.setTimeout(()=>void connect(),delay);
+        }
+        const attempt=Math.min(8,reconnectAttempt.current++);
+        const delay=Math.min(15000,750*2**attempt)+Math.floor(Math.random()*300);
+        await new Promise((resolve)=>{ reconnectTimer.current=window.setTimeout(resolve,delay); });
       }
     };
     void connect();
-    return ()=>{ disposed=true; if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current); supportSocket.current?.close(1000,"Chat session changed"); supportSocket.current=null; setConnectionState("disconnected"); };
-  }, [supportSession?.token,supportSession?.publicId,supportSession?.conversationId,ingestMessage,updateSession]);
+    return ()=>{ disposed=true; controller.abort(); if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current); if (streamAbortRef.current===controller) streamAbortRef.current=null; setConnectionState("disconnected"); };
+  }, [supportSession?.token,supportSession?.publicId,ingestMessage,updateSession]);
 
   useEffect(() => {
     if (!supportSession?.token || !supportSession.publicId) return;
@@ -423,6 +414,7 @@ export default function App() {
         const data=await syncCustomerSupport(supportSession.publicId,supportSession.token,lastSequenceRef.current);
         if (disposed) return;
         updateSession(data.conversation);
+        setFallbackHealthy(true);
         setPollIntervalMs(Math.max(1500,Number(data.poll_interval_ms || pollIntervalMs || 2500)));
         for (const item of data.messages || []) ingestMessage(item);
         const active=Array.isArray(data.active_ai_jobs) ? data.active_ai_jobs : data.active_ai_job ? [data.active_ai_job] : [];
@@ -437,9 +429,9 @@ export default function App() {
         if (error instanceof ChatApiError && error.status === 401) {
           try {
             const resumed=await resumeCustomerConversation(platformKey);
-            if (!disposed) { setSupportSession(sessionFromConversation(resumed.support_token,resumed.conversation)); setPollIntervalMs(Math.max(1500,Number(resumed.poll_interval_ms || 2500))); }
-          } catch {}
-        }
+            if (!disposed) { setSupportSession(sessionFromConversation(resumed.support_token,resumed.conversation)); setPollIntervalMs(Math.max(1500,Number(resumed.poll_interval_ms || 2500))); setFallbackHealthy(true); }
+          } catch { if (!disposed) setFallbackHealthy(false); }
+        } else if (!disposed) setFallbackHealthy(false);
       } finally { syncInFlightRef.current=false; }
     };
     void sync();
@@ -553,7 +545,7 @@ export default function App() {
     }
   }, [chatConfig.fallbackMessage, closed, effectiveLanguage, humanControlled, isSending, platformKey, updateSession]);
 
-  const connectionCopy=connectionState === "reconnecting" || connectionState === "connecting" ? uiCopy.reconnecting : (onlineText || uiCopy.online);
+  const connectionCopy=(connectionState === "reconnecting" || connectionState === "connecting") && !fallbackHealthy ? uiCopy.reconnecting : (onlineText || uiCopy.online);
   const loadOlder=useCallback(async()=>{
     if(!supportSession || loadingOlder || !hasOlderMessages) return;
     const oldest=Math.min(...messages.map((m)=>Number(m.sequence||Number.MAX_SAFE_INTEGER)));
@@ -582,7 +574,7 @@ export default function App() {
                 <div className="w-10 h-10 rounded-full bg-brand text-brand-foreground grid place-items-center font-bold shadow-sm overflow-hidden">
                   {iconUrl ? <img src={iconUrl} alt={`${headerTitle} logo`} className="h-full w-full object-cover" /> : platformKey === "default" ? <Sparkles className="w-5 h-5" /> : <span className="text-xs font-bold">?</span>}
                 </div>
-                <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${connectionState === "connected" || !supportSession ? "bg-emerald-400" : "bg-amber-400"}`} />
+                <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background ${connectionState === "connected" || fallbackHealthy || !supportSession ? "bg-emerald-400" : "bg-amber-400"}`} />
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-semibold truncate">{headerTitle}</div>

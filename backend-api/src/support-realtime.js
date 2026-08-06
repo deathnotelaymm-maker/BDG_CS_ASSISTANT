@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
-import { configureSupportEventBus, onSupportEvent } from './support-events.js';
+import { configureSupportEventBus, emitSupportEvent, onSupportEvent } from './support-events.js';
 
 function parseProtocols(header = '') {
   return String(header).split(',').map((value) => value.trim()).filter(Boolean);
@@ -105,10 +105,12 @@ export async function attachSupportRealtimeGateway({ server, env, verifyAccess, 
         if (event === 'support:typing') {
           const conversationId=Number(data.conversation_id || access.conversation_id);
           if (!connection.conversation_ids.has(conversationId) && !await canSubscribe(env,access,conversationId)) return;
+          const typingPayload={ conversation_id:conversationId,actor:access.kind,staff_id:connection.staff_id,is_typing:data.is_typing === true };
           for (const target of connections) {
             if (target === connection || target.platform_id !== connection.platform_id || !target.conversation_ids.has(conversationId)) continue;
-            send(target.socket,'support:typing',{ conversation_id:conversationId,actor:access.kind,staff_id:connection.staff_id,is_typing:data.is_typing === true });
+            send(target.socket,'support:typing',typingPayload);
           }
+          emitSupportEvent({ event:'support:typing',platform_id:connection.platform_id,conversation_id:conversationId,staff_id:connection.staff_id,data:typingPayload });
           return;
         }
       } catch (error) {

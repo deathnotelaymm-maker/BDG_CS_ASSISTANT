@@ -19,11 +19,15 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.16.3-admin-contract-chat-flow-theme-separation';
+const API_VERSION = '1.16.4-sse-customer-delivery-durable-queue';
 const API_FEATURES = [
+  'customer-sse-stream',
+  'staff-sse-message-stream',
+  'sse-last-sequence-resume',
+  'websocket-presence-and-typing-only',
   'one-time-realtime-tickets',
   'conversation-resume-key-rotation',
-  'websocket-with-http-catchup-fallback',
+  'sse-with-http-catchup-fallback',
   'sequence-based-conversation-continuity',
   'localized-customer-system-messages',
   'neutral-customer-brand-status',
@@ -35,14 +39,14 @@ const API_FEATURES = [
   'postgresql-ai-job-queue',
   'ephemeral-ai-processing-message',
   'ordered-realtime-message-sequences',
-  'websocket-reconnect-catchup',
+  'sse-reconnect-catchup',
   'client-message-idempotency',
   'server-selected-approved-media',
   'automatic-return-to-ai',
   'tenant-core',
   'human-support-live-chat',
   'dedicated-staff-console',
-  'authenticated-support-websocket',
+  'authenticated-support-websocket-presence',
   'platform-scoped-support-staff',
   'support-presence-heartbeats',
   'manual-support-queue-assignment',
@@ -228,10 +232,15 @@ const server = http.createServer(async (req, res) => {
 
     const body = ['GET', 'HEAD'].includes(req.method || 'GET') ? undefined : await readBody(req);
     const requestHeaders = { ...req.headers, 'x-request-id': requestId };
+    const requestAbort=new AbortController();
+    const abortRequest=()=>{ if (!requestAbort.signal.aborted) requestAbort.abort(); };
+    req.once('aborted',abortRequest);
+    res.once('close',()=>{ if (!res.writableEnded) abortRequest(); });
     const request = new Request(url, {
       method: req.method,
       headers: requestHeaders,
       body,
+      signal:requestAbort.signal,
       ...(body ? { duplex: 'half' } : {}),
     });
     const response = await api.fetch(request, env);
@@ -248,6 +257,24 @@ const server = http.createServer(async (req, res) => {
       headers['cache-control'] = 'public, max-age=60, stale-while-revalidate=600, stale-if-error=86400';
     } else if (hasPlatformContext || path.startsWith('/admin/') || path.startsWith('/auth/') || path === '/chat' || path === '/guide/content' || path === '/public/guide-content') {
       headers['cache-control'] = 'no-store';
+    }
+    const contentType=String(headers['content-type'] || '');
+    if (req.method !== 'HEAD' && contentType.includes('text/event-stream') && response.body) {
+      res.writeHead(response.status, headers);
+      const reader=response.body.getReader();
+      try {
+        while (true) {
+          const { done, value }=await reader.read();
+          if (done) break;
+          if (!res.write(Buffer.from(value))) await new Promise((resolve)=>res.once('drain',resolve));
+        }
+      } catch (error) {
+        if (!res.destroyed) console.warn(JSON.stringify({ level:'warn',event:'sse_stream_closed',request_id:requestId,message:error?.message || String(error) }));
+      } finally {
+        try { reader.releaseLock(); } catch {}
+        if (!res.writableEnded) res.end();
+      }
+      return;
     }
     const responseBody = req.method === 'HEAD' ? null : Buffer.from(await response.arrayBuffer());
     res.writeHead(response.status, headers);

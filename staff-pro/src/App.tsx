@@ -24,6 +24,8 @@ import {
   saveToken,
   token,
   websocketUrl,
+  openStaffConversationStream,
+  consumeStaffEventStream,
   type Conversation,
   type ConversationDetail,
   type Staff,
@@ -138,6 +140,7 @@ export default function App() {
   const selectedRef = useRef<number | null>(null);
   const sequenceRef = useRef(0);
   const messagePaneRef = useRef<HTMLDivElement | null>(null);
+  const messageStreamAbortRef = useRef<AbortController | null>(null);
 
   const displayTimezone = staff?.use_platform_timezone === false && staff.timezone ? staff.timezone : settings.platform_timezone || "UTC";
   const canReply = Boolean(detail && staff && Number(detail.conversation.assigned_staff_id || 0) === staff.id && detail.conversation.control_mode === "HUMAN" && ["ASSIGNED", "AGENT_ACTIVE", "TRANSFER_REQUESTED"].includes(detail.conversation.status));
@@ -259,6 +262,40 @@ export default function App() {
     void connect();
     return ()=>{ disposed=true; if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current); socketRef.current?.close(1000,"Staff Console closed"); socketRef.current=null; };
   }, [staff?.id,loadConversationList,loadDashboard]);
+
+  useEffect(()=>{
+    if (!staff || !selectedId || !token()) return;
+    let disposed=false;
+    const controller=new AbortController();
+    messageStreamAbortRef.current=controller;
+    const run=async()=>{
+      let attempt=0;
+      while(!disposed && !controller.signal.aborted){
+        try{
+          const response=await openStaffConversationStream(selectedId,sequenceRef.current,controller.signal);
+          attempt=0;
+          await consumeStaffEventStream(response,(packet)=>{
+            const data=packet.data || {};
+            if(packet.event==="session"){
+              setDetail((current)=>current ? { ...current,conversation:data.conversation || current.conversation,messages:(data.messages || []).reduce((list:SupportMessage[],item:SupportMessage)=>mergeMessage(list,item),current.messages) } : current);
+              for(const item of (data.messages || []) as SupportMessage[])sequenceRef.current=Math.max(sequenceRef.current,Number(item.message_sequence || 0));
+              return;
+            }
+            if(packet.event==="message.created" && data.message){const message=data.message as SupportMessage;sequenceRef.current=Math.max(sequenceRef.current,Number(message.message_sequence || 0));setDetail((current)=>current ? { ...current,messages:mergeMessage(current.messages,message) } : current);}
+            if(["response.queued","response.processing"].includes(packet.event))setAiState(data.status || "PROCESSING");
+            if(["response.completed","response.failed","response.cancelled"].includes(packet.event))setAiState("");
+            if(packet.event==="conversation.resolved")setDetail((current)=>current ? { ...current,conversation:data.conversation || { ...current.conversation,status:"RESOLVED",control_mode:data.return_to_ai === false ? "CLOSED" : "AI",assigned_staff_id:null } } : current);
+            if(packet.event==="message.state" && data.actor==="customer"){const through=Number(data.through_sequence || 0);setDetail((current)=>current ? { ...current,messages:current.messages.map((message)=>message.sender_type === "STAFF" && Number(message.message_sequence || 0)<=through ? { ...message,delivered_at:data.updated_at || message.delivered_at,read_at:data.state === "read" ? (data.updated_at || message.read_at) : message.read_at } : message) } : current);}
+            void loadDashboard(); void loadConversationList();
+          },controller.signal);
+        }catch{if(disposed || controller.signal.aborted)return;}
+        const delay=Math.min(12000,750*2**Math.min(6,attempt++));
+        await new Promise((resolve)=>window.setTimeout(resolve,delay));
+      }
+    };
+    void run();
+    return()=>{disposed=true;controller.abort();if(messageStreamAbortRef.current===controller)messageStreamAbortRef.current=null;};
+  },[staff?.id,selectedId,loadDashboard,loadConversationList]);
 
   useEffect(()=>{
     if (!staff || !selectedId) return;
