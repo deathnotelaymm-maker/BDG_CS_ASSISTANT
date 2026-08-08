@@ -108,7 +108,12 @@ async function uploadRequest<T>(path: string, file: File, caption = "") {
   body.append("file", file);
   body.append("client_message_id", crypto.randomUUID());
   if (caption) body.append("caption", caption);
-  const response = await fetch(`${API}${path}`, { method: "POST", headers: { ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...platformHeaders() }, body, cache: "no-store" });
+  
+  const headers = new Headers();
+  if (token()) headers.set("Authorization", `Bearer ${token()}`);
+  for(const [key, value] of Object.entries(platformHeaders())) headers.set(key, value);
+  
+  const response = await fetch(`${API}${path}`, { method: "POST", headers, body, cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.message || data?.error || `Upload failed (${response.status})`);
   return data as T;
@@ -140,7 +145,7 @@ export const api = {
   customerContext: (id:number) => request<{ context?: Record<string, any> | null }>(`/staff/conversations/${id}/context`),
   uploadAttachment: (id:number,file:File,caption="") => uploadRequest<{ message:SupportMessage }>(`/staff/conversations/${id}/attachments`,file,caption),
   realtimeTicket: () => request<{ ticket: string; expires_at: string }>("/staff/realtime-ticket", { method: "POST", body: "{}" }),
-  sync: (id: number, afterSequence = 0) => request<{ conversation: Conversation; messages: SupportMessage[]; active_ai_jobs?: Array<{ id:number; status:string }>; poll_interval_ms?: number }>(`/staff/conversations/${id}/sync?after_sequence=${Math.max(0,Number(afterSequence || 0))}`),
+  sync: (id: number, afterSequence = 0) => request<{ conversation: Conversation; messages: SupportMessage[]; active_ai_jobs?: Array<{ id:number; status:string }>; poll_interval_ms?: number }>(`/staff/conversations/${id}/sync?after_sequence=${afterSequence}`),
 };
 
 export function websocketUrl(ticket = "") {
@@ -155,8 +160,16 @@ export function websocketUrl(ticket = "") {
 export type StaffStreamPacket = { id?: string; event: string; data: Record<string, any> };
 export async function openStaffConversationStream(conversationId: number, afterSequence = 0, signal?: AbortSignal) {
   if (!API) throw new Error("Staff API is not configured. Set VITE_API_BASE_URL during the production build.");
-  const response=await fetch(`${API}/staff/conversations/${conversationId}/stream?after_sequence=${Math.max(0,Number(afterSequence||0))}`,{
-    headers:{ Authorization:`Bearer ${token()}`,Accept:"text/event-stream",...platformHeaders() },cache:"no-store",signal,
+  
+  const headers = new Headers();
+  headers.set("Authorization", `Bearer ${token()}`);
+  headers.set("Accept", "text/event-stream");
+  for(const [key, value] of Object.entries(platformHeaders())) headers.set(key, value);
+  
+  const response = await fetch(`${API}/staff/conversations/${conversationId}/stream?after_sequence=${Math.max(0, Number(afterSequence || 0))}`, {
+    headers,
+    cache: "no-store",
+    signal,
   });
   if (!response.ok || !response.body) throw new Error(`Conversation stream failed (${response.status})`);
   return response;
@@ -164,5 +177,5 @@ export async function openStaffConversationStream(conversationId: number, afterS
 export async function consumeStaffEventStream(response:Response,onPacket:(packet:StaffStreamPacket)=>void,signal?:AbortSignal){
   if(!response.body)throw new Error("Stream body is unavailable");
   const reader=response.body.getReader(); const decoder=new TextDecoder(); let buffer="";
-  try{while(!signal?.aborted){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});while(true){const match=buffer.match(/\r?\n\r?\n/);if(!match||match.index===undefined)break;const boundary=match.index;const block=buffer.slice(0,boundary);buffer=buffer.slice(boundary+match[0].length);let id="",event="message";const data:string[]=[];for(const line of block.split(/\r?\n/)){if(!line||line.startsWith(":"))continue;if(line.startsWith("id:"))id=line.slice(3).trim();else if(line.startsWith("event:"))event=line.slice(6).trim()||"message";else if(line.startsWith("data:"))data.push(line.slice(5).trimStart());}if(!data.length)continue;try{onPacket({id,event,data:JSON.parse(data.join("\n"))});}catch{onPacket({id,event,data:{text:data.join("\n")}});}}}}finally{try{await reader.cancel();}catch{}try{reader.releaseLock();}catch{}}
+  try{while(!signal?.aborted){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});while(true){const match=buffer.match(/\r?\n\r?\n/);if(!match)break;const [eventBlock]=buffer.split(match,1);buffer=buffer.slice(eventBlock.length+match.length);const lines=eventBlock.split(/\r?\n/);let id:string|undefined,event="message",data="";for(const line of lines){if(line.startsWith("id:"))id=line.slice(3).trim();else if(line.startsWith("event:"))event=line.slice(6).trim();else if(line.startsWith("data:"))data=line.slice(5).trim()}if(!data)continue;try{const parsed=JSON.parse(data);onPacket({id,event,data:parsed})}catch{}}}}finally{reader.releaseLock()}
 }
