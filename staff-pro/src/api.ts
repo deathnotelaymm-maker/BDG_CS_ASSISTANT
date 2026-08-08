@@ -64,6 +64,23 @@ async function uploadRequest<T>(path:string,file:File,caption=""){const body=new
 function adminPath(staffPath:string,adminPathValue:string){return actorMode()==="ADMIN"?adminPathValue:staffPath;}
 function adminActor(user:any,context:any):Staff{return {id:0,actor_type:"ADMIN",display_name:user?.name||"Administrator",public_display_name:user?.name||"Administrator",email:user?.email||"",availability_status:"active",permissions:["*"],max_active_conversations:999,must_change_password:false,platform_id:Number(context?.platform?.platform_id||context?.platform?.id||0),use_platform_timezone:true};}
 
+async function uploadRequest<T>(path: string, file: File, caption = "") {
+  if (!API) throw new Error("Support Workspace API is not configured.");
+  const body = new FormData();
+  body.append("file", file);
+  body.append("client_message_id", crypto.randomUUID());
+  if (caption) body.append("caption", caption);
+  
+  const headers = new Headers();
+  if (token()) headers.set("Authorization", `Bearer ${token()}`);
+  for (const [key, value] of Object.entries(platformHeaders())) headers.set(key, value);
+  
+  const response = await fetch(`${API}${path}`, { method: "POST", headers, body, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.message || data?.error || `Upload failed (${response.status})`);
+  return data as T;
+}
+
 export const api={
   login:async(email:string,password:string,mode:ActorType="STAFF",twofa_code="")=>{
     if(mode==="STAFF")return request<{access_token:string;staff:Staff}>("/staff/auth/login",{method:"POST",body:JSON.stringify({email,password})});
@@ -104,3 +121,4 @@ export function websocketUrl(ticket=""){const base=API||location.origin;const ur
 export type StaffStreamPacket={id?:string;event:string;data:Record<string,any>};
 export async function openStaffConversationStream(conversationId:number,afterSequence=0,signal?:AbortSignal){if(!API)throw new Error("Support Workspace API is not configured.");const path=actorMode()==="ADMIN"?`/admin/support/conversations/${conversationId}/stream?after_sequence=${Math.max(0,Number(afterSequence||0))}`:`/staff/conversations/${conversationId}/stream?after_sequence=${Math.max(0,Number(afterSequence||0))}`;const response=await fetch(`${API}${path}`,{headers:{Authorization:`Bearer ${token()}`,Accept:"text/event-stream",...platformHeaders()},cache:"no-store",signal});if(!response.ok||!response.body)throw new Error(`Conversation stream failed (${response.status})`);return response;}
 export async function consumeStaffEventStream(response:Response,onPacket:(packet:StaffStreamPacket)=>void,signal?:AbortSignal){if(!response.body)throw new Error("Stream body is unavailable");const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";try{while(!signal?.aborted){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});while(true){const match=buffer.match(/\r?\n\r?\n/);if(!match||match.index===undefined)break;const block=buffer.slice(0,match.index);buffer=buffer.slice(match.index+match[0].length);let id="",event="message";const data:string[]=[];for(const line of block.split(/\r?\n/)){if(!line||line.startsWith(":"))continue;if(line.startsWith("id:"))id=line.slice(3).trim();else if(line.startsWith("event:"))event=line.slice(6).trim()||"message";else if(line.startsWith("data:"))data.push(line.slice(5).trimStart());}if(!data.length)continue;try{onPacket({id,event,data:JSON.parse(data.join("\n"))});}catch{onPacket({id,event,data:{text:data.join("\n")}});}}}}finally{try{await reader.cancel();}catch{}try{reader.releaseLock();}catch{}}}
+
