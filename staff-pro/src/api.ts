@@ -2,6 +2,7 @@ export type ActorType = "STAFF" | "ADMIN";
 export type Staff = {
   id: number;
   actor_type?: ActorType;
+  role_key?: string;
   display_name: string;
   public_display_name?: string;
   public_avatar_url?: string;
@@ -47,22 +48,33 @@ export function getStaffPlatformRoute(){ if(typeof window==="undefined")return "
 function key(base:string){const route=getStaffPlatformRoute();return route?`${base}:${route}`:base;}
 export const actorMode=():ActorType=>(localStorage.getItem(key(MODE_KEY))==="ADMIN"?"ADMIN":"STAFF");
 export const token=()=>localStorage.getItem(key(TOKEN_KEY)) || localStorage.getItem("luke_support_staff_token") || localStorage.getItem("bdg_support_staff_token") || "";
-export function saveSession(value:string,mode:ActorType){if(value){localStorage.setItem(key(TOKEN_KEY),value);localStorage.setItem(key(MODE_KEY),mode);}else{localStorage.removeItem(key(TOKEN_KEY));localStorage.removeItem(key(MODE_KEY));localStorage.removeItem("luke_support_staff_token");localStorage.removeItem("bdg_support_staff_token");}}
+export function saveSession(value:string,mode:ActorType){
+  if(value){
+    localStorage.setItem(key(TOKEN_KEY),value);
+    localStorage.setItem(key(MODE_KEY),mode);
+  }else{
+    localStorage.removeItem(key(TOKEN_KEY));
+    localStorage.removeItem(key(MODE_KEY));
+  }
+}
 export const saveToken=(value:string)=>saveSession(value,actorMode());
-function platformHeaders(){const route=getStaffPlatformRoute();return route?{"X-BDG-Platform-Route":route}:{};}
+function platformHeaders(): Record<string,string> { const route=getStaffPlatformRoute(); return route?{"X-BDG-Platform-Route":route}:{}; }
 
 async function raw<T>(path:string,init:RequestInit={}){
   if(!API)throw new Error("Support Workspace API is not configured. Set VITE_API_BASE_URL during the production build.");
-  const headers=new Headers(init.headers); if(!(init.body instanceof FormData))headers.set("Content-Type","application/json");
-  if(token())headers.set("Authorization",`Bearer ${token()}`); for(const [k,v] of Object.entries(platformHeaders()))headers.set(k,v);
-  const response=await fetch(`${API}${path}`,{...init,headers,cache:"no-store"}); const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data?.message||data?.error||data?.detail||`Request failed (${response.status})`); return {data:data as T,status:response.status};
+  const headers=new Headers(init.headers || {} as HeadersInit);
+  if(!(init.body instanceof FormData))headers.set("Content-Type","application/json");
+  if(token())headers.set("Authorization",`Bearer ${token()}`);
+  for(const [k,v] of Object.entries(platformHeaders()))headers.set(k,v);
+  const response=await fetch(`${API}${path}`,{...init,headers,cache:"no-store"});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error((data as any)?.message||(data as any)?.error||(data as any)?.detail||`Request failed (${response.status})`);
+  return {data:data as T,status:response.status};
 }
 async function request<T>(path:string,init:RequestInit={}){return (await raw<T>(path,init)).data;}
-async function uploadRequest<T>(path:string,file:File,caption=""){const body=new FormData();body.append("file",file);body.append("client_message_id",crypto.randomUUID());if(caption)body.append("caption",caption);return request<T>(path,{method:"POST",body});}
 
 function adminPath(staffPath:string,adminPathValue:string){return actorMode()==="ADMIN"?adminPathValue:staffPath;}
-function adminActor(user:any,context:any):Staff{return {id:0,actor_type:"ADMIN",display_name:user?.name||"Administrator",public_display_name:user?.name||"Administrator",email:user?.email||"",availability_status:"active",permissions:["*"],max_active_conversations:999,must_change_password:false,platform_id:Number(context?.platform?.platform_id||context?.platform?.id||0),use_platform_timezone:true};}
+function adminActor(user:any,context:any):Staff{return {id:0,actor_type:"ADMIN",display_name:user?.name||"Administrator",public_display_name:user?.name||"Administrator",email:user?.email||"",availability_status:"available",permissions:[],max_active_conversations:0,must_change_password:false,platform_id:0};}
 
 async function uploadRequest<T>(path: string, file: File, caption = "") {
   if (!API) throw new Error("Support Workspace API is not configured.");
@@ -77,7 +89,7 @@ async function uploadRequest<T>(path: string, file: File, caption = "") {
   
   const response = await fetch(`${API}${path}`, { method: "POST", headers, body, cache: "no-store" });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data?.message || data?.error || `Upload failed (${response.status})`);
+  if (!response.ok) throw new Error((data as any)?.message || (data as any)?.error || `Upload failed (${response.status})`);
   return data as T;
 }
 
@@ -89,12 +101,12 @@ export const api={
     saveSession(result.data.access_token,"ADMIN"); const context=await request<any>("/admin/platform-context");
     return {access_token:result.data.access_token,staff:adminActor(result.data.user,context)};
   },
-  me:async()=>{if(actorMode()==="STAFF")return request<{staff:Staff;settings:StaffSettings}>("/staff/me");const [me,context,settings]=await Promise.all([request<any>("/admin/me"),request<any>("/admin/platform-context"),request<StaffSettings>("/admin/support/settings")]);return {staff:adminActor(me.user,context),settings};},
+  me:async()=>{if(actorMode()==="STAFF")return request<{staff:Staff;settings:StaffSettings}>("/staff/me");const [me,context,settings]=await Promise.all([request<any>("/admin/me"),request<any>("/admin/platform-context"),request<any>("/admin/settings")]);return {staff:adminActor(me.user,context),settings};},
   logout:async()=>{if(actorMode()==="STAFF")await request("/staff/logout",{method:"POST"}).catch(()=>null);saveSession("",actorMode());return {ok:true};},
   presence:(status:"active"|"invisible")=>actorMode()==="ADMIN"?Promise.resolve({ok:true}):request("/staff/presence",{method:"PUT",body:JSON.stringify({status})}),
   heartbeat:(status:string)=>actorMode()==="ADMIN"?Promise.resolve({ok:true}):request("/staff/heartbeat",{method:"POST",body:JSON.stringify({status})}),
   preferences:(data:{use_platform_timezone:boolean;timezone?:string})=>actorMode()==="ADMIN"?Promise.resolve({ok:true}):request("/staff/me/preferences",{method:"PUT",body:JSON.stringify(data)}),
-  conversations:async(tab:string)=>{if(actorMode()==="STAFF")return request<Conversation[]>(`/staff/conversations?tab=${encodeURIComponent(tab)}`);const all=await request<Conversation[]>("/admin/support/conversations?limit=200");if(tab==="waiting")return all.filter(x=>x.status==="WAITING_FOR_AGENT");if(tab==="closed")return all.filter(x=>["RESOLVED","CLOSED"].includes(x.status));return all;},
+  conversations:async(tab:string)=>{if(actorMode()==="STAFF")return request<Conversation[]>(`/staff/conversations?tab=${encodeURIComponent(tab)}`);const all=await request<Conversation[]>("/admin/support/conversations");return all;},
   conversation:(id:number)=>request<ConversationDetail>(adminPath(`/staff/conversations/${id}`,`/admin/support/conversations/${id}`)),
   accept:(id:number)=>actorMode()==="ADMIN"?request<{conversation:Conversation}>(`/admin/support/conversations/${id}/reopen`,{method:"POST"}):request<{conversation:Conversation}>(`/staff/conversations/${id}/accept`,{method:"POST"}),
   reply:(id:number,message:string,clientMessageId=crypto.randomUUID())=>request<{message:SupportMessage}>(adminPath(`/staff/conversations/${id}/messages`,`/admin/support/conversations/${id}/messages`),{method:"POST",body:JSON.stringify({message,client_message_id:clientMessageId})}),
@@ -106,19 +118,18 @@ export const api={
   transfers:(status="requested")=>actorMode()==="ADMIN"?Promise.resolve([] as Array<Record<string,unknown>>):request<Array<Record<string,unknown>>>(`/staff/transfers?status=${encodeURIComponent(status)}`),
   transferDecision:(id:number,action:"accept"|"reject")=>request(`/staff/transfers/${id}/${action}`,{method:"POST"}),
   changePassword:(password:string)=>actorMode()==="ADMIN"?request("/admin/me/password",{method:"POST",body:JSON.stringify({password})}):request("/staff/me/password",{method:"POST",body:JSON.stringify({password})}),
-  performance:async(period:"day"|"week"|"month"="day")=>{if(actorMode()==="STAFF")return request<Record<string,unknown>>(`/staff/performance?period=${period}`);const rows=await request<any[]>("/admin/support/performance");return {conversations_served:rows.reduce((n,x)=>n+Number(x.conversations_served||0),0),resolved_conversations:rows.reduce((n,x)=>n+Number(x.resolved_conversations||0),0),replies_sent:rows.reduce((n,x)=>n+Number(x.replies_sent||0),0),avg_first_response_seconds:rows.length?Math.round(rows.reduce((n,x)=>n+Number(x.avg_first_response_seconds||0),0)/rows.length):0,staff_rows:rows};},
+  performance:async(period:"day"|"week"|"month"="day")=>{if(actorMode()==="STAFF")return request<Record<string,unknown>>(`/staff/performance?period=${period}`);const rows=await request<any[]>(`/admin/support/performance?period=${period}`);return rows;},
   quickReplies:()=>request<Array<{id:number;scope_kind:string;title:string;shortcut?:string;category:string;message_text:string}>>(adminPath("/staff/quick-replies","/admin/support/quick-replies")),
-  createQuickReply:(data:{title:string;shortcut?:string;category?:string;message_text:string})=>request(adminPath("/staff/quick-replies","/admin/support/quick-replies"),{method:"POST",body:JSON.stringify(actorMode()==="ADMIN"?{...data,scope_kind:"platform"}:data)}),
+  createQuickReply:(data:{title:string;shortcut?:string;category?:string;message_text:string})=>request(adminPath("/staff/quick-replies","/admin/support/quick-replies"),{method:"POST",body:JSON.stringify(data)}),
   deleteQuickReply:(id:number)=>request(adminPath(`/staff/quick-replies/${id}`,`/admin/support/quick-replies/${id}`),{method:"DELETE"}),
   customerContext:(id:number)=>request<{context?:Record<string,any>|null}>(adminPath(`/staff/conversations/${id}/context`,`/admin/support/conversations/${id}/context`)),
   uploadAttachment:(id:number,file:File,caption="")=>uploadRequest<{message:SupportMessage}>(adminPath(`/staff/conversations/${id}/attachments`,`/admin/support/conversations/${id}/attachments`),file,caption),
-  realtimeTicket:()=>actorMode()==="ADMIN"?Promise.reject(new Error("Admin mode uses SSE for permanent conversation delivery")):request<{ticket:string;expires_at:string}>("/staff/realtime-ticket",{method:"POST",body:"{}"}),
-  sync:async(id:number,afterSequence=0)=>{if(actorMode()==="STAFF")return request<{conversation:Conversation;messages:SupportMessage[]}>(`/staff/conversations/${id}/sync?after_sequence=${Math.max(0,Number(afterSequence||0))}`);const detail=await request<ConversationDetail>(`/admin/support/conversations/${id}`);return {conversation:detail.conversation,messages:detail.messages.filter(m=>Number(m.message_sequence||0)>afterSequence)};},
+  realtimeTicket:()=>actorMode()==="ADMIN"?Promise.reject(new Error("Admin mode uses SSE for permanent conversation delivery")):request<{ticket:string;expires_at:string}>("/staff/realtime-ticket"),
+  sync:async(id:number,afterSequence=0)=>{if(actorMode()==="STAFF")return request<{conversation:Conversation;messages:SupportMessage[]}>(`/staff/conversations/${id}/sync?after_sequence=${Math.max(0,afterSequence)}`);return request<{conversation:Conversation;messages:SupportMessage[]}>(`/admin/support/conversations/${id}/sync?after_sequence=${Math.max(0,afterSequence)}`);},
   forceLogoutStaff:(id:number)=>request(`/admin/support/staff/${id}/force-logout`,{method:"POST"}),
 };
 
-export function websocketUrl(ticket=""){const base=API||location.origin;const url=new URL(base,location.origin);url.protocol=url.protocol==="https:"?"wss:":"ws:";url.pathname="/support";url.search=ticket?`?ticket=${encodeURIComponent(ticket)}`:"";return url.toString();}
+export function websocketUrl(ticket=""){const base=API||location.origin;const url=new URL(base,location.origin);url.protocol=url.protocol==="https:"?"wss:":"ws:";url.pathname="/support";url.searchParams.set("ticket",ticket);return url.toString();}
 export type StaffStreamPacket={id?:string;event:string;data:Record<string,any>};
-export async function openStaffConversationStream(conversationId:number,afterSequence=0,signal?:AbortSignal){if(!API)throw new Error("Support Workspace API is not configured.");const path=actorMode()==="ADMIN"?`/admin/support/conversations/${conversationId}/stream?after_sequence=${Math.max(0,Number(afterSequence||0))}`:`/staff/conversations/${conversationId}/stream?after_sequence=${Math.max(0,Number(afterSequence||0))}`;const response=await fetch(`${API}${path}`,{headers:{Authorization:`Bearer ${token()}`,Accept:"text/event-stream",...platformHeaders()},cache:"no-store",signal});if(!response.ok||!response.body)throw new Error(`Conversation stream failed (${response.status})`);return response;}
-export async function consumeStaffEventStream(response:Response,onPacket:(packet:StaffStreamPacket)=>void,signal?:AbortSignal){if(!response.body)throw new Error("Stream body is unavailable");const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";try{while(!signal?.aborted){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});while(true){const match=buffer.match(/\r?\n\r?\n/);if(!match||match.index===undefined)break;const block=buffer.slice(0,match.index);buffer=buffer.slice(match.index+match[0].length);let id="",event="message";const data:string[]=[];for(const line of block.split(/\r?\n/)){if(!line||line.startsWith(":"))continue;if(line.startsWith("id:"))id=line.slice(3).trim();else if(line.startsWith("event:"))event=line.slice(6).trim()||"message";else if(line.startsWith("data:"))data.push(line.slice(5).trimStart());}if(!data.length)continue;try{onPacket({id,event,data:JSON.parse(data.join("\n"))});}catch{onPacket({id,event,data:{text:data.join("\n")}});}}}}finally{try{await reader.cancel();}catch{}try{reader.releaseLock();}catch{}}}
-
+export async function openStaffConversationStream(conversationId:number,afterSequence=0,signal?:AbortSignal){if(!API)throw new Error("Support Workspace API is not configured.");const path=actorMode()==="ADMIN"?`/admin/support/conversations/${conversationId}/stream?after_sequence=${afterSequence}`:`/staff/conversations/${conversationId}/stream?after_sequence=${afterSequence}`;const response=await fetch(`${API}${path}`,{headers:new Headers(platformHeaders() as HeadersInit),cache:"no-store",signal});return response;}
+export async function consumeStaffEventStream(response:Response,onPacket:(packet:StaffStreamPacket)=>void,signal?:AbortSignal){if(!response.body)throw new Error("Stream body is unavailable");const reader=response.body.getReader();const decoder=new TextDecoder();let buf="";while(true){const {done,value}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});let idx;while((idx=buf.indexOf("\n"))!==-1){const line=buf.slice(0,idx).trim();buf=buf.slice(idx+1);if(!line)continue;try{const packet=JSON.parse(line);onPacket(packet);}catch(e){console.warn("Invalid stream packet",e);} } } }
