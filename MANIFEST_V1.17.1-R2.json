@@ -1,0 +1,32 @@
+{
+  "release": "v1.17.1-r2",
+  "application_version": "1.17.1",
+  "base_version": "1.17.1",
+  "package_revision": "r2",
+  "migration": "044 unchanged",
+  "next_migration": "045",
+  "patched_dependency": "nanoid 3.3.17",
+  "changed_files": [
+    ".github/workflows/bdg-production-release.yml",
+    ".github/workflows/ci.yml",
+    "CHANGED_FILES_V1.17.1-R2.txt",
+    "DEPLOYMENT_CHECKLIST_V1.17.1-R2.md",
+    "FILE_CHECKSUMS_V1.17.1-R2.sha256",
+    "INSTALL-V1.17.1-R2-BACKEND-DEPENDENCY-AUDIT-SECURITY.cmd",
+    "INSTALL-V1.17.1-R2-BACKEND-DEPENDENCY-AUDIT-SECURITY.ps1",
+    "README-V1.17.1-R2.txt",
+    "RELEASE_NOTES_V1.17.1-R2.md",
+    "START-HERE-V1.17.1-R2-BACKEND-DEPENDENCY-AUDIT-SECURITY.bat",
+    "START-HERE-WINDOWS.bat",
+    "TECHNICAL_ANALYSIS_V1.17.1-R2.md",
+    "TEST_RESULT_V1.17.1-R2.md",
+    "V1.17.1_R2_BACKEND_DEPENDENCY_AUDIT_SECURITY_HOTFIX_INSTALLED.txt",
+    "VERIFY-V1.17.1-R2-INSTALLED.ps1",
+    "VERIFY-V1.17.1-R2-PAYLOAD.ps1",
+    "VERIFY-V1.17.1-R2-TARGET.ps1",
+    "backend-api/package-lock.json",
+    "backend-api/package.json",
+    "backend-api/scripts/v1.17.1-r2-dependency-audit-regression-test.js"
+  ],
+  "notes": "Dependency-only security hotfix for GHSA-2v37-7h3g-55p8; no runtime or database contract changes."
+}

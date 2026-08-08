@@ -1,0 +1,5 @@
+BDG v1.17.1-r2 Backend Dependency Audit Security Hotfix
+Runtime: 1.17.1
+Migration: 044 unchanged
+Patched dependency: nanoid 3.3.17
+Next migration: 045

@@ -1,0 +1,11 @@
+.github/workflows/bdg-production-release.yml
+.github/workflows/ci.yml
+backend-api/package.json
+backend-api/package-lock.json
+backend-api/scripts/v1.17.1-r2-dependency-audit-regression-test.js
+README-V1.17.1-R2.txt
+RELEASE_NOTES_V1.17.1-R2.md
+TECHNICAL_ANALYSIS_V1.17.1-R2.md
+TEST_RESULT_V1.17.1-R2.md
+DEPLOYMENT_CHECKLIST_V1.17.1-R2.md
+V1.17.1_R2_BACKEND_DEPENDENCY_AUDIT_SECURITY_HOTFIX_INSTALLED.txt
