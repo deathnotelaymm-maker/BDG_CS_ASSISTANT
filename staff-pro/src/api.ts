@@ -176,6 +176,45 @@ export async function openStaffConversationStream(conversationId: number, afterS
 }
 export async function consumeStaffEventStream(response:Response,onPacket:(packet:StaffStreamPacket)=>void,signal?:AbortSignal){
   if(!response.body)throw new Error("Stream body is unavailable");
-  const reader=response.body.getReader(); const decoder=new TextDecoder(); let buffer="";
-  try{while(!signal?.aborted){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});while(true){const match=buffer.match(/\r?\n\r?\n/);if(!match)break;const [eventBlock]=buffer.split(match,1);buffer=buffer.slice(eventBlock.length+match.length);const lines=eventBlock.split(/\r?\n/);let id:string|undefined,event="message",data="";for(const line of lines){if(line.startsWith("id:"))id=line.slice(3).trim();else if(line.startsWith("event:"))event=line.slice(6).trim();else if(line.startsWith("data:"))data=line.slice(5).trim()}if(!data)continue;try{const parsed=JSON.parse(data);onPacket({id,event,data:parsed})}catch{}}}}finally{reader.releaseLock()}
+  const reader=response.body.getReader();
+  const decoder=new TextDecoder();
+  let buffer="";
+  const sep = /\r?\n\r?\n/;
+  try{
+    while(!signal?.aborted){
+      const {done,value}=await reader.read();
+      if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+
+      while(true){
+        const match = sep.exec(buffer);
+        if(!match) break;
+        const idx = match.index;
+        const packetText = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + match[0].length);
+
+        // Parse packetText (simple SSE-style parsing)
+        const lines = packetText.split(/\r?\n/);
+        const packet: any = { data: {} };
+        for(const line of lines){
+          if(!line) continue;
+          const parts = line.split(/:\s*/);
+          const field = parts.shift() as string;
+          const rest = parts.join(":");
+          if(field === 'data'){
+            // try parse JSON, otherwise keep string
+            try{ packet.data = JSON.parse(rest); }catch{ packet.data = rest; }
+          } else if(field === 'event'){
+            packet.event = rest;
+          } else if(field === 'id'){
+            packet.id = rest;
+          } else {
+            (packet.data as any)[field] = rest;
+          }
+        }
+        if(!packet.event) packet.event = 'message';
+        try{ onPacket(packet as StaffStreamPacket); }catch(e){ console.error('Error processing packet', e); }
+      }
+    }
+  }finally{ try{ reader.releaseLock(); }catch{} }
 }
