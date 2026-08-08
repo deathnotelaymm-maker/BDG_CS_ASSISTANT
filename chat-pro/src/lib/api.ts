@@ -113,6 +113,7 @@ export interface SupportMessage {
   message_sequence: number;
   sender_type: "CUSTOMER" | "AI" | "STAFF" | "SYSTEM";
   sender_name?: string;
+  sender_avatar_url?: string;
   message_type?: string;
   body_text: string;
   attachment_url?: string;
@@ -313,7 +314,7 @@ export async function fetchPublicSupportSettings(platformKey = getPlatformKey(),
   requireApiBase();
   const res=await fetch(`${API_BASE}/public/support/settings?platform=${encodeURIComponent(platformKey)}`,{signal,cache:"no-store"});
   if(!res.ok) throw new ChatApiError(`Support settings error: ${res.status}`,{status:res.status,code:"SUPPORT_SETTINGS_FAILED"});
-  return (await res.json()) as { ok:true; support:{ attachments?:{ customer_enabled?:boolean; max_bytes?:number; allowed_types?:string[] } } };
+  return (await res.json()) as { ok:true; support:{ attachments?:{ customer_enabled?:boolean; max_bytes?:number; allowed_types?:string[] }; identity?:{ automated_name?:string; automated_avatar_url?:string; admin_name?:string; admin_avatar_url?:string; show_staff_public_name?:boolean; show_staff_avatar?:boolean }; chat_menu?:{ enabled?:boolean; sticky_support_header?:boolean } } };
 }
 
 export async function fetchChatPromotions(platformKey = getPlatformKey(), signal?: AbortSignal) {

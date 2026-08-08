@@ -16,7 +16,7 @@ const staff=read('staff-pro/src/App.tsx');
 const chat=read('chat-pro/src/App.tsx');
 const chatApi=read('chat-pro/src/lib/api.ts');
 const checks=[
- ['v1.17.0 release marker is active',core.includes('1.17.2-luke-shared-hosting-platform-route')&&server.includes('1.17.2-luke-shared-hosting-platform-route')],
+ ['v1.17.0 release marker is active',core.includes('1.17.3-support-workspace-ux-admin-access-tenant-isolation')&&server.includes('1.17.3-support-workspace-ux-admin-access-tenant-isolation')],
  ['migration 043 accepts staff domain mappings',migration.includes("'chat','guide','admin','staff'")],
  ['migration 043 creates secure support attachments',migration.includes('CREATE TABLE IF NOT EXISTS support_attachments')&&migration.includes('sha256 VARCHAR(64)')],
  ['migration 043 creates customer context',migration.includes('CREATE TABLE IF NOT EXISTS support_customer_context')&&migration.includes('browser_name')],

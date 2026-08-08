@@ -23,8 +23,8 @@ const redirects = [
   '_admin.ai-knowledge.tsx',
 ].map((file) => read(`admin-pro/src/routes/${file}`));
 
-assert.match(core, /1\.17\.2-luke-shared-hosting-platform-route/);
-assert.match(server, /1\.17\.2-luke-shared-hosting-platform-route/);
+assert.match(core, /1\.17\.3-support-workspace-ux-admin-access-tenant-isolation/);
+assert.match(server, /1\.17\.3-support-workspace-ux-admin-access-tenant-isolation/);
 assert.match(core, /source_order:\['prompt_image'\]/);
 assert.match(core, /enabled_sources:\['prompt_image'\]/);
 assert.match(core, /source_type='prompt_image'/);

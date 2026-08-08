@@ -27,7 +27,7 @@ test('internal handoff URL survives response normalization',core.includes("url =
 test('public handoff validates tenant and platform chat session scope',service.includes('SUPPORT_CHAT_SESSION_SCOPE_MISMATCH'));
 test('staff console can accept or reject incoming transfers',staff.includes('transferDecision')&&staff.includes('Transfer Requests'));
 test('logout and heartbeat expiry release assigned work safely',service.includes('releaseAssignedConversations')&&service.includes('heartbeat_timeout'));
-test('dedicated staff console exists',staff.includes('Customer Service Console')&&staff.includes('{ key: "team", label: "Team" }'));
+test('dedicated staff console exists',staff.includes('Luke Support Workspace')&&staff.includes('{ key: "team", label: "Team" }'));
 test('admin Customer Service center exists',admin.includes('Handoff & Attachments')&&admin.includes('Staff Accounts'));
 test('explicit English human request detected',customerExplicitlyRequestsHuman('I need a real person'));
 test('explicit Burmese human request detected',customerExplicitlyRequestsHuman('ဝန်ထမ်းနဲ့ ပြောချင်တယ်'));

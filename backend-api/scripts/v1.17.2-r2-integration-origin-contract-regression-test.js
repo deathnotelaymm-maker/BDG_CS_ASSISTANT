@@ -17,7 +17,7 @@ function check(name, fn) {
   catch (error) { console.error(`FAIL ${name}: ${error.message}`); checks.push(false); }
 }
 
-check('backend runtime remains v1.17.2', () => assert.equal(pkg.version, '1.17.2'));
+check('backend runtime carries forward the v1.17.2-r2 contract', () => assert.equal(pkg.version, '1.17.3'));
 check('integration Admin fixture uses the Luke shared Admin origin', () => assert.match(integration, /const ADMIN_ORIGIN = 'https:\/\/admin\.ar-ai666\.com'/));
 check('integration Admin origin remains the static test allowlist', () => assert.match(integration, /ALLOWED_ORIGINS:\s*ADMIN_ORIGIN/));
 check('Admin integration requests still carry the immutable platform route header', () => assert.match(integration, /headers\.set\('X-BDG-Platform-Route',\s*platformRoute\)/));

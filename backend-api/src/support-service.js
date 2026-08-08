@@ -61,6 +61,13 @@ function cleanText(value, max = 6000) {
 function cleanEmail(value) {
   return String(value || '').trim().toLowerCase().slice(0, 255);
 }
+function safeIdentityUrl(value, allowEmpty = true) {
+  const raw=cleanText(value,2000);
+  if (!raw && allowEmpty) return '';
+  if (/^\/uploads\//i.test(raw)) return raw;
+  try { const parsed=new URL(raw); if (parsed.protocol !== 'https:') throw new Error('https'); return parsed.toString(); }
+  catch { throw supportError('Support avatar must use HTTPS or an uploaded media URL',400,'SUPPORT_AVATAR_URL_INVALID'); }
+}
 function numericId(value, label = 'ID') {
   const id = Number(value);
   if (!Number.isSafeInteger(id) || id < 1) throw supportError(`${label} is invalid`, 400, 'SUPPORT_ID_INVALID');
@@ -143,8 +150,8 @@ async function customerSupportStreamResponse(request, env, url, publicId, deps) 
   const customer=await getCustomerByToken(env,bearerToken(request),deps);
   if (String(customer.conversation.public_id)!==String(publicId)) throw supportError('Conversation token does not match this conversation',403,'SUPPORT_CUSTOMER_SCOPE_MISMATCH');
   const after=Math.max(0,Number(url.searchParams.get('after_sequence') || request.headers.get('last-event-id') || 0));
-  const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 AND sm.is_internal=FALSE ORDER BY sm.message_sequence ASC LIMIT 500`,[customer.conversation.id,after])).rows.map(messageOut);
-  const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1`,[customer.conversation.id])).rows[0];
+  const rows=(await deps.q(env,`SELECT sm.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS sender_name,sp.public_avatar_url AS sender_avatar_url FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 AND sm.is_internal=FALSE ORDER BY sm.message_sequence ASC LIMIT 500`,[customer.conversation.id,after])).rows.map(messageOut);
+  const conversation=(await deps.q(env,`SELECT c.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1`,[customer.conversation.id])).rows[0];
   const jobs=(await deps.q(env,`SELECT id,public_id,status,attempt_count,created_at,started_at FROM ai_jobs WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING') ORDER BY id LIMIT 20`,[customer.conversation.id])).rows.map((job)=>({ ...job,id:Number(job.id),attempt_count:Number(job.attempt_count || 0) }));
   const settings=supportSettingsOut(await ensureSettings(deps.q,env,customer.conversation));
   if (settings.customer_stream_enabled === false) throw supportError('Customer stream is disabled',409,'SUPPORT_STREAM_DISABLED');
@@ -176,8 +183,8 @@ async function customerSupportStreamResponse(request, env, url, publicId, deps) 
 
 async function adminSupportStreamResponse(request,env,url,conversationId,scope,deps) {
   const after=Math.max(0,Number(url.searchParams.get('after_sequence') || request.headers.get('last-event-id') || 0));
-  const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 ORDER BY sm.message_sequence ASC LIMIT 500`,[conversationId,after])).rows.map(messageOut);
-  const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`,[conversationId,scope.tenant_id,scope.platform_id])).rows[0];
+  const rows=(await deps.q(env,`SELECT sm.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS sender_name,sp.public_avatar_url AS sender_avatar_url FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 ORDER BY sm.message_sequence ASC LIMIT 500`,[conversationId,after])).rows.map(messageOut);
+  const conversation=(await deps.q(env,`SELECT c.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`,[conversationId,scope.tenant_id,scope.platform_id])).rows[0];
   if (!conversation) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
   const settings=supportSettingsOut(await ensureSettings(deps.q,env,scope)); const heartbeatMs=settings.customer_stream_heartbeat_seconds*1000;
   const encoder=new TextEncoder(); let cleanup=()=>{};
@@ -189,8 +196,8 @@ async function staffSupportStreamResponse(request, env, url, conversationId, sta
   const scope={ tenant_id:staff.tenant_id,platform_id:staff.platform_id };
   if (!await supportRealtimeCanSubscribe(env,{ kind:'staff',staff,tenant_id:scope.tenant_id,platform_id:scope.platform_id,staff_id:staff.id },conversationId,deps)) throw supportError('Conversation access denied',403,'SUPPORT_SUBSCRIBE_DENIED');
   const after=Math.max(0,Number(url.searchParams.get('after_sequence') || request.headers.get('last-event-id') || 0));
-  const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 ORDER BY sm.message_sequence ASC LIMIT 500`,[conversationId,after])).rows.map(messageOut);
-  const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`,[conversationId,scope.tenant_id,scope.platform_id])).rows[0];
+  const rows=(await deps.q(env,`SELECT sm.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS sender_name,sp.public_avatar_url AS sender_avatar_url FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 ORDER BY sm.message_sequence ASC LIMIT 500`,[conversationId,after])).rows.map(messageOut);
+  const conversation=(await deps.q(env,`SELECT c.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`,[conversationId,scope.tenant_id,scope.platform_id])).rows[0];
   const settings=supportSettingsOut(await ensureSettings(deps.q,env,scope));
   const heartbeatMs=settings.customer_stream_heartbeat_seconds*1000;
   const encoder=new TextEncoder();
@@ -257,6 +264,14 @@ function supportSettingsOut(row = {}) {
     realtime_poll_interval_ms:Math.min(15000,Math.max(1500,Number(row.realtime_poll_interval_ms || 2500))),
     customer_stream_enabled:row.customer_stream_enabled !== false,
     customer_stream_heartbeat_seconds:Math.min(45,Math.max(10,Number(row.customer_stream_heartbeat_seconds || 15))),
+    automated_support_display_name:row.automated_support_display_name || 'Support',
+    automated_support_avatar_url:row.automated_support_avatar_url || '',
+    admin_support_display_name:row.admin_support_display_name || 'Support Team',
+    admin_support_avatar_url:row.admin_support_avatar_url || '',
+    show_staff_public_name:row.show_staff_public_name !== false,
+    show_staff_avatar:row.show_staff_avatar !== false,
+    chat_menu_enabled:row.chat_menu_enabled !== false,
+    sticky_support_header_enabled:row.sticky_support_header_enabled !== false,
     updated_at:rowDate(row.updated_at),
   };
 }
@@ -264,7 +279,7 @@ function staffOut(row = {}, permissions = []) {
   return {
     id:Number(row.id || row.staff_id || 0), admin_user_id:Number(row.admin_user_id || 0),
     tenant_id:Number(row.tenant_id || 0), platform_id:Number(row.platform_id || 0),
-    display_name:row.display_name || row.name || '', email:row.email || '', role_key:row.role_key || 'support_agent',
+    display_name:row.display_name || row.name || '', public_display_name:row.public_display_name || row.display_name || row.name || '', public_avatar_url:row.public_avatar_url || '', actor_type:row.actor_type || 'STAFF', email:row.email || '', role_key:row.role_key || 'support_agent',
     account_status:row.account_status || (row.is_active === false ? 'inactive' : 'active'),
     availability_status:row.availability_status || 'offline', timezone:row.timezone || '',
     use_platform_timezone:row.use_platform_timezone !== false, personal_timezone_allowed:row.personal_timezone_allowed === true,
@@ -278,7 +293,7 @@ function messageOut(row = {}) {
     id:Number(row.id || 0), public_id:String(row.public_id || ''), conversation_id:Number(row.conversation_id || 0),
     client_message_id:row.client_message_id || '', ai_job_id:row.ai_job_id ? Number(row.ai_job_id) : null,
     sender_type:row.sender_type || 'SYSTEM', sender_staff_id:row.sender_staff_id ? Number(row.sender_staff_id) : null,
-    sender_name:row.sender_name || row.display_name || parseJsonObject(row.metadata_json,{}).sender_name || '', message_type:row.message_type || 'text',
+    sender_name:row.sender_name || row.display_name || parseJsonObject(row.metadata_json,{}).sender_name || '', sender_avatar_url:row.sender_avatar_url || parseJsonObject(row.metadata_json,{}).sender_avatar_url || '', message_type:row.message_type || 'text',
     body_text:row.body_text || '', attachment_url:row.attachment_url || '', attachment_name:row.attachment_name || '',
     attachment_content_type:row.attachment_content_type || '', attachment_size_bytes:Number(row.attachment_size_bytes || 0),
     is_internal:row.is_internal === true, sentence_count:Number(row.sentence_count || 0),
@@ -475,7 +490,7 @@ async function expireStalePresence(q, env, scope) {
 async function listConversationRows(q, env, scope, whereSql = '', params = [], limit = 100) {
   const values = [scope.tenant_id,scope.platform_id,...params,Math.min(250,Math.max(1,Number(limit || 100)))];
   const limitRef = `$${values.length}`;
-  const { rows } = await q(env, `SELECT c.*,sp.display_name AS assigned_staff_name,
+  const { rows } = await q(env, `SELECT c.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS assigned_staff_name,
       COALESCE((SELECT body_text FROM support_messages sm WHERE sm.conversation_id=c.id AND sm.is_internal=FALSE ORDER BY sm.message_sequence DESC,sm.id DESC LIMIT 1),'') AS last_message,
       GREATEST(0,EXTRACT(EPOCH FROM (NOW()-COALESCE(c.queue_entered_at,c.created_at)))::int) AS waiting_seconds
     FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id
@@ -487,10 +502,10 @@ async function listConversationRows(q, env, scope, whereSql = '', params = [], l
 }
 async function conversationDetail(q, env, scope, conversationId) {
   const id = numericId(conversationId, 'Conversation ID');
-  const row = (await q(env, `SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`, [id,scope.tenant_id,scope.platform_id])).rows[0];
+  const row = (await q(env, `SELECT c.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`, [id,scope.tenant_id,scope.platform_id])).rows[0];
   if (!row) throw supportError('Support conversation not found', 404, 'SUPPORT_CONVERSATION_NOT_FOUND');
-  const messages = (await q(env, `SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 ORDER BY sm.message_sequence ASC,sm.id ASC LIMIT 1000`, [id])).rows.map(messageOut);
-  const notes = (await q(env, `SELECT n.*,sp.display_name AS author_name FROM support_internal_notes n LEFT JOIN support_staff_profiles sp ON sp.id=n.author_staff_id WHERE n.conversation_id=$1 ORDER BY n.id DESC LIMIT 100`, [id])).rows.map((note) => ({ ...note,id:Number(note.id),created_at:rowDate(note.created_at) }));
+  const messages = (await q(env, `SELECT sm.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS sender_name,sp.public_avatar_url AS sender_avatar_url FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 ORDER BY sm.message_sequence ASC,sm.id ASC LIMIT 1000`, [id])).rows.map(messageOut);
+  const notes = (await q(env, `SELECT n.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name,n.author_admin_email,'Administrator') AS author_name FROM support_internal_notes n LEFT JOIN support_staff_profiles sp ON sp.id=n.author_staff_id WHERE n.conversation_id=$1 ORDER BY n.id DESC LIMIT 100`, [id])).rows.map((note) => ({ ...note,id:Number(note.id),created_at:rowDate(note.created_at) }));
   const transfers = (await q(env, `SELECT t.*,f.display_name AS from_staff_name,x.display_name AS to_staff_name FROM support_transfers t LEFT JOIN support_staff_profiles f ON f.id=t.from_staff_id LEFT JOIN support_staff_profiles x ON x.id=t.to_staff_id WHERE t.conversation_id=$1 ORDER BY t.id DESC LIMIT 100`, [id])).rows.map((item) => ({ ...item,id:Number(item.id),from_staff_id:item.from_staff_id ? Number(item.from_staff_id) : null,to_staff_id:Number(item.to_staff_id),requested_at:rowDate(item.requested_at),responded_at:rowDate(item.responded_at),completed_at:rowDate(item.completed_at) }));
   return { conversation:conversationOut(row), messages, notes, transfers };
 }
@@ -564,7 +579,7 @@ async function customerMessageWindow(q,env,conversation,limit=10,beforeSequence=
   let where='sm.conversation_id=$1 AND sm.is_internal=FALSE';
   if (before>0) { params.splice(1,0,before); where+=' AND sm.message_sequence<$2'; }
   const limitRef='$'+params.length;
-  const rows=(await q(env,`SELECT * FROM (SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE ${where} ORDER BY sm.message_sequence DESC LIMIT ${limitRef}) page ORDER BY message_sequence ASC`,params)).rows.map(messageOut);
+  const rows=(await q(env,`SELECT * FROM (SELECT sm.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS sender_name,sp.public_avatar_url AS sender_avatar_url FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE ${where} ORDER BY sm.message_sequence DESC LIMIT ${limitRef}) page ORDER BY message_sequence ASC`,params)).rows.map(messageOut);
   const oldest=rows[0]?.message_sequence ? Number(rows[0].message_sequence) : 0;
   const hasOlder=oldest>0 && Number((await q(env,`SELECT COUNT(*)::int AS count FROM support_messages WHERE conversation_id=$1 AND is_internal=FALSE AND message_sequence<$2`,[conversation.id,oldest])).rows[0]?.count || 0)>0;
   return { messages:rows,has_older_messages:hasOlder,oldest_sequence:oldest };
@@ -679,6 +694,8 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
       stream_heartbeat_seconds:settings.customer_stream_heartbeat_seconds,
       customer_messages:settings.customer_messages_json,
       attachments:{ customer_enabled:settings.customer_attachments_enabled === true, staff_enabled:settings.staff_attachments_enabled !== false, max_bytes:Number(settings.attachment_max_bytes || 10485760), allowed_types:settings.attachment_allowed_types_json || [] },
+      identity:{ automated_name:settings.automated_support_display_name, automated_avatar_url:settings.automated_support_avatar_url, admin_name:settings.admin_support_display_name, admin_avatar_url:settings.admin_support_avatar_url, show_staff_public_name:settings.show_staff_public_name, show_staff_avatar:settings.show_staff_avatar },
+      chat_menu:{ enabled:settings.chat_menu_enabled !== false, sticky_support_header:settings.sticky_support_header_enabled !== false },
       processing:{
         enabled:settings.processing_message_enabled,
         message:settings.processing_message_text,
@@ -762,8 +779,8 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
     if (method === 'GET' && customerHistoryMatch) return deps.jsonNoStore({ ok:true,...await customerMessageWindow(deps.q,env,customer.conversation,Number(url.searchParams.get('limit') || 10),Number(url.searchParams.get('before_sequence') || 0)) },200,env);
     if (method === 'GET' && customerSyncMatch) {
       const after=Math.max(0,Number(url.searchParams.get('after_sequence') || 0));
-      const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 AND sm.is_internal=FALSE ORDER BY sm.message_sequence ASC LIMIT 500`,[customer.conversation.id,after])).rows.map(messageOut);
-      const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1`,[customer.conversation.id])).rows[0];
+      const rows=(await deps.q(env,`SELECT sm.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS sender_name,sp.public_avatar_url AS sender_avatar_url FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 AND sm.is_internal=FALSE ORDER BY sm.message_sequence ASC LIMIT 500`,[customer.conversation.id,after])).rows.map(messageOut);
+      const conversation=(await deps.q(env,`SELECT c.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1`,[customer.conversation.id])).rows[0];
       const jobs=(await deps.q(env,`SELECT id,public_id,status,attempt_count,created_at,started_at FROM ai_jobs WHERE conversation_id=$1 AND status IN ('QUEUED','PROCESSING','RETRYING') ORDER BY id LIMIT 20`,[customer.conversation.id])).rows.map((job)=>({ ...job,id:Number(job.id),attempt_count:Number(job.attempt_count || 0) }));
       return deps.jsonNoStore({ ok:true,conversation:conversationOut(conversation),messages:rows,active_ai_jobs:jobs },200,env);
     }
@@ -806,14 +823,24 @@ async function staffLogin(request, env, deps) {
   const email = cleanEmail(payload.email);
   const password = String(payload.password || '');
   if (!email || !password) throw supportError('Email and password are required',400,'SUPPORT_LOGIN_REQUIRED');
-  const row = (await deps.q(env, `SELECT au.*,sp.id AS staff_id,sp.tenant_id,sp.platform_id,sp.display_name,sp.role_key,sp.account_status,sp.availability_status,sp.timezone,sp.use_platform_timezone,sp.personal_timezone_allowed,sp.must_change_password,sp.max_active_conversations,sp.archived_at,sap.public_route_key AS staff_public_route_key
+  const row = (await deps.q(env, `SELECT au.*,sp.id AS staff_id,sp.tenant_id,sp.platform_id,sp.display_name,sp.public_display_name,sp.public_avatar_url,sp.role_key,sp.account_status,sp.availability_status,sp.timezone,sp.use_platform_timezone,sp.personal_timezone_allowed,sp.must_change_password,sp.max_active_conversations,sp.archived_at,sap.public_route_key AS staff_public_route_key
     FROM admin_users au JOIN support_staff_profiles sp ON sp.admin_user_id=au.id JOIN saas_platforms sap ON sap.id=sp.platform_id
     WHERE lower(au.email)=lower($1) AND au.role='support_staff' LIMIT 1`, [email])).rows[0];
   if (!row || row.is_active === false || row.account_status !== 'active' || row.archived_at || !await deps.verifyPassword(password,row.password_hash)) {
     throw supportError('Invalid email or password',401,'SUPPORT_LOGIN_INVALID');
   }
   const requestedRoute=cleanText(request.headers.get('x-bdg-platform-route'),140).toLowerCase();
+  const originRaw=cleanText(request.headers.get('origin'),600);
+  let origin=''; let originHostname='';
+  if (originRaw) { try { const parsed=new URL(originRaw); if (parsed.protocol === 'https:' && !parsed.username && !parsed.password && !parsed.port && parsed.pathname === '/' && !parsed.search && !parsed.hash) { origin=parsed.origin.toLowerCase(); originHostname=parsed.hostname.toLowerCase(); } } catch {} }
+  const sharedStaffOrigin=String(env.LUKE_SHARED_STAFF_ORIGIN || 'https://staff.ar-ai666.com').replace(/\/$/,'').toLowerCase();
+  if (origin === sharedStaffOrigin && !requestedRoute) throw supportError('This Luke Staff Console link is incomplete. Use the platform-specific /p/<route> link supplied by your administrator.',403,'SUPPORT_PLATFORM_ROUTE_REQUIRED');
   if (requestedRoute && requestedRoute !== String(row.staff_public_route_key || '').toLowerCase()) throw supportError('This staff account does not belong to this platform link',403,'SUPPORT_PLATFORM_ROUTE_MISMATCH');
+  if (!requestedRoute && originHostname) {
+    const custom=(await deps.q(env,`SELECT d.platform_id,p.tenant_id FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id JOIN saas_tenants t ON t.id=p.tenant_id WHERE lower(d.hostname)=lower($1) AND d.site_kind='staff' AND d.archived_at IS NULL AND d.cors_allowed IS TRUE AND d.provisioning_status='active' AND d.verified_at IS NOT NULL AND lower(COALESCE(d.cloudflare_status,''))='active' AND lower(COALESCE(d.cloudflare_ssl_status,''))='active' AND p.archived_at IS NULL AND p.status='active' AND t.archived_at IS NULL AND t.status='active' LIMIT 1`,[originHostname])).rows[0];
+    if (!custom || Number(custom.platform_id)!==Number(row.platform_id) || Number(custom.tenant_id)!==Number(row.tenant_id)) throw supportError('This staff account does not belong to this verified Staff Console hostname',403,'SUPPORT_PLATFORM_HOST_MISMATCH');
+  }
+  if (!requestedRoute && !originHostname) throw supportError('A platform-scoped Staff Console route is required',403,'SUPPORT_PLATFORM_ROUTE_REQUIRED');
   const updated = (await deps.q(env, `UPDATE admin_users SET last_login_at=NOW(),updated_at=NOW(),session_version=COALESCE(session_version,0)+1 WHERE id=$1 RETURNING session_version`, [row.id])).rows[0];
   const session = (await deps.q(env, `INSERT INTO support_staff_sessions(tenant_id,platform_id,staff_id,session_version,user_agent,ip_address) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, [row.tenant_id,row.platform_id,row.staff_id,Number(updated.session_version || 0),cleanText(request.headers.get('user-agent'),1000),cleanText(request.headers.get('x-forwarded-for'),100)])).rows[0];
   const token = createSupportToken(env, { kind:'staff',admin_user_id:Number(row.id),staff_id:Number(row.staff_id),tenant_id:Number(row.tenant_id),platform_id:Number(row.platform_id),sv:Number(updated.session_version || 0),session_id:Number(session.id) }, 60 * 60 * 12);
@@ -927,8 +954,8 @@ export async function handleSupportStaffRoute({ request, env, url, path, method,
     const id=numericId(staffSyncMatch[1],'Conversation ID');
     if (!await supportRealtimeCanSubscribe(env,{ kind:'staff',staff,tenant_id:scope.tenant_id,platform_id:scope.platform_id,staff_id:staff.id },id,deps)) throw supportError('Conversation access denied',403,'SUPPORT_SUBSCRIBE_DENIED');
     const after=Math.max(0,Number(url.searchParams.get('after_sequence') || 0));
-    const rows=(await deps.q(env,`SELECT sm.*,sp.display_name AS sender_name FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 ORDER BY sm.message_sequence ASC LIMIT 500`,[id,after])).rows.map(messageOut);
-    const conversation=(await deps.q(env,`SELECT c.*,sp.display_name AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    const rows=(await deps.q(env,`SELECT sm.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS sender_name,sp.public_avatar_url AS sender_avatar_url FROM support_messages sm LEFT JOIN support_staff_profiles sp ON sp.id=sm.sender_staff_id WHERE sm.conversation_id=$1 AND sm.message_sequence>$2 ORDER BY sm.message_sequence ASC LIMIT 500`,[id,after])).rows.map(messageOut);
+    const conversation=(await deps.q(env,`SELECT c.*,COALESCE(NULLIF(sp.public_display_name,''),sp.display_name) AS assigned_staff_name FROM support_conversations c LEFT JOIN support_staff_profiles sp ON sp.id=c.assigned_staff_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
     return deps.jsonNoStore({ ok:true,conversation:conversationOut(conversation),messages:rows },200,env);
   }
   if (method === 'GET' && detailMatch) {
@@ -971,11 +998,12 @@ export async function handleSupportStaffRoute({ request, env, url, path, method,
     const body = cleanText(payload.body_text || payload.message,12000);
     if (!body) throw supportError('Message is required',400,'SUPPORT_MESSAGE_REQUIRED');
     const clientId = cleanText(payload.client_message_id,120) || randomUUID();
-    const row = await appendSupportMessage(deps,env,scope,id,{ sender_type:'STAFF',sender_staff_id:staff.id,client_message_id:clientId,body_text:body,sentence_count:countSentences(body),metadata:{ source:'staff_console' } });
+    const senderName=cleanText(staff.public_display_name || staff.display_name || 'Support',160); const senderAvatar=safeIdentityUrl(staff.public_avatar_url,true);
+    const row = await appendSupportMessage(deps,env,scope,id,{ sender_type:'STAFF',sender_staff_id:staff.id,client_message_id:clientId,body_text:body,sentence_count:countSentences(body),metadata:{ source:'staff_console',sender_name:senderName,sender_avatar_url:senderAvatar } });
     await deps.q(env,`UPDATE support_conversations SET first_agent_reply_at=COALESCE(first_agent_reply_at,NOW()),status='AGENT_ACTIVE',control_mode='HUMAN',updated_at=NOW() WHERE id=$1`,[id]);
     await deps.q(env,`INSERT INTO support_activity_events(tenant_id,platform_id,staff_id,conversation_id,event_type,metadata_json) VALUES($1,$2,$3,$4,'reply_sent',$5::jsonb)`,[scope.tenant_id,scope.platform_id,staff.id,id,JSON.stringify({ sentence_count:countSentences(body),characters:body.length })]);
-    emitSupportEvent({ event:'support:message_created',platform_id:scope.platform_id,conversation_id:id,staff_id:staff.id,data:{ message:messageOut({ ...row,sender_name:staff.display_name }) } });
-    return deps.jsonNoStore({ ok:true,message:messageOut({ ...row,sender_name:staff.display_name }) },201,env);
+    emitSupportEvent({ event:'support:message_created',platform_id:scope.platform_id,conversation_id:id,staff_id:staff.id,data:{ message:messageOut({ ...row,sender_name:senderName,sender_avatar_url:senderAvatar }) } });
+    return deps.jsonNoStore({ ok:true,message:messageOut({ ...row,sender_name:senderName,sender_avatar_url:senderAvatar }) },201,env);
   }
   const notesMatch = path.match(/^\/staff\/conversations\/(\d+)\/notes$/);
   if (method === 'POST' && notesMatch) {
@@ -1235,6 +1263,15 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
       JSON.stringify(Array.isArray(payload.attachment_allowed_types_json) ? payload.attachment_allowed_types_json.filter((x)=>['image/png','image/jpeg','image/webp','application/pdf','text/plain'].includes(String(x))) : current.attachment_allowed_types_json || []),
       scope.tenant_id,scope.platform_id,
     ])).rows[0];
+    row = (await deps.q(env,`UPDATE support_settings SET automated_support_display_name=$1,automated_support_avatar_url=$2,admin_support_display_name=$3,admin_support_avatar_url=$4,show_staff_public_name=$5,show_staff_avatar=$6,chat_menu_enabled=$7,sticky_support_header_enabled=$8,updated_at=NOW() WHERE tenant_id=$9 AND platform_id=$10 RETURNING *`,[
+      cleanText(payload.automated_support_display_name ?? current.automated_support_display_name,160) || 'Support',
+      safeIdentityUrl(payload.automated_support_avatar_url ?? current.automated_support_avatar_url,true),
+      cleanText(payload.admin_support_display_name ?? current.admin_support_display_name,160) || 'Support Team',
+      safeIdentityUrl(payload.admin_support_avatar_url ?? current.admin_support_avatar_url,true),
+      bool(payload.show_staff_public_name,current.show_staff_public_name),bool(payload.show_staff_avatar,current.show_staff_avatar),
+      bool(payload.chat_menu_enabled,current.chat_menu_enabled),bool(payload.sticky_support_header_enabled,current.sticky_support_header_enabled),
+      scope.tenant_id,scope.platform_id,
+    ])).rows[0];
     await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_settings_updated','support_settings',row.id,'Human support and AI processing settings updated');
     return deps.jsonNoStore(supportSettingsOut(row),200,env);
   }
@@ -1249,8 +1286,8 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
     const conflict = (await deps.q(env,'SELECT id FROM admin_users WHERE lower(email)=lower($1) LIMIT 1',[email])).rows[0];
     if (conflict) throw supportError('An account with this email already exists',409,'SUPPORT_EMAIL_EXISTS');
     const account = (await deps.q(env,`INSERT INTO admin_users(name,email,password_hash,role,is_active,session_version) VALUES($1,$2,$3,'support_staff',TRUE,0) RETURNING *`,[displayName,email,await deps.hashPassword(password)])).rows[0];
-    const profile = (await deps.q(env,`INSERT INTO support_staff_profiles(admin_user_id,tenant_id,platform_id,display_name,role_key,account_status,timezone,use_platform_timezone,personal_timezone_allowed,must_change_password,max_active_conversations)
-      VALUES($1,$2,$3,$4,$5,'active',$6,$7,$8,TRUE,$9) RETURNING *`,[account.id,scope.tenant_id,scope.platform_id,displayName,cleanText(payload.role_key || 'support_agent',60),payload.timezone ? safeTimezone(payload.timezone) : null,payload.use_platform_timezone !== false,bool(payload.personal_timezone_allowed,false),Math.min(50,Math.max(1,Number(payload.max_active_conversations || 5)))])).rows[0];
+    const profile = (await deps.q(env,`INSERT INTO support_staff_profiles(admin_user_id,tenant_id,platform_id,display_name,public_display_name,public_avatar_url,role_key,account_status,timezone,use_platform_timezone,personal_timezone_allowed,must_change_password,max_active_conversations)
+      VALUES($1,$2,$3,$4,$5,$6,$7,'active',$8,$9,$10,TRUE,$11) RETURNING *`,[account.id,scope.tenant_id,scope.platform_id,displayName,cleanText(payload.public_display_name || displayName,160),safeIdentityUrl(payload.public_avatar_url,true),cleanText(payload.role_key || 'support_agent',60),payload.timezone ? safeTimezone(payload.timezone) : null,payload.use_platform_timezone !== false,bool(payload.personal_timezone_allowed,false),Math.min(50,Math.max(1,Number(payload.max_active_conversations || 5)))])).rows[0];
     const requested = Array.isArray(payload.permissions) ? payload.permissions.filter((item)=>SUPPORT_PERMISSIONS.includes(item)) : [...DEFAULT_AGENT_PERMISSIONS];
     for (const permission of requested) await deps.q(env,`INSERT INTO support_staff_permissions(staff_id,permission_key,allowed) VALUES($1,$2,TRUE) ON CONFLICT(staff_id,permission_key) DO UPDATE SET allowed=TRUE,updated_at=NOW()`,[profile.id,permission]);
     await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_staff_created','support_staff',profile.id,`Created ${email}`);
@@ -1266,7 +1303,7 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
     const displayName = cleanText(payload.display_name || payload.name || existing.display_name,160);
     const accountStatus = payload.account_status === 'inactive' || payload.is_active === false ? 'inactive' : 'active';
     await deps.q(env,`UPDATE admin_users SET name=$1,email=$2,is_active=$3,updated_at=NOW(),session_version=CASE WHEN $3=FALSE THEN session_version+1 ELSE session_version END WHERE id=$4`,[displayName,email,accountStatus==='active',existing.account_id]);
-    const profile = (await deps.q(env,`UPDATE support_staff_profiles SET display_name=$1,role_key=$2,account_status=$3,timezone=$4,use_platform_timezone=$5,personal_timezone_allowed=$6,max_active_conversations=$7,availability_status=CASE WHEN $3='inactive' THEN 'offline' ELSE availability_status END,updated_at=NOW() WHERE id=$8 RETURNING *`,[displayName,cleanText(payload.role_key || existing.role_key,60),accountStatus,payload.timezone ? safeTimezone(payload.timezone) : existing.timezone,payload.use_platform_timezone ?? existing.use_platform_timezone,bool(payload.personal_timezone_allowed,existing.personal_timezone_allowed),Math.min(50,Math.max(1,Number(payload.max_active_conversations || existing.max_active_conversations))),staffId])).rows[0];
+    const profile = (await deps.q(env,`UPDATE support_staff_profiles SET display_name=$1,public_display_name=$2,public_avatar_url=$3,role_key=$4,account_status=$5,timezone=$6,use_platform_timezone=$7,personal_timezone_allowed=$8,max_active_conversations=$9,availability_status=CASE WHEN $5='inactive' THEN 'offline' ELSE availability_status END,updated_at=NOW() WHERE id=$10 RETURNING *`,[displayName,cleanText(payload.public_display_name ?? existing.public_display_name ?? displayName,160),safeIdentityUrl(payload.public_avatar_url ?? existing.public_avatar_url,true),cleanText(payload.role_key || existing.role_key,60),accountStatus,payload.timezone ? safeTimezone(payload.timezone) : existing.timezone,payload.use_platform_timezone ?? existing.use_platform_timezone,bool(payload.personal_timezone_allowed,existing.personal_timezone_allowed),Math.min(50,Math.max(1,Number(payload.max_active_conversations || existing.max_active_conversations))),staffId])).rows[0];
     if (Array.isArray(payload.permissions)) {
       await deps.q(env,'DELETE FROM support_staff_permissions WHERE staff_id=$1',[staffId]);
       for (const permission of payload.permissions.filter((item)=>SUPPORT_PERMISSIONS.includes(item))) await deps.q(env,`INSERT INTO support_staff_permissions(staff_id,permission_key,allowed) VALUES($1,$2,TRUE)`,[staffId,permission]);
@@ -1374,6 +1411,17 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
   }
   const adminContext=path.match(/^\/admin\/support\/conversations\/(\d+)\/context$/);
   if (method === 'GET' && adminContext) return deps.jsonNoStore({ ok:true,context:await customerContext(deps,env,scope,numericId(adminContext[1]),true) },200,env);
+  const adminNote=path.match(/^\/admin\/support\/conversations\/(\d+)\/notes$/);
+  if (method === 'POST' && adminNote) {
+    const id=numericId(adminNote[1],'Conversation ID'); const payload=await deps.readJson(request); const note=cleanText(payload.note || payload.note_text,12000);
+    if (!note) throw supportError('Internal note is required',400,'SUPPORT_NOTE_REQUIRED');
+    const conversation=(await deps.q(env,`SELECT id FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!conversation) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
+    const settings=supportSettingsOut(await ensureSettings(deps.q,env,scope));
+    const row=(await deps.q(env,`INSERT INTO support_internal_notes(tenant_id,platform_id,conversation_id,author_admin_email,note_text) VALUES($1,$2,$3,$4,$5) RETURNING *`,[scope.tenant_id,scope.platform_id,id,admin.email,note])).rows[0];
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'internal_note_created','support_conversation',id,'Administrator added an internal note');
+    return deps.jsonNoStore({ ok:true,note:{ ...row,id:Number(row.id),author_name:settings.admin_support_display_name || 'Support Team',created_at:rowDate(row.created_at) } },201,env);
+  }
   const adminMessage=path.match(/^\/admin\/support\/conversations\/(\d+)\/messages$/);
   if (method === 'POST' && adminMessage) {
     const id=numericId(adminMessage[1]); const payload=await deps.readJson(request); const body=cleanText(payload.body_text || payload.message,12000);
@@ -1381,12 +1429,14 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
     const conversation=(await deps.q(env,`SELECT * FROM support_conversations WHERE id=$1 AND tenant_id=$2 AND platform_id=$3`,[id,scope.tenant_id,scope.platform_id])).rows[0];
     if (!conversation) throw supportError('Conversation not found',404,'SUPPORT_CONVERSATION_NOT_FOUND');
     if (conversation.control_mode!=='HUMAN' || !['WAITING_FOR_AGENT','ASSIGNED','AGENT_ACTIVE','TRANSFER_REQUESTED'].includes(conversation.status)) throw supportError('Admin replies are available only during human support',409,'SUPPORT_CONVERSATION_NOT_ACTIVE');
-    const senderName=cleanText(admin.name || admin.email || 'Administrator',160);
-    const row=await appendSupportMessage(deps,env,scope,id,{ sender_type:'STAFF',client_message_id:cleanText(payload.client_message_id,120)||randomUUID(),body_text:body,sentence_count:countSentences(body),metadata:{ source:'admin_workspace',sender_name:senderName,admin:true } });
+    const supportIdentity=supportSettingsOut(await ensureSettings(deps.q,env,scope));
+    const senderName=cleanText(supportIdentity.admin_support_display_name || admin.name || 'Support Team',160);
+    const senderAvatar=safeIdentityUrl(supportIdentity.admin_support_avatar_url,true);
+    const row=await appendSupportMessage(deps,env,scope,id,{ sender_type:'STAFF',client_message_id:cleanText(payload.client_message_id,120)||randomUUID(),body_text:body,sentence_count:countSentences(body),metadata:{ source:'admin_workspace',sender_name:senderName,sender_avatar_url:senderAvatar,admin:true } });
     await deps.q(env,`UPDATE support_conversations SET first_agent_reply_at=COALESCE(first_agent_reply_at,NOW()),status='AGENT_ACTIVE',control_mode='HUMAN',updated_at=NOW() WHERE id=$1`,[id]);
     await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'admin_reply_sent','support_conversation',id,'Administrator joined and replied');
-    emitSupportEvent({ event:'support:message_created',platform_id:scope.platform_id,conversation_id:id,data:{ message:messageOut({ ...row,sender_name:senderName }) } });
-    return deps.jsonNoStore({ ok:true,message:messageOut({ ...row,sender_name:senderName }) },201,env);
+    emitSupportEvent({ event:'support:message_created',platform_id:scope.platform_id,conversation_id:id,data:{ message:messageOut({ ...row,sender_name:senderName,sender_avatar_url:senderAvatar }) } });
+    return deps.jsonNoStore({ ok:true,message:messageOut({ ...row,sender_name:senderName,sender_avatar_url:senderAvatar }) },201,env);
   }
   const adminAttachment=path.match(/^\/admin\/support\/conversations\/(\d+)\/attachments$/);
   if (method === 'POST' && adminAttachment) {

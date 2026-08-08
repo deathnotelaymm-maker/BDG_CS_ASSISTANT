@@ -19,7 +19,7 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.17.2-luke-shared-hosting-platform-route';
+const API_VERSION = '1.17.3-support-workspace-ux-admin-access-tenant-isolation';
 const API_FEATURES = [
   'luke-shared-hosting',
   'shared-platform-route-resolution',

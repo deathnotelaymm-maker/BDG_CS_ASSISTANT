@@ -10,6 +10,9 @@ import {
   ChevronRight,
   FileText,
   Info,
+  Menu,
+  X,
+  History,
   RefreshCw,
   Send,
   Sparkles,
@@ -68,6 +71,8 @@ interface Message {
   attachmentName?: string;
   attachmentContentType?: string;
   attachmentSizeBytes?: number;
+  senderAvatarUrl?: string;
+  metadata?: Record<string, unknown>;
 }
 
 interface CustomerRealtimeSession {
@@ -133,6 +138,7 @@ function supportMessageToUi(item: SupportMessage): Message {
     content: cleanDisplayText(item.body_text),
     senderName: item.sender_name || item.sender_type,
     senderType: item.sender_type,
+    senderAvatarUrl: item.sender_avatar_url || String(item.metadata?.sender_avatar_url || "") || undefined,
     sequence: Number(item.message_sequence || 0),
     clientMessageId: item.client_message_id || undefined,
     deliveredAt: item.delivered_at,
@@ -143,6 +149,7 @@ function supportMessageToUi(item: SupportMessage): Message {
     attachmentName: item.attachment_name || undefined,
     attachmentContentType: item.attachment_content_type || undefined,
     attachmentSizeBytes: item.attachment_size_bytes || undefined,
+    metadata: item.metadata || {},
   };
 }
 
@@ -239,6 +246,10 @@ export default function App() {
   const [promotionIndex, setPromotionIndex] = useState(0);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [customerAttachmentsEnabled,setCustomerAttachmentsEnabled]=useState(false);
+  const [supportIdentity,setSupportIdentity]=useState({automated_name:"Support",automated_avatar_url:"",admin_name:"Support Team",admin_avatar_url:"",show_staff_public_name:true,show_staff_avatar:true});
+  const [chatMenuEnabled,setChatMenuEnabled]=useState(true);
+  const [stickySupportHeader,setStickySupportHeader]=useState(true);
+  const [menuOpen,setMenuOpen]=useState(false);
   const [started, setStarted] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [waitHint, setWaitHint] = useState(false);
@@ -322,6 +333,7 @@ export default function App() {
     setMessages((current) => mergeSupportMessage(current, item));
     lastSequenceRef.current = Math.max(lastSequenceRef.current, Number(item.message_sequence || 0));
     setSupportSession((current) => current ? { ...current, lastSequence: Math.max(current.lastSequence, Number(item.message_sequence || 0)) } : current);
+    requestAnimationFrame(()=>{const el=scrollRef.current;if(el)el.scrollTo({top:el.scrollHeight,behavior:"smooth"});});
     if (item.sender_type === "AI") {
       setActiveJobs((current) => {
         const next = { ...current };
@@ -340,7 +352,7 @@ export default function App() {
     setUsedQuickReplies(new Set());
     fetchChatContent(platformKey, controller.signal).then(setContent).catch(() => null);
     fetchChatPromotions(platformKey, controller.signal).then((data)=>setPromotions(data.items || [])).catch(()=>setPromotions([]));
-    fetchPublicSupportSettings(platformKey,controller.signal).then((data)=>setCustomerAttachmentsEnabled(data.support?.attachments?.customer_enabled===true)).catch(()=>setCustomerAttachmentsEnabled(false));
+    fetchPublicSupportSettings(platformKey,controller.signal).then((data)=>{setCustomerAttachmentsEnabled(data.support?.attachments?.customer_enabled===true);setSupportIdentity((current)=>({...current,...(data.support?.identity||{})}));setChatMenuEnabled(data.support?.chat_menu?.enabled!==false);setStickySupportHeader(data.support?.chat_menu?.sticky_support_header!==false);}).catch(()=>setCustomerAttachmentsEnabled(false));
     return () => controller.abort();
   }, [platformKey]);
 
@@ -505,8 +517,8 @@ export default function App() {
       const first=window.setTimeout(()=>scrollToBottom("auto"),20); const second=window.setTimeout(()=>{ scrollToBottom("auto"); initialAnchorRef.current=false; },280);
       return ()=>{ window.clearTimeout(first); window.clearTimeout(second); };
     }
-    if (nearBottomRef.current) scrollToBottom("smooth");
-  },[messages,jobs.length,staffTyping,scrollToBottom]);
+    if (!loadingOlder) scrollToBottom("smooth");
+  },[messages,jobs.length,staffTyping,scrollToBottom,loadingOlder]);
 
   const send = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -613,8 +625,8 @@ export default function App() {
 
 
   return (
-    <div className="min-h-[100dvh] w-full bg-background flex justify-center" style={themeStyle}>
-      <div className={`chat-layout-${layout} chat-bubbles-${bubbleStyle} chat-input-${inputStyle} flex flex-col w-full max-w-[440px] min-h-[100dvh] relative bg-background/95 ${backgroundUrl ? "chat-background-image" : ""}`}>
+    <div className="h-[100dvh] overflow-hidden w-full bg-background flex justify-center" style={themeStyle}>
+      <div className={`chat-layout-${layout} chat-bubbles-${bubbleStyle} chat-input-${inputStyle} flex flex-col w-full max-w-[440px] h-[100dvh] min-h-0 overflow-hidden relative bg-background/95 ${backgroundUrl ? "chat-background-image" : ""}`}>
         <header className="sticky top-0 z-20 backdrop-blur-md bg-background/85 border-b border-border">
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -632,7 +644,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-
+            {chatMenuEnabled&&<button type="button" onClick={()=>setMenuOpen(true)} aria-label="Open conversation menu" className="shrink-0 w-10 h-10 rounded-full border border-border bg-surface grid place-items-center hover:bg-accent"><Menu className="h-5 w-5"/></button>}
           </div>
           {humanControlled && (
             <div className="chat-mode-strip human">
@@ -642,21 +654,13 @@ export default function App() {
             </div>
           )}
         </header>
+        {stickySupportHeader&&(started||messages.length>0)&&<div className="chat-sticky-welcome"><div className="chat-sticky-avatar">{iconUrl?<img src={iconUrl} alt=""/>:<Headphones className="h-4 w-4"/>}</div><div><strong>{welcomeTitle}</strong><span>{humanControlled?modeCopy:welcomeText}</span></div></div>}
 
         <div ref={scrollRef} onScroll={handleScroll} className="chat-scroll flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {hasOlderMessages && <button type="button" disabled={loadingOlder} onClick={()=>void loadOlder()} className="mx-auto block rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold disabled:opacity-50">{loadingOlder?"Loading…":"Show previous messages"}</button>}
           {showPromotions && <PromotionCarousel items={displayPromotions} index={Math.min(promotionIndex,displayPromotions.length-1)} setIndex={setPromotionIndex} theme={promotionTheme} />}
-          {startEnabled && !started && messages.length === 0 ? (
-            <ChatStartModule module={startModule} iconUrl={iconUrl} actionButtons={actionButtons} onStart={() => { setStarted(true); setTimeout(() => inputRef.current?.focus(), 30); }} onPrompt={send} />
-          ) : (
-            <section className="rounded-2xl bg-gradient-to-br from-surface-elevated to-surface border border-border p-4 msg-in">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-brand/15 text-brand grid place-items-center shrink-0 overflow-hidden">{iconUrl ? <img src={iconUrl} alt="" className="h-full w-full object-cover" /> : <Sparkles className="w-5 h-5" />}</div>
-                <div className="min-w-0"><h2 className="font-semibold text-sm">{welcomeTitle}</h2><p className="text-xs text-muted-foreground mt-1 leading-relaxed">{welcomeText}</p></div>
-              </div>
-            </section>
-          )}
-          {messages.map((message) => <MessageBubble key={message.id} message={message} onRetry={() => message.retryOf && send(message.retryOf)} onPrompt={send} onPreview={(src, alt) => setPreview({ src, alt })} onHandoff={startHumanSupport} onMediaLoad={handleMediaLoad} />)}
+          {startEnabled && !started && messages.length === 0 && <ChatStartModule module={startModule} iconUrl={iconUrl} actionButtons={actionButtons} onStart={() => { setStarted(true); setTimeout(() => inputRef.current?.focus(), 30); }} onPrompt={send} />}
+          {messages.map((message) => <MessageBubble key={message.id} message={message} identity={supportIdentity} onRetry={() => message.retryOf && send(message.retryOf)} onPrompt={send} onPreview={(src, alt) => setPreview({ src, alt })} onHandoff={startHumanSupport} onMediaLoad={handleMediaLoad} />)}
           <AsyncProcessingIndicator jobs={jobs} />
           {staffTyping && humanControlled && <div className="text-xs text-muted-foreground px-2">{uiCopy.typing}</div>}
           {newMessageCount > 0 && <button type="button" onClick={()=>scrollToBottom("smooth")} className="sticky bottom-2 mx-auto block rounded-full bg-brand px-4 py-2 text-xs font-semibold text-brand-foreground shadow-lg">{uiCopy.newMessages(newMessageCount)}</button>}
@@ -689,6 +693,7 @@ export default function App() {
           </div>
         </form>
       </div>
+      {menuOpen&&<div className="chat-menu-overlay" onClick={()=>setMenuOpen(false)}><aside className="chat-menu-drawer" onClick={(e)=>e.stopPropagation()}><header><div><strong>{headerTitle}</strong><small>{humanControlled?modeCopy:connectionCopy}</small></div><button type="button" onClick={()=>setMenuOpen(false)}><X/></button></header><section><h3>Conversation</h3><div className="menu-status-row"><Headphones/><span>{humanControlled?(supportSession?.assignedStaffName||uiCopy.representative):supportIdentity.automated_name||headerTitle}</span></div><div className="menu-status-row"><History/><span>{messages.length} loaded messages{hasOlderMessages?" · older history available":""}</span></div></section>{actionButtons.length>0&&<section><h3>Help</h3>{actionButtons.slice(0,4).map((button)=><a key={button.id} href={button.url} target={button.target||"_blank"} rel="noreferrer">{button.label}</a>)}</section>}{promotions[0]&&<DrawerPromotion item={promotions[0]}/>}<section className="menu-privacy"><h3>Privacy</h3><p>Conversation information is used to provide support for this platform.</p></section></aside></div>}
       {preview && <ImageLightbox src={preview.src} alt={preview.alt} onClose={() => setPreview(null)} />}
     </div>
   );
@@ -771,19 +776,23 @@ function StartCopy({ text }: { text: string }) {
 }
 
 function PromotionCarousel({ items,index,setIndex,theme }:{ items:ChatPromotion[];index:number;setIndex:(index:number)=>void;theme:NonNullable<ChatContent["settings"]> }) {
-  const item=items[index]; if(!item) return null;
+  const [broken,setBroken]=useState<number|null>(null); const item=items[index]; useEffect(()=>setBroken(null),[item?.id]); if(!item||broken===item.id)return null;
   const previous=()=>setIndex((index-1+items.length)%items.length); const next=()=>setIndex((index+1)%items.length);
-  const card=<div className="relative overflow-hidden border border-border bg-surface shadow-sm" style={{borderRadius:Math.max(0,Number(theme.promotion_border_radius || 16))}}><img src={item.image_url} alt={item.title || "Promotion"} className="w-full object-cover" style={{height:`clamp(120px, ${Number(theme.promotion_mobile_height || 160)}px, ${Number(theme.promotion_desktop_height || 220)}px)`}}/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4 text-white">{item.title && <div className="text-sm font-semibold">{item.title}</div>}{item.subtitle && <div className="mt-1 text-xs text-white/80">{item.subtitle}</div>}</div></div>;
-  return <section className="relative" aria-label="Promotional messages">{item.link_url?<a href={item.link_url} target="_blank" rel="noreferrer">{card}</a>:card}{theme.promotion_show_arrows !== false && items.length>1 && <><button type="button" onClick={previous} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-2 text-white"><ChevronLeft className="h-4 w-4"/></button><button type="button" onClick={next} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-2 text-white"><ChevronRight className="h-4 w-4"/></button></>}{theme.promotion_show_indicators !== false && items.length>1 && <div className="mt-2 flex justify-center gap-1.5">{items.map((_,i)=><button key={i} type="button" onClick={()=>setIndex(i)} className={`h-1.5 rounded-full ${i===index?"w-5 bg-brand":"w-1.5 bg-muted-foreground/40"}`} aria-label={`Promotion ${i+1}`}/>)}</div>}</section>;
+  const card=<div className="relative overflow-hidden border border-border bg-surface shadow-sm" style={{borderRadius:Math.max(0,Number(theme.promotion_border_radius||16))}}><img src={item.image_url} onError={()=>setBroken(item.id)} alt={item.title||"Promotion"} className="w-full object-cover" style={{height:`clamp(120px, ${Number(theme.promotion_mobile_height||160)}px, ${Number(theme.promotion_desktop_height||220)}px)`}}/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4 text-white">{item.title&&<div className="text-sm font-semibold">{item.title}</div>}{item.subtitle&&<div className="mt-1 text-xs text-white/80">{item.subtitle}</div>}</div></div>;
+  return <section className="relative" aria-label="Promotional messages">{item.link_url?<a href={item.link_url} target="_blank" rel="noreferrer">{card}</a>:card}{theme.promotion_show_arrows!==false&&items.length>1&&<><button type="button" onClick={previous} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-2 text-white"><ChevronLeft className="h-4 w-4"/></button><button type="button" onClick={next} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-2 text-white"><ChevronRight className="h-4 w-4"/></button></>}{theme.promotion_show_indicators!==false&&items.length>1&&<div className="mt-2 flex justify-center gap-1.5">{items.map((_,i)=><button key={i} type="button" onClick={()=>setIndex(i)} className={`h-1.5 rounded-full ${i===index?"w-5 bg-brand":"w-1.5 bg-muted-foreground/40"}`} aria-label={`Promotion ${i+1}`}/>)}</div>}</section>;
 }
+function DrawerPromotion({item}:{item:ChatPromotion}){const [broken,setBroken]=useState(false);if(broken)return null;const card=<img src={item.image_url} onError={()=>setBroken(true)} alt={item.title||"Promotion"}/>;return <section className="drawer-promotion"><h3>Promotion</h3>{item.link_url?<a href={item.link_url} target="_blank" rel="noreferrer">{card}</a>:card}{item.title&&<strong>{item.title}</strong>}</section>}
 
-function MessageBubble({ message, onRetry, onPrompt, onPreview, onHandoff, onMediaLoad }: { message: Message; onRetry: () => void; onPrompt: (text:string) => void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void; onMediaLoad:()=>void }) {
+function MessageBubble({ message, identity, onRetry, onPrompt, onPreview, onHandoff, onMediaLoad }: { message: Message; identity:{automated_name:string;automated_avatar_url:string;admin_name:string;admin_avatar_url:string;show_staff_public_name:boolean;show_staff_avatar:boolean}; onRetry: () => void; onPrompt: (text:string) => void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void; onMediaLoad:()=>void }) {
   const isUser = message.role === "user";
+  if(message.senderType==="SYSTEM")return <div className="customer-system-event"><span>{message.content}</span></div>;
+  const isAdmin=Boolean(message.metadata?.admin); const avatar=message.senderAvatarUrl||(message.senderType==="AI"?identity.automated_avatar_url:isAdmin?identity.admin_avatar_url:""); const displayName=message.senderType==="AI"?(identity.automated_name||message.senderName):(message.senderName||identity.admin_name||"Support");
   return (
-    <div className={`flex msg-in ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex items-end gap-2 msg-in ${isUser ? "justify-start" : "justify-end"}`}>
       <div
-        className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser ? "bg-bubble-user text-bubble-user-foreground rounded-br-sm" : "bg-bubble-ai text-bubble-ai-foreground rounded-bl-sm border border-border"}`}
+        className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser ? "bg-bubble-user text-bubble-user-foreground rounded-bl-sm" : "bg-bubble-ai text-bubble-ai-foreground rounded-br-sm border border-border"}`}
       >
+        {!isUser&&<div className="mb-1 text-[10px] font-semibold opacity-70">{displayName}</div>}
         {message.blocks && message.blocks.length > 0 ? (
           <StructuredResponse blocks={message.blocks} onPrompt={onPrompt} onPreview={onPreview} onHandoff={onHandoff} onMediaLoad={onMediaLoad} />
         ) : (
@@ -830,6 +839,7 @@ function MessageBubble({ message, onRetry, onPrompt, onPreview, onHandoff, onMed
           </div>
         )}
       </div>
+      {!isUser&&<span className="customer-chat-head">{avatar?<img src={avatar} alt=""/>:<Headphones className="h-4 w-4"/>}</span>}
     </div>
   );
 }
