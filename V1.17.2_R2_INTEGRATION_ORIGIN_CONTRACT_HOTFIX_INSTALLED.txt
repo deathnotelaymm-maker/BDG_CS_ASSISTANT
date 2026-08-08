@@ -1,0 +1,4 @@
+v1.17.2-r2 Luke Integration Origin Contract Hotfix
+Runtime: 1.17.2
+Migration: 045 unchanged
+Next migration: 046

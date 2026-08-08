@@ -4,7 +4,7 @@ import pg from 'pg';
 import api, { closeDatabasePools, processNextAiJob, runMigrations } from '../src/core.js';
 
 const { Pool } = pg;
-const ADMIN_ORIGIN = 'https://admin.example.test';
+const ADMIN_ORIGIN = 'https://admin.ar-ai666.com'; // Luke shared Admin infrastructure origin; unknown hostnames are reserved for custom-domain guard tests.
 const SHARED_CHAT_ORIGIN = 'https://bdg-chat-pages.pages.dev';
 const originalFetch = globalThis.fetch;
 let providerMode = 'success';

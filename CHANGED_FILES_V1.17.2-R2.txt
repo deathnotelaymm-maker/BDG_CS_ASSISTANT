@@ -1,0 +1,21 @@
+v1.17.2-r2 changed files
+
+.bdg_files.tsv
+.github/workflows/bdg-production-release.yml
+.github/workflows/ci.yml
+backend-api/package.json
+backend-api/scripts/integration-test.js
+backend-api/scripts/v1.17.2-r2-integration-origin-contract-regression-test.js
+CHANGED_FILES_V1.17.2-R2.txt
+DEPLOYMENT_CHECKLIST_V1.17.2-R2.md
+RELEASE_NOTES_V1.17.2-R2.md
+TECHNICAL_ANALYSIS_V1.17.2-R2.md
+TEST_RESULT_V1.17.2-R2.md
+V1.17.2_R2_INTEGRATION_ORIGIN_CONTRACT_HOTFIX_INSTALLED.txt
+INSTALL-V1.17.2-R2-INTEGRATION-ORIGIN-CONTRACT-HOTFIX.cmd
+INSTALL-V1.17.2-R2-INTEGRATION-ORIGIN-CONTRACT-HOTFIX.ps1
+START-HERE-WINDOWS.bat
+START-HERE-V1.17.2-R2-INTEGRATION-ORIGIN-CONTRACT-HOTFIX.bat
+README-V1.17.2-R2.txt
+MANIFEST_V1.17.2-R2.json
+FILE_CHECKSUMS_V1.17.2-R2.sha256
