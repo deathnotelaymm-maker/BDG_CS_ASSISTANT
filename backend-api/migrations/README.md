@@ -44,3 +44,5 @@ production. It fixes the runtime to the compiled Assistant Setup prompt plus
 approved `prompt_image` Menu & Images records, archives existing Q&A rows, and
 keeps historical tables inert for rollback/audit. Published migration `037` is
 immutable. The next database change must use migration `038`.
+
+- `045_v1.17.2_luke_shared_hosting_platform_route.sql` — Luke Shared Hosting mode and immutable route resolution.

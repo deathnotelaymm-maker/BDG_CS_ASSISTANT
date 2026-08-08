@@ -11,8 +11,8 @@ type GuideSearch = { q?: string; category?: string };
 export const Route = createFileRoute("/_public/guides")({
   head: () => ({
     meta: [
-      { title: "Guides — BDG Help Center" },
-      { name: "description", content: "Browse BDG guides and tutorials for deposits, withdrawals, account and more." },
+      { title: "Guides — Help Center" },
+      { name: "description", content: "Browse guides and tutorials for deposits, withdrawals, account help, and more." },
     ],
   }),
   validateSearch: (s: Record<string, unknown>): GuideSearch => ({

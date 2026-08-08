@@ -1,34 +1,38 @@
-# v1.17.1 — Verified Domain Mapping & Dynamic CORS Trust
+# v1.17.2 — Luke Shared Hosting Mode & Platform Route Resolution
 
-v1.17.1 turns Domain Mapping into the production authority for client custom-domain API trust. Client domains no longer need to be manually appended to Render `ALLOWED_ORIGINS` after each onboarding.
+v1.17.2 introduces **Luke** as the neutral white-label shared hosting layer while preserving the verified custom-domain workflow from v1.17.1.
 
-**Base:** v1.17.0-r2  
-**Release marker:** `1.17.1-verified-domain-mapping-dynamic-cors`  
-**Migration:** `044_v1.17.1_verified_domain_mapping_dynamic_cors.sql`  
-**Next migration:** `045`
+**Base:** v1.17.1-r2  
+**Release marker:** `1.17.2-luke-shared-hosting-platform-route`  
+**Migration:** `045_v1.17.2_luke_shared_hosting_platform_route.sql`  
+**Next migration:** `046`
 
-## Production rule
+## Hosting modes
 
-`ALLOWED_ORIGINS` remains the static allowlist for BDG-owned infrastructure origins. A client custom origin is accepted dynamically only when all of these are true:
+Each platform can use one of two management modes:
 
-- exact HTTPS hostname match;
-- Domain Mapping API/CORS policy is enabled;
-- domain record is not archived;
-- provisioning status is `active`;
-- verification timestamp exists;
-- Cloudflare hostname status is `active`;
-- Cloudflare SSL status is `active`;
-- tenant and platform are active.
+- **Luke Shared Hosting** — uses the four permanent `ar-ai666.com` application hosts plus the platform's immutable `/p/<platform-route>` path.
+- **Custom Domain** — keeps the verified Cloudflare Custom Hostname + Dynamic CORS workflow from v1.17.1.
 
-Pending, planned, disabled, HTTP, port-qualified, unknown, archived, or SSL-incomplete origins remain blocked.
+Shared links are generated automatically:
 
-## Client onboarding
+- `https://admin.ar-ai666.com/p/<platform-route>`
+- `https://staff.ar-ai666.com/p/<platform-route>`
+- `https://guide.ar-ai666.com/p/<platform-route>`
+- `https://chat.ar-ai666.com/p/<platform-route>`
 
-1. Add the client's Chat, Guide, Admin, or Staff hostname in **Domain Mapping**.
-2. Leave **API / CORS** enabled unless the hostname should not call the API.
-3. Provision through Cloudflare Custom Hostnames.
-4. Give the client the displayed TXT/CNAME records.
-5. Refresh status until both hostname and SSL are active.
-6. Dynamic CORS becomes effective automatically. No Render environment edit is required.
+The four Luke origins are trusted once by the backend's static infrastructure CORS layer. A new shared-hosting client therefore needs no per-client DNS, SSL, or Render CORS change.
 
-Follow `DEPLOYMENT_CHECKLIST_V1.17.1.md` before production rollout.
+## White-label rule
+
+Luke is infrastructure, not the client's brand. Platform brand settings continue to control the visible Chat, Guide, Staff, and Admin experience. New client-facing defaults no longer advertise the legacy BDG name. Internal legacy environment variables, headers, package names, migration history, and database identifiers remain unchanged where renaming them would risk compatibility.
+
+## Platform-route rule
+
+`public_route_key` remains the stable public platform identifier. v1.17.2 does not rewrite existing route keys. Changing a platform display name does not change the public route.
+
+## Custom domains
+
+Verified client-owned domains still use the v1.17.1 readiness contract: exact HTTPS origin, API/CORS enabled, active provisioning, verification recorded, active Cloudflare hostname and SSL, and active tenant/platform.
+
+Follow `DEPLOYMENT_CHECKLIST_V1.17.2.md` before production rollout.

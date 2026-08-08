@@ -31,7 +31,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
     queryFn: api.getPlatformLanguages,
     staleTime: 30_000,
   });
-  const platformName = theme?.brand_name || theme?.app_name || (platformKey === "default" ? "BDG Help Center" : "Platform Help Center");
+  const platformName = theme?.brand_name || theme?.app_name || (platformKey === "default" ? "Help Center" : "Platform Help Center");
   const platformTagline = theme?.brand_tagline || (platformKey === "default" ? "Official Support" : `${platformName} Support`);
   const guideStyle = {
     ...(theme?.guide_background_url ? { backgroundImage: `url(${theme.guide_background_url})`, backgroundSize: "cover", backgroundAttachment: "fixed" } : {}),
@@ -90,9 +90,9 @@ function PublicHeader({ platformKey, platformName, platformTagline, logoUrl, lan
             <span
               className="grid h-8 min-w-11 place-items-center rounded-lg px-1.5 font-display text-[11px] font-bold text-[color:var(--bdg-navy-deep)]"
               style={{ background: "var(--gradient-gold)" }}
-              title={platformKey === "default" ? "BDG" : "Logo not configured"}
+              title={platformKey === "default" ? "Luke" : "Logo not configured"}
             >
-              {platformKey === "default" ? "BDG" : "?"}
+              {platformKey === "default" ? "Luke" : "?"}
             </span>
           )}
           <div className="flex min-w-0 flex-col leading-tight">

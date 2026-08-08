@@ -189,7 +189,7 @@ export interface ChatRequest {
   platform_key?: string;
 }
 
-const SESSION_KEY = "bdg_chat_session_id";
+const SESSION_KEY = "luke_chat_session_id";
 const SUPPORT_TOKEN_KEY = "bdg_customer_support_token";
 const SUPPORT_CONVERSATION_KEY = "bdg_customer_support_conversation";
 const SUPPORT_RESUME_KEY = "bdg_customer_support_resume_key";
@@ -201,15 +201,16 @@ function platformReferenceFromLocation(): string {
   return window.location.pathname.match(/^\/p\/([a-z0-9-]+)(?:\/|$)/i)?.[1] || "";
 }
 
-export function getPlatformKey(defaultKey = "default"): string {
+export function getPlatformKey(defaultKey = ""): string {
   if (typeof window === "undefined") return defaultKey;
-  const fromQuery = platformReferenceFromLocation();
-  return String(fromQuery || defaultKey).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || defaultKey;
+  const fromLocation = platformReferenceFromLocation();
+  return String(fromLocation || defaultKey).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || defaultKey;
 }
 
 export function getSessionId(platformKey = getPlatformKey()): string {
   if (typeof window === "undefined") return "ssr";
-  const key = `${SESSION_KEY}:${platformKey}`;
+  const scopeKey = platformKey || window.location.hostname.toLowerCase();
+  const key = `${SESSION_KEY}:${scopeKey}`;
   let id = window.localStorage.getItem(key);
   if (!id) {
     id = "guest_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 10);
@@ -219,11 +220,12 @@ export function getSessionId(platformKey = getPlatformKey()): string {
 }
 
 function requireApiBase() {
-  if (!API_BASE) throw new Error("Chat API is not configured. Set VITE_BDG_API_BASE during the Cloudflare Pages build.");
+  if (!API_BASE) throw new Error("Chat API is not configured for this deployment.");
 }
 
 function supportStorageKey(base: string, platformKey = getPlatformKey()) {
-  const normalized = String(platformKey || "default").trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-") || "default";
+  const hostFallback = typeof window !== "undefined" ? window.location.hostname.toLowerCase() : "platform";
+  const normalized = String(platformKey || hostFallback).trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, "-") || "platform";
   return `${base}:${normalized}`;
 }
 

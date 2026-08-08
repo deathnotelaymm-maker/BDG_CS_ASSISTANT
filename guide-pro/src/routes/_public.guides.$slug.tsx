@@ -12,7 +12,7 @@ import { sanitizeRichHtml } from "@/lib/sanitize-html";
 
 export const Route = createFileRoute("/_public/guides/$slug")({
   head: ({ params }) => ({
-    meta: [{ title: `${params.slug.replace(/[-_]/g, " ")} — BDG Help Center` }],
+    meta: [{ title: `${params.slug.replace(/[-_]/g, " ")} — Help Center` }],
   }),
   component: GuideDetail,
   notFoundComponent: () => {

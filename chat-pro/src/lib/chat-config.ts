@@ -11,7 +11,7 @@ export function normalizeChatLocale(value: string | undefined, fallback = "en"):
 }
 
 function platformLabel(platformKey = "default") {
-  if (!platformKey || platformKey === "default") return "BDG";
+  if (!platformKey || platformKey === "default") return "Luke";
   // A route key is an implementation detail, not a customer-facing brand.
   // The real tenant name arrives from /chat/content after the route resolves.
   return "Platform";
@@ -19,10 +19,10 @@ function platformLabel(platformKey = "default") {
 
 const texts = {
   en: {
-    chatTitle: "BDG AI Support",
+    chatTitle: "Luke Support",
     onlineLabel: "Online assistant",
     supportLabel: "Support",
-    welcomeTitle: "Welcome to BDG AI Support",
+    welcomeTitle: "Welcome to Luke Support",
     welcomeText:
       "Ask me anything about deposits, withdrawals, account, or bank binding. I’ll help you 24/7.",
     quickQuestions: [
@@ -40,10 +40,10 @@ const texts = {
     languageLabel: "Language",
   },
   hi: {
-    chatTitle: "BDG AI Support",
+    chatTitle: "Luke Support",
     onlineLabel: "ऑनलाइन सहायक",
     supportLabel: "Support",
-    welcomeTitle: "BDG AI Support में आपका स्वागत है",
+    welcomeTitle: "Luke Support में आपका स्वागत है",
     welcomeText:
       "Deposit, withdrawal, account या bank card से जुड़े सवाल पूछें। मैं 24/7 मदद करूँगा।",
     quickQuestions: [
@@ -61,10 +61,10 @@ const texts = {
     languageLabel: "भाषा",
   },
   id: {
-    chatTitle: "Dukungan AI BDG",
+    chatTitle: "Dukungan Luke",
     onlineLabel: "Asisten online",
     supportLabel: "Dukungan",
-    welcomeTitle: "Selamat datang di Dukungan AI BDG",
+    welcomeTitle: "Selamat datang di Dukungan Luke",
     welcomeText: "Tanyakan tentang deposit, penarikan, akun, atau pengikatan rekening bank. Saya siap membantu 24/7.",
     quickQuestions: ["Bagaimana cara menarik dana?", "Bagaimana cara deposit?", "Bagaimana cara mengikat rekening bank?", "Saya tidak bisa masuk", "Hubungi dukungan"],
     placeholderIdle: "Ketik pesan Anda...",
@@ -75,10 +75,10 @@ const texts = {
     languageLabel: "Bahasa",
   },
   zh: {
-    chatTitle: "BDG AI 支持",
+    chatTitle: "Luke 支持",
     onlineLabel: "在线助手",
     supportLabel: "支持",
-    welcomeTitle: "欢迎使用 BDG AI 支持",
+    welcomeTitle: "欢迎使用 Luke 支持",
     welcomeText: "您可以询问充值、提款、账户或银行卡绑定问题。我会全天候提供帮助。",
     quickQuestions: ["如何提款？", "如何充值？", "如何绑定银行卡？", "我无法登录", "联系支持"],
     placeholderIdle: "输入您的消息...",
@@ -89,10 +89,10 @@ const texts = {
     languageLabel: "语言",
   },
   my: {
-    chatTitle: "BDG AI Support",
+    chatTitle: "Luke Support",
     onlineLabel: "အွန်လိုင်းအကူ",
     supportLabel: "Support",
-    welcomeTitle: "BDG AI Support မှ ကြိုဆိုပါသည်",
+    welcomeTitle: "Luke Support မှ ကြိုဆိုပါသည်",
     welcomeText: "Deposit၊ withdrawal၊ account သို့မဟုတ် bank ချိတ်ဆက်ခြင်းအကြောင်း မေးနိုင်ပါသည်။ 24/7 ကူညီပေးပါမည်။",
     quickQuestions: ["ငွေဘယ်လိုထုတ်မလဲ။", "Deposit ဘယ်လိုလုပ်မလဲ။", "Bank account ဘယ်လိုချိတ်မလဲ။", "Login မဝင်နိုင်ပါ", "Support ကို ဆက်သွယ်ရန်"],
     placeholderIdle: "သင့်စာကို ရိုက်ထည့်ပါ...",

@@ -9,7 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_public/support")({
-  head: () => ({ meta: [{ title: "Support — BDG Help Center" }] }),
+  head: () => ({ meta: [{ title: "Support — Help Center" }] }),
   component: Support,
 });
 

@@ -37,7 +37,7 @@ function LoginPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
             <div className="bdg-brand-mark">B</div>
             <div>
-              <div style={{ color: "#fff", fontWeight: 600 }}>BDG Help Center</div>
+              <div style={{ color: "#fff", fontWeight: 600 }}>Luke Platform</div>
               <div style={{ color: "#8ea0bd", fontSize: 12 }}>Business Admin Console / 业务管理后台</div>
             </div>
           </div>
@@ -65,7 +65,7 @@ function LoginPage() {
             <Button type="primary" htmlType="submit" size="large" block>Sign in / 登录</Button>
           </Form>
           <div style={{ marginTop: 20, fontSize: 12, color: "#55698a", textAlign: "center" }}>
-            © 2026 BDG Service · Secure admin access
+            © 2026 Luke · Secure platform access
           </div>
         </div>
       </div>

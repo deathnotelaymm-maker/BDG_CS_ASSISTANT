@@ -44,7 +44,7 @@ export function getCurrentUser() {
 // tenant/platform boundary on the server.
 export function getActiveAdminPlatformRoute() {
   if (typeof window === "undefined") return "";
-  const match = window.location.pathname.match(/(?:^|\/)p\/([a-z0-9-]+)\/admin(?:\/|$)/i);
+  const match = window.location.pathname.match(/(?:^|\/)p\/([a-z0-9-]+)(?:\/admin)?(?:\/|$)/i);
   return match?.[1] || "";
 }
 
@@ -697,8 +697,8 @@ export const api = {
   getSettings: async () => {
     if (MOCK_MODE)
       return delay({
-        app_name: "BDG Help Center",
-        logo_text: "BDG",
+        app_name: "Luke Platform",
+        logo_text: "Luke",
         support_link: "",
         primary_color: "#3b82f6",
         favicon_url: "",
@@ -833,6 +833,10 @@ export const api = {
   generateDomainMapping: async () => {
     if (MOCK_MODE) return delay({ ok: true, generated: {} });
     return request("/admin/domain-mapping/generate", { method: "POST", body: JSON.stringify({}) });
+  },
+  updateHostingMode: async (hosting_mode: "luke_shared" | "custom_domain") => {
+    if (MOCK_MODE) return delay({ ok: true, hosting_mode });
+    return request("/admin/domain-mapping/hosting-mode", { method: "PUT", body: JSON.stringify({ hosting_mode }) });
   },
   verifyMappedDomain: async (id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true, domain: { id, status: "pending_dns" } });

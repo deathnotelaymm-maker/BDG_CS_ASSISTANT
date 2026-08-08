@@ -806,12 +806,14 @@ async function staffLogin(request, env, deps) {
   const email = cleanEmail(payload.email);
   const password = String(payload.password || '');
   if (!email || !password) throw supportError('Email and password are required',400,'SUPPORT_LOGIN_REQUIRED');
-  const row = (await deps.q(env, `SELECT au.*,sp.id AS staff_id,sp.tenant_id,sp.platform_id,sp.display_name,sp.role_key,sp.account_status,sp.availability_status,sp.timezone,sp.use_platform_timezone,sp.personal_timezone_allowed,sp.must_change_password,sp.max_active_conversations,sp.archived_at
-    FROM admin_users au JOIN support_staff_profiles sp ON sp.admin_user_id=au.id
+  const row = (await deps.q(env, `SELECT au.*,sp.id AS staff_id,sp.tenant_id,sp.platform_id,sp.display_name,sp.role_key,sp.account_status,sp.availability_status,sp.timezone,sp.use_platform_timezone,sp.personal_timezone_allowed,sp.must_change_password,sp.max_active_conversations,sp.archived_at,sap.public_route_key AS staff_public_route_key
+    FROM admin_users au JOIN support_staff_profiles sp ON sp.admin_user_id=au.id JOIN saas_platforms sap ON sap.id=sp.platform_id
     WHERE lower(au.email)=lower($1) AND au.role='support_staff' LIMIT 1`, [email])).rows[0];
   if (!row || row.is_active === false || row.account_status !== 'active' || row.archived_at || !await deps.verifyPassword(password,row.password_hash)) {
     throw supportError('Invalid email or password',401,'SUPPORT_LOGIN_INVALID');
   }
+  const requestedRoute=cleanText(request.headers.get('x-bdg-platform-route'),140).toLowerCase();
+  if (requestedRoute && requestedRoute !== String(row.staff_public_route_key || '').toLowerCase()) throw supportError('This staff account does not belong to this platform link',403,'SUPPORT_PLATFORM_ROUTE_MISMATCH');
   const updated = (await deps.q(env, `UPDATE admin_users SET last_login_at=NOW(),updated_at=NOW(),session_version=COALESCE(session_version,0)+1 WHERE id=$1 RETURNING session_version`, [row.id])).rows[0];
   const session = (await deps.q(env, `INSERT INTO support_staff_sessions(tenant_id,platform_id,staff_id,session_version,user_agent,ip_address) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, [row.tenant_id,row.platform_id,row.staff_id,Number(updated.session_version || 0),cleanText(request.headers.get('user-agent'),1000),cleanText(request.headers.get('x-forwarded-for'),100)])).rows[0];
   const token = createSupportToken(env, { kind:'staff',admin_user_id:Number(row.id),staff_id:Number(row.staff_id),tenant_id:Number(row.tenant_id),platform_id:Number(row.platform_id),sv:Number(updated.session_version || 0),session_id:Number(session.id) }, 60 * 60 * 12);

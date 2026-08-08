@@ -41,6 +41,11 @@ export function getRuntimeEnv(source = process.env) {
     ADMIN_PASSWORD: source.ADMIN_PASSWORD || '',
     JWT_SECRET: source.JWT_SECRET || '',
     ALLOWED_ORIGINS: source.ALLOWED_ORIGINS || '',
+    LUKE_SHARED_HOSTING_ENABLED: booleanValue(source.LUKE_SHARED_HOSTING_ENABLED, true),
+    LUKE_SHARED_ADMIN_ORIGIN: source.LUKE_SHARED_ADMIN_ORIGIN || 'https://admin.ar-ai666.com',
+    LUKE_SHARED_STAFF_ORIGIN: source.LUKE_SHARED_STAFF_ORIGIN || 'https://staff.ar-ai666.com',
+    LUKE_SHARED_GUIDE_ORIGIN: source.LUKE_SHARED_GUIDE_ORIGIN || 'https://guide.ar-ai666.com',
+    LUKE_SHARED_CHAT_ORIGIN: source.LUKE_SHARED_CHAT_ORIGIN || 'https://chat.ar-ai666.com',
     SUPPORT_LINK: source.SUPPORT_LINK || '',
     DEEPSEEK_API_KEY: source.DEEPSEEK_API_KEY || '',
     DEEPSEEK_API_BASE: source.DEEPSEEK_API_BASE || 'https://api.deepseek.com',
@@ -107,8 +112,13 @@ export function validateRuntimeEnv(env, { migration = false } = {}) {
   if (!env.JWT_SECRET || String(env.JWT_SECRET).length < 32) errors.push('JWT_SECRET must contain at least 32 characters');
   if (!env.ADMIN_EMAIL) errors.push('ADMIN_EMAIL is required');
   if (!env.ADMIN_PASSWORD || String(env.ADMIN_PASSWORD).length < 12) errors.push('ADMIN_PASSWORD must contain at least 12 characters');
-  if (!env.ALLOWED_ORIGINS && env.NODE_ENV === 'production') errors.push('ALLOWED_ORIGINS is required in production for static BDG infrastructure origins');
+  if (!env.ALLOWED_ORIGINS && env.NODE_ENV === 'production') errors.push('ALLOWED_ORIGINS is required in production for static infrastructure origins');
   if (env.NODE_ENV === 'production' && String(env.ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).includes('*')) errors.push('ALLOWED_ORIGINS must not contain * in production; client custom domains are trusted through verified Domain Mapping');
+  if (env.LUKE_SHARED_HOSTING_ENABLED) {
+    for (const [name,value] of [['LUKE_SHARED_ADMIN_ORIGIN',env.LUKE_SHARED_ADMIN_ORIGIN],['LUKE_SHARED_STAFF_ORIGIN',env.LUKE_SHARED_STAFF_ORIGIN],['LUKE_SHARED_GUIDE_ORIGIN',env.LUKE_SHARED_GUIDE_ORIGIN],['LUKE_SHARED_CHAT_ORIGIN',env.LUKE_SHARED_CHAT_ORIGIN]]) {
+      try { const u=new URL(String(value||'')); if (u.protocol!=='https:' || u.username || u.password || u.port || u.pathname!=='/' || u.search || u.hash) errors.push(`${name} must be an exact HTTPS origin without a path`); } catch { errors.push(`${name} must be a valid HTTPS origin`); }
+    }
+  }
   if (booleanValue(env.AI_MODE_ENABLED, true) && !env.DEEPSEEK_API_KEY) errors.push('DEEPSEEK_API_KEY is required when AI_MODE_ENABLED=true');
   if (env.R2_REQUIRED) {
     if (!env.R2_ACCOUNT_ID) errors.push('R2_ACCOUNT_ID is required');
@@ -144,8 +154,13 @@ export function allowedOrigin(env, requestOrigin) {
     .split(',')
     .map((item) => item.trim().replace(/\/$/, ''))
     .filter(Boolean);
-  if (!requestOrigin) return configured[0] || '*';
+  const lukeShared = env.LUKE_SHARED_HOSTING_ENABLED === false ? [] : [
+    env.LUKE_SHARED_ADMIN_ORIGIN, env.LUKE_SHARED_STAFF_ORIGIN,
+    env.LUKE_SHARED_GUIDE_ORIGIN, env.LUKE_SHARED_CHAT_ORIGIN,
+  ].map((item) => String(item || '').trim().replace(/\/$/, '')).filter(Boolean);
+  const trusted = [...new Set([...configured, ...lukeShared])];
+  if (!requestOrigin) return trusted[0] || '*';
   const normalized = requestOrigin.replace(/\/$/, '');
-  if (configured.includes('*') || configured.includes(normalized)) return requestOrigin;
+  if (configured.includes('*') || trusted.includes(normalized)) return requestOrigin;
   return '';
 }

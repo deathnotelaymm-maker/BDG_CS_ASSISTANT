@@ -79,15 +79,22 @@ export type StaffSettings = {
 };
 
 const API = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-const TOKEN_KEY = "bdg_support_staff_token";
-export const token = () => localStorage.getItem(TOKEN_KEY) || "";
-export const saveToken = (value: string) => value ? localStorage.setItem(TOKEN_KEY, value) : localStorage.removeItem(TOKEN_KEY);
+const TOKEN_KEY = "luke_support_staff_token";
+export function getStaffPlatformRoute(){
+  if(typeof window==="undefined") return "";
+  return window.location.pathname.match(/^\/p\/([a-z0-9-]+)(?:\/|$)/i)?.[1] || "";
+}
+function tokenKey(){ const route=getStaffPlatformRoute(); return route ? `${TOKEN_KEY}:${route}` : TOKEN_KEY; }
+export const token = () => localStorage.getItem(tokenKey()) || localStorage.getItem("bdg_support_staff_token") || "";
+export const saveToken = (value: string) => value ? localStorage.setItem(tokenKey(), value) : (localStorage.removeItem(tokenKey()),localStorage.removeItem("bdg_support_staff_token"));
+function platformHeaders(){ const route=getStaffPlatformRoute(); return route ? { "X-BDG-Platform-Route": route } : {}; }
 
 async function request<T>(path: string, init: RequestInit = {}) {
   if (!API) throw new Error("Staff API is not configured. Set VITE_API_BASE_URL during the production build.");
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
   if (token()) headers.set("Authorization", `Bearer ${token()}`);
+  for(const [key,value] of Object.entries(platformHeaders())) headers.set(key,value);
   const response = await fetch(`${API}${path}`, { ...init, headers, cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.message || data?.error || `Request failed (${response.status})`);
@@ -101,7 +108,7 @@ async function uploadRequest<T>(path: string, file: File, caption = "") {
   body.append("file", file);
   body.append("client_message_id", crypto.randomUUID());
   if (caption) body.append("caption", caption);
-  const response = await fetch(`${API}${path}`, { method: "POST", headers: token() ? { Authorization: `Bearer ${token()}` } : {}, body, cache: "no-store" });
+  const response = await fetch(`${API}${path}`, { method: "POST", headers: { ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...platformHeaders() }, body, cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.message || data?.error || `Upload failed (${response.status})`);
   return data as T;
@@ -149,7 +156,7 @@ export type StaffStreamPacket = { id?: string; event: string; data: Record<strin
 export async function openStaffConversationStream(conversationId: number, afterSequence = 0, signal?: AbortSignal) {
   if (!API) throw new Error("Staff API is not configured. Set VITE_API_BASE_URL during the production build.");
   const response=await fetch(`${API}/staff/conversations/${conversationId}/stream?after_sequence=${Math.max(0,Number(afterSequence||0))}`,{
-    headers:{ Authorization:`Bearer ${token()}`,Accept:"text/event-stream" },cache:"no-store",signal,
+    headers:{ Authorization:`Bearer ${token()}`,Accept:"text/event-stream",...platformHeaders() },cache:"no-store",signal,
   });
   if (!response.ok || !response.body) throw new Error(`Conversation stream failed (${response.status})`);
   return response;

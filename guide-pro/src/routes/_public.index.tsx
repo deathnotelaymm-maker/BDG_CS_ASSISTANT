@@ -18,11 +18,11 @@ import { sanitizeRichHtml } from "@/lib/sanitize-html";
 export const Route = createFileRoute("/_public/")({
   head: () => ({
     meta: [
-      { title: "BDG Help Center — Guides, FAQ & Support" },
+      { title: "Help Center — Guides, FAQ & Support" },
       {
         name: "description",
         content:
-          "Official BDG Help Center. Deposits, withdrawals, bank cards, login help and more.",
+          "Official help center for deposits, withdrawals, bank cards, login help, and more.",
       },
     ],
   }),
@@ -64,13 +64,13 @@ function Home() {
         <div className="relative">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider">
             <Sparkles className="h-3 w-3" style={{ color: "var(--bdg-gold)" }} />
-            {c?.heroEyebrow ?? (platformKey === "default" ? "BDG Official Help" : "Official support")}
+            {c?.heroEyebrow ?? (platformKey === "default" ? "Official Help" : "Official support")}
           </span>
           <h1 className="mt-4 font-display text-3xl font-bold leading-tight md:text-5xl">
             {c?.heroTitle ?? "How can we help you today?"}
           </h1>
           <p className="mt-2 max-w-lg text-sm text-white/70 md:text-base">
-            {c?.heroSubtitle ?? (platformKey === "default" ? "Guides, tutorials and answers for everything BDG." : "Browse approved guides, FAQs, and support information.")}
+            {c?.heroSubtitle ?? (platformKey === "default" ? "Guides, tutorials, FAQs, and support information." : "Browse approved guides, FAQs, and support information.")}
           </p>
 
           <form

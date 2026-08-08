@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { adminApi, auth } from "@/lib/api";
 
 export const Route = createFileRoute("/admin/login")({
-  head: () => ({ meta: [{ title: "Admin sign in — BDG CMS" }] }),
+  head: () => ({ meta: [{ title: "Admin sign in — Luke" }] }),
   component: Login,
 });
 
@@ -48,7 +48,7 @@ function Login() {
             B
           </span>
           <div>
-            <div className="font-display text-base font-semibold">BDG Guide CMS</div>
+            <div className="font-display text-base font-semibold">Luke Guide CMS</div>
             <div className="text-xs text-muted-foreground">Sign in to continue</div>
           </div>
         </div>

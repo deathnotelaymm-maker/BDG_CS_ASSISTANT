@@ -19,8 +19,12 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.17.1-verified-domain-mapping-dynamic-cors';
+const API_VERSION = '1.17.2-luke-shared-hosting-platform-route';
 const API_FEATURES = [
+  'luke-shared-hosting',
+  'shared-platform-route-resolution',
+  'dual-hosting-mode',
+  'route-scoped-staff-console',
   'verified-domain-mapping-dynamic-cors',
   'exact-https-custom-origin-trust',
   'domain-cors-policy-toggle',

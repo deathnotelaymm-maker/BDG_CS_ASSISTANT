@@ -1,0 +1,7 @@
+Luke Shared Hosting Mode & Platform Route Resolution
+Release: v1.17.2
+Application version: 1.17.2
+Release marker: 1.17.2-luke-shared-hosting-platform-route
+Migration: 045_v1.17.2_luke_shared_hosting_platform_route.sql
+Next migration: 046
+Base: v1.17.1-r2

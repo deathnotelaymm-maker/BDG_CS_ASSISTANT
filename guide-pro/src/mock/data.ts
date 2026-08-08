@@ -1,4 +1,4 @@
-// Mock content for BDG Help Center — preview-only. Do not use in production.
+// Mock content for Luke Help Center — preview-only. Do not use in production.
 
 export type Settings = {
   brand: string;
@@ -99,16 +99,16 @@ export type Guide = {
 };
 
 export const settings: Settings = {
-  brand: "BDG",
-  logoText: "BDG Help",
+  brand: "Luke",
+  logoText: "Luke Help",
   supportUrl: "/support",
   supportEnabled: true,
 };
 
 export const siteContent: SiteContent = {
-  heroEyebrow: "BDG Official Help",
+  heroEyebrow: "Luke Official Help",
   heroTitle: "How can we help you today?",
-  heroSubtitle: "Guides, tutorials and answers for everything BDG.",
+  heroSubtitle: "Guides, tutorials and answers for everything Luke.",
   searchPlaceholder: "Search deposit, withdrawal, login…",
   searchButtonText: "Search",
   popularHelpTitle: "Popular help",
@@ -247,7 +247,7 @@ export const guides: Guide[] = [
     id: "g1",
     slug: "how-to-deposit",
     title: "How to make your first deposit",
-    summary: "Step-by-step: fund your BDG account securely in under a minute.",
+    summary: "Step-by-step: fund your Luke account securely in under a minute.",
     category: "deposit",
     cover: img("1556742049-0cfed4f6a45d"),
     updatedAt: "2026-06-15",
@@ -259,12 +259,12 @@ export const guides: Guide[] = [
     blocks: [
       {
         type: "paragraph",
-        text: "Adding funds to your BDG account takes about a minute. Follow the steps below and you'll be ready to play or trade in no time.",
+        text: "Adding funds to your Luke account takes about a minute. Follow the steps below and you'll be ready to play or trade in no time.",
       },
       {
         type: "step",
         title: "Step 1 — Open your wallet",
-        text: "Tap the Wallet icon in the bottom navigation of the BDG app.",
+        text: "Tap the Wallet icon in the bottom navigation of the Luke app.",
         image: img("1563986768609-322da13575f3", 800, 500),
       },
       {
@@ -288,7 +288,7 @@ export const guides: Guide[] = [
       },
       {
         type: "warning",
-        text: "Never share your OTP or PIN with anyone claiming to be from BDG support.",
+        text: "Never share your OTP or PIN with anyone claiming to be from Luke support.",
       },
       { type: "heading", text: "Common issues", level: 2 },
       {
@@ -316,7 +316,7 @@ export const guides: Guide[] = [
         type: "paragraph",
         text: "Withdrawals are fast, secure and available 24/7. Make sure your KYC is verified before your first withdrawal.",
       },
-      { type: "step", title: "Step 1 — Open Wallet", text: "Open the BDG app and tap Wallet." },
+      { type: "step", title: "Step 1 — Open Wallet", text: "Open the Luke app and tap Wallet." },
       {
         type: "step",
         title: "Step 2 — Choose Withdraw",
@@ -410,7 +410,7 @@ export const guides: Guide[] = [
   {
     id: "g5",
     slug: "getting-started",
-    title: "Getting started with BDG",
+    title: "Getting started with Luke",
     summary: "A quick tour of the app and how to set up your profile.",
     category: "getting-started",
     cover: img("1522202176988-66273c2fd55f"),
@@ -421,7 +421,7 @@ export const guides: Guide[] = [
     blocks: [
       {
         type: "paragraph",
-        text: "Welcome to BDG. Here's everything you need to make the most of your first session.",
+        text: "Welcome to Luke. Here's everything you need to make the most of your first session.",
       },
       { type: "heading", text: "1. Create your profile" },
       { type: "paragraph", text: "Add your name and a photo so friends can find you." },

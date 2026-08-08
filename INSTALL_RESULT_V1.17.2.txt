@@ -1,0 +1,5 @@
+﻿Installed: 2026-08-08T20:47:47.0891074+07:00
+Release: v1.17.2 Luke Shared Hosting Mode & Platform Route Resolution
+Backup: C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.17.2-20260808-204740
+Migration 045 must be applied by the normal deployment migration runner.
+Next migration: 046

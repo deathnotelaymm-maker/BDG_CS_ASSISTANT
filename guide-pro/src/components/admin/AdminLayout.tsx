@@ -50,7 +50,7 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
             B
           </span>
           <div className="leading-tight">
-            <div className="font-display text-sm font-semibold">BDG Guide CMS</div>
+            <div className="font-display text-sm font-semibold">Luke Guide CMS</div>
             <div className="text-[10px] uppercase tracking-widest text-sidebar-foreground/60">
               Admin
             </div>

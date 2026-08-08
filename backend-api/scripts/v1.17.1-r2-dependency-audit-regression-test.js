@@ -32,7 +32,7 @@ const nano = lock.packages?.['node_modules/nanoid'];
 const postcss = lock.packages?.['node_modules/postcss'];
 const override = packageJson.overrides?.nanoid;
 
-test('backend runtime version remains 1.17.1', packageJson.version === '1.17.1');
+test('backend runtime version is current v1.17.2', packageJson.version === '1.17.2');
 test('Nano ID override is pinned to the patched 3.x release', override === '3.3.17');
 test('lockfile resolves Nano ID at or above 3.3.17', nano && gte(nano.version, '3.3.17'));
 test('lockfile does not retain vulnerable Nano ID 3.3.16', nano?.version !== '3.3.16');

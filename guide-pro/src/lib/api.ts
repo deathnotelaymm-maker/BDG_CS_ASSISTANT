@@ -24,9 +24,9 @@ export const PUBLIC_LANGUAGES: { code: PublicLanguage; label: string }[] = [
 // These are neutral copy defaults only; categories/guides/FAQ arrays stay empty
 // unless the Render backend returns real admin-published data.
 const productionSiteContent: mock.SiteContent = {
-  heroEyebrow: "BDG Official Help",
+  heroEyebrow: "Official Help",
   heroTitle: "How can we help you today?",
-  heroSubtitle: "Official guides and tutorials from BDG support.",
+  heroSubtitle: "Official guides and tutorials from the support team.",
   searchPlaceholder: "Search guides…",
   searchButtonText: "Search",
   popularHelpTitle: "Popular help",
@@ -74,10 +74,10 @@ export function getPublicLanguage(): PublicLanguage {
   return (window.localStorage.getItem("bdg_public_language") as PublicLanguage) || "en";
 }
 export function getPublicPlatformKey(): string {
-  if (typeof window === "undefined") return "default";
+  if (typeof window === "undefined") return "";
   const fromQuery = new URLSearchParams(window.location.search).get("platform");
   const fromPath = window.location.pathname.match(/^\/p\/([a-z0-9-]+)(?:\/|$)/i)?.[1];
-  return String(fromQuery || fromPath || "default").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-") || "default";
+  return String(fromQuery || fromPath || "").trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-") || "";
 }
 export function getPlatformCacheKey(): string {
   return getPublicPlatformKey();
@@ -103,11 +103,11 @@ export interface PublicTheme {
   guide_content_width?: number;
 }
 function platformLabel(key = getPublicPlatformKey()): string {
-  if (!key || key === "default") return "BDG Help Center";
+  if (!key) return "Help Center";
   return "Platform Help Center";
 }
 function siteContentDefaults(): mock.SiteContent {
-  return getPublicPlatformKey() === "default" ? productionSiteContent : neutralSiteContent;
+  return neutralSiteContent;
 }
 export function getPublicBasePath(): string {
   if (typeof window === "undefined") return "";
@@ -118,7 +118,7 @@ function withLanguage(path: string) {
   const lang = getPublicLanguage();
   const sep = path.includes("?") ? "&" : "?";
   const platform = getPublicPlatformKey();
-  return `${path}${sep}language=${encodeURIComponent(lang)}&platform=${encodeURIComponent(platform)}`;
+  return `${path}${sep}language=${encodeURIComponent(lang)}${platform ? `&platform=${encodeURIComponent(platform)}` : ""}`;
 }
 
 export const auth = {
@@ -474,10 +474,10 @@ export const api = {
       const key = getPublicPlatformKey();
       const name = platformLabel(key);
       return {
-        brand_name: key === "default" ? "BDG Help Center" : name,
+        brand_name: key === "default" ? "Help Center" : name,
         brand_tagline: key === "default" ? "Official Support" : `${name} Support`,
-        logo_text: key === "default" ? "BDG" : name,
-        app_name: key === "default" ? "BDG Help Center" : name,
+        logo_text: key === "default" ? "Luke" : name,
+        app_name: key === "default" ? "Help Center" : name,
         guide_logo_url: "",
         guide_favicon_url: "",
         support_link: "/support",

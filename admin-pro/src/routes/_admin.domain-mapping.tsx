@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Alert, Button, Card, Descriptions, Form, Input, Popconfirm, Select, Space, Switch, Table, Tag, Typography, message } from "antd";
-import { DeleteOutlined, GlobalOutlined, ReloadOutlined, SafetyCertificateOutlined, SyncOutlined } from "@ant-design/icons";
+import { CopyOutlined, DeleteOutlined, GlobalOutlined, ReloadOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
 import LocalizedHelp from "@/components/LocalizedHelp";
 
@@ -19,36 +19,57 @@ function DomainMappingPage() {
   const [busy, setBusy] = useState(false);
   const [form] = Form.useForm();
   const cloudflareReady = data?.cloudflare?.configured === true;
+  const hostingMode = data?.platform?.hosting_mode || "luke_shared";
 
   const load = async () => {
     setLoading(true);
     try { setData(await api.getDomainMapping()); }
-    catch (error: any) { message.error(error?.message || "Could not load domain mapping"); }
+    catch (error: any) { message.error(error?.message || "Could not load hosting settings"); }
     finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, []);
 
+  const changeHostingMode = async (nextMode: "luke_shared" | "custom_domain") => {
+    if (nextMode === hostingMode) return;
+    setBusy(true);
+    try {
+      const result = await api.updateHostingMode(nextMode);
+      setData(result);
+      message.success(nextMode === "luke_shared" ? "Luke Shared Hosting enabled" : "Custom Domain mode enabled");
+    } catch (error: any) { message.error(error?.message || "Could not change hosting mode"); }
+    finally { setBusy(false); }
+  };
+
   const generate = async () => {
     setBusy(true);
-    try { setData(await api.generateDomainMapping()); message.success("Generated platform links refreshed"); }
+    try { setData(await api.generateDomainMapping()); message.success("Luke platform links refreshed"); }
     catch (error: any) { message.error(error?.message || "Could not generate links"); }
     finally { setBusy(false); }
   };
+
+  const copy = async (value?: string) => {
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
+    message.success("Link copied");
+  };
+
   const addDomain = async (values: any) => {
     setBusy(true);
     try { await api.createDomainMappingDomain(values); form.resetFields(); message.success("Domain added. Provision it through Cloudflare next."); await load(); }
     catch (error: any) { message.error(error?.message || "Could not add domain"); }
     finally { setBusy(false); }
   };
+
   const updateCors = async (id: number, enabled: boolean) => {
     setBusy(true);
     try {
       const result = await api.updateMappedDomainCors(id, enabled);
-      message.success(result?.domain?.cors_effective ? "Verified domain is trusted for API access" : enabled ? "API access will activate automatically after DNS and SSL verification" : "API access disabled for this hostname");
+      message.success(result?.domain?.cors_effective ? "Verified domain is trusted for API access" : enabled ? "API access will activate after DNS and SSL verification" : "API access disabled for this hostname");
       await load();
     } catch (error: any) { message.error(error?.message || "Could not update API access"); }
     finally { setBusy(false); }
   };
+
   const runDomainAction = async (action: "provision" | "sync" | "delete", id: number) => {
     setBusy(true);
     try {
@@ -60,11 +81,16 @@ function DomainMappingPage() {
     } catch (error: any) { message.error(error?.message || "Domain action failed"); }
     finally { setBusy(false); }
   };
-  const link = (value?: string) => value ? <Typography.Link href={value} target="_blank" rel="noreferrer">{value}</Typography.Link> : "—";
+
+  const linkRow = (label: string, value?: string) => (
+    <Descriptions.Item label={label}>
+      {value ? <Space wrap><Typography.Link href={value} target="_blank" rel="noreferrer">{value}</Typography.Link><Button size="small" icon={<CopyOutlined />} onClick={() => void copy(value)}>Copy</Button></Space> : "—"}
+    </Descriptions.Item>
+  );
 
   const columns = [
     { title: "Site", dataIndex: "site_kind", render: (value: string) => <Tag>{String(value || "guide").toUpperCase()}</Tag> },
-    { title: "Hostname", dataIndex: "hostname", render: (value: string, row: any) => <Space direction="vertical" size={0}><Typography.Text>{value}</Typography.Text>{link(row.custom_url)}</Space> },
+    { title: "Hostname", dataIndex: "hostname", render: (value: string, row: any) => <Space direction="vertical" size={0}><Typography.Text>{value}</Typography.Text><Typography.Link href={row.custom_url} target="_blank" rel="noreferrer">{row.custom_url}</Typography.Link></Space> },
     { title: "Provisioning", dataIndex: "provisioning_status", render: (value: string) => <Tag color={statusColor(value)}>{value || "planned"}</Tag> },
     { title: "Cloudflare", render: (_: any, row: any) => <Space direction="vertical" size={0}><span>Hostname: <Tag color={statusColor(row.cloudflare_status)}>{row.cloudflare_status || "not created"}</Tag></span><span>SSL: <Tag color={statusColor(row.cloudflare_ssl_status)}>{row.cloudflare_ssl_status || "not checked"}</Tag></span></Space> },
     { title: "Ready", render: (_: any, row: any) => row.ready ? <Tag color="green">Ready</Tag> : <Tag color="gold">DNS / SSL pending</Tag> },
@@ -74,28 +100,49 @@ function DomainMappingPage() {
 
   return <>
     <LocalizedHelp copies={{
-      en: { title: "Bring Your Own Domain", body: "The customer buys the domain from a registrar. This admin screen registers the hostname with Cloudflare Custom Hostnames and displays the exact DNS records the customer must add. The backend never stores registrar passwords and never changes DNS automatically.", bullets: ["Add a hostname such as support.example.com and choose whether it serves Chat, Guide, Admin, or Staff Console.", "Click Provision, copy the returned TXT ownership and certificate records, and add them at the customer's DNS provider.", "Add the displayed CNAME to the SaaS target. A domain is ready only when both Cloudflare hostname status and SSL status are active."] },
-      zh: { title: "客户自有域名（BYOD）", body: "客户自己向域名注册商购买域名。本页面会通过 Cloudflare Custom Hostnames 注册主机名，并显示客户需要添加的准确 DNS 记录。后端不会保存注册商密码，也不会自动修改 DNS。", bullets: ["添加 support.example.com 这样的主机名，并选择它用于 Chat、Guide 或 Admin。", "点击 Provision，复制返回的 TXT 所有权验证记录和证书验证记录，在客户 DNS 服务商处添加。", "再添加指向 SaaS 目标的 CNAME。只有 Cloudflare 主机名状态和 SSL 状态都为 active，域名才可以正式使用。"] },
-      my: { title: "ဖောက်သည်ပိုင် ဒိုမိန်း (BYOD)", body: "ဖောက်သည်သည် domain ကို registrar ထံမှ ကိုယ်တိုင်ဝယ်ယူပါသည်။ ဤစာမျက်နှာက hostname ကို Cloudflare Custom Hostnames တွင် မှတ်ပုံတင်ပြီး ဖောက်သည်ထည့်ရမည့် DNS record အတိအကျကို ပြပါမည်။ Registrar password များကို backend က မသိမ်းပါ၊ DNS ကိုလည်း အလိုအလျောက် မပြောင်းပါ။", bullets: ["support.example.com ကဲ့သို့ hostname ထည့်ပြီး Chat၊ Guide သို့မဟုတ် Admin အတွက် ရွေးပါ။", "Provision ကိုနှိပ်ပြီး ပြန်ရလာသော TXT ownership နှင့် certificate record များကို ဖောက်သည်၏ DNS provider တွင် ထည့်ပါ။", "SaaS target သို့ ညွှန်သော CNAME ကိုလည်း ထည့်ပါ။ Cloudflare hostname status နှင့် SSL status နှစ်ခုလုံး active ဖြစ်မှ domain အသင့်ဖြစ်ပါမည်။"] },
+      en: { title: "Luke Hosting", body: "Luke provides a neutral white-label hosting layer. Use Luke Shared Hosting when the client does not want to buy a domain. Use Custom Domain when the client wants their own hostname.", bullets: ["Shared hosting automatically gives the client Admin, Staff, Guide, and Chat links under ar-ai666.com.", "The platform route stays permanent even if the client changes their display name.", "Custom domains continue to use Cloudflare verification and automatic dynamic CORS trust."] },
+      zh: { title: "Luke 托管", body: "Luke 提供中立的白标托管层。客户不购买域名时使用 Luke Shared Hosting；客户需要自己的域名时使用 Custom Domain。", bullets: ["共享托管会自动生成 Admin、Staff、Guide 和 Chat 链接。", "平台路由保持稳定，不会因品牌名称修改而变化。", "自定义域名继续使用 Cloudflare 验证和动态 CORS。"] },
+      my: { title: "Luke Hosting", body: "Luke သည် client brand ကို သီးခြားစီထိန်းချုပ်နိုင်သော neutral white-label hosting layer ဖြစ်သည်။ Domain မဝယ်လိုသော client များအတွက် Luke Shared Hosting ကို အသုံးပြုပါ။", bullets: ["Admin၊ Staff၊ Guide နှင့် Chat link များကို ar-ai666.com အောက်တွင် အလိုအလျောက်ရရှိမည်။", "Platform route သည် brand name ပြောင်းသော်လည်း မပြောင်းပါ။", "Custom Domain များအတွက် Cloudflare verification နှင့် dynamic CORS ကို ဆက်သုံးမည်။"] },
     }} />
 
-    <Card loading={loading} title={<Space><GlobalOutlined />Generated platform access links</Space>} extra={<Space><Button icon={<ReloadOutlined />} onClick={() => void load()}>Refresh</Button><Button type="primary" loading={busy} onClick={() => void generate()}>Generate links</Button></Space>}>
-      {data ? <Descriptions bordered column={1}><Descriptions.Item label="Chat">{link(data.generated?.chat)}</Descriptions.Item><Descriptions.Item label="Guide">{link(data.generated?.guide)}</Descriptions.Item><Descriptions.Item label="Admin">{link(data.generated?.admin)}</Descriptions.Item><Descriptions.Item label="Staff Console">{link(data.generated?.staff)}</Descriptions.Item><Descriptions.Item label="Platform route">{data.platform?.route_prefix || "—"}</Descriptions.Item></Descriptions> : null}
+    <Card loading={loading} title="Hosting Mode">
+      <Space direction="vertical" style={{ width: "100%" }} size={12}>
+        <Alert showIcon type="info" message="White-label hosting" description="Luke is the neutral hosting layer. Your client's own brand remains visible in Chat, Guide, Staff, and Admin. No provider branding is required for the client experience." />
+        <Space wrap>
+          <Button type={hostingMode === "luke_shared" ? "primary" : "default"} loading={busy} onClick={() => void changeHostingMode("luke_shared")}>Luke Shared Hosting</Button>
+          <Button type={hostingMode === "custom_domain" ? "primary" : "default"} loading={busy} onClick={() => void changeHostingMode("custom_domain")}>Custom Domain</Button>
+          <Tag color={hostingMode === "luke_shared" ? "blue" : "purple"}>{hostingMode === "luke_shared" ? "Shared hosting active" : "Custom domain active"}</Tag>
+        </Space>
+        <Typography.Text type="secondary">Shared mode requires no client DNS, SSL, or per-client CORS changes. Custom Domain uses the verified Cloudflare workflow below.</Typography.Text>
+      </Space>
     </Card>
 
-    <Card title="Cloudflare Custom Hostnames" style={{ marginTop: 12 }}>
-      <Alert showIcon type={data?.cloudflare?.configured ? "success" : "warning"} message={data?.cloudflare?.configured ? "Cloudflare provisioning is configured" : "Cloudflare provisioning is not configured"} description={data?.cloudflare?.configured ? `SaaS CNAME target: ${data.cloudflare.cname_target || "—"}. Provisioning still does not change customer DNS.` : `Set these Render variables before provisioning: ${(data?.cloudflare?.missing_env || ["CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ZONE_ID", "CLOUDFLARE_SAAS_CNAME_TARGET"]).join(", ")}. Provision is disabled until they are configured.`} style={{ marginBottom: 12 }} />
-      <Alert showIcon type="info" message="Automatic API/CORS trust" description="You do not need to add each client domain to Render ALLOWED_ORIGINS. Once this hostname is enabled for API access and Cloudflare reports both hostname and SSL as active, the backend trusts the exact HTTPS origin automatically. Pending or unverified domains remain blocked." style={{ marginBottom: 12 }} />
+    <Card loading={loading} title={<Space><GlobalOutlined />Luke Shared Hosting links</Space>} extra={<Space><Button icon={<ReloadOutlined />} onClick={() => void load()}>Refresh</Button><Button type="primary" loading={busy} onClick={() => void generate()}>Refresh links</Button></Space>} style={{ marginTop: 12 }}>
+      <Alert showIcon type="success" message="One shared domain set for every client" description="The four ar-ai666.com subdomains are configured once. New clients are separated by their immutable /p/<platform-route> path." style={{ marginBottom: 12 }} />
+      {data ? <Descriptions bordered column={1}>
+        {linkRow("Admin", data.generated?.admin)}
+        {linkRow("Staff Console", data.generated?.staff)}
+        {linkRow("Guide", data.generated?.guide)}
+        {linkRow("Chat", data.generated?.chat)}
+        <Descriptions.Item label="Platform route"><Typography.Text code>{data.platform?.route_prefix || "—"}</Typography.Text></Descriptions.Item>
+        <Descriptions.Item label="Client DNS required"><Tag color="green">No</Tag></Descriptions.Item>
+        <Descriptions.Item label="Per-client CORS change"><Tag color="green">No</Tag></Descriptions.Item>
+      </Descriptions> : null}
+    </Card>
+
+    <Card title="Custom Domain (optional)" style={{ marginTop: 12 }}>
+      <Alert showIcon type={data?.cloudflare?.configured ? "success" : "warning"} message={data?.cloudflare?.configured ? "Cloudflare custom-domain provisioning is configured" : "Cloudflare custom-domain provisioning is not configured"} description={data?.cloudflare?.configured ? `SaaS CNAME target: ${data.cloudflare.cname_target || "—"}. This section is only needed when the client owns a custom domain.` : `Shared Luke hosting still works. Configure these Render variables only when you need client-owned custom domains: ${(data?.cloudflare?.missing_env || ["CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ZONE_ID", "CLOUDFLARE_SAAS_CNAME_TARGET"]).join(", ")}.`} style={{ marginBottom: 12 }} />
+      <Alert showIcon type="info" message="Automatic custom-domain API/CORS trust" description="You do not need to add each client domain to Render ALLOWED_ORIGINS. Verified client domains are trusted dynamically after Cloudflare hostname and SSL status become active." style={{ marginBottom: 12 }} />
       <Form form={form} layout="inline" onFinish={addDomain} initialValues={{ site_kind: "guide" }}>
         <Form.Item name="hostname" rules={[{ required: true, message: "Enter a hostname" }, { pattern: /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i, message: "Use a hostname without https:// or a path" }]}><Input placeholder="support.example.com" style={{ width: 260 }} /></Form.Item>
-        <Form.Item name="site_kind"><Select style={{ width: 130 }} options={[{ value: "guide", label: "Guide" }, { value: "chat", label: "Chat" }, { value: "admin", label: "Admin" }, { value: "staff", label: "Staff Console" }]} /></Form.Item>
-        <Form.Item><Button type="primary" htmlType="submit" loading={busy}>Add domain</Button></Form.Item>
+        <Form.Item name="site_kind"><Select style={{ width: 150 }} options={[{ value: "guide", label: "Guide" }, { value: "chat", label: "Chat" }, { value: "admin", label: "Admin" }, { value: "staff", label: "Staff Console" }]} /></Form.Item>
+        <Form.Item><Button type="primary" htmlType="submit" loading={busy}>Add custom domain</Button></Form.Item>
       </Form>
     </Card>
 
-    <Card title="Mapped domains" style={{ marginTop: 12 }}>
-      <Table rowKey="id" loading={loading} dataSource={data?.custom_domains || []} columns={columns} pagination={false} expandable={{ expandedRowRender: (row: any) => <Space direction="vertical" style={{ width: "100%" }}><Typography.Text type="secondary">DNS records to add at the customer DNS provider</Typography.Text><Descriptions size="small" bordered column={1}><Descriptions.Item label="API / CORS policy">{row.cors_allowed === false ? "Disabled" : "Enabled"}</Descriptions.Item><Descriptions.Item label="Effective API origin">{row.cors_effective ? `https://${row.hostname}` : "Not trusted until verification is complete"}</Descriptions.Item></Descriptions><Table size="small" rowKey={(record: any, index) => `${record.type}-${record.name}-${index}`} dataSource={row.dns?.records || []} pagination={false} columns={[{ title: "Type", dataIndex: "type" }, { title: "Name", dataIndex: "name" }, { title: "Value", dataIndex: "value" }, { title: "Purpose", dataIndex: "purpose" }]} /></Space> }} />
-      {data?.custom_domains?.length ? null : <Alert showIcon type="info" message="No custom domains yet" description="Add a customer hostname above, then provision it through Cloudflare." style={{ marginTop: 12 }} />}
+    <Card title="Mapped custom domains" style={{ marginTop: 12 }}>
+      <Table rowKey="id" loading={loading} dataSource={data?.custom_domains || []} columns={columns} pagination={false} expandable={{ expandedRowRender: (row: any) => <Space direction="vertical" style={{ width: "100%" }}><Typography.Text type="secondary">DNS records to add at the customer's DNS provider</Typography.Text><Descriptions size="small" bordered column={1}><Descriptions.Item label="API / CORS policy">{row.cors_allowed === false ? "Disabled" : "Enabled"}</Descriptions.Item><Descriptions.Item label="Effective API origin">{row.cors_effective ? `https://${row.hostname}` : "Not trusted until verification is complete"}</Descriptions.Item></Descriptions><Table size="small" rowKey={(record: any, index) => `${record.type}-${record.name}-${index}`} dataSource={row.dns?.records || []} pagination={false} columns={[{ title: "Type", dataIndex: "type" }, { title: "Name", dataIndex: "name" }, { title: "Value", dataIndex: "value" }, { title: "Purpose", dataIndex: "purpose" }]} /></Space> }} />
+      {data?.custom_domains?.length ? null : <Alert showIcon type="info" message="No custom domains" description="This is normal when the client uses Luke Shared Hosting." style={{ marginTop: 12 }} />}
     </Card>
   </>;
 }

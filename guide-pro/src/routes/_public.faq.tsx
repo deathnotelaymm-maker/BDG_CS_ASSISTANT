@@ -11,7 +11,7 @@ import { ServiceErrorPanel } from "@/components/public/ServiceErrorPanel";
 import { sanitizeRichHtml } from "@/lib/sanitize-html";
 
 export const Route = createFileRoute("/_public/faq")({
-  head: () => ({ meta: [{ title: "FAQ — BDG Help Center" }] }),
+  head: () => ({ meta: [{ title: "FAQ — Help Center" }] }),
   component: FAQ,
 });
 

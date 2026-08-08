@@ -23,7 +23,7 @@ function Dashboard() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Overview of your BDG Help Center content."
+        description="Overview of your platform help content."
         actions={
           <Link to="/admin/guides/new">
             <Button className="bg-[color:var(--bdg-navy)] text-white hover:bg-[color:var(--bdg-navy-deep)]">

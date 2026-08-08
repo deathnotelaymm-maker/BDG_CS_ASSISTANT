@@ -31,9 +31,9 @@ export const mock = {
 
   collections: {
     "site-content": [
-      { id: 1, key: "hero.title", value: "BDG Help Center", locale: "en", updatedAt: "2026-07-01" },
+      { id: 1, key: "hero.title", value: "Luke Help Center", locale: "en", updatedAt: "2026-07-01" },
       { id: 2, key: "hero.subtitle", value: "Get instant answers", locale: "en", updatedAt: "2026-07-02" },
-      { id: 3, key: "footer.copy", value: "© BDG 2026", locale: "en", updatedAt: "2026-06-28" },
+      { id: 3, key: "footer.copy", value: "© Luke 2026", locale: "en", updatedAt: "2026-06-28" },
     ],
     "help-cards": [
       { id: 1, title: "Getting Started", views: 8241, order: 1, status: "active" },
@@ -90,9 +90,9 @@ export const mock = {
   } as Record<string, any[]>,
 
   promptSections: [
-    { id: "role", name: "Role", enabled: true, priority: 1, preview: "You are BDG's professional help assistant...", updatedAt: "2026-07-06 14:20" },
+    { id: "role", name: "Role", enabled: true, priority: 1, preview: "You are Luke's professional help assistant...", updatedAt: "2026-07-06 14:20" },
     { id: "job", name: "Job", enabled: true, priority: 2, preview: "Answer customer questions using the knowledge base...", updatedAt: "2026-07-05 09:11" },
-    { id: "knowledge", name: "Knowledge", enabled: true, priority: 3, preview: "Use only verified BDG help center content...", updatedAt: "2026-07-04 22:00" },
+    { id: "knowledge", name: "Knowledge", enabled: true, priority: 3, preview: "Use only verified Luke help center content...", updatedAt: "2026-07-04 22:00" },
     { id: "faq", name: "FAQ Prompt", enabled: true, priority: 4, preview: "When user asks a common question, prioritise FAQ entries...", updatedAt: "2026-07-03 16:40" },
     { id: "examples", name: "Example Answers", enabled: true, priority: 5, preview: "Q: How do I withdraw?  A: Go to Wallet > Withdraw...", updatedAt: "2026-07-02 11:00" },
     { id: "policy", name: "Response Policy", enabled: true, priority: 6, preview: "Always be concise, factual, non-speculative...", updatedAt: "2026-07-01 09:00" },

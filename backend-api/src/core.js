@@ -36,7 +36,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.17.1-verified-domain-mapping-dynamic-cors';
+const VERSION = '1.17.2-luke-shared-hosting-platform-route';
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
@@ -111,7 +111,7 @@ async function route(request, env, url) {
   const method = request.method.toUpperCase();
 
   if (method === 'GET' && path === '/') return json({ ok: true, service: appName(env), version: VERSION, message: 'Render business backend API with Neon PostgreSQL is running.' }, 200, env);
-  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','prompt-first-one-call','assistant-profile-menu-image-runtime','human-support-live-chat','support-staff-console','support-websocket-gateway','support-presence-heartbeats','support-queue-assignment','support-conversation-transfers','support-audit-log','fixed-prompt-image-source','automatic-message-language-detection','retired-ai-modules-410','prompt-runtime-versioning','prompt-hash-diagnostics','prompt-aware-memory-reset','fresh-admin-ai-tests','current-deepseek-v4-model','matched-source-image-delivery','live-provider-connectivity-test','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','rich-faq-studio','locale-policy','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','guide-parent-publication-sync','guide-derived-publication-status','guide-platform-self-service-upload','guide-publish-role-guard','guide-media-ownership-audit','guide-motion-media','guide-gif-covers','guide-video-autoplay-loop','guide-safe-text-animation-presets','guide-reduced-motion','dynamic-ai-locale-routing','default-locale-source-fallback','bounded-provider-retries','turn-deadline-budget','verified-source-fallback','local-conversation-safety','customer-safe-degraded-response','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','verified-domain-mapping-dynamic-cors','exact-https-custom-origin-trust','domain-cors-policy-toggle','domain-id-validation','cloudflare-configuration-guard','immutable-file-migrations','server-rich-html-sanitization','connector-dns-ssrf-guard','postgres-api-integration-tests','stable-admin-platform-context','single-pending-question','progressive-message-history','separate-guide-chat-themes','global-action-buttons','customer-sse-stream','staff-sse-message-stream','sse-last-sequence-resume','websocket-presence-and-typing-only','professional-support-workspace','staff-self-accept','human-only-support-attachments','support-quick-replies','customer-device-context','chat-promotional-carousel','staff-domain-mapping'] }, 200, env);
+  if (method === 'GET' && path === '/health') return json({ ok: true, service: appName(env), version: VERSION, features: ['tenant-core','platform-control-center','platform-scoped-admin','tenant-data-isolation','tenant-brand-studio','one-platform-per-tenant','safe-bootstrap-deduplication','scoped-backfill-conflict-repair','platform-context-header','platform-context-no-fallback','platform-context-lock','platform-resolution-diagnostics','reject-missing-platform-context','strict-public-platform-route','neutral-route-presentation','automatic-platform-access-links','custom-domain-safety','domain-mapping-tenant-join-repair','tenant-role-boundaries','platform-domain-registry','platform-feature-entitlements','legacy-content-backfill','prompt-first-one-call','assistant-profile-menu-image-runtime','human-support-live-chat','support-staff-console','support-websocket-gateway','support-presence-heartbeats','support-queue-assignment','support-conversation-transfers','support-audit-log','fixed-prompt-image-source','automatic-message-language-detection','retired-ai-modules-410','prompt-runtime-versioning','prompt-hash-diagnostics','prompt-aware-memory-reset','fresh-admin-ai-tests','current-deepseek-v4-model','matched-source-image-delivery','live-provider-connectivity-test','structured-rich-response-v2','visual-guide-studio','action-button-configuration','mobile-image-viewer','ai-observability','faq-answer-control','r2-s3-api','chat-start-module','experience-studio','safe-animation-presets','platform-chat-layout','operations-connector-gateway','platform-connector-allowlist','connector-test-connection','connector-audit-trail','redacted-operation-logs','render-node','neon-postgresql','deepseek','smart-memory','tenant-guide-theme','tenant-quick-replies','quick-reply-one-time','resilient-ai-errors','rich-faq-studio','locale-policy','faq-sql-repair','platform-locale-registry','guide-locale-studio','guide-translation-variants','guide-locale-publish','guide-parent-publication-sync','guide-derived-publication-status','guide-platform-self-service-upload','guide-publish-role-guard','guide-media-ownership-audit','guide-motion-media','guide-gif-covers','guide-video-autoplay-loop','guide-safe-text-animation-presets','guide-reduced-motion','dynamic-ai-locale-routing','default-locale-source-fallback','bounded-provider-retries','turn-deadline-budget','verified-source-fallback','local-conversation-safety','customer-safe-degraded-response','production-domain-mapping','generated-platform-routes','custom-domain-verification','ai-reliability-foundation','platform-rate-limits','neutral-ai-fallback','multilingual-admin-help','chat-platform-route-propagation','chat-body-platform-context','platform-context-mismatch-rejection','byod-domain-mapping','cloudflare-custom-hostnames','custom-hostname-ssl-readiness','hostname-platform-resolution','dynamic-custom-hostname-cors','verified-domain-mapping-dynamic-cors','luke-shared-hosting','shared-platform-route-resolution','dual-hosting-mode','route-scoped-staff-console','exact-https-custom-origin-trust','domain-cors-policy-toggle','domain-id-validation','cloudflare-configuration-guard','immutable-file-migrations','server-rich-html-sanitization','connector-dns-ssrf-guard','postgres-api-integration-tests','stable-admin-platform-context','single-pending-question','progressive-message-history','separate-guide-chat-themes','global-action-buttons','customer-sse-stream','staff-sse-message-stream','sse-last-sequence-resume','websocket-presence-and-typing-only','professional-support-workspace','staff-self-accept','human-only-support-attachments','support-quick-replies','customer-device-context','chat-promotional-carousel','staff-domain-mapping'] }, 200, env);
   if (method === 'GET' && path.startsWith('/uploads/')) return serveUpload(request, env, path);
 
   // Public API
@@ -231,6 +231,7 @@ async function route(request, env, url) {
   // tenant/platform scoped and never expose connector or provider secrets.
   if (method === 'GET' && path === '/admin/domain-mapping') return json(await getDomainMapping(env, scope), 200, env);
   if (method === 'POST' && path === '/admin/domain-mapping/generate') return json(await generateDomainMapping(env, scope), 200, env);
+  if (method === 'PUT' && path === '/admin/domain-mapping/hosting-mode') return json(await updatePlatformHostingMode(env, scope, await readJson(request)), 200, env);
   if (method === 'POST' && path === '/admin/domain-mapping/domains') return json(await createDomainMappingDomain(env, admin, await readJson(request), scope), 201, env);
   if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/provision$/.test(path)) return json(await provisionMappedDomain(env, domainIdFromPath(path), scope), 200, env);
   if (method === 'POST' && /^\/admin\/domain-mapping\/domains\/\d+\/sync$/.test(path)) return json(await syncMappedDomain(env, domainIdFromPath(path), scope), 200, env);
@@ -1850,6 +1851,13 @@ const PLATFORM_PUBLIC_ORIGINS = Object.freeze({
   admin: 'https://bdg-admin-pages.pages.dev',
   staff: 'https://bdg-staff-pages.pages.dev',
 });
+const LUKE_SHARED_ORIGINS = Object.freeze({
+  chat: 'https://chat.ar-ai666.com',
+  guide: 'https://guide.ar-ai666.com',
+  admin: 'https://admin.ar-ai666.com',
+  staff: 'https://staff.ar-ai666.com',
+});
+const HOSTING_MODES = new Set(['luke_shared','custom_domain']);
 
 function isPlatformOperator(admin) { return admin?.role === 'owner'; }
 function normalizeTenantKey(value, fallback = '') { return normalizePlatformKey(value, fallback); }
@@ -1961,6 +1969,7 @@ function normalizeTenantPlatformPayload(p = {}) {
     status: normalizeSaasStatus(p.status),
     parent_platform_id: Number.isInteger(Number(p.parent_platform_id)) && Number(p.parent_platform_id) > 0 ? Number(p.parent_platform_id) : null,
     owner_email: String(p.owner_email || '').trim().toLowerCase().slice(0, 255),
+    hosting_mode: HOSTING_MODES.has(String(p.hosting_mode || '').toLowerCase()) ? String(p.hosting_mode).toLowerCase() : 'luke_shared',
   };
 }
 function routeSlug(value) {
@@ -1985,16 +1994,26 @@ function safePlatformDisplayName(scope, fallback = 'Support') {
   if (values.has(lower) || lower === 'default' || /^p-[a-z0-9-]+$/i.test(candidate) || /^[a-z]?[0-9a-f]{8,}$/i.test(candidate)) return fallback;
   return candidate;
 }
-function platformAccessLinks(row) {
+function lukeSharedOrigins(env = {}) {
+  return {
+    chat: String(env.LUKE_SHARED_CHAT_ORIGIN || LUKE_SHARED_ORIGINS.chat).replace(/\/$/, ''),
+    guide: String(env.LUKE_SHARED_GUIDE_ORIGIN || LUKE_SHARED_ORIGINS.guide).replace(/\/$/, ''),
+    admin: String(env.LUKE_SHARED_ADMIN_ORIGIN || LUKE_SHARED_ORIGINS.admin).replace(/\/$/, ''),
+    staff: String(env.LUKE_SHARED_STAFF_ORIGIN || LUKE_SHARED_ORIGINS.staff).replace(/\/$/, ''),
+  };
+}
+function platformAccessLinks(row, env = {}) {
   const route_key = normalizePublicRouteKey(row?.public_route_key);
   if (!route_key) return { route_key: '', chat: '', guide: '', admin: '', staff: '' };
   const encoded = encodeURIComponent(route_key);
+  const origins = lukeSharedOrigins(env);
   return {
     route_key,
-    chat: `${PLATFORM_PUBLIC_ORIGINS.chat}/p/${encoded}`,
-    guide: `${PLATFORM_PUBLIC_ORIGINS.guide}/p/${encoded}`,
-    admin: `${PLATFORM_PUBLIC_ORIGINS.admin}/p/${encoded}/admin`,
-    staff: PLATFORM_PUBLIC_ORIGINS.staff,
+    hosting_mode: String(row?.hosting_mode || 'luke_shared'),
+    chat: `${origins.chat}/p/${encoded}`,
+    guide: `${origins.guide}/p/${encoded}`,
+    admin: `${origins.admin}/p/${encoded}`,
+    staff: `${origins.staff}/p/${encoded}`,
   };
 }
 async function reservePublicRouteKey(env, preferredKey) {
@@ -2062,7 +2081,7 @@ function tenantPlatformOut(row) {
   return {
     id: Number(row.id), tenant_id: Number(row.tenant_id), tenant_key: row.tenant_key || '', tenant_name: row.tenant_name || '',
     parent_platform_id: row.parent_platform_id == null ? null : Number(row.parent_platform_id),
-    platform_key: row.platform_key, public_route_key: normalizePublicRouteKey(row.public_route_key), access_links: platformAccessLinks(row), name: row.name, description: row.description || '',
+    platform_key: row.platform_key, public_route_key: normalizePublicRouteKey(row.public_route_key), hosting_mode:String(row.hosting_mode || 'luke_shared'), access_links: platformAccessLinks(row), name: row.name, description: row.description || '',
     default_locale: row.default_locale || 'en', supported_languages: normalizeLocaleList(row.supported_languages, [row.default_locale || 'en']), support_mode: row.support_mode || 'none',
     legacy_support_platform_key: row.legacy_support_platform_key || '', status: row.status || 'active',
     created_at: row.created_at ? String(row.created_at) : '', updated_at: row.updated_at ? String(row.updated_at) : '',
@@ -2129,7 +2148,7 @@ async function legacyPlatformScope(env) {
   return scopeOut(row, { role:'operator', can_write:true, can_manage_platform:true, operator:true }, { source:'legacy-explicit', requested_reference:'legacy-bdg' });
 }
 function sharedPublicHostnames() {
-  return new Set(Object.values(PLATFORM_PUBLIC_ORIGINS).map((origin) => { try { return new URL(origin).hostname.toLowerCase(); } catch (_) { return ''; } }).filter(Boolean));
+  return new Set([...Object.values(PLATFORM_PUBLIC_ORIGINS), ...Object.values(LUKE_SHARED_ORIGINS)].map((origin) => { try { return new URL(origin).hostname.toLowerCase(); } catch (_) { return ''; } }).filter(Boolean));
 }
 function customHostnameFromRequest(request) {
   const explicitHost = String(request?.headers?.get?.('x-bdg-platform-host') || '').trim();
@@ -2241,7 +2260,7 @@ function requiresPlatformScope(path) {
   return true;
 }
 async function resolveAdminPlatformScope(env, request, admin) {
-  const resolution = platformContextFromRequest(request, new URL(request.url), { allowQuery:false });
+  const resolution = platformContextFromRequest(request, new URL(request.url), { allowQuery:false, allowHostname:true });
   const requested = resolution.reference || resolution.raw_reference || '';
   if (!requested) bad('Open the platform-specific Admin URL to manage this platform', 403, 'PLATFORM_CONTEXT_REQUIRED');
   const scope = await resolvePublicPlatformScope(env, requested, resolution);
@@ -2866,12 +2885,18 @@ async function testAiReliability(env, payload = {}, scope) {
   return { ok: checks.every((check) => check.ok), version: VERSION, platform_id: scope.platform_id, checks, provider_error:providerOk ? '' : String(provider?.error || '').slice(0, 500), provider_http_status:Number(provider?.http_status || 0) || null, model:settings.model, api_base:settings.api_base, simulated_message: String(payload.message || 'provider connectivity test').slice(0, 300), policy };
 }
 function publicBaseUrl(env, kind) {
-  const key = `${kind.toUpperCase()}_BASE_URL`;
-  return String(env[key] || PLATFORM_PUBLIC_ORIGINS[kind]).replace(/\/$/, '');
+  const legacyKey = `${kind.toUpperCase()}_BASE_URL`;
+  const lukeKey = `LUKE_SHARED_${kind.toUpperCase()}_ORIGIN`;
+  return String(env[lukeKey] || env[legacyKey] || LUKE_SHARED_ORIGINS[kind] || PLATFORM_PUBLIC_ORIGINS[kind]).replace(/\/$/, '');
 }
 function domainRouteLinks(env, scope) {
   const route = encodeURIComponent(normalizePublicRouteKey(scope.public_route_key, ''));
-  return { chat: `${publicBaseUrl(env,'chat')}/p/${route}`, guide: `${publicBaseUrl(env,'guide')}/p/${route}`, admin: `${publicBaseUrl(env,'admin')}/p/${route}/admin`, staff: `${publicBaseUrl(env,'staff')}` };
+  return {
+    chat: `${publicBaseUrl(env,'chat')}/p/${route}`,
+    guide: `${publicBaseUrl(env,'guide')}/p/${route}`,
+    admin: `${publicBaseUrl(env,'admin')}/p/${route}`,
+    staff: `${publicBaseUrl(env,'staff')}/p/${route}`,
+  };
 }
 function cloudflareHostnameConfig(env, siteKind = '') {
   const kind = String(siteKind || '').trim().toUpperCase();
@@ -2957,12 +2982,20 @@ async function getDomainMapping(env, scope) {
   const cloudflare = { ...cloudflareConfigurationStatus(env), production_rule:'hostname status active + SSL status active + customer DNS points to the SaaS target' };
   const mappedDomains = domains.map((row) => cloudflareDomainOut(row, scope, env));
   const staticOrigins = String(env.ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean);
-  return { ok:true, version:VERSION, platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}` }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), cloudflare, custom_domains:mappedDomains, dynamic_cors:{ enabled:true, automatic:true, static_origins:staticOrigins, effective_custom_origins:mappedDomains.filter((row) => row.cors_effective).map((row) => `https://${row.hostname}`), rule:'Exact HTTPS hostname + API/CORS enabled + Cloudflare hostname active + SSL active + verified platform/tenant.' }, dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: cloudflare.configured ? 'Add the displayed TXT records, then point the hostname CNAME to the displayed SaaS target. Once Cloudflare hostname and SSL are active, API/CORS trust activates automatically when API access is enabled.' : `Set up the missing Render variables: ${cloudflare.missing_env.join(', ')}.` } };
+  return { ok:true, version:VERSION, product:'Luke', platform:{ platform_key:scope.platform_key, public_route_key:scope.public_route_key, route_prefix:`/p/${scope.public_route_key}`, hosting_mode:String(scope.hosting_mode || 'luke_shared') }, platform_resolution:platformResolutionDiagnostics(scope, scope.platform_context), generated:domainRouteLinks(env, scope), shared_hosting:{ enabled:env.LUKE_SHARED_HOSTING_ENABLED !== false, mode:'luke_shared', origins:lukeSharedOrigins(env), no_per_client_dns:true, no_per_client_cors:true }, cloudflare, custom_domains:mappedDomains, dynamic_cors:{ enabled:true, automatic:true, static_origins:staticOrigins, effective_custom_origins:mappedDomains.filter((row) => row.cors_effective).map((row) => `https://${row.hostname}`), rule:'Exact HTTPS hostname + API/CORS enabled + Cloudflare hostname active + SSL active + verified platform/tenant.' }, dns: { generated_routes: 'No DNS change is required for generated Pages links.', custom_domain: cloudflare.configured ? 'Add the displayed TXT records, then point the hostname CNAME to the displayed SaaS target. Once Cloudflare hostname and SSL are active, API/CORS trust activates automatically when API access is enabled.' : `Set up the missing Render variables: ${cloudflare.missing_env.join(', ')}.` } };
 }
 async function generateDomainMapping(env, scope) {
   const mapping = await getDomainMapping(env, scope);
   await audit(env, 'generate', 'platform_route_mapping', scope.platform_id, `Generated /p/${scope.public_route_key} links`, scope);
   return { ...mapping, generated_at:new Date().toISOString() };
+}
+async function updatePlatformHostingMode(env, scope, payload = {}) {
+  if (!scope?.can_manage_platform) bad('Platform owner permission is required to change hosting mode', 403, 'PLATFORM_HOSTING_MODE_DENIED');
+  const mode=String(payload.hosting_mode || payload.mode || '').trim().toLowerCase();
+  if (!HOSTING_MODES.has(mode)) bad('Hosting mode must be luke_shared or custom_domain', 400, 'PLATFORM_HOSTING_MODE_INVALID');
+  await q(env, `UPDATE saas_platforms SET hosting_mode=$1,hosting_mode_updated_at=NOW(),updated_at=NOW() WHERE id=$2 AND tenant_id=$3`, [mode,scope.platform_id,scope.tenant_id]);
+  await audit(env,'update','saas_platforms',scope.platform_id,`Hosting mode changed to ${mode}`,scope);
+  return { ...(await getDomainMapping(env,{ ...scope,hosting_mode:mode })), hosting_mode:mode };
 }
 async function getScopedDomain(env, id, scope) {
   const row = (await q(env, `SELECT d.*,p.public_route_key FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id WHERE d.id=$1::integer AND p.tenant_id=$2::integer AND d.platform_id=$3::integer AND d.archived_at IS NULL LIMIT 1`, [id, scope.tenant_id, scope.platform_id])).rows[0];
@@ -3691,7 +3724,7 @@ async function platformScopeForId(env, admin, platformId) {
   await assertPlatformManager(env, admin, platformId);
   const row = (await q(env, `SELECT p.*,t.tenant_key,t.name AS tenant_name FROM saas_platforms p JOIN saas_tenants t ON t.id=p.tenant_id WHERE p.id=$1 AND p.archived_at IS NULL LIMIT 1`, [platformId])).rows[0];
   if (!row) bad('Platform not found', 404, 'PLATFORM_NOT_FOUND');
-  return { tenant_id: row.tenant_id, platform_id: row.id, tenant_key: row.tenant_key, platform_key: row.platform_key, public_route_key: row.public_route_key, platform_name: row.name, support_mode: row.support_mode, legacy_support_platform_key: row.legacy_support_platform_key || row.platform_key, access_role: isPlatformOperator(admin) ? 'operator' : 'platform_owner', can_write: true, can_manage_platform: true, operator: isPlatformOperator(admin) };
+  return { tenant_id: row.tenant_id, platform_id: row.id, tenant_key: row.tenant_key, platform_key: row.platform_key, hosting_mode:String(row.hosting_mode || 'luke_shared'), public_route_key: row.public_route_key, platform_name: row.name, support_mode: row.support_mode, legacy_support_platform_key: row.legacy_support_platform_key || row.platform_key, access_role: isPlatformOperator(admin) ? 'operator' : 'platform_owner', can_write: true, can_manage_platform: true, operator: isPlatformOperator(admin) };
 }
 async function getPlatformConnector(env, scope) {
   if (!scope?.platform_id) bad('Platform context is required', 403, 'PLATFORM_CONTEXT_REQUIRED');
@@ -3924,7 +3957,7 @@ async function createTenantPlatform(env, admin, tenantId, payload) {
   const publicRouteKey = await reservePublicRouteKey(env, platform.platform_key);
   await q(env, `INSERT INTO support_platforms(platform_key,name,support_mode,status,default_locale) VALUES($1,$2,$3,'active',$4) ON CONFLICT(platform_key) DO UPDATE SET name=EXCLUDED.name,support_mode=EXCLUDED.support_mode,default_locale=EXCLUDED.default_locale,updated_at=NOW()`, [routingKey,platform.name,platform.support_mode,platform.default_locale]);
   let row;
-  try { row = (await q(env, `INSERT INTO saas_platforms(tenant_id,parent_platform_id,platform_key,public_route_key,name,description,default_locale,supported_languages,support_mode,legacy_support_platform_key,status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [tenantId,platform.parent_platform_id,platform.platform_key,publicRouteKey,platform.name,platform.description,platform.default_locale,JSON.stringify(platform.supported_languages),platform.support_mode,routingKey,platform.status])).rows[0]; }
+  try { row = (await q(env, `INSERT INTO saas_platforms(tenant_id,parent_platform_id,platform_key,public_route_key,name,description,default_locale,supported_languages,support_mode,legacy_support_platform_key,status,hosting_mode) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`, [tenantId,platform.parent_platform_id,platform.platform_key,publicRouteKey,platform.name,platform.description,platform.default_locale,JSON.stringify(platform.supported_languages),platform.support_mode,routingKey,platform.status,platform.hosting_mode])).rows[0]; }
   catch (error) { if (error?.code === '23505') bad('That platform key already exists within this client company.'); throw error; }
   const ownerEmail = platform.owner_email || admin.email;
   const owner = (await q(env, `SELECT * FROM admin_users WHERE lower(email)=lower($1) AND is_active=TRUE LIMIT 1`, [ownerEmail])).rows[0];
