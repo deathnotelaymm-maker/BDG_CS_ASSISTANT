@@ -107,7 +107,8 @@ export function validateRuntimeEnv(env, { migration = false } = {}) {
   if (!env.JWT_SECRET || String(env.JWT_SECRET).length < 32) errors.push('JWT_SECRET must contain at least 32 characters');
   if (!env.ADMIN_EMAIL) errors.push('ADMIN_EMAIL is required');
   if (!env.ADMIN_PASSWORD || String(env.ADMIN_PASSWORD).length < 12) errors.push('ADMIN_PASSWORD must contain at least 12 characters');
-  if (!env.ALLOWED_ORIGINS && env.NODE_ENV === 'production') errors.push('ALLOWED_ORIGINS is required in production');
+  if (!env.ALLOWED_ORIGINS && env.NODE_ENV === 'production') errors.push('ALLOWED_ORIGINS is required in production for static BDG infrastructure origins');
+  if (env.NODE_ENV === 'production' && String(env.ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).includes('*')) errors.push('ALLOWED_ORIGINS must not contain * in production; client custom domains are trusted through verified Domain Mapping');
   if (booleanValue(env.AI_MODE_ENABLED, true) && !env.DEEPSEEK_API_KEY) errors.push('DEEPSEEK_API_KEY is required when AI_MODE_ENABLED=true');
   if (env.R2_REQUIRED) {
     if (!env.R2_ACCOUNT_ID) errors.push('R2_ACCOUNT_ID is required');

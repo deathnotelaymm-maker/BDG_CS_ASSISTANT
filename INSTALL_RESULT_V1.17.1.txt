@@ -1,0 +1,4 @@
+﻿Installed: 2026-08-08T15:16:28.7910651+07:00
+Release: v1.17.1 Verified Domain Mapping & Dynamic CORS Trust
+Backup: C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.17.1-20260808-151624
+Migration 044 must be applied by the deployment migration runner.

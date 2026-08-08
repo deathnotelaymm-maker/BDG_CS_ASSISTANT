@@ -1,60 +1,34 @@
-# v1.17.0 — Professional Customer Service Workspace & Chat Media Upgrade
+# v1.17.1 — Verified Domain Mapping & Dynamic CORS Trust
 
-v1.17.0 turns the Human Support foundation into a production-oriented customer
-service workspace for both Staff and Admin. It adds staff self-acceptance,
-permission-aware customer context, human-only attachments, platform and personal
-quick replies, Staff Console domain mapping, and promotional Chat carousel
-controls while preserving the durable AI worker, SSE message delivery, HTTP
-catch-up, and WebSocket presence/typing introduced in earlier releases.
+v1.17.1 turns Domain Mapping into the production authority for client custom-domain API trust. Client domains no longer need to be manually appended to Render `ALLOWED_ORIGINS` after each onboarding.
 
-Release marker: `1.17.0-professional-support-workspace-chat-media`
+**Base:** v1.17.0-r2  
+**Release marker:** `1.17.1-verified-domain-mapping-dynamic-cors`  
+**Migration:** `044_v1.17.1_verified_domain_mapping_dynamic_cors.sql`  
+**Next migration:** `045`
 
-## Production flow
+## Production rule
 
-```text
-Customer uses automated support
-      ↓
-Human handoff enters the waiting queue
-      ↓
-Any Active permitted staff member may accept atomically
-      ↓
-Customer and staff exchange stored text, images, and approved files
-      ↓
-Staff resolves and returns the customer to brand support
-```
+`ALLOWED_ORIGINS` remains the static allowlist for BDG-owned infrastructure origins. A client custom origin is accepted dynamically only when all of these are true:
 
-Customer upload controls are available only while an assigned human
-representative actively owns the conversation. They disappear when control
-returns to automated support.
+- exact HTTPS hostname match;
+- Domain Mapping API/CORS policy is enabled;
+- domain record is not archived;
+- provisioning status is `active`;
+- verification timestamp exists;
+- Cloudflare hostname status is `active`;
+- Cloudflare SSL status is `active`;
+- tenant and platform are active.
 
-## Applications
+Pending, planned, disabled, HTTP, port-qualified, unknown, archived, or SSL-incomplete origins remain blocked.
 
-- `admin-pro`: professional Customer Service workspace, staff management,
-  platform quick replies, promotions, attachment policy, reports, and audit.
-- `staff-pro`: waiting queue, self-accept, active conversations, team view,
-  personal/platform shortcuts, attachments, transfers, and resolution.
-- `chat-pro`: human-mode customer uploads and promotional carousel rendering.
-- `backend-api`: tenant-safe permissions, attachment validation and storage,
-  customer context, quick replies, promotional items, and support events.
+## Client onboarding
 
-## Attachment boundary
+1. Add the client's Chat, Guide, Admin, or Staff hostname in **Domain Mapping**.
+2. Leave **API / CORS** enabled unless the hostname should not call the API.
+3. Provision through Cloudflare Custom Hostnames.
+4. Give the client the displayed TXT/CNAME records.
+5. Refresh status until both hostname and SSL are active.
+6. Dynamic CORS becomes effective automatically. No Render environment edit is required.
 
-Initial allowed types are PNG, JPEG, WEBP, PDF, and plain text, with a default
-10 MB limit. The backend validates size, extension-independent MIME/signature,
-records SHA-256, and stores tenant/platform-scoped metadata. Migration `043`
-leaves `scan_status` as `pending`; no malware-scanning engine is bundled in this
-release.
-
-## Migration
-
-```text
-backend-api/migrations/043_v1.17.0_professional_support_workspace_media_quick_replies.sql
-```
-
-Do not modify migration `043` after deployment. The next migration is `044`.
-
-## Deployment
-
-Follow `DEPLOYMENT_CHECKLIST_V1.17.0.md`. Keep Render at one backend instance
-until a Redis-compatible event backplane is added for cross-instance SSE and
-WebSocket delivery.
+Follow `DEPLOYMENT_CHECKLIST_V1.17.1.md` before production rollout.

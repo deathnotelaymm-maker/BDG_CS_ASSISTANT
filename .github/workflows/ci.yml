@@ -1,4 +1,4 @@
-name: v1.16.1 Realtime AI Worker Production Checks
+name: v1.17.1 Verified Domain Dynamic CORS Production Checks
 
 on:
   push:
@@ -64,6 +64,7 @@ jobs:
           npm run test:v1163
           npm run test:v1164
           npm run test:v1170
+          npm run test:v1171
           npm run test:chat-reliability
           npm run test:security
           npm run test:structured

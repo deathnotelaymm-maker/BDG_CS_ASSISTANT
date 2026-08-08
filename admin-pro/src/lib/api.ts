@@ -818,7 +818,7 @@ export const api = {
     if (MOCK_MODE) return delay({ ok: true, generated: {}, custom_domains: [], dns_instructions: [] });
     return request("/admin/domain-mapping");
   },
-  createDomainMappingDomain: async (data: { hostname: string; site_kind: "chat" | "guide" | "admin" }) => {
+  createDomainMappingDomain: async (data: { hostname: string; site_kind: "chat" | "guide" | "admin" | "staff" }) => {
     if (MOCK_MODE) return delay({ ok: true, domain: { id: Date.now(), ...data, provisioning_status: "planned" } });
     return request("/admin/domain-mapping/domains", { method: "POST", body: JSON.stringify(data) });
   },
@@ -837,6 +837,10 @@ export const api = {
   verifyMappedDomain: async (id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true, domain: { id, status: "pending_dns" } });
     return request(`/admin/domain-mapping/domains/${id}/verify`, { method: "POST", body: JSON.stringify({}) });
+  },
+  updateMappedDomainCors: async (id: string | number, enabled: boolean) => {
+    if (MOCK_MODE) return delay({ ok: true, domain: { id, cors_allowed: enabled, cors_effective: false } });
+    return request(`/admin/domain-mapping/domains/${id}/cors`, { method: "PUT", body: JSON.stringify({ enabled }) });
   },
   deleteMappedDomain: async (id: string | number) => {
     if (MOCK_MODE) return delay({ ok: true, id });

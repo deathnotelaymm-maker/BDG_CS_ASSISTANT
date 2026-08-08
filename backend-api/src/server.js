@@ -2,7 +2,7 @@ import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import api, {
   closeDatabasePools,
-  isActiveCustomHostnameOrigin,
+  resolveVerifiedCustomHostnameCorsOrigin,
   readiness,
   verifySupportWebSocketToken,
   updateSupportWebSocketPresence,
@@ -19,8 +19,12 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.17.0-professional-support-workspace-chat-media';
+const API_VERSION = '1.17.1-verified-domain-mapping-dynamic-cors';
 const API_FEATURES = [
+  'verified-domain-mapping-dynamic-cors',
+  'exact-https-custom-origin-trust',
+  'domain-cors-policy-toggle',
+  'automatic-custom-origin-activation',
   'professional-support-workspace',
   'admin-support-sse-workspace',
   'staff-self-accept-queue',
@@ -228,8 +232,9 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (origin && !corsOrigin) {
-      if (await isActiveCustomHostnameOrigin(env, origin)) corsOrigin = origin;
-      else return jsonResponse(res, 403, { ok: false, error: 'Origin is not allowed', request_id: requestId }, { 'X-Request-ID': requestId });
+      const customOrigin = await resolveVerifiedCustomHostnameCorsOrigin(env, origin);
+      if (customOrigin.allowed) corsOrigin = customOrigin.origin;
+      else return jsonResponse(res, 403, { ok: false, error: 'Origin is not allowed', code: 'CORS_ORIGIN_NOT_TRUSTED', request_id: requestId }, { 'X-Request-ID': requestId, Vary: 'Origin' });
     }
     const retryAfter = rateLimit(req, path);
     if (retryAfter) return jsonResponse(res, 429, { ok: false, error: 'Too many requests', request_id: requestId }, { 'Retry-After': String(retryAfter), 'X-Request-ID': requestId, ...(corsOrigin ? { 'Access-Control-Allow-Origin': corsOrigin } : {}) });

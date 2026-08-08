@@ -1,0 +1,6 @@
+BDG CS Assistant
+Version: 1.17.1
+Release: Verified Domain Mapping & Dynamic CORS Trust
+Release marker: 1.17.1-verified-domain-mapping-dynamic-cors
+Migration: 044_v1.17.1_verified_domain_mapping_dynamic_cors.sql
+Next migration: 045

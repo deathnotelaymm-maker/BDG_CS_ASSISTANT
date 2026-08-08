@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Alert, Button, Card, Descriptions, Form, Input, Popconfirm, Select, Space, Table, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Descriptions, Form, Input, Popconfirm, Select, Space, Switch, Table, Tag, Typography, message } from "antd";
 import { DeleteOutlined, GlobalOutlined, ReloadOutlined, SafetyCertificateOutlined, SyncOutlined } from "@ant-design/icons";
 import { api } from "@/lib/api";
 import LocalizedHelp from "@/components/LocalizedHelp";
@@ -40,6 +40,15 @@ function DomainMappingPage() {
     catch (error: any) { message.error(error?.message || "Could not add domain"); }
     finally { setBusy(false); }
   };
+  const updateCors = async (id: number, enabled: boolean) => {
+    setBusy(true);
+    try {
+      const result = await api.updateMappedDomainCors(id, enabled);
+      message.success(result?.domain?.cors_effective ? "Verified domain is trusted for API access" : enabled ? "API access will activate automatically after DNS and SSL verification" : "API access disabled for this hostname");
+      await load();
+    } catch (error: any) { message.error(error?.message || "Could not update API access"); }
+    finally { setBusy(false); }
+  };
   const runDomainAction = async (action: "provision" | "sync" | "delete", id: number) => {
     setBusy(true);
     try {
@@ -59,6 +68,7 @@ function DomainMappingPage() {
     { title: "Provisioning", dataIndex: "provisioning_status", render: (value: string) => <Tag color={statusColor(value)}>{value || "planned"}</Tag> },
     { title: "Cloudflare", render: (_: any, row: any) => <Space direction="vertical" size={0}><span>Hostname: <Tag color={statusColor(row.cloudflare_status)}>{row.cloudflare_status || "not created"}</Tag></span><span>SSL: <Tag color={statusColor(row.cloudflare_ssl_status)}>{row.cloudflare_ssl_status || "not checked"}</Tag></span></Space> },
     { title: "Ready", render: (_: any, row: any) => row.ready ? <Tag color="green">Ready</Tag> : <Tag color="gold">DNS / SSL pending</Tag> },
+    { title: "API / CORS", render: (_: any, row: any) => <Space direction="vertical" size={2}><Space><Switch size="small" checked={row.cors_allowed !== false} loading={busy} onChange={(checked) => void updateCors(row.id, checked)} /><Typography.Text>{row.cors_allowed === false ? "Disabled" : "Enabled"}</Typography.Text></Space>{row.cors_effective ? <Tag color="green">Automatically trusted</Tag> : row.cors_allowed === false ? <Tag>Not trusted</Tag> : <Tag color="gold">Activates after verification</Tag>}</Space> },
     { title: "Action", render: (_: any, row: any) => <Space wrap><Button size="small" type="primary" icon={<SafetyCertificateOutlined />} loading={busy} disabled={!cloudflareReady} title={cloudflareReady ? undefined : "Configure Cloudflare in Render first"} onClick={() => void runDomainAction(row.cloudflare_hostname_id ? "sync" : "provision", row.id)}>{row.cloudflare_hostname_id ? "Refresh status" : "Provision"}</Button><Popconfirm title="Archive this domain mapping?" description="Cloudflare will be asked to remove the hostname when configured." onConfirm={() => void runDomainAction("delete", row.id)}><Button size="small" danger icon={<DeleteOutlined />} loading={busy}>Remove</Button></Popconfirm></Space> },
   ];
 
@@ -75,6 +85,7 @@ function DomainMappingPage() {
 
     <Card title="Cloudflare Custom Hostnames" style={{ marginTop: 12 }}>
       <Alert showIcon type={data?.cloudflare?.configured ? "success" : "warning"} message={data?.cloudflare?.configured ? "Cloudflare provisioning is configured" : "Cloudflare provisioning is not configured"} description={data?.cloudflare?.configured ? `SaaS CNAME target: ${data.cloudflare.cname_target || "—"}. Provisioning still does not change customer DNS.` : `Set these Render variables before provisioning: ${(data?.cloudflare?.missing_env || ["CLOUDFLARE_CUSTOM_HOSTNAMES_ENABLED", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ZONE_ID", "CLOUDFLARE_SAAS_CNAME_TARGET"]).join(", ")}. Provision is disabled until they are configured.`} style={{ marginBottom: 12 }} />
+      <Alert showIcon type="info" message="Automatic API/CORS trust" description="You do not need to add each client domain to Render ALLOWED_ORIGINS. Once this hostname is enabled for API access and Cloudflare reports both hostname and SSL as active, the backend trusts the exact HTTPS origin automatically. Pending or unverified domains remain blocked." style={{ marginBottom: 12 }} />
       <Form form={form} layout="inline" onFinish={addDomain} initialValues={{ site_kind: "guide" }}>
         <Form.Item name="hostname" rules={[{ required: true, message: "Enter a hostname" }, { pattern: /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i, message: "Use a hostname without https:// or a path" }]}><Input placeholder="support.example.com" style={{ width: 260 }} /></Form.Item>
         <Form.Item name="site_kind"><Select style={{ width: 130 }} options={[{ value: "guide", label: "Guide" }, { value: "chat", label: "Chat" }, { value: "admin", label: "Admin" }, { value: "staff", label: "Staff Console" }]} /></Form.Item>
@@ -83,7 +94,7 @@ function DomainMappingPage() {
     </Card>
 
     <Card title="Mapped domains" style={{ marginTop: 12 }}>
-      <Table rowKey="id" loading={loading} dataSource={data?.custom_domains || []} columns={columns} pagination={false} expandable={{ expandedRowRender: (row: any) => <Space direction="vertical" style={{ width: "100%" }}><Typography.Text type="secondary">DNS records to add at the customer DNS provider</Typography.Text><Table size="small" rowKey={(record: any, index) => `${record.type}-${record.name}-${index}`} dataSource={row.dns?.records || []} pagination={false} columns={[{ title: "Type", dataIndex: "type" }, { title: "Name", dataIndex: "name" }, { title: "Value", dataIndex: "value" }, { title: "Purpose", dataIndex: "purpose" }]} /></Space> }} />
+      <Table rowKey="id" loading={loading} dataSource={data?.custom_domains || []} columns={columns} pagination={false} expandable={{ expandedRowRender: (row: any) => <Space direction="vertical" style={{ width: "100%" }}><Typography.Text type="secondary">DNS records to add at the customer DNS provider</Typography.Text><Descriptions size="small" bordered column={1}><Descriptions.Item label="API / CORS policy">{row.cors_allowed === false ? "Disabled" : "Enabled"}</Descriptions.Item><Descriptions.Item label="Effective API origin">{row.cors_effective ? `https://${row.hostname}` : "Not trusted until verification is complete"}</Descriptions.Item></Descriptions><Table size="small" rowKey={(record: any, index) => `${record.type}-${record.name}-${index}`} dataSource={row.dns?.records || []} pagination={false} columns={[{ title: "Type", dataIndex: "type" }, { title: "Name", dataIndex: "name" }, { title: "Value", dataIndex: "value" }, { title: "Purpose", dataIndex: "purpose" }]} /></Space> }} />
       {data?.custom_domains?.length ? null : <Alert showIcon type="info" message="No custom domains yet" description="Add a customer hostname above, then provision it through Cloudflare." style={{ marginTop: 12 }} />}
     </Card>
   </>;
