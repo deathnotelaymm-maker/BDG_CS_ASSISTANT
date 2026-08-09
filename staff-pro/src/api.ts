@@ -103,12 +103,12 @@ export const api={
     saveSession(result.data.access_token,"ADMIN"); const context=await request<any>("/admin/platform-context");
     return {access_token:result.data.access_token,staff:adminActor(result.data.user,context)};
   },
-  me:async()=>{if(actorMode()==="STAFF")return request<{staff:Staff;settings:StaffSettings}>("/staff/me");const [me,context,settings]=await Promise.all([request<any>("/admin/me"),request<any>("/admin/platform-context"),request<any>("/admin/support/settings")]);return {staff:adminActor(me.user,context),settings};},
+me:async()=>{if(actorMode()==="STAFF")return request<{staff:Staff;settings:StaffSettings}>("/staff/me");const [me,context,settings]=await Promise.all([request<any>("/admin/me"),request<any>("/admin/platform-context"),request<any>("/admin/support/settings")]);return {staff:adminActor(me.user,context),settings};},
   logout:async()=>{if(actorMode()==="STAFF")await request("/staff/logout",{method:"POST"}).catch(()=>null);saveSession("",actorMode());return {ok:true};},
   presence:(status:"active"|"invisible")=>actorMode()==="ADMIN"?Promise.resolve({ok:true}):request("/staff/presence",{method:"PUT",body:JSON.stringify({status})}),
   heartbeat:(status:string)=>actorMode()==="ADMIN"?Promise.resolve({ok:true}):request("/staff/heartbeat",{method:"POST",body:JSON.stringify({status})}),
   preferences:(data:{use_platform_timezone:boolean;timezone?:string})=>actorMode()==="ADMIN"?Promise.resolve({ok:true}):request("/staff/me/preferences",{method:"PUT",body:JSON.stringify(data)}),
-  updateProfile:(data:{display_name:string;profile_avatar_url?:string;public_display_name?:string;public_avatar_url?:string})=>actorMode()==="ADMIN"?Promise.reject(new Error("Administrator profile is managed in Admin Control")):request<{ok:true;staff:Staff}>("/staff/me/profile",{method:"PUT",body:JSON.stringify(data)}),
+updateProfile:(data:{display_name:string;profile_avatar_url?:string;public_display_name?:string;public_avatar_url?:string})=>actorMode()==="ADMIN"?Promise.reject(new Error("Administrator profile is managed in Admin Control")):request<{ok:true;staff:Staff}>("/staff/me/profile",{method:"PUT",body:JSON.stringify(data)}),
   uploadProfileImage:(file:File)=>actorMode()==="ADMIN"?Promise.reject(new Error("Administrator profile is managed in Admin Control")):uploadRequest<{ok:true;url:string;mime_type:string;size_bytes:number}>("/staff/me/profile-image",file),
   conversations:async(tab:string)=>{if(actorMode()==="STAFF")return request<Conversation[]>(`/staff/conversations?tab=${encodeURIComponent(tab)}`);const all=await request<Conversation[]>("/admin/support/conversations");return all;},
   conversation:(id:number)=>request<ConversationDetail>(adminPath(`/staff/conversations/${id}`,`/admin/support/conversations/${id}`)),
