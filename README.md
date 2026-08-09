@@ -27,3 +27,13 @@ R2 updates that stale test contract, separates identity/queue/login checks for c
 ## Database
 
 No migration is added or modified. Migration `047` remains current and `048` remains the next migration number.
+
+
+## v1.17.4-R3
+
+Current repair package: **Frontend Dependency Security Repair**. It patches the frontend lockfile advisories and fixes the Windows START-HERE installer path/visibility issue. See `RELEASE_NOTES_V1.17.4-R3.md`.
+
+
+## v1.17.4-R3
+
+Current repair package: **Frontend Dependency Security Repair**. It patches the frontend lockfile advisories and fixes the Windows START-HERE installer path/visibility issue. See `RELEASE_NOTES_V1.17.4-R3.md`.

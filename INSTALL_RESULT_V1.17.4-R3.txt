@@ -1,0 +1,7 @@
+﻿Installed: 2026-08-09T18:34:30.5590023+07:00
+Release package: v1.17.4-R3 Frontend Dependency Security Repair
+Application version: 1.17.4
+Backup: C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.17.4-R3-20260809-183428
+No migration is added or applied. Migration 047 remains current.
+Next migration: 048
+Recommended commit: v1.17.4-R3 frontend dependency security repair

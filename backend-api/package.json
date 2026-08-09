@@ -35,7 +35,8 @@
     "test:v1173": "node scripts/v1.17.3-support-workspace-ux-regression-test.js",
     "test:v1174": "node scripts/v1.17.4-cs-identity-domain-promotion-menu-regression-test.js",
     "test:v1174r1": "node scripts/v1.17.4-r1-ci-source-sync-regression-test.js",
-    "test:v1174r2": "node scripts/v1.17.4-r2-regression-contract-stabilization-test.js"
+    "test:v1174r2": "node scripts/v1.17.4-r2-regression-contract-stabilization-test.js",
+    "test:v1174r3": "node scripts/v1.17.4-r3-frontend-dependency-security-regression-test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1085.0",

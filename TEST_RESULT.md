@@ -40,3 +40,9 @@ The temporary `node_modules` test stub is excluded from both release archives.
 - Complete-source ZIP integrity: PASS.
 - Repair payload versus complete source: 25/25 PASS.
 - Forbidden `node_modules`, `.git`, and raw `.env` archive entries: 0.
+
+
+Current supplemental result: `TEST_RESULT_V1.17.4-R3.md`.
+
+
+Current supplemental result: `TEST_RESULT_V1.17.4-R3.md`.

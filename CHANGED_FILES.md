@@ -1,13 +1,31 @@
-# v1.17.4-R2 Changed Files
+# v1.17.4-R3 Changed Files
 
-R2 is a regression/CI-contract repair only. See `CHANGED_FILES_V1.17.4-R2.txt` for the exact installer payload.
-
-Core source changes:
-
-- `backend-api/scripts/support-foundation-regression-test.js`
-- `backend-api/scripts/v1.17.4-r2-regression-contract-stabilization-test.js`
-- `backend-api/package.json`
-- `.github/workflows/ci.yml`
+- `.bdg_files.tsv`
 - `.github/workflows/bdg-production-release.yml`
-
-No migration is added or modified.
+- `.github/workflows/ci.yml`
+- `CHANGED_FILES.md`
+- `CHANGED_FILES_V1.17.4-R3.txt`
+- `DEPLOYMENT_CHECKLIST_V1.17.4-R3.md`
+- `FILE_CHECKSUMS_V1.17.4-R3.sha256`
+- `INSTALL-V1.17.4-R3-FRONTEND-DEPENDENCY-SECURITY-REPAIR.cmd`
+- `INSTALL-V1.17.4-R3-FRONTEND-DEPENDENCY-SECURITY-REPAIR.ps1`
+- `MANIFEST_V1.17.4-R3.json`
+- `README-V1.17.4-R3.txt`
+- `README.md`
+- `RELEASE_NOTES_V1.17.4-R3.md`
+- `START-HERE-V1.17.4-R3-FRONTEND-DEPENDENCY-SECURITY-REPAIR.bat`
+- `START-HERE-WINDOWS.bat`
+- `TECHNICAL_ANALYSIS_V1.17.4-R3.md`
+- `TEST_RESULT.md`
+- `TEST_RESULT_V1.17.4-R3.md`
+- `V1.17.4_R3_FRONTEND_DEPENDENCY_SECURITY_REPAIR_INSTALLED.txt`
+- `VERIFY-V1.17.4-R3-INSTALLED.ps1`
+- `VERIFY-V1.17.4-R3-PAYLOAD.ps1`
+- `VERIFY-V1.17.4-R3-TARGET.ps1`
+- `admin-pro/package-lock.json`
+- `backend-api/package.json`
+- `backend-api/scripts/v1.17.4-r3-frontend-dependency-security-regression-test.js`
+- `chat-pro/package-lock.json`
+- `guide-pro/package-lock.json`
+- `guide-pro/package.json`
+- `staff-pro/package-lock.json`
