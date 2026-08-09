@@ -1,0 +1,6 @@
+﻿Installed: 2026-08-09T16:34:33.9722653+07:00
+Release: v1.17.4 CS Workspace Identity, Domain & Promotion UX Upgrade
+Backup: C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.17.4-20260809-163428
+Migration 047 must be applied by the normal deployment migration runner.
+Next migration: 048
+Recommended commit: v1.17.4 CS Workspace Identity Domain and Promotion UX Upgrade

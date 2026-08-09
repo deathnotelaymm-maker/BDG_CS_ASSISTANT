@@ -18,9 +18,9 @@ const backendPackage=JSON.parse(read('backend-api/package.json'));
 const checks=[];
 const expect=(name,condition)=>checks.push([name,Boolean(condition)]);
 
-expect('v1.17.1 release marker is active',core.includes('1.17.3-support-workspace-ux-admin-access-tenant-isolation')&&server.includes('1.17.3-support-workspace-ux-admin-access-tenant-isolation'));
-expect('backend package version is current v1.17.3',backendPackage.version==='1.17.3');
-expect('Admin displays current v1.17.3',adminLayout.includes('const ADMIN_VERSION = "v1.17.3"'));
+expect('v1.17.1 release marker is active',core.includes('1.17.4-cs-identity-domain-promotion-menu-upgrade')&&server.includes('1.17.4-cs-identity-domain-promotion-menu-upgrade'));
+expect('backend package version is current v1.17.4',backendPackage.version==='1.17.4');
+expect('Admin displays current v1.17.4',adminLayout.includes('const ADMIN_VERSION = "v1.17.4"'));
 expect('migration 044 adds explicit CORS policy fields',migration.includes('cors_allowed BOOLEAN NOT NULL DEFAULT TRUE')&&migration.includes('cors_activated_at TIMESTAMPTZ'));
 expect('migration 044 indexes only active allowed custom origins',migration.includes('idx_platform_domains_dynamic_cors')&&migration.includes("cors_allowed IS TRUE")&&migration.includes("provisioning_status = 'active'"));
 expect('custom-domain CORS requires exact HTTPS origin',core.includes("url.protocol !== 'https:'")&&core.includes('url.port')&&core.includes("url.pathname !== '/'")&&core.includes('`https://${hostname}`'));
@@ -39,7 +39,7 @@ expect('Domain Mapping exposes effective trust per hostname',core.includes('cors
 expect('Cloudflare sync activates or revokes CORS readiness atomically',core.includes('cors_activated_at=CASE WHEN cors_allowed IS TRUE')&&core.includes('invalidateCustomOriginCorsCache(row.hostname)'));
 expect('Admin can enable or disable API CORS trust per hostname',core.includes('updateMappedDomainCorsPolicy')&&adminApi.includes('updateMappedDomainCors')&&domainPage.includes('API / CORS'));
 expect('Admin explains that client origins no longer require Render edits',domainPage.includes('You do not need to add each client domain to Render ALLOWED_ORIGINS'));
-expect('Staff custom domains remain supported',adminApi.includes('"staff"')&&domainPage.includes('Staff Console'));
+expect('CS Workspace custom domains remain supported',adminApi.includes('"staff"')&&domainPage.includes('CS Workspace'));
 expect('ALLOWED_ORIGINS remains the static infrastructure allowlist',env.includes('ALLOWED_ORIGINS')&&core.includes('static_origins:staticOrigins'));
 expect('production rejects wildcard static CORS',env.includes('ALLOWED_ORIGINS must not contain * in production'));
 expect('domain removal revokes cached dynamic trust',core.includes("cors_activated_at=NULL,archived_at=NOW()")&&core.includes('invalidateCustomOriginCorsCache(row.hostname)'));

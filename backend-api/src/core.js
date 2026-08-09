@@ -36,7 +36,7 @@ const { Pool } = pg;
 const scryptAsync = promisify(scryptCallback);
 const pools = new Map();
 
-const VERSION = '1.17.3-support-workspace-ux-admin-access-tenant-isolation';
+const VERSION = '1.17.4-cs-identity-domain-promotion-menu-upgrade';
 const DEEPSEEK_DEFAULT_MODEL = 'deepseek-v4-flash';
 const PBKDF2_ITERATIONS = 60000; // Compatibility cap only; new admin passwords use Worker-safe salted SHA-256.
 const DEFAULT_SUPPORT = 'https://t.me/your_support_bot';
@@ -1855,7 +1855,7 @@ const LUKE_SHARED_ORIGINS = Object.freeze({
   chat: 'https://chat.ar-ai666.com',
   guide: 'https://guide.ar-ai666.com',
   admin: 'https://admin.ar-ai666.com',
-  staff: 'https://staff.ar-ai666.com',
+  staff: 'https://cs.ar-ai666.com',
 });
 const HOSTING_MODES = new Set(['luke_shared','custom_domain']);
 

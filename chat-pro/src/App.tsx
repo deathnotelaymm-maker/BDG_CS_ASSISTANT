@@ -41,6 +41,7 @@ import {
   type AiJobSummary,
   type ChatContent,
   type ChatPromotion,
+  type ChatMenuConfig,
   type ProcessingExperience,
   type ResponseBlock,
   type SupportConversation,
@@ -108,6 +109,11 @@ const SAFE_ANIMATIONS = new Set(["none", "fade", "slide", "pulse", "typing"]);
 const SAFE_LAYOUTS = new Set(["standard", "compact", "centered"]);
 const SAFE_BUBBLES = new Set(["soft", "sharp", "minimal"]);
 const SAFE_INPUTS = new Set(["rounded", "square", "minimal"]);
+const DEFAULT_CHAT_MENU: Required<Pick<ChatMenuConfig,"show_conversation"|"show_promotions"|"show_privacy"|"conversation_label"|"promotion_label"|"privacy_label"|"privacy_text">> & { custom_items: NonNullable<ChatMenuConfig["custom_items"]> } = {
+  show_conversation:true, show_promotions:true, show_privacy:true,
+  conversation_label:"Conversation", promotion_label:"Promotions", privacy_label:"Privacy",
+  privacy_text:"Conversation information is used to provide support for this platform.", custom_items:[],
+};
 
 function safePreset(value: string | undefined, allowed: Set<string>, fallback: string) {
   const normalized = String(value || "").toLowerCase();
@@ -244,10 +250,12 @@ export default function App() {
   const [content, setContent] = useState<ChatContent | null>(null);
   const [promotions, setPromotions] = useState<ChatPromotion[]>([]);
   const [promotionIndex, setPromotionIndex] = useState(0);
+  const [drawerPromotionIndex,setDrawerPromotionIndex]=useState(0);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [customerAttachmentsEnabled,setCustomerAttachmentsEnabled]=useState(false);
   const [supportIdentity,setSupportIdentity]=useState({automated_name:"Support",automated_avatar_url:"",admin_name:"Support Team",admin_avatar_url:"",show_staff_public_name:true,show_staff_avatar:true});
   const [chatMenuEnabled,setChatMenuEnabled]=useState(true);
+  const [chatMenuConfig,setChatMenuConfig]=useState<ChatMenuConfig>(DEFAULT_CHAT_MENU);
   const [stickySupportHeader,setStickySupportHeader]=useState(true);
   const [menuOpen,setMenuOpen]=useState(false);
   const [started, setStarted] = useState(false);
@@ -320,6 +328,9 @@ export default function App() {
   const promotionTheme = content?.settings || {};
   const displayPromotions = promotions.filter((item)=>messages.length===0&&!started ? ["welcome","before_first_message"].includes(String(item.placement||"welcome")) : String(item.placement||"welcome")==="conversation_top");
   const showPromotions = Boolean(promotionTheme.promotion_enabled && displayPromotions.length > 0 && !(humanControlled && promotionTheme.promotion_hide_during_human !== false));
+  const drawerPromotions=promotions.filter((item)=>item.drawer_enabled!==false);
+  const showDrawerPromotions=Boolean(chatMenuConfig.show_promotions!==false&&drawerPromotions.length>0&&!(humanControlled&&promotionTheme.promotion_hide_during_human!==false));
+  const customMenuItems=(chatMenuConfig.custom_items||[]).filter((item)=>item.enabled!==false).sort((a,b)=>Number(a.display_order||100)-Number(b.display_order||100));
 
   const updateSession = useCallback((conversation: SupportConversation, tokenValue?: string) => {
     setSupportSession((current) => sessionFromConversation(tokenValue || current?.token || "", conversation));
@@ -352,7 +363,7 @@ export default function App() {
     setUsedQuickReplies(new Set());
     fetchChatContent(platformKey, controller.signal).then(setContent).catch(() => null);
     fetchChatPromotions(platformKey, controller.signal).then((data)=>setPromotions(data.items || [])).catch(()=>setPromotions([]));
-    fetchPublicSupportSettings(platformKey,controller.signal).then((data)=>{setCustomerAttachmentsEnabled(data.support?.attachments?.customer_enabled===true);setSupportIdentity((current)=>({...current,...(data.support?.identity||{})}));setChatMenuEnabled(data.support?.chat_menu?.enabled!==false);setStickySupportHeader(data.support?.chat_menu?.sticky_support_header!==false);}).catch(()=>setCustomerAttachmentsEnabled(false));
+    fetchPublicSupportSettings(platformKey,controller.signal).then((data)=>{setCustomerAttachmentsEnabled(data.support?.attachments?.customer_enabled===true);setSupportIdentity((current)=>({...current,...(data.support?.identity||{})}));setChatMenuEnabled(data.support?.chat_menu?.enabled!==false);setStickySupportHeader(data.support?.chat_menu?.sticky_support_header!==false);setChatMenuConfig({...DEFAULT_CHAT_MENU,...(data.support?.chat_menu?.config||{})});}).catch(()=>setCustomerAttachmentsEnabled(false));
     return () => controller.abort();
   }, [platformKey]);
 
@@ -361,6 +372,12 @@ export default function App() {
     const timer=window.setInterval(()=>setPromotionIndex((index)=>promotionTheme.promotion_loop === false && index >= displayPromotions.length-1 ? index : (index+1)%displayPromotions.length),Math.max(2500,Number(promotionTheme.promotion_interval_ms || 5000)));
     return ()=>window.clearInterval(timer);
   },[showPromotions,displayPromotions.length,promotionTheme.promotion_autoplay,promotionTheme.promotion_interval_ms,promotionTheme.promotion_loop]);
+
+  useEffect(()=>{
+    if(!menuOpen||!showDrawerPromotions||drawerPromotions.length<2||promotionTheme.promotion_autoplay===false)return;
+    const timer=window.setInterval(()=>setDrawerPromotionIndex((index)=>promotionTheme.promotion_loop===false&&index>=drawerPromotions.length-1?index:(index+1)%drawerPromotions.length),Math.max(2500,Number(promotionTheme.promotion_interval_ms||5000)));
+    return()=>window.clearInterval(timer);
+  },[menuOpen,showDrawerPromotions,drawerPromotions.length,promotionTheme.promotion_autoplay,promotionTheme.promotion_interval_ms,promotionTheme.promotion_loop]);
 
   useEffect(() => {
     const saved = getCustomerSupportSession(platformKey);
@@ -693,7 +710,7 @@ export default function App() {
           </div>
         </form>
       </div>
-      {menuOpen&&<div className="chat-menu-overlay" onClick={()=>setMenuOpen(false)}><aside className="chat-menu-drawer" onClick={(e)=>e.stopPropagation()}><header><div><strong>{headerTitle}</strong><small>{humanControlled?modeCopy:connectionCopy}</small></div><button type="button" onClick={()=>setMenuOpen(false)}><X/></button></header><section><h3>Conversation</h3><div className="menu-status-row"><Headphones/><span>{humanControlled?(supportSession?.assignedStaffName||uiCopy.representative):supportIdentity.automated_name||headerTitle}</span></div><div className="menu-status-row"><History/><span>{messages.length} loaded messages{hasOlderMessages?" · older history available":""}</span></div></section>{actionButtons.length>0&&<section><h3>Help</h3>{actionButtons.slice(0,4).map((button)=><a key={button.id} href={button.url} target={button.target||"_blank"} rel="noreferrer">{button.label}</a>)}</section>}{promotions[0]&&<DrawerPromotion item={promotions[0]}/>}<section className="menu-privacy"><h3>Privacy</h3><p>Conversation information is used to provide support for this platform.</p></section></aside></div>}
+      {menuOpen&&<div className="chat-menu-overlay" onClick={()=>setMenuOpen(false)}><aside className="chat-menu-drawer" onClick={(e)=>e.stopPropagation()}><header><div><strong>{headerTitle}</strong><small>{humanControlled?modeCopy:connectionCopy}</small></div><button type="button" onClick={()=>setMenuOpen(false)} aria-label="Close menu"><X/></button></header>{chatMenuConfig.show_conversation!==false&&<section><h3>{chatMenuConfig.conversation_label||DEFAULT_CHAT_MENU.conversation_label}</h3><div className="menu-status-row"><Headphones/><span>{humanControlled?(supportSession?.assignedStaffName||uiCopy.representative):supportIdentity.automated_name||headerTitle}</span></div><div className="menu-status-row"><History/><span>{messages.length} loaded messages{hasOlderMessages?" · older history available":""}</span></div></section>}{showDrawerPromotions&&<DrawerPromotionCarousel items={drawerPromotions} index={Math.min(drawerPromotionIndex,drawerPromotions.length-1)} setIndex={setDrawerPromotionIndex} heading={chatMenuConfig.promotion_label||DEFAULT_CHAT_MENU.promotion_label}/>} {customMenuItems.length>0&&<section className="menu-custom-items"><h3>More</h3>{customMenuItems.map((item)=>item.action_type==="link"?<a key={item.id||`${item.label}-${item.value}`} href={item.value} target="_blank" rel="noreferrer">{item.label}<ExternalLink/></a>:<button key={item.id||`${item.label}-${item.value}`} type="button" onClick={()=>{setMenuOpen(false);void send(item.value);}}>{item.label}<Send/></button>)}</section>}{chatMenuConfig.show_privacy!==false&&<section className="menu-privacy"><h3>{chatMenuConfig.privacy_label||DEFAULT_CHAT_MENU.privacy_label}</h3><p>{chatMenuConfig.privacy_text||DEFAULT_CHAT_MENU.privacy_text}</p></section>}</aside></div>}
       {preview && <ImageLightbox src={preview.src} alt={preview.alt} onClose={() => setPreview(null)} />}
     </div>
   );
@@ -775,22 +792,23 @@ function StartCopy({ text }: { text: string }) {
   );
 }
 
+function PromotionCopy({item}:{item:ChatPromotion}){return <div className="promotion-copy">{item.badge&&<span className="promotion-badge">{item.badge}</span>}{item.title&&<strong>{item.title}</strong>}{item.rich_html?<div className="promotion-rich" dangerouslySetInnerHTML={{__html:item.rich_html}}/>:item.subtitle&&<p>{item.subtitle}</p>}{item.link_url&&<a className="promotion-cta" href={item.link_url} target="_blank" rel="noreferrer">{item.cta_label||"View promotion"}<ExternalLink/></a>}</div>}
 function PromotionCarousel({ items,index,setIndex,theme }:{ items:ChatPromotion[];index:number;setIndex:(index:number)=>void;theme:NonNullable<ChatContent["settings"]> }) {
-  const [broken,setBroken]=useState<number|null>(null); const item=items[index]; useEffect(()=>setBroken(null),[item?.id]); if(!item||broken===item.id)return null;
+  const [broken,setBroken]=useState<number|null>(null); const item=items[index]; useEffect(()=>setBroken(null),[item?.id]); if(!item)return null;
   const previous=()=>setIndex((index-1+items.length)%items.length); const next=()=>setIndex((index+1)%items.length);
-  const card=<div className="relative overflow-hidden border border-border bg-surface shadow-sm" style={{borderRadius:Math.max(0,Number(theme.promotion_border_radius||16))}}><img src={item.image_url} onError={()=>setBroken(item.id)} alt={item.title||"Promotion"} className="w-full object-cover" style={{height:`clamp(120px, ${Number(theme.promotion_mobile_height||160)}px, ${Number(theme.promotion_desktop_height||220)}px)`}}/><div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4 text-white">{item.title&&<div className="text-sm font-semibold">{item.title}</div>}{item.subtitle&&<div className="mt-1 text-xs text-white/80">{item.subtitle}</div>}</div></div>;
-  return <section className="relative" aria-label="Promotional messages">{item.link_url?<a href={item.link_url} target="_blank" rel="noreferrer">{card}</a>:card}{theme.promotion_show_arrows!==false&&items.length>1&&<><button type="button" onClick={previous} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-2 text-white"><ChevronLeft className="h-4 w-4"/></button><button type="button" onClick={next} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/55 p-2 text-white"><ChevronRight className="h-4 w-4"/></button></>}{theme.promotion_show_indicators!==false&&items.length>1&&<div className="mt-2 flex justify-center gap-1.5">{items.map((_,i)=><button key={i} type="button" onClick={()=>setIndex(i)} className={`h-1.5 rounded-full ${i===index?"w-5 bg-brand":"w-1.5 bg-muted-foreground/40"}`} aria-label={`Promotion ${i+1}`}/>)}</div>}</section>;
+  return <section className="promotion-carousel" aria-label="Promotional messages"><div className="promotion-card" style={{borderRadius:Math.max(0,Number(theme.promotion_border_radius||16))}}>{broken!==item.id&&<img src={item.image_url} onError={()=>setBroken(item.id)} alt={item.title||"Promotion"} className="promotion-cover" style={{height:`clamp(120px, ${Number(theme.promotion_mobile_height||160)}px, ${Number(theme.promotion_desktop_height||220)}px)`}}/>}<PromotionCopy item={item}/></div>{theme.promotion_show_arrows!==false&&items.length>1&&<><button type="button" onClick={previous} className="promotion-arrow promotion-arrow-left" aria-label="Previous promotion"><ChevronLeft/></button><button type="button" onClick={next} className="promotion-arrow promotion-arrow-right" aria-label="Next promotion"><ChevronRight/></button></>}{theme.promotion_show_indicators!==false&&items.length>1&&<div className="promotion-indicators">{items.map((_,i)=><button key={i} type="button" onClick={()=>setIndex(i)} className={i===index?"active":""} aria-label={`Promotion ${i+1}`}/>)}</div>}</section>;
 }
-function DrawerPromotion({item}:{item:ChatPromotion}){const [broken,setBroken]=useState(false);if(broken)return null;const card=<img src={item.image_url} onError={()=>setBroken(true)} alt={item.title||"Promotion"}/>;return <section className="drawer-promotion"><h3>Promotion</h3>{item.link_url?<a href={item.link_url} target="_blank" rel="noreferrer">{card}</a>:card}{item.title&&<strong>{item.title}</strong>}</section>}
+function DrawerPromotionCarousel({items,index,setIndex,heading}:{items:ChatPromotion[];index:number;setIndex:(index:number)=>void;heading:string}){const item=items[index];const [broken,setBroken]=useState<number|null>(null);useEffect(()=>setBroken(null),[item?.id]);if(!item)return null;const previous=()=>setIndex((index-1+items.length)%items.length),next=()=>setIndex((index+1)%items.length);return <section className="drawer-promotion"><h3>{heading}</h3><div className="drawer-promotion-card">{broken!==item.id&&<img src={item.image_url} onError={()=>setBroken(item.id)} alt={item.title||"Promotion"}/>}<PromotionCopy item={item}/></div>{items.length>1&&<><div className="drawer-promotion-controls"><button type="button" onClick={previous} aria-label="Previous promotion"><ChevronLeft/></button><span>{index+1} / {items.length}</span><button type="button" onClick={next} aria-label="Next promotion"><ChevronRight/></button></div><div className="drawer-promotion-dots">{items.map((_,i)=><button key={i} type="button" onClick={()=>setIndex(i)} className={i===index?"active":""} aria-label={`Promotion ${i+1}`}/>)}</div></>}</section>}
 
 function MessageBubble({ message, identity, onRetry, onPrompt, onPreview, onHandoff, onMediaLoad }: { message: Message; identity:{automated_name:string;automated_avatar_url:string;admin_name:string;admin_avatar_url:string;show_staff_public_name:boolean;show_staff_avatar:boolean}; onRetry: () => void; onPrompt: (text:string) => void; onPreview:(src:string,alt:string)=>void; onHandoff:(reason?:string)=>void; onMediaLoad:()=>void }) {
   const isUser = message.role === "user";
   if(message.senderType==="SYSTEM")return <div className="customer-system-event"><span>{message.content}</span></div>;
-  const isAdmin=Boolean(message.metadata?.admin); const avatar=message.senderAvatarUrl||(message.senderType==="AI"?identity.automated_avatar_url:isAdmin?identity.admin_avatar_url:""); const displayName=message.senderType==="AI"?(identity.automated_name||message.senderName):(message.senderName||identity.admin_name||"Support");
+  const isAdmin=Boolean(message.metadata?.admin); const rawAvatar=message.senderAvatarUrl||(message.senderType==="AI"?identity.automated_avatar_url:isAdmin?identity.admin_avatar_url:""); const avatar=message.senderType==="STAFF"&&!isAdmin&&identity.show_staff_avatar===false?"":rawAvatar; const displayName=message.senderType==="AI"?(identity.automated_name||message.senderName):isAdmin?(identity.admin_name||message.senderName||"Support Team"):(identity.show_staff_public_name===false?"Support":message.senderName||"Support");
   return (
-    <div className={`flex items-end gap-2 msg-in ${isUser ? "justify-start" : "justify-end"}`}>
+    <div className={`flex items-end gap-2 msg-in ${isUser ? "justify-end" : "justify-start"}`}>
+      {!isUser&&<span className="customer-chat-head">{avatar?<img src={avatar} alt=""/>:<Headphones className="h-4 w-4"/>}</span>}
       <div
-        className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser ? "bg-bubble-user text-bubble-user-foreground rounded-bl-sm" : "bg-bubble-ai text-bubble-ai-foreground rounded-br-sm border border-border"}`}
+        className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${isUser ? "bg-bubble-user text-bubble-user-foreground rounded-br-sm" : "bg-bubble-ai text-bubble-ai-foreground rounded-bl-sm border border-border"}`}
       >
         {!isUser&&<div className="mb-1 text-[10px] font-semibold opacity-70">{displayName}</div>}
         {message.blocks && message.blocks.length > 0 ? (
@@ -839,7 +857,6 @@ function MessageBubble({ message, identity, onRetry, onPrompt, onPreview, onHand
           </div>
         )}
       </div>
-      {!isUser&&<span className="customer-chat-head">{avatar?<img src={avatar} alt=""/>:<Headphones className="h-4 w-4"/>}</span>}
     </div>
   );
 }

@@ -89,7 +89,7 @@ function DomainMappingPage() {
   );
 
   const columns = [
-    { title: "Site", dataIndex: "site_kind", render: (value: string) => <Tag>{String(value || "guide").toUpperCase()}</Tag> },
+    { title: "Site", dataIndex: "site_kind", render: (value: string) => <Tag>{value === "staff" ? "CS WORKSPACE" : String(value || "guide").toUpperCase()}</Tag> },
     { title: "Hostname", dataIndex: "hostname", render: (value: string, row: any) => <Space direction="vertical" size={0}><Typography.Text>{value}</Typography.Text><Typography.Link href={row.custom_url} target="_blank" rel="noreferrer">{row.custom_url}</Typography.Link></Space> },
     { title: "Provisioning", dataIndex: "provisioning_status", render: (value: string) => <Tag color={statusColor(value)}>{value || "planned"}</Tag> },
     { title: "Cloudflare", render: (_: any, row: any) => <Space direction="vertical" size={0}><span>Hostname: <Tag color={statusColor(row.cloudflare_status)}>{row.cloudflare_status || "not created"}</Tag></span><span>SSL: <Tag color={statusColor(row.cloudflare_ssl_status)}>{row.cloudflare_ssl_status || "not checked"}</Tag></span></Space> },
@@ -121,7 +121,7 @@ function DomainMappingPage() {
       <Alert showIcon type="success" message="One shared domain set for every client" description="The four ar-ai666.com subdomains are configured once. New clients are separated by their immutable /p/<platform-route> path." style={{ marginBottom: 12 }} />
       {data ? <Descriptions bordered column={1}>
         {linkRow("Admin", data.generated?.admin)}
-        {linkRow("Staff Console", data.generated?.staff)}
+        {linkRow("CS Workspace", data.generated?.staff)}
         {linkRow("Guide", data.generated?.guide)}
         {linkRow("Chat", data.generated?.chat)}
         <Descriptions.Item label="Platform route"><Typography.Text code>{data.platform?.route_prefix || "—"}</Typography.Text></Descriptions.Item>
@@ -135,7 +135,7 @@ function DomainMappingPage() {
       <Alert showIcon type="info" message="Automatic custom-domain API/CORS trust" description="You do not need to add each client domain to Render ALLOWED_ORIGINS. Verified client domains are trusted dynamically after Cloudflare hostname and SSL status become active." style={{ marginBottom: 12 }} />
       <Form form={form} layout="inline" onFinish={addDomain} initialValues={{ site_kind: "guide" }}>
         <Form.Item name="hostname" rules={[{ required: true, message: "Enter a hostname" }, { pattern: /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i, message: "Use a hostname without https:// or a path" }]}><Input placeholder="support.example.com" style={{ width: 260 }} /></Form.Item>
-        <Form.Item name="site_kind"><Select style={{ width: 150 }} options={[{ value: "guide", label: "Guide" }, { value: "chat", label: "Chat" }, { value: "admin", label: "Admin" }, { value: "staff", label: "Staff Console" }]} /></Form.Item>
+        <Form.Item name="site_kind"><Select style={{ width: 150 }} options={[{ value: "guide", label: "Guide" }, { value: "chat", label: "Chat" }, { value: "admin", label: "Admin" }, { value: "staff", label: "CS Workspace" }]} /></Form.Item>
         <Form.Item><Button type="primary" htmlType="submit" loading={busy}>Add custom domain</Button></Form.Item>
       </Form>
     </Card>

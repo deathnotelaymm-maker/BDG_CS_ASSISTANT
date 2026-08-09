@@ -19,8 +19,16 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.17.3-support-workspace-ux-admin-access-tenant-isolation';
+const API_VERSION = '1.17.4-cs-identity-domain-promotion-menu-upgrade';
 const API_FEATURES = [
+  'cs-workspace-shared-domain',
+  'staff-self-profile-management',
+  'separate-staff-chat-avatar',
+  'managed-support-identities',
+  'managed-customer-chat-menu',
+  'rich-promotion-carousel',
+  'customer-right-support-left',
+  'authenticated-staff-sse',
   'luke-shared-hosting',
   'shared-platform-route-resolution',
   'dual-hosting-mode',

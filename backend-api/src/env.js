@@ -43,7 +43,7 @@ export function getRuntimeEnv(source = process.env) {
     ALLOWED_ORIGINS: source.ALLOWED_ORIGINS || '',
     LUKE_SHARED_HOSTING_ENABLED: booleanValue(source.LUKE_SHARED_HOSTING_ENABLED, true),
     LUKE_SHARED_ADMIN_ORIGIN: source.LUKE_SHARED_ADMIN_ORIGIN || 'https://admin.ar-ai666.com',
-    LUKE_SHARED_STAFF_ORIGIN: source.LUKE_SHARED_STAFF_ORIGIN || 'https://staff.ar-ai666.com',
+    LUKE_SHARED_STAFF_ORIGIN: source.LUKE_SHARED_STAFF_ORIGIN || 'https://cs.ar-ai666.com',
     LUKE_SHARED_GUIDE_ORIGIN: source.LUKE_SHARED_GUIDE_ORIGIN || 'https://guide.ar-ai666.com',
     LUKE_SHARED_CHAT_ORIGIN: source.LUKE_SHARED_CHAT_ORIGIN || 'https://chat.ar-ai666.com',
     SUPPORT_LINK: source.SUPPORT_LINK || '',

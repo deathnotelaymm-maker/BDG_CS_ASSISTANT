@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { bearerToken, createSupportToken, readSupportToken } from './support-auth.js';
 import { emitSupportEvent, onSupportEvent } from './support-events.js';
+import { sanitizeRichHtml } from './rich-html.js';
 
 export const SUPPORT_PERMISSIONS = [
   'support.conversations.view_own',
@@ -98,6 +99,33 @@ function parseJsonObject(value, fallback = {}) {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value;
   try { const parsed=JSON.parse(String(value || '{}')); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : fallback; }
   catch { return fallback; }
+}
+const DEFAULT_CHAT_MENU_CONFIG = Object.freeze({
+  show_conversation:true, show_promotions:true, show_privacy:true,
+  conversation_label:'Conversation', promotion_label:'Promotions', privacy_label:'Privacy',
+  privacy_text:'Conversation information is used to provide support for this platform.', custom_items:[],
+});
+function sanitizeChatMenuConfig(value) {
+  const raw=parseJsonObject(value,{});
+  const custom=Array.isArray(raw.custom_items) ? raw.custom_items.slice(0,12).map((item,index)=>{
+    const actionType=['link','chat_prompt'].includes(String(item?.action_type||'')) ? String(item.action_type) : 'link';
+    const label=cleanText(item?.label,120);
+    let actionValue=cleanText(item?.value,2000);
+    if (actionType==='link' && actionValue) {
+      try { const parsed=new URL(actionValue); if (parsed.protocol!=='https:') throw new Error('https'); actionValue=parsed.toString(); }
+      catch { actionValue=''; }
+    }
+    if (actionType==='chat_prompt') actionValue=cleanText(actionValue,1000);
+    return { id:cleanText(item?.id || `item-${index+1}`,80), label, action_type:actionType, value:actionValue, enabled:item?.enabled!==false, display_order:Math.max(0,Math.min(9999,Number(item?.display_order ?? (index+1)*100))) };
+  }).filter((item)=>item.label&&item.value) : [];
+  return {
+    show_conversation:raw.show_conversation!==false, show_promotions:raw.show_promotions!==false, show_privacy:raw.show_privacy!==false,
+    conversation_label:cleanText(raw.conversation_label,80)||DEFAULT_CHAT_MENU_CONFIG.conversation_label,
+    promotion_label:cleanText(raw.promotion_label,80)||DEFAULT_CHAT_MENU_CONFIG.promotion_label,
+    privacy_label:cleanText(raw.privacy_label,80)||DEFAULT_CHAT_MENU_CONFIG.privacy_label,
+    privacy_text:cleanText(raw.privacy_text,1000)||DEFAULT_CHAT_MENU_CONFIG.privacy_text,
+    custom_items:custom.sort((a,b)=>a.display_order-b.display_order),
+  };
 }
 function sha256(value) { return createHash('sha256').update(String(value || '')).digest('hex'); }
 function secureEqualHex(left, right) {
@@ -272,6 +300,9 @@ function supportSettingsOut(row = {}) {
     show_staff_avatar:row.show_staff_avatar !== false,
     chat_menu_enabled:row.chat_menu_enabled !== false,
     sticky_support_header_enabled:row.sticky_support_header_enabled !== false,
+    staff_profile_edit_enabled:row.staff_profile_edit_enabled !== false,
+    staff_public_identity_edit_enabled:row.staff_public_identity_edit_enabled !== false,
+    chat_menu_config_json:sanitizeChatMenuConfig(row.chat_menu_config_json),
     updated_at:rowDate(row.updated_at),
   };
 }
@@ -279,7 +310,7 @@ function staffOut(row = {}, permissions = []) {
   return {
     id:Number(row.id || row.staff_id || 0), admin_user_id:Number(row.admin_user_id || 0),
     tenant_id:Number(row.tenant_id || 0), platform_id:Number(row.platform_id || 0),
-    display_name:row.display_name || row.name || '', public_display_name:row.public_display_name || row.display_name || row.name || '', public_avatar_url:row.public_avatar_url || '', actor_type:row.actor_type || 'STAFF', email:row.email || '', role_key:row.role_key || 'support_agent',
+    display_name:row.display_name || row.name || '', profile_avatar_url:row.profile_avatar_url || '', public_display_name:row.public_display_name || row.display_name || row.name || '', public_avatar_url:row.public_avatar_url || '', actor_type:row.actor_type || 'STAFF', email:row.email || '', role_key:row.role_key || 'support_agent',
     account_status:row.account_status || (row.is_active === false ? 'inactive' : 'active'),
     availability_status:row.availability_status || 'offline', timezone:row.timezone || '',
     use_platform_timezone:row.use_platform_timezone !== false, personal_timezone_allowed:row.personal_timezone_allowed === true,
@@ -657,6 +688,19 @@ async function uploadSupportAttachment({ request,env,deps,scope,conversation,act
   emitSupportEvent({ event:'support:message_created',platform_id:scope.platform_id,conversation_id:conversation.id,data:{ message:messageOut({ ...message,sender_name:staff?.display_name || (actorType==='ADMIN'?'Administrator':'Customer') }) } });
   return { attachment:{ ...inserted,id:Number(inserted.id),conversation_id:Number(inserted.conversation_id),message_id:Number(message.id),created_at:rowDate(inserted.created_at) },message:messageOut({ ...message,sender_name:staff?.display_name || (actorType==='ADMIN'?'Administrator':'Customer') }) };
 }
+async function uploadSupportIdentityImage({ request,env,deps,scope,actorType,actorId }) {
+  if (!env.GUIDE_IMAGES) throw supportError('Profile image storage is not configured',503,'SUPPORT_PROFILE_STORAGE_UNAVAILABLE');
+  const form=await request.formData(); const file=form.get('file');
+  if (!file || typeof file==='string') throw supportError('Choose an image to upload',400,'SUPPORT_PROFILE_IMAGE_REQUIRED');
+  const max=5*1024*1024;
+  if (!Number.isFinite(file.size) || file.size<1 || file.size>max) throw supportError('Profile image must be between 1 byte and 5 MB',413,'SUPPORT_PROFILE_IMAGE_SIZE_INVALID');
+  const bytes=new Uint8Array(await file.arrayBuffer()); const detected=supportAttachmentType(bytes,file.type);
+  if (!['image/png','image/jpeg','image/webp'].includes(detected)) throw supportError('Profile images must be PNG, JPEG, or WebP',415,'SUPPORT_PROFILE_IMAGE_TYPE_INVALID');
+  const extension=supportExtForMime(detected);
+  const key=`tenant-${scope.tenant_id}/platform-${scope.platform_id}/support/identity/${String(actorType||'STAFF').toLowerCase()}-${String(actorId||'user')}/${Date.now()}-${randomUUID()}${extension}`;
+  await env.GUIDE_IMAGES.put(key,bytes,{ httpMetadata:{ contentType:detected },contentLength:bytes.byteLength });
+  return { url:`${new URL(request.url).origin}/uploads/${key}`,mime_type:detected,size_bytes:bytes.byteLength,sha256:createHash('sha256').update(bytes).digest('hex') };
+}
 function quickReplyOut(row={}) { return { id:Number(row.id || 0),scope_kind:row.scope_kind || 'platform',owner_staff_id:row.owner_staff_id ? Number(row.owner_staff_id) : null,title:row.title || '',shortcut:row.shortcut || '',category:row.category || 'General',message_text:row.message_text || '',enabled:row.enabled !== false,display_order:Number(row.display_order || 100),created_at:rowDate(row.created_at),updated_at:rowDate(row.updated_at) }; }
 async function listSupportQuickReplies(deps,env,scope,staffId=null) {
   const rows=(await deps.q(env,`SELECT * FROM support_quick_replies WHERE tenant_id=$1 AND platform_id=$2 AND archived_at IS NULL AND enabled=TRUE AND (scope_kind='platform' OR owner_staff_id=$3) ORDER BY category,display_order,id`,[scope.tenant_id,scope.platform_id,staffId || null])).rows;
@@ -674,7 +718,11 @@ function safePromotionUrl(value,{allowEmpty=true,image=false}={}) { const raw=cl
 async function listPromotions(deps,env,scope,admin=false) {
   const live=admin ? '' : `AND enabled=TRUE AND (starts_at IS NULL OR starts_at<=NOW()) AND (ends_at IS NULL OR ends_at>NOW())`;
   const rows=(await deps.q(env,`SELECT * FROM chat_promotional_items WHERE tenant_id=$1 AND platform_id=$2 AND archived_at IS NULL ${live} ORDER BY display_order,id`,[scope.tenant_id,scope.platform_id])).rows;
-  return rows.map((row)=>({ ...row,id:Number(row.id),platform_id:Number(row.platform_id),tenant_id:Number(row.tenant_id),enabled:row.enabled!==false,display_order:Number(row.display_order || 100),created_at:rowDate(row.created_at),updated_at:rowDate(row.updated_at) }));
+  return rows.map((row)=>({
+    ...row,id:Number(row.id),platform_id:Number(row.platform_id),tenant_id:Number(row.tenant_id),enabled:row.enabled!==false,drawer_enabled:row.drawer_enabled!==false,display_order:Number(row.display_order || 100),
+    badge:row.badge || '',cta_label:row.cta_label || '',rich_json:parseJsonObject(row.rich_json,{}),rich_html:sanitizeRichHtml(row.rich_html || '',50000),
+    created_at:rowDate(row.created_at),updated_at:rowDate(row.updated_at),starts_at:rowDate(row.starts_at),ends_at:rowDate(row.ends_at),
+  }));
 }
 
 export async function handleSupportPublicRoute({ request, env, url, path, method, scope, deps }) {
@@ -695,7 +743,7 @@ export async function handleSupportPublicRoute({ request, env, url, path, method
       customer_messages:settings.customer_messages_json,
       attachments:{ customer_enabled:settings.customer_attachments_enabled === true, staff_enabled:settings.staff_attachments_enabled !== false, max_bytes:Number(settings.attachment_max_bytes || 10485760), allowed_types:settings.attachment_allowed_types_json || [] },
       identity:{ automated_name:settings.automated_support_display_name, automated_avatar_url:settings.automated_support_avatar_url, admin_name:settings.admin_support_display_name, admin_avatar_url:settings.admin_support_avatar_url, show_staff_public_name:settings.show_staff_public_name, show_staff_avatar:settings.show_staff_avatar },
-      chat_menu:{ enabled:settings.chat_menu_enabled !== false, sticky_support_header:settings.sticky_support_header_enabled !== false },
+      chat_menu:{ enabled:settings.chat_menu_enabled !== false, sticky_support_header:settings.sticky_support_header_enabled !== false, config:settings.chat_menu_config_json },
       processing:{
         enabled:settings.processing_message_enabled,
         message:settings.processing_message_text,
@@ -833,14 +881,14 @@ async function staffLogin(request, env, deps) {
   const originRaw=cleanText(request.headers.get('origin'),600);
   let origin=''; let originHostname='';
   if (originRaw) { try { const parsed=new URL(originRaw); if (parsed.protocol === 'https:' && !parsed.username && !parsed.password && !parsed.port && parsed.pathname === '/' && !parsed.search && !parsed.hash) { origin=parsed.origin.toLowerCase(); originHostname=parsed.hostname.toLowerCase(); } } catch {} }
-  const sharedStaffOrigin=String(env.LUKE_SHARED_STAFF_ORIGIN || 'https://staff.ar-ai666.com').replace(/\/$/,'').toLowerCase();
-  if (origin === sharedStaffOrigin && !requestedRoute) throw supportError('This Luke Staff Console link is incomplete. Use the platform-specific /p/<route> link supplied by your administrator.',403,'SUPPORT_PLATFORM_ROUTE_REQUIRED');
+  const sharedStaffOrigin=String(env.LUKE_SHARED_STAFF_ORIGIN || 'https://cs.ar-ai666.com').replace(/\/$/,'').toLowerCase();
+  if (origin === sharedStaffOrigin && !requestedRoute) throw supportError('This Luke CS Workspace link is incomplete. Use the platform-specific /p/<route> link supplied by your administrator.',403,'SUPPORT_PLATFORM_ROUTE_REQUIRED');
   if (requestedRoute && requestedRoute !== String(row.staff_public_route_key || '').toLowerCase()) throw supportError('This staff account does not belong to this platform link',403,'SUPPORT_PLATFORM_ROUTE_MISMATCH');
   if (!requestedRoute && originHostname) {
     const custom=(await deps.q(env,`SELECT d.platform_id,p.tenant_id FROM saas_platform_domains d JOIN saas_platforms p ON p.id=d.platform_id JOIN saas_tenants t ON t.id=p.tenant_id WHERE lower(d.hostname)=lower($1) AND d.site_kind='staff' AND d.archived_at IS NULL AND d.cors_allowed IS TRUE AND d.provisioning_status='active' AND d.verified_at IS NOT NULL AND lower(COALESCE(d.cloudflare_status,''))='active' AND lower(COALESCE(d.cloudflare_ssl_status,''))='active' AND p.archived_at IS NULL AND p.status='active' AND t.archived_at IS NULL AND t.status='active' LIMIT 1`,[originHostname])).rows[0];
-    if (!custom || Number(custom.platform_id)!==Number(row.platform_id) || Number(custom.tenant_id)!==Number(row.tenant_id)) throw supportError('This staff account does not belong to this verified Staff Console hostname',403,'SUPPORT_PLATFORM_HOST_MISMATCH');
+    if (!custom || Number(custom.platform_id)!==Number(row.platform_id) || Number(custom.tenant_id)!==Number(row.tenant_id)) throw supportError('This staff account does not belong to this verified CS Workspace hostname',403,'SUPPORT_PLATFORM_HOST_MISMATCH');
   }
-  if (!requestedRoute && !originHostname) throw supportError('A platform-scoped Staff Console route is required',403,'SUPPORT_PLATFORM_ROUTE_REQUIRED');
+  if (!requestedRoute && !originHostname) throw supportError('A platform-scoped CS Workspace route is required',403,'SUPPORT_PLATFORM_ROUTE_REQUIRED');
   const updated = (await deps.q(env, `UPDATE admin_users SET last_login_at=NOW(),updated_at=NOW(),session_version=COALESCE(session_version,0)+1 WHERE id=$1 RETURNING session_version`, [row.id])).rows[0];
   const session = (await deps.q(env, `INSERT INTO support_staff_sessions(tenant_id,platform_id,staff_id,session_version,user_agent,ip_address) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, [row.tenant_id,row.platform_id,row.staff_id,Number(updated.session_version || 0),cleanText(request.headers.get('user-agent'),1000),cleanText(request.headers.get('x-forwarded-for'),100)])).rows[0];
   const token = createSupportToken(env, { kind:'staff',admin_user_id:Number(row.id),staff_id:Number(row.staff_id),tenant_id:Number(row.tenant_id),platform_id:Number(row.platform_id),sv:Number(updated.session_version || 0),session_id:Number(session.id) }, 60 * 60 * 12);
@@ -887,7 +935,31 @@ export async function handleSupportStaffRoute({ request, env, url, path, method,
   }
   if (method === 'GET' && path === '/staff/me') {
     const settings = supportSettingsOut(await ensureSettings(deps.q,env,scope));
-    return deps.jsonNoStore({ ok:true,staff,settings:{ platform_timezone:settings.platform_timezone,allow_staff_timezone_override:settings.allow_staff_timezone_override,heartbeat_interval_seconds:settings.heartbeat_interval_seconds,offline_timeout_seconds:settings.offline_timeout_seconds,return_to_ai_on_resolve:settings.return_to_ai_on_resolve,customer_attachments_enabled:settings.customer_attachments_enabled,staff_attachments_enabled:settings.staff_attachments_enabled,attachment_max_bytes:settings.attachment_max_bytes,attachment_allowed_types:settings.attachment_allowed_types_json } },200,env);
+    return deps.jsonNoStore({ ok:true,staff,settings:{ platform_timezone:settings.platform_timezone,allow_staff_timezone_override:settings.allow_staff_timezone_override,heartbeat_interval_seconds:settings.heartbeat_interval_seconds,offline_timeout_seconds:settings.offline_timeout_seconds,return_to_ai_on_resolve:settings.return_to_ai_on_resolve,customer_attachments_enabled:settings.customer_attachments_enabled,staff_attachments_enabled:settings.staff_attachments_enabled,attachment_max_bytes:settings.attachment_max_bytes,attachment_allowed_types:settings.attachment_allowed_types_json,automated_support_display_name:settings.automated_support_display_name,automated_support_avatar_url:settings.automated_support_avatar_url,admin_support_display_name:settings.admin_support_display_name,admin_support_avatar_url:settings.admin_support_avatar_url,show_staff_public_name:settings.show_staff_public_name,show_staff_avatar:settings.show_staff_avatar,staff_profile_edit_enabled:settings.staff_profile_edit_enabled,staff_public_identity_edit_enabled:settings.staff_public_identity_edit_enabled } },200,env);
+  }
+  if (method === 'POST' && path === '/staff/me/profile-image') {
+    const settings=supportSettingsOut(await ensureSettings(deps.q,env,scope));
+    if (!settings.staff_profile_edit_enabled) throw supportError('Staff profile editing is disabled by the administrator',403,'SUPPORT_PROFILE_EDIT_DISABLED');
+    const uploaded=await uploadSupportIdentityImage({ request,env,deps,scope,actorType:'STAFF',actorId:staff.id });
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'profile_image_uploaded','support_staff',staff.id,'Staff uploaded a profile image');
+    return deps.jsonNoStore({ ok:true,...uploaded },201,env);
+  }
+  if (method === 'PUT' && path === '/staff/me/profile') {
+    const payload=await deps.readJson(request); const settings=supportSettingsOut(await ensureSettings(deps.q,env,scope));
+    if (!settings.staff_profile_edit_enabled) throw supportError('Staff profile editing is disabled by the administrator',403,'SUPPORT_PROFILE_EDIT_DISABLED');
+    const displayName=cleanText(payload.display_name ?? staff.display_name,160);
+    if (!displayName) throw supportError('Display name is required',400,'SUPPORT_PROFILE_NAME_REQUIRED');
+    const profileAvatar=safeIdentityUrl(payload.profile_avatar_url ?? staff.profile_avatar_url,true);
+    let publicName=staff.public_display_name || staff.display_name; let publicAvatar=staff.public_avatar_url || '';
+    const requestedPublicName=cleanText(payload.public_display_name ?? publicName,160) || displayName;
+    const requestedPublicAvatar=safeIdentityUrl(payload.public_avatar_url ?? publicAvatar,true);
+    if (settings.staff_public_identity_edit_enabled) { publicName=requestedPublicName; publicAvatar=requestedPublicAvatar; }
+    else if (requestedPublicName!==publicName || requestedPublicAvatar!==publicAvatar) throw supportError('Customer-facing support identity is managed by the administrator',403,'SUPPORT_PUBLIC_IDENTITY_EDIT_DISABLED');
+    await deps.q(env,`UPDATE admin_users SET name=$1,updated_at=NOW() WHERE id=$2`,[displayName,staff.admin_user_id]);
+    const row=(await deps.q(env,`UPDATE support_staff_profiles SET display_name=$1,profile_avatar_url=$2,public_display_name=$3,public_avatar_url=$4,updated_at=NOW() WHERE id=$5 AND tenant_id=$6 AND platform_id=$7 RETURNING *`,[displayName,profileAvatar,publicName,publicAvatar,staff.id,scope.tenant_id,scope.platform_id])).rows[0];
+    const permissions=await staffPermissions(deps.q,env,staff.id);
+    await supportAudit(deps.q,env,scope,'STAFF',staff.id,'profile_updated','support_staff',staff.id,'Staff updated own profile');
+    return deps.jsonNoStore({ ok:true,staff:staffOut({ ...row,email:staff.email },permissions) },200,env);
   }
   if (method === 'POST' && path === '/staff/logout') {
     await deps.q(env,`UPDATE support_staff_sessions SET signed_out_at=NOW() WHERE id=$1 AND staff_id=$2`,[staff.session_id,staff.id]);
@@ -1272,6 +1344,12 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
       bool(payload.chat_menu_enabled,current.chat_menu_enabled),bool(payload.sticky_support_header_enabled,current.sticky_support_header_enabled),
       scope.tenant_id,scope.platform_id,
     ])).rows[0];
+    row = (await deps.q(env,`UPDATE support_settings SET staff_profile_edit_enabled=$1,staff_public_identity_edit_enabled=$2,chat_menu_config_json=$3::jsonb,updated_at=NOW() WHERE tenant_id=$4 AND platform_id=$5 RETURNING *`,[
+      bool(payload.staff_profile_edit_enabled,current.staff_profile_edit_enabled),
+      bool(payload.staff_public_identity_edit_enabled,current.staff_public_identity_edit_enabled),
+      JSON.stringify(sanitizeChatMenuConfig(payload.chat_menu_config_json ?? current.chat_menu_config_json)),
+      scope.tenant_id,scope.platform_id,
+    ])).rows[0];
     await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_settings_updated','support_settings',row.id,'Human support and AI processing settings updated');
     return deps.jsonNoStore(supportSettingsOut(row),200,env);
   }
@@ -1286,8 +1364,8 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
     const conflict = (await deps.q(env,'SELECT id FROM admin_users WHERE lower(email)=lower($1) LIMIT 1',[email])).rows[0];
     if (conflict) throw supportError('An account with this email already exists',409,'SUPPORT_EMAIL_EXISTS');
     const account = (await deps.q(env,`INSERT INTO admin_users(name,email,password_hash,role,is_active,session_version) VALUES($1,$2,$3,'support_staff',TRUE,0) RETURNING *`,[displayName,email,await deps.hashPassword(password)])).rows[0];
-    const profile = (await deps.q(env,`INSERT INTO support_staff_profiles(admin_user_id,tenant_id,platform_id,display_name,public_display_name,public_avatar_url,role_key,account_status,timezone,use_platform_timezone,personal_timezone_allowed,must_change_password,max_active_conversations)
-      VALUES($1,$2,$3,$4,$5,$6,$7,'active',$8,$9,$10,TRUE,$11) RETURNING *`,[account.id,scope.tenant_id,scope.platform_id,displayName,cleanText(payload.public_display_name || displayName,160),safeIdentityUrl(payload.public_avatar_url,true),cleanText(payload.role_key || 'support_agent',60),payload.timezone ? safeTimezone(payload.timezone) : null,payload.use_platform_timezone !== false,bool(payload.personal_timezone_allowed,false),Math.min(50,Math.max(1,Number(payload.max_active_conversations || 5)))])).rows[0];
+    const profile = (await deps.q(env,`INSERT INTO support_staff_profiles(admin_user_id,tenant_id,platform_id,display_name,profile_avatar_url,public_display_name,public_avatar_url,role_key,account_status,timezone,use_platform_timezone,personal_timezone_allowed,must_change_password,max_active_conversations)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,'active',$9,$10,$11,TRUE,$12) RETURNING *`,[account.id,scope.tenant_id,scope.platform_id,displayName,safeIdentityUrl(payload.profile_avatar_url ?? payload.public_avatar_url,true),cleanText(payload.public_display_name || displayName,160),safeIdentityUrl(payload.public_avatar_url,true),cleanText(payload.role_key || 'support_agent',60),payload.timezone ? safeTimezone(payload.timezone) : null,payload.use_platform_timezone !== false,bool(payload.personal_timezone_allowed,false),Math.min(50,Math.max(1,Number(payload.max_active_conversations || 5)))])).rows[0];
     const requested = Array.isArray(payload.permissions) ? payload.permissions.filter((item)=>SUPPORT_PERMISSIONS.includes(item)) : [...DEFAULT_AGENT_PERMISSIONS];
     for (const permission of requested) await deps.q(env,`INSERT INTO support_staff_permissions(staff_id,permission_key,allowed) VALUES($1,$2,TRUE) ON CONFLICT(staff_id,permission_key) DO UPDATE SET allowed=TRUE,updated_at=NOW()`,[profile.id,permission]);
     await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'support_staff_created','support_staff',profile.id,`Created ${email}`);
@@ -1303,7 +1381,7 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
     const displayName = cleanText(payload.display_name || payload.name || existing.display_name,160);
     const accountStatus = payload.account_status === 'inactive' || payload.is_active === false ? 'inactive' : 'active';
     await deps.q(env,`UPDATE admin_users SET name=$1,email=$2,is_active=$3,updated_at=NOW(),session_version=CASE WHEN $3=FALSE THEN session_version+1 ELSE session_version END WHERE id=$4`,[displayName,email,accountStatus==='active',existing.account_id]);
-    const profile = (await deps.q(env,`UPDATE support_staff_profiles SET display_name=$1,public_display_name=$2,public_avatar_url=$3,role_key=$4,account_status=$5,timezone=$6,use_platform_timezone=$7,personal_timezone_allowed=$8,max_active_conversations=$9,availability_status=CASE WHEN $5='inactive' THEN 'offline' ELSE availability_status END,updated_at=NOW() WHERE id=$10 RETURNING *`,[displayName,cleanText(payload.public_display_name ?? existing.public_display_name ?? displayName,160),safeIdentityUrl(payload.public_avatar_url ?? existing.public_avatar_url,true),cleanText(payload.role_key || existing.role_key,60),accountStatus,payload.timezone ? safeTimezone(payload.timezone) : existing.timezone,payload.use_platform_timezone ?? existing.use_platform_timezone,bool(payload.personal_timezone_allowed,existing.personal_timezone_allowed),Math.min(50,Math.max(1,Number(payload.max_active_conversations || existing.max_active_conversations))),staffId])).rows[0];
+    const profile = (await deps.q(env,`UPDATE support_staff_profiles SET display_name=$1,profile_avatar_url=$2,public_display_name=$3,public_avatar_url=$4,role_key=$5,account_status=$6,timezone=$7,use_platform_timezone=$8,personal_timezone_allowed=$9,max_active_conversations=$10,availability_status=CASE WHEN $6='inactive' THEN 'offline' ELSE availability_status END,updated_at=NOW() WHERE id=$11 RETURNING *`,[displayName,safeIdentityUrl(payload.profile_avatar_url ?? existing.profile_avatar_url,true),cleanText(payload.public_display_name ?? existing.public_display_name ?? displayName,160),safeIdentityUrl(payload.public_avatar_url ?? existing.public_avatar_url,true),cleanText(payload.role_key || existing.role_key,60),accountStatus,payload.timezone ? safeTimezone(payload.timezone) : existing.timezone,payload.use_platform_timezone ?? existing.use_platform_timezone,bool(payload.personal_timezone_allowed,existing.personal_timezone_allowed),Math.min(50,Math.max(1,Number(payload.max_active_conversations || existing.max_active_conversations))),staffId])).rows[0];
     if (Array.isArray(payload.permissions)) {
       await deps.q(env,'DELETE FROM support_staff_permissions WHERE staff_id=$1',[staffId]);
       for (const permission of payload.permissions.filter((item)=>SUPPORT_PERMISSIONS.includes(item))) await deps.q(env,`INSERT INTO support_staff_permissions(staff_id,permission_key,allowed) VALUES($1,$2,TRUE)`,[staffId,permission]);
@@ -1449,13 +1527,26 @@ export async function handleSupportAdminRoute({ request, env, url, path, method,
   if (method === 'GET' && path === '/admin/support/promotions') return deps.jsonNoStore({ ok:true,items:await listPromotions(deps,env,scope,true) },200,env);
   if (method === 'POST' && path === '/admin/support/promotions') {
     const payload=await deps.readJson(request); const image=safePromotionUrl(payload.image_url,{allowEmpty:false,image:true}); const link=safePromotionUrl(payload.link_url,{allowEmpty:true});
-    const row=(await deps.q(env,`INSERT INTO chat_promotional_items(tenant_id,platform_id,title,subtitle,image_url,link_url,placement,enabled,display_order,starts_at,ends_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,[scope.tenant_id,scope.platform_id,cleanText(payload.title,180),cleanText(payload.subtitle,2000),image,link,['welcome','conversation_top','before_first_message'].includes(payload.placement)?payload.placement:'welcome',payload.enabled!==false,Math.max(0,Math.min(9999,Number(payload.display_order||100))),payload.starts_at || null,payload.ends_at || null])).rows[0];
-    return deps.jsonNoStore({ ok:true,item:{ ...row,id:Number(row.id) } },201,env);
+    const richHtml=sanitizeRichHtml(payload.rich_html || '',50000); const richJson=parseJsonObject(payload.rich_json,{});
+    const row=(await deps.q(env,`INSERT INTO chat_promotional_items(tenant_id,platform_id,title,subtitle,image_url,link_url,placement,enabled,display_order,starts_at,ends_at,badge,rich_json,rich_html,cta_label,drawer_enabled) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15,$16) RETURNING *`,[scope.tenant_id,scope.platform_id,cleanText(payload.title,180),cleanText(payload.subtitle,2000),image,link,['welcome','conversation_top','before_first_message'].includes(payload.placement)?payload.placement:'welcome',payload.enabled!==false,Math.max(0,Math.min(9999,Number(payload.display_order||100))),payload.starts_at || null,payload.ends_at || null,cleanText(payload.badge,80),JSON.stringify(richJson),richHtml,cleanText(payload.cta_label,120),payload.drawer_enabled!==false])).rows[0];
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'promotion_created','chat_promotion',row.id,cleanText(payload.title,180)||'Promotion created');
+    return deps.jsonNoStore({ ok:true,item:(await listPromotions(deps,env,scope,true)).find((item)=>item.id===Number(row.id)) },201,env);
   }
   const adminPromotion=path.match(/^\/admin\/support\/promotions\/(\d+)$/);
+  if (adminPromotion && method === 'PUT') {
+    const id=numericId(adminPromotion[1],'Promotion ID'); const payload=await deps.readJson(request);
+    const existing=(await deps.q(env,`SELECT * FROM chat_promotional_items WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 AND archived_at IS NULL`,[id,scope.tenant_id,scope.platform_id])).rows[0];
+    if (!existing) throw supportError('Promotion not found',404,'PROMOTION_NOT_FOUND');
+    const image=safePromotionUrl(payload.image_url ?? existing.image_url,{allowEmpty:false,image:true}); const link=safePromotionUrl(payload.link_url ?? existing.link_url,{allowEmpty:true});
+    const richHtml=sanitizeRichHtml(payload.rich_html ?? existing.rich_html ?? '',50000); const richJson=parseJsonObject(payload.rich_json ?? existing.rich_json,{});
+    await deps.q(env,`UPDATE chat_promotional_items SET title=$1,subtitle=$2,image_url=$3,link_url=$4,placement=$5,enabled=$6,display_order=$7,starts_at=$8,ends_at=$9,badge=$10,rich_json=$11::jsonb,rich_html=$12,cta_label=$13,drawer_enabled=$14,updated_at=NOW() WHERE id=$15 AND tenant_id=$16 AND platform_id=$17`,[cleanText(payload.title ?? existing.title,180),cleanText(payload.subtitle ?? existing.subtitle,2000),image,link,['welcome','conversation_top','before_first_message'].includes(payload.placement)?payload.placement:existing.placement,payload.enabled ?? existing.enabled,Math.max(0,Math.min(9999,Number(payload.display_order ?? existing.display_order ?? 100))),payload.starts_at ?? existing.starts_at,payload.ends_at ?? existing.ends_at,cleanText(payload.badge ?? existing.badge,80),JSON.stringify(richJson),richHtml,cleanText(payload.cta_label ?? existing.cta_label,120),payload.drawer_enabled ?? existing.drawer_enabled,id,scope.tenant_id,scope.platform_id]);
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'promotion_updated','chat_promotion',id,cleanText(payload.title ?? existing.title,180)||'Promotion updated');
+    return deps.jsonNoStore({ ok:true,item:(await listPromotions(deps,env,scope,true)).find((item)=>item.id===id) },200,env);
+  }
   if (adminPromotion && method === 'DELETE') {
     const row=(await deps.q(env,`UPDATE chat_promotional_items SET archived_at=NOW(),updated_at=NOW() WHERE id=$1 AND tenant_id=$2 AND platform_id=$3 RETURNING id`,[numericId(adminPromotion[1]),scope.tenant_id,scope.platform_id])).rows[0];
     if (!row) throw supportError('Promotion not found',404,'PROMOTION_NOT_FOUND');
+    await supportAudit(deps.q,env,scope,'ADMIN',admin.email,'promotion_archived','chat_promotion',numericId(adminPromotion[1]),'Promotion archived');
     return deps.jsonNoStore({ ok:true },200,env);
   }
 

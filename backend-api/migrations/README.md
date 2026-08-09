@@ -46,3 +46,13 @@ keeps historical tables inert for rollback/audit. Published migration `037` is
 immutable. The next database change must use migration `038`.
 
 - `045_v1.17.2_luke_shared_hosting_platform_route.sql` — Luke Shared Hosting mode and immutable route resolution.
+
+Migration `046_v1.17.3_support_workspace_ux_admin_access_tenant_isolation.sql`
+adds the customer-service workspace UX identity fields and tenant-isolated Admin
+access foundation. Published migration `046` is immutable.
+
+Migration `047_v1.17.4_cs_identity_domain_promotion_menu_upgrade.sql` adds the
+separate Staff profile picture, Staff self-profile/public-identity policies,
+managed customer Chat Menu configuration, and rich promotional slideshow
+content. Published migration `047` is immutable. The next database change must
+use migration `048`.

@@ -102,6 +102,32 @@ export interface ChatPromotion {
   link_url?: string;
   placement?: "welcome" | "conversation_top" | "before_first_message" | string;
   display_order?: number;
+  badge?: string;
+  rich_json?: Record<string, unknown>;
+  rich_html?: string;
+  cta_label?: string;
+  drawer_enabled?: boolean;
+  enabled?: boolean;
+  starts_at?: string;
+  ends_at?: string;
+}
+
+export interface ChatMenuConfig {
+  show_conversation?: boolean;
+  show_promotions?: boolean;
+  show_privacy?: boolean;
+  conversation_label?: string;
+  promotion_label?: string;
+  privacy_label?: string;
+  privacy_text?: string;
+  custom_items?: Array<{
+    id?: string;
+    label: string;
+    action_type: "link" | "chat_prompt";
+    value: string;
+    enabled?: boolean;
+    display_order?: number;
+  }>;
 }
 
 export interface SupportMessage {
@@ -314,7 +340,7 @@ export async function fetchPublicSupportSettings(platformKey = getPlatformKey(),
   requireApiBase();
   const res=await fetch(`${API_BASE}/public/support/settings?platform=${encodeURIComponent(platformKey)}`,{signal,cache:"no-store"});
   if(!res.ok) throw new ChatApiError(`Support settings error: ${res.status}`,{status:res.status,code:"SUPPORT_SETTINGS_FAILED"});
-  return (await res.json()) as { ok:true; support:{ attachments?:{ customer_enabled?:boolean; max_bytes?:number; allowed_types?:string[] }; identity?:{ automated_name?:string; automated_avatar_url?:string; admin_name?:string; admin_avatar_url?:string; show_staff_public_name?:boolean; show_staff_avatar?:boolean }; chat_menu?:{ enabled?:boolean; sticky_support_header?:boolean } } };
+  return (await res.json()) as { ok:true; support:{ attachments?:{ customer_enabled?:boolean; max_bytes?:number; allowed_types?:string[] }; identity?:{ automated_name?:string; automated_avatar_url?:string; admin_name?:string; admin_avatar_url?:string; show_staff_public_name?:boolean; show_staff_avatar?:boolean }; chat_menu?:{ enabled?:boolean; sticky_support_header?:boolean; config?:ChatMenuConfig } } };
 }
 
 export async function fetchChatPromotions(platformKey = getPlatformKey(), signal?: AbortSignal) {

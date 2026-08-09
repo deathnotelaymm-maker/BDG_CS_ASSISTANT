@@ -24,16 +24,16 @@ const test = (name, ok) => {
   else { passed += 1; console.log('PASS', name); }
 };
 
-test('v1.17.2 Luke Shared Hosting foundation remains active', core.includes('luke-shared-hosting') && core.includes('shared-platform-route-resolution') && server.includes('1.17.3-support-workspace-ux-admin-access-tenant-isolation'));
-test('backend package version is current v1.17.3', backendPackage.version === '1.17.3');
+test('v1.17.2 Luke Shared Hosting foundation remains active', core.includes('luke-shared-hosting') && core.includes('shared-platform-route-resolution') && server.includes('1.17.4-cs-identity-domain-promotion-menu-upgrade'));
+test('backend package version is current v1.17.4', backendPackage.version === '1.17.4');
 test('migration 045 adds hosting mode', migration.includes('hosting_mode VARCHAR(30)') && migration.includes("'luke_shared','custom_domain'"));
 test('migration 045 preserves existing public route keys', !migration.includes('SET public_route_key='));
 test('Luke shared Admin origin defaults to ar-ai666.com', env.includes("LUKE_SHARED_ADMIN_ORIGIN: source.LUKE_SHARED_ADMIN_ORIGIN || 'https://admin.ar-ai666.com'"));
-test('Luke shared Staff origin defaults to ar-ai666.com', env.includes("'https://staff.ar-ai666.com'"));
+test('Luke shared CS Workspace origin defaults to ar-ai666.com', env.includes("'https://cs.ar-ai666.com'"));
 test('Luke shared Guide origin defaults to ar-ai666.com', env.includes("'https://guide.ar-ai666.com'"));
 test('Luke shared Chat origin defaults to ar-ai666.com', env.includes("'https://chat.ar-ai666.com'"));
 test('Luke shared origins are trusted once by the static infrastructure CORS layer', env.includes('const lukeShared = env.LUKE_SHARED_HOSTING_ENABLED === false ? []') && env.includes('env.LUKE_SHARED_ADMIN_ORIGIN') && env.includes('env.LUKE_SHARED_CHAT_ORIGIN'));
-const corsFixture = { ALLOWED_ORIGINS:'https://bdg-admin-pages.pages.dev', LUKE_SHARED_HOSTING_ENABLED:true, LUKE_SHARED_ADMIN_ORIGIN:'https://admin.ar-ai666.com', LUKE_SHARED_STAFF_ORIGIN:'https://staff.ar-ai666.com', LUKE_SHARED_GUIDE_ORIGIN:'https://guide.ar-ai666.com', LUKE_SHARED_CHAT_ORIGIN:'https://chat.ar-ai666.com' };
+const corsFixture = { ALLOWED_ORIGINS:'https://bdg-admin-pages.pages.dev', LUKE_SHARED_HOSTING_ENABLED:true, LUKE_SHARED_ADMIN_ORIGIN:'https://admin.ar-ai666.com', LUKE_SHARED_STAFF_ORIGIN:'https://cs.ar-ai666.com', LUKE_SHARED_GUIDE_ORIGIN:'https://guide.ar-ai666.com', LUKE_SHARED_CHAT_ORIGIN:'https://chat.ar-ai666.com' };
 test('exact Luke shared origin is allowed without a per-client Render CORS edit', allowedOrigin(corsFixture, 'https://admin.ar-ai666.com') === 'https://admin.ar-ai666.com');
 test('Luke shared CORS is exact-host only and does not trust arbitrary subdomains', allowedOrigin(corsFixture, 'https://evil.ar-ai666.com') === '');
 test('all four shared links include immutable platform route', core.includes("staff: `${publicBaseUrl(env,'staff')}/p/${route}`") && core.includes("admin: `${publicBaseUrl(env,'admin')}/p/${route}`") && core.includes("chat: `${publicBaseUrl(env,'chat')}/p/${route}`") && core.includes("guide: `${publicBaseUrl(env,'guide')}/p/${route}`"));

@@ -1062,6 +1062,7 @@ export const api = {
   deleteSupportQuickReply: async (id: string | number) => request(`/admin/support/quick-replies/${id}`, { method: "DELETE" }),
   listChatPromotions: async () => request("/admin/support/promotions"),
   createChatPromotion: async (data: any) => request("/admin/support/promotions", { method: "POST", body: JSON.stringify(data) }),
+  updateChatPromotion: async (id: string | number, data: any) => request(`/admin/support/promotions/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteChatPromotion: async (id: string | number) => request(`/admin/support/promotions/${id}`, { method: "DELETE" }),
 
   testAI: async (message: string) => {

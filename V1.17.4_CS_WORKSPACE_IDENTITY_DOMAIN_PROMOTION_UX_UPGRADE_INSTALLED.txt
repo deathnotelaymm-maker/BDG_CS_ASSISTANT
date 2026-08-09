@@ -1,0 +1,6 @@
+Luke / BDG CS Assistant release marker
+Release: v1.17.4 — CS Workspace Identity, Domain & Promotion UX Upgrade
+Runtime: 1.17.4-cs-identity-domain-promotion-menu-upgrade
+Base: v1.17.3
+Migration: 047_v1.17.4_cs_identity_domain_promotion_menu_upgrade.sql
+Next migration: 048

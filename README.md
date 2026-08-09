@@ -1,38 +1,36 @@
-# v1.17.2 — Luke Shared Hosting Mode & Platform Route Resolution
+# v1.17.4 — CS Workspace Identity, Domain & Promotion UX Upgrade
 
-v1.17.2 introduces **Luke** as the neutral white-label shared hosting layer while preserving the verified custom-domain workflow from v1.17.1.
+v1.17.4 upgrades the customer-service identity, shared CS domain, customer Chat layout, Staff profile controls, Chat Menu, and promotional experience while preserving the v1.17.3 tenant-isolated Support Workspace foundation.
 
-**Base:** v1.17.1-r2  
-**Release marker:** `1.17.2-luke-shared-hosting-platform-route`  
-**Migration:** `045_v1.17.2_luke_shared_hosting_platform_route.sql`  
-**Next migration:** `046`
+**Base:** v1.17.3  
+**Release marker:** `1.17.4-cs-identity-domain-promotion-menu-upgrade`  
+**Migration:** `047_v1.17.4_cs_identity_domain_promotion_menu_upgrade.sql`  
+**Next migration:** `048`
 
-## Hosting modes
+## Luke shared application URLs
 
-Each platform can use one of two management modes:
+- Admin: `https://admin.ar-ai666.com/p/<platform-route>`
+- CS Workspace: `https://cs.ar-ai666.com/p/<platform-route>`
+- Guide: `https://guide.ar-ai666.com/p/<platform-route>`
+- Chat: `https://chat.ar-ai666.com/p/<platform-route>`
 
-- **Luke Shared Hosting** — uses the four permanent `ar-ai666.com` application hosts plus the platform's immutable `/p/<platform-route>` path.
-- **Custom Domain** — keeps the verified Cloudflare Custom Hostname + Dynamic CORS workflow from v1.17.1.
+The internal compatibility identifier remains `site_kind = staff`; the customer-facing application is presented as **CS Workspace**. A verified client-owned CS custom domain may continue to resolve the exact platform without the shared `/p/<platform-route>` suffix.
 
-Shared links are generated automatically:
+## Customer Chat layout
 
-- `https://admin.ar-ai666.com/p/<platform-route>`
-- `https://staff.ar-ai666.com/p/<platform-route>`
-- `https://guide.ar-ai666.com/p/<platform-route>`
-- `https://chat.ar-ai666.com/p/<platform-route>`
+- Customer messages: right.
+- Automated Support, Staff, and Administrator replies: left.
+- System events: compact centered status text.
+- Internal Notes: Staff/Admin only and never returned by the public customer message stream.
 
-The four Luke origins are trusted once by the backend's static infrastructure CORS layer. A new shared-hosting client therefore needs no per-client DNS, SSL, or Render CORS change.
+## Identity management
 
-## White-label rule
+Staff can use **My Profile** to manage their internal display name/profile picture and, when allowed by Admin policy, their public support name/chat avatar. Admin can manage both internal and public Staff identity plus the Automated Support and Administrator public identities.
 
-Luke is infrastructure, not the client's brand. Platform brand settings continue to control the visible Chat, Guide, Staff, and Admin experience. New client-facing defaults no longer advertise the legacy BDG name. Internal legacy environment variables, headers, package names, migration history, and database identifiers remain unchanged where renaming them would risk compatibility.
+## Customer Chat Menu and Promotions
 
-## Platform-route rule
+The hardcoded Help section is removed. Admin now manages Conversation, Promotions, Privacy, and safe custom menu items. Promotion cards support slideshow navigation, rich sanitized content, badges, CTA labels, image preview, drawer visibility, schedule/order, and the existing human-support visibility policy.
 
-`public_route_key` remains the stable public platform identifier. v1.17.2 does not rewrite existing route keys. Changing a platform display name does not change the public route.
+## Production rule
 
-## Custom domains
-
-Verified client-owned domains still use the v1.17.1 readiness contract: exact HTTPS origin, API/CORS enabled, active provisioning, verification recorded, active Cloudflare hostname and SSL, and active tenant/platform.
-
-Follow `DEPLOYMENT_CHECKLIST_V1.17.2.md` before production rollout.
+Do not edit migration `047` after deployment. Run the normal CI and PostgreSQL migration pipeline before production release. Follow `DEPLOYMENT_CHECKLIST_V1.17.4.md`.
