@@ -1,0 +1,6 @@
+Release package marker: v1.17.4-R1
+Application version: 1.17.4
+Package revision: R1
+Purpose: CI / source synchronization hotfix
+Database migration: unchanged at 047
+Next migration: 048

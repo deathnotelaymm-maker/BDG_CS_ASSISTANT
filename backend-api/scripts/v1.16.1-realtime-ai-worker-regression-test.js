@@ -47,7 +47,17 @@ test('staff resolution returns the customer to AI by default', service.includes(
 test('realtime gateway supports catch-up, delivery, and read events', realtime.includes("support:sync") && realtime.includes("support:delivered") && realtime.includes("support:read"));
 test('customer reconnects and requests missed message sequences', chat.includes('openCustomerSupportStream(supportSession.publicId,supportSession.token,lastSequenceRef.current') && chatApi.includes('after_sequence=${Math.max(0, Number(afterSequence || 0))}') && chat.includes('syncCustomerSupport(supportSession.publicId,supportSession.token,lastSequenceRef.current'));
 test('processing indicator is ephemeral and removed by job events', chat.includes('AsyncProcessingIndicator') && chat.includes('response.cancelled') && chat.includes('message.created'));
-test('staff console has dashboard, three-panel chat, and realtime sync', staff.includes('Dashboard') && staff.includes('conversation-list') && staff.includes('context-panel') && staff.includes('openStaffConversationStream') && staff.includes('api.sync'));
+const staffConsoleMarkers = [
+  ['Dashboard', 'Dashboard'],
+  ['conversation list', 'conversation-list'],
+  ['context panel', 'context-panel'],
+  ['SSE stream opener', 'openStaffConversationStream'],
+  ['HTTP sequence catch-up', 'api.sync'],
+];
+for (const [label, marker] of staffConsoleMarkers) {
+  test(`staff console source contains ${label} marker`, staff.includes(marker));
+}
+test('staff console has dashboard, three-panel chat, and realtime sync', staffConsoleMarkers.every(([, marker]) => staff.includes(marker)));
 test('Admin can manage processing experience and inspect AI jobs', admin.includes('Handoff & Attachments') && admin.includes('Response Delivery') && admin.includes('listSupportAiJobs'));
 test('Admin overview exposes queue health', service.includes('completed_24h') && service.includes('/admin/support/ai-jobs'));
 

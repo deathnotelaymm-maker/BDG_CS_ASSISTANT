@@ -1,0 +1,7 @@
+﻿Installed: 2026-08-09T17:05:03.8686676+07:00
+Release package: v1.17.4-R1 CI / Source Synchronization Hotfix
+Application version: 1.17.4
+Backup: C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.17.4-R1-20260809-170501
+No migration is added or applied. Migration 047 remains current.
+Next migration: 048
+Recommended commit: v1.17.4-R1 CI source synchronization hotfix

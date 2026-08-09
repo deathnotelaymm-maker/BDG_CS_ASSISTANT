@@ -1,36 +1,26 @@
-# v1.17.4 — CS Workspace Identity, Domain & Promotion UX Upgrade
+# v1.17.4-R1 — CI / Source Synchronization Hotfix
 
-v1.17.4 upgrades the customer-service identity, shared CS domain, customer Chat layout, Staff profile controls, Chat Menu, and promotional experience while preserving the v1.17.3 tenant-isolated Support Workspace foundation.
+v1.17.4-R1 is a narrow packaging and CI hardening revision for the v1.17.4 application. It does **not** change application semver, database schema, or migration sequence.
 
-**Base:** v1.17.3  
-**Release marker:** `1.17.4-cs-identity-domain-promotion-menu-upgrade`  
-**Migration:** `047_v1.17.4_cs_identity_domain_promotion_menu_upgrade.sql`  
+**Application version:** `1.17.4`  
+**Package revision:** `R1`  
+**Base:** final v1.17.4 source  
+**Runtime release marker:** `1.17.4-cs-identity-domain-promotion-menu-upgrade` (unchanged)  
+**Current migration:** `047_v1.17.4_cs_identity_domain_promotion_menu_upgrade.sql` (unchanged)  
 **Next migration:** `048`
 
-## Luke shared application URLs
+## Purpose
 
-- Admin: `https://admin.ar-ai666.com/p/<platform-route>`
-- CS Workspace: `https://cs.ar-ai666.com/p/<platform-route>`
-- Guide: `https://guide.ar-ai666.com/p/<platform-route>`
-- Chat: `https://chat.ar-ai666.com/p/<platform-route>`
+GitHub CI reached the legacy v1.16.1 Staff workspace assertion after dependency installation and the preceding suites passed, but the GitHub Staff source did not satisfy the same combined source contract as the final v1.17.4 package. R1 re-applies the authoritative Staff files and makes CI identify the exact missing Staff marker if source drift occurs again.
 
-The internal compatibility identifier remains `site_kind = staff`; the customer-facing application is presented as **CS Workspace**. A verified client-owned CS custom domain may continue to resolve the exact platform without the shared `/p/<platform-route>` suffix.
+## R1 changes
 
-## Customer Chat layout
+- Re-applies final-v1.17.4 `staff-pro/src/App.tsx` and `staff-pro/src/api.ts`.
+- Preserves authenticated Staff/Admin SSE, real SSE frame parsing, and HTTP sequence catch-up.
+- Splits the old combined Staff assertion into explicit marker checks.
+- Adds `test:v1174r1` and wires it into normal and production CI.
+- Adds R1 manifest, checksums, rollback installer, test report, and deployment checklist.
 
-- Customer messages: right.
-- Automated Support, Staff, and Administrator replies: left.
-- System events: compact centered status text.
-- Internal Notes: Staff/Admin only and never returned by the public customer message stream.
+## Database
 
-## Identity management
-
-Staff can use **My Profile** to manage their internal display name/profile picture and, when allowed by Admin policy, their public support name/chat avatar. Admin can manage both internal and public Staff identity plus the Automated Support and Administrator public identities.
-
-## Customer Chat Menu and Promotions
-
-The hardcoded Help section is removed. Admin now manages Conversation, Promotions, Privacy, and safe custom menu items. Promotion cards support slideshow navigation, rich sanitized content, badges, CTA labels, image preview, drawer visibility, schedule/order, and the existing human-support visibility policy.
-
-## Production rule
-
-Do not edit migration `047` after deployment. Run the normal CI and PostgreSQL migration pipeline before production release. Follow `DEPLOYMENT_CHECKLIST_V1.17.4.md`.
+No migration is added or modified. Migration `047` remains current and `048` remains the next migration number.
