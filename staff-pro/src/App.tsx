@@ -121,30 +121,8 @@ function StaffProfile({staff,settings,onUpdated,onError}:{staff:Staff;settings:S
 }
 function AvatarEditor({url,fallback,label,busy,disabled,onChoose,onClear}:{url:string;fallback:string;label:string;busy:boolean;disabled:boolean;onChoose:()=>void;onClear:()=>void}){return <div c[...]
 function StaffManagement({staff,onForceLogout}:{staff:Staff[];onForceLogout:(id:number)=>Promise<void>}){return <div className="dashboard"><section className="dashboard-table"><header><div><h2>St[...]
-function Dashboard({conversations,performance,transferRequests,onOpen,onAccept,onTransferDecision,zone}:{conversations:Conversation[];performance:Record<string,any>;transferRequests:Array<Record<[...]
-  return <div className="dashboard">
-    {transferRequests&&transferRequests.length>0&&<section className="transfer-requests-section">
-      <header><h2>Transfer Requests</h2></header>
-      <div className="transfer-list">
-        {transferRequests.map((request)=>(
-          <div key={request.id} className="transfer-request-item">
-            <div className="transfer-info">
-              <div><strong>{request.customer_name||"Customer"}</strong></div>
-              <small>From: {request.from_staff_name||"Unknown"}</small>
-            </div>
-            <div className="transfer-actions">
-              <button className="accept-btn" onClick={()=>onTransferDecision?.(request.id,"accept")}><CheckCircle2 size={16}/>Accept</button>
-              <button className="reject-btn" onClick={()=>onTransferDecision?.(request.id,"reject")}><ArrowRightLeft size={16}/>Reject</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>}
-    <section className="performance-section">
-      <Metric icon={Users} label="Conversations" value={Number(performance.conversations||0)}/>
-      <Metric icon={Clock3} label="Avg Response" value={formatDuration(performance.avg_response_time_seconds)}/>
-    </section>
-  </div>;
+function Dashboard({conversations,performance,transferRequests,onOpen,onAccept,onTransferDecision,zone}:{conversations:Conversation[];performance:Record<string,any>;transferRequests:Array<Record<string,any>>;onOpen?:(id:number)=>void;onAccept?:(item:Conversation)=>void;onTransferDecision?:(id:number,action:"accept"|"reject")=>void;zone?:string}){
+  return <div className="dashboard"><section><header><h2>Transfer Requests</h2></header>{transferRequests?.map((request:Record<string,any>)=><div key={request.id} className="transfer-request"><div>{request.customer_name||"Customer"}</div><div><button onClick={()=>onTransferDecision?.(request.id,"accept")}>Accept</button><button onClick={()=>onTransferDecision?.(request.id,"reject")}>Reject</button></div></div>)}</section></div>;
 }
 function Performance({data}:{data:Record<string,any>}){return <div className="performance"><div className="metric-grid"><Metric icon={Users} label="Conversations" value={Number(data.conversations[...]
 function Metric({icon:Icon,label,value}:{icon:typeof Users;label:string;value:string|number}){return <article className="metric"><Icon/><div><span>{label}</span><strong>{value}</strong></div></ar[...]
