@@ -32,7 +32,7 @@ function statusLabel(value:string){return String(value||"").replaceAll("_"," ").
 function Login({onLogin}:{onLogin:(staff:Staff,settings:StaffSettings)=>void}){
   const [email,setEmail]=useState(""),[password,setPassword]=useState(""),[twofa,setTwofa]=useState(""),[mode,setMode]=useState<"STAFF"|"ADMIN">("STAFF"),[need2fa,setNeed2fa]=useState(false),[busy[...]
   async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError("");try{const response:any=await api.login(email,password,mode,twofa);if(response?.twofa_required){setNeed2fa[...]
-  return <main className="login-screen"><form className="login-card" onSubmit={submit}><div className="brand-block"><ShieldCheck/><div><strong>Luke Support Workspace</strong><span>Platform-scoped custo[...]
+  return <main className="login-screen"><form className="login-card" onSubmit={submit}><div className="brand-block"><ShieldCheck/><div><strong>Luke Support Workspace</strong><span>Platform-scoped [...]
 }
 
 export default function App(){
@@ -76,7 +76,7 @@ export default function App(){
 
   if(!staff){const sharedHost=(()=>{try{return new URL(String(import.meta.env.VITE_LUKE_SHARED_STAFF_ORIGIN||"https://cs.ar-ai666.com")).hostname.toLowerCase();}catch{return "cs.ar-ai666.com";}})([...]
   return <div className="app-shell">
-    <aside className="sidebar"><div className="sidebar-brand"><Headphones/><div><strong>Luke Support Workspace</strong><small>{staff.public_display_name||staff.display_name}{isAdmin?" · Administrator"[...]
+    <aside className="sidebar"><div className="sidebar-brand"><Headphones/><div><strong>Luke Support Workspace</strong><small>{staff.public_display_name||staff.display_name}{isAdmin?" · Administr[...]
       <button className={view==="dashboard"?"active":""} onClick={()=>setView("dashboard")}><LayoutDashboard/>Dashboard</button>
       <button className={view==="conversations"?"active":""} onClick={()=>setView("conversations")}><MessageCircle/>Conversations</button>
       <button className={view==="archive"?"active":""} onClick={()=>{setView("archive");setTab("closed");}}><Archive/>Archive</button>
@@ -122,5 +122,29 @@ function StaffProfile({staff,settings,onUpdated,onError}:{staff:Staff;settings:S
 function AvatarEditor({url,fallback,label,busy,disabled,onChoose,onClear}:{url:string;fallback:string;label:string;busy:boolean;disabled:boolean;onChoose:()=>void;onClear:()=>void}){return <div c[...]
 function StaffManagement({staff,onForceLogout}:{staff:Staff[];onForceLogout:(id:number)=>Promise<void>}){return <div className="dashboard"><section className="dashboard-table"><header><div><h2>St[...]
 function Dashboard({conversations,performance,transferRequests,onOpen,onAccept,onTransferDecision,zone}:{conversations:Conversation[];performance:Record<string,any>;transferRequests:Array<Record<[...]
+  return <div className="dashboard">
+    {transferRequests&&transferRequests.length>0&&<section className="transfer-requests-section">
+      <header><h2>Transfer Requests</h2></header>
+      <div className="transfer-list">
+        {transferRequests.map((request)=>(
+          <div key={request.id} className="transfer-request-item">
+            <div className="transfer-info">
+              <div><strong>{request.customer_name||"Customer"}</strong></div>
+              <small>From: {request.from_staff_name||"Unknown"}</small>
+            </div>
+            <div className="transfer-actions">
+              <button className="accept-btn" onClick={()=>onTransferDecision?.(request.id,"accept")}><CheckCircle2 size={16}/>Accept</button>
+              <button className="reject-btn" onClick={()=>onTransferDecision?.(request.id,"reject")}><ArrowRightLeft size={16}/>Reject</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>}
+    <section className="performance-section">
+      <Metric icon={Users} label="Conversations" value={Number(performance.conversations||0)}/>
+      <Metric icon={Clock3} label="Avg Response" value={formatDuration(performance.avg_response_time_seconds)}/>
+    </section>
+  </div>;
+}
 function Performance({data}:{data:Record<string,any>}){return <div className="performance"><div className="metric-grid"><Metric icon={Users} label="Conversations" value={Number(data.conversations[...]
 function Metric({icon:Icon,label,value}:{icon:typeof Users;label:string;value:string|number}){return <article className="metric"><Icon/><div><span>{label}</span><strong>{value}</strong></div></ar[...]
