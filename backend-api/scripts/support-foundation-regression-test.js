@@ -27,7 +27,9 @@ test('internal handoff URL survives response normalization',core.includes("url =
 test('public handoff validates tenant and platform chat session scope',service.includes('SUPPORT_CHAT_SESSION_SCOPE_MISMATCH'));
 test('staff console can accept or reject incoming transfers',staff.includes('transferDecision')&&staff.includes('Transfer Requests'));
 test('logout and heartbeat expiry release assigned work safely',service.includes('releaseAssignedConversations')&&service.includes('heartbeat_timeout'));
-test('dedicated staff console exists',staff.includes('Luke Support Workspace')&&staff.includes('{ key: "team", label: "Team" }'));
+test('dedicated CS workspace uses the current customer-service identity',staff.includes('Luke CS Workspace'));
+test('dedicated CS workspace retains the Team conversation queue',staff.includes('{ key: "team", label: "Team" }'));
+test('dedicated CS workspace exposes Staff and Administrator login modes',staff.includes('mode==="STAFF"')&&staff.includes('mode==="ADMIN"')&&staff.includes('Sign in as administrator')&&staff.includes('Sign in as staff'));
 test('admin Customer Service center exists',admin.includes('Handoff & Attachments')&&admin.includes('Staff Accounts'));
 test('explicit English human request detected',customerExplicitlyRequestsHuman('I need a real person'));
 test('explicit Burmese human request detected',customerExplicitlyRequestsHuman('ဝန်ထမ်းနဲ့ ပြောချင်တယ်'));

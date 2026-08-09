@@ -1,0 +1,43 @@
+{
+  "release": "v1.17.4-R2",
+  "product": "Luke",
+  "application_version": "1.17.4",
+  "package_revision": "R2",
+  "base_version": "v1.17.4-R1",
+  "runtime_release_marker": "1.17.4-cs-identity-domain-promotion-menu-upgrade",
+  "migration": "047_v1.17.4_cs_identity_domain_promotion_menu_upgrade.sql",
+  "migration_change": "none",
+  "next_migration": "048",
+  "changed_files": [
+    ".bdg_files.tsv",
+    ".github/workflows/bdg-production-release.yml",
+    ".github/workflows/ci.yml",
+    "CHANGED_FILES.md",
+    "CHANGED_FILES_V1.17.4-R2.txt",
+    "DEPLOYMENT_CHECKLIST_V1.17.4-R2.md",
+    "FILE_CHECKSUMS_V1.17.4-R2.sha256",
+    "INSTALL-V1.17.4-R2-REGRESSION-CONTRACT-STABILIZATION.cmd",
+    "INSTALL-V1.17.4-R2-REGRESSION-CONTRACT-STABILIZATION.ps1",
+    "MANIFEST_V1.17.4-R2.json",
+    "README-V1.17.4-R2.txt",
+    "README.md",
+    "RELEASE_NOTES_V1.17.4-R2.md",
+    "START-HERE-V1.17.4-R2-REGRESSION-CONTRACT-STABILIZATION.bat",
+    "START-HERE-WINDOWS.bat",
+    "TECHNICAL_ANALYSIS_V1.17.4-R2.md",
+    "TEST_RESULT.md",
+    "TEST_RESULT_V1.17.4-R2.md",
+    "V1.17.4_R2_REGRESSION_CONTRACT_STABILIZATION_INSTALLED.txt",
+    "VERIFY-V1.17.4-R2-INSTALLED.ps1",
+    "VERIFY-V1.17.4-R2-PAYLOAD.ps1",
+    "VERIFY-V1.17.4-R2-TARGET.ps1",
+    "backend-api/package.json",
+    "backend-api/scripts/support-foundation-regression-test.js",
+    "backend-api/scripts/v1.17.4-r2-regression-contract-stabilization-test.js"
+  ],
+  "canonical_staff_hashes": {
+    "staff-pro/src/App.tsx": "bbfb2f4519b3f2f824bda85eb558f45467799a121bf9d12e03305f3c105b4e91",
+    "staff-pro/src/api.ts": "510f67d29061094737b05f6a507a5eda9ca52b33366cb94dfbb1372b660886b6"
+  },
+  "notes": "Regression/CI contract stabilization only. Updates the stale Human Support workspace title assertion, adds independent identity/queue/login checks, and wires a dedicated R2 guard into CI. No product feature or migration change."
+}

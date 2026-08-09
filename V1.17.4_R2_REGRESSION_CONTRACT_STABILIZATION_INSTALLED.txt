@@ -1,0 +1,7 @@
+Luke v1.17.4-R2 Regression Contract Stabilization
+Application version: 1.17.4
+Base: v1.17.4-R1
+Migration change: none
+Current migration: 047
+Next migration: 048
+Recommended commit: v1.17.4-R2 regression contract stabilization
