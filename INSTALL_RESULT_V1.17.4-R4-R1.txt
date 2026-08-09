@@ -1,0 +1,8 @@
+﻿Installed: 2026-08-09T19:17:57.7228308+07:00
+Release package: v1.17.4-R4-R1 Windows Installer Compatibility Hotfix
+Application version: 1.17.4
+Backup: C:\Users\LENOVO\Documents\cloud-projects\BDG_CS_ASSISTANT-backup-before-v1.17.4-R4-R1-20260809-191755
+R4 application payload preserved.
+No migration is added or applied. Migration 047 remains current.
+Next migration: 048
+Recommended commit: v1.17.4-R4-R1 Windows installer compatibility hotfix

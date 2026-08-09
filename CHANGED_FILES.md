@@ -1,31 +1,30 @@
-# v1.17.4-R3 Changed Files
+# Changed Files — v1.17.4-R4-R1
+
+The repair payload contains the exact R4 application/config changes plus corrected Windows installer/verifier and release-engineering files.
 
 - `.bdg_files.tsv`
 - `.github/workflows/bdg-production-release.yml`
 - `.github/workflows/ci.yml`
-- `CHANGED_FILES.md`
-- `CHANGED_FILES_V1.17.4-R3.txt`
-- `DEPLOYMENT_CHECKLIST_V1.17.4-R3.md`
-- `FILE_CHECKSUMS_V1.17.4-R3.sha256`
-- `INSTALL-V1.17.4-R3-FRONTEND-DEPENDENCY-SECURITY-REPAIR.cmd`
-- `INSTALL-V1.17.4-R3-FRONTEND-DEPENDENCY-SECURITY-REPAIR.ps1`
-- `MANIFEST_V1.17.4-R3.json`
-- `README-V1.17.4-R3.txt`
-- `README.md`
-- `RELEASE_NOTES_V1.17.4-R3.md`
-- `START-HERE-V1.17.4-R3-FRONTEND-DEPENDENCY-SECURITY-REPAIR.bat`
-- `START-HERE-WINDOWS.bat`
-- `TECHNICAL_ANALYSIS_V1.17.4-R3.md`
-- `TEST_RESULT.md`
-- `TEST_RESULT_V1.17.4-R3.md`
-- `V1.17.4_R3_FRONTEND_DEPENDENCY_SECURITY_REPAIR_INSTALLED.txt`
-- `VERIFY-V1.17.4-R3-INSTALLED.ps1`
-- `VERIFY-V1.17.4-R3-PAYLOAD.ps1`
-- `VERIFY-V1.17.4-R3-TARGET.ps1`
-- `admin-pro/package-lock.json`
+- `admin-pro/src/components/RichKnowledgeEditor.tsx`
+- `admin-pro/src/routes/_admin.customer-service.tsx`
 - `backend-api/package.json`
-- `backend-api/scripts/v1.17.4-r3-frontend-dependency-security-regression-test.js`
-- `chat-pro/package-lock.json`
-- `guide-pro/package-lock.json`
-- `guide-pro/package.json`
-- `staff-pro/package-lock.json`
+- `backend-api/scripts/v1.17.4-r4-ant-design-v6-type-compatibility-regression-test.js`
+- `CHANGED_FILES.md`
+- `CHANGED_FILES_V1.17.4-R4-R1.txt`
+- `DEPLOYMENT_CHECKLIST_V1.17.4-R4-R1.md`
+- `FILE_CHECKSUMS_V1.17.4-R4-R1.sha256`
+- `INSTALL-V1.17.4-R4-R1-WINDOWS-INSTALLER-COMPATIBILITY-HOTFIX.cmd`
+- `INSTALL-V1.17.4-R4-R1-WINDOWS-INSTALLER-COMPATIBILITY-HOTFIX.ps1`
+- `MANIFEST_V1.17.4-R4-R1.json`
+- `README-V1.17.4-R4-R1.txt`
+- `README.md`
+- `RELEASE_NOTES_V1.17.4-R4-R1.md`
+- `START-HERE-V1.17.4-R4-R1-WINDOWS-INSTALLER-COMPATIBILITY-HOTFIX.bat`
+- `START-HERE-WINDOWS.bat`
+- `TECHNICAL_ANALYSIS_V1.17.4-R4-R1.md`
+- `TEST_RESULT.md`
+- `TEST_RESULT_V1.17.4-R4-R1.md`
+- `V1.17.4_R4_R1_WINDOWS_INSTALLER_COMPATIBILITY_HOTFIX_INSTALLED.txt`
+- `VERIFY-V1.17.4-R4-R1-INSTALLED.ps1`
+- `VERIFY-V1.17.4-R4-R1-PAYLOAD.ps1`
+- `VERIFY-V1.17.4-R4-R1-TARGET.ps1`

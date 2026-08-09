@@ -115,19 +115,19 @@ export default function RichKnowledgeEditor({ value, onChange, uploadImage }: Pr
           {tool("Italic", <ItalicOutlined />, () => editor.chain().focus().toggleItalic().run(), editor.isActive("italic"))}
           {tool("Underline", <UnderlineOutlined />, () => editor.chain().focus().toggleUnderline().run(), editor.isActive("underline"))}
           {tool("Strike", <StrikethroughOutlined />, () => editor.chain().focus().toggleStrike().run(), editor.isActive("strike"))}
-          <Divider type="vertical" />
+          <Divider orientation="vertical" />
           {tool("Heading 1", <span>H1</span>, () => editor.chain().focus().toggleHeading({ level: 1 }).run(), editor.isActive("heading", { level: 1 }))}
           {tool("Heading 2", <span>H2</span>, () => editor.chain().focus().toggleHeading({ level: 2 }).run(), editor.isActive("heading", { level: 2 }))}
           {tool("Paragraph", <span>¶</span>, () => editor.chain().focus().setParagraph().run(), editor.isActive("paragraph"))}
-          <Divider type="vertical" />
+          <Divider orientation="vertical" />
           {tool("Bullet list", <UnorderedListOutlined />, () => editor.chain().focus().toggleBulletList().run(), editor.isActive("bulletList"))}
           {tool("Numbered list", <OrderedListOutlined />, () => editor.chain().focus().toggleOrderedList().run(), editor.isActive("orderedList"))}
           {tool("Quote", <span>❝</span>, () => editor.chain().focus().toggleBlockquote().run(), editor.isActive("blockquote"))}
-          <Divider type="vertical" />
+          <Divider orientation="vertical" />
           {tool("Align left", <AlignLeftOutlined />, () => editor.chain().focus().setTextAlign("left").run(), editor.isActive({ textAlign: "left" }))}
           {tool("Align center", <AlignCenterOutlined />, () => editor.chain().focus().setTextAlign("center").run(), editor.isActive({ textAlign: "center" }))}
           {tool("Align right", <AlignRightOutlined />, () => editor.chain().focus().setTextAlign("right").run(), editor.isActive({ textAlign: "right" }))}
-          <Divider type="vertical" />
+          <Divider orientation="vertical" />
           <Tooltip title="Text color">
             <ColorPicker size="small" defaultValue="#17233b" onChangeComplete={(color) => editor.chain().focus().setColor(color.toHexString()).run()} />
           </Tooltip>
@@ -137,7 +137,7 @@ export default function RichKnowledgeEditor({ value, onChange, uploadImage }: Pr
           {tool("Link", <LinkOutlined />, addLink, editor.isActive("link"))}
           {tool("Upload image", <PictureOutlined />, () => inputRef.current?.click())}
           {tool("Insert table", <TableOutlined />, () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run())}
-          <Divider type="vertical" />
+          <Divider orientation="vertical" />
           {tool("Undo", <UndoOutlined />, () => editor.chain().focus().undo().run())}
           {tool("Redo", <RedoOutlined />, () => editor.chain().focus().redo().run())}
           {tool("Clear formatting", <ClearOutlined />, () => editor.chain().focus().unsetAllMarks().clearNodes().run())}

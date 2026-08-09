@@ -1,0 +1,6 @@
+Luke v1.17.4-R4-R1 Windows Installer Compatibility Hotfix
+Application version: 1.17.4
+Migration: 047 unchanged
+Next migration: 048
+R4 application payload: preserved
+Windows target verifier: PowerShell 5.1-compatible
