@@ -46,9 +46,9 @@ test('Normal CI runs the R3 dependency-security guard before R4 compatibility gu
 test('Normal CI still typechecks Admin Pro before building it', () => assert.ok(ci.indexOf('npm run typecheck', ci.indexOf('Build Admin Pro')) < ci.indexOf('npm run build', ci.indexOf('Build Admin Pro'))));
 test('Production CI now carries forward the R3 security guard', () => assert.ok(productionCi.includes('npm --prefix backend-api run test:v1174r3')));
 test('Production CI executes the R4 Ant Design compatibility guard', () => assert.ok(productionCi.includes('npm --prefix backend-api run test:v1174r4')));
-test('R4 introduces no migration 048 file', () => {
+test('R4 compatibility remains valid with migration 048 now owned by v1.18.0', () => {
   const migrations = fs.readdirSync(path.join(repo, 'backend-api', 'migrations'));
-  assert.ok(!migrations.some((name) => /^048_/.test(name)));
+  assert.ok(migrations.some((name) => /^048_v1\.18\.0_luke_shop_commerce_connector_v2\.sql$/.test(name)));
 });
 
 console.log(`\n${checks.length}/${checks.length} v1.17.4-R4 Ant Design v6 type compatibility checks passed.`);

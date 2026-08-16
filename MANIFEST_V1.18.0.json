@@ -1,0 +1,26 @@
+{
+  "release": "Luke CS v1.18.0 \u2014 Luke Shop Commerce Connector v2",
+  "version": "1.18.0",
+  "base_version": "1.17.4",
+  "database_migration": "048_v1.18.0_luke_shop_commerce_connector_v2.sql",
+  "changed_file_count": 49,
+  "commerce_tools": [
+    "customer.get",
+    "orders.list",
+    "order.get",
+    "order.status",
+    "payment.status",
+    "delivery.status"
+  ],
+  "write_tools_enabled": false,
+  "preserves": [
+    "v1.17.4 support workspace",
+    "staff/admin support identities",
+    "SSE customer/staff delivery",
+    "prompt runtime",
+    "chat menu",
+    "promotion carousel",
+    "shared/custom domain routing"
+  ],
+  "generated_at_utc": "2026-08-16T22:04:04.664061+00:00"
+}

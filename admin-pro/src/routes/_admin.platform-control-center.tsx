@@ -78,6 +78,8 @@ type PlatformDetail = Platform & {
 };
 type Brand = Record<string, string>;
 type Connector = { enabled: boolean; configured: boolean; allowed_actions: string[]; timeout_ms: number; max_retries: number; secret_configured: boolean; urls: Record<string, boolean> };
+type CommerceConnector = { enabled:boolean; ai_enabled:boolean; configured?:boolean; shop_backend_url:string; credential_configured:boolean; allowed_tools:string[]; request_timeout_ms:number; last_health_status?:string; last_health_at?:string; last_error_code?:string };
+type CommerceAudit = { id:number; action:string; tool_name?:string; status:string; request_id?:string; target_ref?:string; duration_ms?:number; error_code?:string; created_at?:string };
 type Control = { operator: boolean; tenants: Tenant[]; platforms: Platform[]; platform_feature_catalog: Array<{ feature_key: string; label: string }>; domain_note?: string };
 
 const statusColor = (value?: string) => value === "active" || value === "verified" ? "green" : value === "pending_dns" ? "gold" : "default";
@@ -93,7 +95,10 @@ function PlatformControlCenter() {
   const [memberOpen, setMemberOpen] = useState(false);
   const [brand, setBrand] = useState<Brand | null>(null);
   const [connector, setConnector] = useState<Connector | null>(null);
+  const [commerce, setCommerce] = useState<CommerceConnector | null>(null);
+  const [commerceAudit, setCommerceAudit] = useState<CommerceAudit[]>([]);
   const [connectorForm] = Form.useForm();
+  const [commerceForm] = Form.useForm();
   const [connectorTestForm] = Form.useForm();
   const [tenantForm] = Form.useForm();
   const [platformForm] = Form.useForm();
@@ -115,7 +120,7 @@ function PlatformControlCenter() {
   };
   const openPlatform = async (row: Platform) => {
     setDetailLoading(true);
-    try { const detail = await api.getTenantPlatform(row.id) as PlatformDetail; setSelected(detail); platformEditForm.setFieldsValue({ ...detail, supported_languages: (detail.supported_languages || []).join(", ") }); const [result, connectorResult] = await Promise.all([api.getPlatformBrand(row.id) as Promise<any>, api.getPlatformConnector(row.id) as Promise<any>]); setBrand(result.brand || {}); brandForm.setFieldsValue(result.brand || {}); setConnector(connectorResult as Connector); connectorForm.setFieldsValue({ ...(connectorResult || {}), allowed_actions: connectorResult?.allowed_actions || [] }); }
+    try { const detail = await api.getTenantPlatform(row.id) as PlatformDetail; setSelected(detail); platformEditForm.setFieldsValue({ ...detail, supported_languages: (detail.supported_languages || []).join(", ") }); const [result, connectorResult, commerceResult, commerceAuditResult] = await Promise.all([api.getPlatformBrand(row.id) as Promise<any>, api.getPlatformConnector(row.id) as Promise<any>, api.getCommerceConnector(row.id) as Promise<any>, api.listCommerceConnectorAudit(row.id) as Promise<any>]); setBrand(result.brand || {}); brandForm.setFieldsValue(result.brand || {}); setConnector(connectorResult as Connector); connectorForm.setFieldsValue({ ...(connectorResult || {}), allowed_actions: connectorResult?.allowed_actions || [] }); setCommerce(commerceResult as CommerceConnector); setCommerceAudit(Array.isArray(commerceAuditResult?.rows) ? commerceAuditResult.rows : []); commerceForm.setFieldsValue({ ...(commerceResult || {}), service_credential: undefined, allowed_tools: commerceResult?.allowed_tools || [] }); }
     catch (error: any) { message.error(error?.message || "Could not load platform details"); }
     finally { setDetailLoading(false); }
   };
@@ -200,6 +205,14 @@ function PlatformControlCenter() {
   const testConnector = async () => {
     if (!selected) return;
     try { const values = await connectorTestForm.validateFields(); const result = await api.testPlatformConnector(selected.id, values) as any; if (result.ok) message.success(`Connector test passed (${result.http_status || "ok"})`); else message.warning(result.message || result.question || "Connector test did not pass"); } catch (error: any) { message.error(error?.message || "Connector test failed"); }
+  };
+  const saveCommerceConnector = async () => {
+    if (!selected) return;
+    try { const values = await commerceForm.validateFields(); if (!values.service_credential) delete values.service_credential; const result = await api.updateCommerceConnector(selected.id, values) as CommerceConnector; setCommerce(result); commerceForm.setFieldsValue({ ...result, service_credential: undefined, allowed_tools: result.allowed_tools || [] }); message.success("Luke Shop Commerce Connector saved"); } catch (error: any) { message.error(error?.message || "Commerce Connector settings could not be saved"); }
+  };
+  const testCommerce = async () => {
+    if (!selected) return;
+    try { const result = await api.testCommerceConnector(selected.id) as any; if (result.ok) message.success(`Luke Shop connection healthy · ${result.usage_mode || "service"}`); else message.warning("Luke Shop connection test failed"); await openPlatform(selected); } catch (error: any) { message.error(error?.message || "Luke Shop connection test failed"); }
   };
 
   return <Spin spinning={loading}>
@@ -308,6 +321,30 @@ function PlatformControlCenter() {
             </Form>
             <Divider />
             <Form form={connectorTestForm} layout="inline" initialValues={{ action: "game_status" }}><Form.Item name="action"><Select style={{ width: 190 }} options={["game_status", "game_catalog", "payment_order_status"].map((value) => ({ value, label: value.replace(/_/g, " ") }))} /></Form.Item><Form.Item name="game_name"><Input placeholder="Game name (for game checks)" /></Form.Item><Form.Item name="order_number"><Input placeholder="Order number (for payment)" /></Form.Item><Button onClick={testConnector}>Test connection</Button></Form>
+          </> },
+          { key: "shop-commerce", label: "Shop Commerce", children: <>
+            <Alert type="success" showIcon message="Luke Shop Commerce Connector v2" description="Read-only customer/order/payment/fulfillment facts for Luke AI. The Shop credential is encrypted at rest, exchanged for a short-lived service token, and every AI tool request also requires the customer's signed Shop context plus a fresh nonce." style={{ marginBottom: 16 }} />
+            <Form form={commerceForm} layout="vertical">
+              <Row gutter={12}><Col span={12}><Form.Item name="enabled" label="Connector enabled" valuePropName="checked"><Switch /></Form.Item></Col><Col span={12}><Form.Item name="ai_enabled" label="AI commerce access" valuePropName="checked"><Switch /></Form.Item></Col></Row>
+              <Form.Item name="shop_backend_url" label="Luke Shop Backend URL" rules={[{ required: true, type: "url" }]}><Input placeholder="https://luke-shop-backend.onrender.com" /></Form.Item>
+              <Form.Item name="service_credential" label="Luke Shop AI service credential" extra="Paste the one-time lcs_… credential created in Shop Merchant Admin. Leave blank later to keep the encrypted value."><Input.Password placeholder={commerce?.credential_configured ? "Configured — leave blank to keep it" : "lcs_….secret"} autoComplete="new-password" /></Form.Item>
+              <Form.Item name="allowed_tools" label="Allowed read-only tools"><Select mode="multiple" options={["customer.get","orders.list","order.get","order.status","payment.status","delivery.status"].map(value=>({value,label:value}))} /></Form.Item>
+              <Form.Item name="request_timeout_ms" label="Shop request timeout (ms)"><Input type="number" min={1500} max={10000} /></Form.Item>
+              <Space><Button type="primary" onClick={saveCommerceConnector}>Save Shop connector</Button><Button onClick={testCommerce}>Test connection</Button>{commerce?.last_health_status&&<Tag color={commerce.last_health_status==='healthy'?'green':'red'}>{commerce.last_health_status}</Tag>}</Space>
+            </Form>
+            <Divider />
+            <Alert type="info" showIcon message="AI remains read-only" description="This release does not expose order cancellation, refunds, payment changes, delivery-location mutation or any direct Luke Shop database access." />
+            <Divider />
+            <Space style={{ width: "100%", justifyContent: "space-between", marginBottom: 10 }}><strong>Connector audit</strong><Button size="small" onClick={()=>openPlatform(selected)}>Refresh</Button></Space>
+            <Table<CommerceAudit> rowKey="id" size="small" pagination={{ pageSize: 8 }} dataSource={commerceAudit} columns={[
+              { title:"Time", dataIndex:"created_at", width:170, render:(v)=>v ? new Date(v).toLocaleString() : "—" },
+              { title:"Action", dataIndex:"action", width:120 },
+              { title:"Tool", dataIndex:"tool_name", render:(v)=>v||"—" },
+              { title:"Status", dataIndex:"status", width:100, render:(v)=><Tag color={v==='success'||v==='healthy'?'green':v==='failed'?'red':'default'}>{v||'—'}</Tag> },
+              { title:"Target", dataIndex:"target_ref", render:(v)=>v||"—" },
+              { title:"Duration", dataIndex:"duration_ms", width:100, render:(v)=>Number.isFinite(Number(v))?`${Number(v)} ms`:"—" },
+              { title:"Error", dataIndex:"error_code", render:(v)=>v||"—" },
+            ]} />
           </> },
           { key: "features", label: `Features (${selected.features.length})`, children: <Table rowKey="feature_key" size="small" pagination={false} dataSource={selected.features} columns={[
             { title: "Module", dataIndex: "label" },

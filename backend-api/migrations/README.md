@@ -56,3 +56,10 @@ separate Staff profile picture, Staff self-profile/public-identity policies,
 managed customer Chat Menu configuration, and rich promotional slideshow
 content. Published migration `047` is immutable. The next database change must
 use migration `048`.
+
+Migration `048_v1.18.0_luke_shop_commerce_connector_v2.sql` adds the
+platform-scoped Luke Shop Commerce Connector configuration and redacted audit
+log required for read-only Shop facts in Luke AI. Long-lived Shop credentials
+remain encrypted in Luke CS, while AI tool execution uses signed customer
+context and short-lived Shop service tokens. Published migration `048` is
+immutable. The next database change must use migration `049`.

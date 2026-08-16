@@ -1,3 +1,11 @@
+# Luke CS v1.18.0 — Luke Shop Commerce Connector v2
+
+Current release: **v1.18.0**. This release is based on the real v1.17.4 CS source and adds the read-only Luke Shop Commerce Connector while preserving the v1.17.4 support workspace, identity, domain, promotion, realtime and Prompt Manager architecture.
+
+See `RELEASE_NOTES_V1.18.0.md`, `TECHNICAL_ANALYSIS_V1.18.0.md`, `DEPLOYMENT_CHECKLIST_V1.18.0.md`, and `TEST_RESULT_V1.18.0.md`.
+
+---
+
 # Luke v1.17.4-R4-R1 — Windows Installer Compatibility Hotfix
 
 ## Scope

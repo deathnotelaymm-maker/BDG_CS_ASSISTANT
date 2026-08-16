@@ -19,7 +19,7 @@ import { allowedOrigin, databaseDescriptor, getRuntimeEnv, validateRuntimeEnv } 
 import { createR2Adapter } from './r2-adapter.js';
 
 const env = getRuntimeEnv();
-const API_VERSION = '1.17.4-cs-identity-domain-promotion-menu-upgrade';
+const API_VERSION = '1.18.0-luke-commerce-connector-v2';
 const API_FEATURES = [
   'cs-workspace-shared-domain',
   'staff-self-profile-management',
@@ -120,6 +120,9 @@ const API_FEATURES = [
   'platform-connector-allowlist',
   'connector-test-connection',
   'connector-audit-trail',
+  'luke-shop-commerce-connector-v2',
+  'commerce-signed-customer-context',
+  'commerce-read-only-ai-tools',
   'redacted-operation-logs',
   'owner-scoped-support-platform',
   'arbitrary-platform-locales',

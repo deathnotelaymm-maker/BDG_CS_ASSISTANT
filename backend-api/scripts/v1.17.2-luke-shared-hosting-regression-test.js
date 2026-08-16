@@ -24,8 +24,8 @@ const test = (name, ok) => {
   else { passed += 1; console.log('PASS', name); }
 };
 
-test('v1.17.2 Luke Shared Hosting foundation remains active', core.includes('luke-shared-hosting') && core.includes('shared-platform-route-resolution') && server.includes('1.17.4-cs-identity-domain-promotion-menu-upgrade'));
-test('backend package version is current v1.17.4', backendPackage.version === '1.17.4');
+test('v1.17.2 Luke Shared Hosting foundation remains active', core.includes('luke-shared-hosting') && core.includes('shared-platform-route-resolution') && server.includes('1.18.0-luke-commerce-connector-v2'));
+test('backend package version is current v1.18.0', backendPackage.version === '1.18.0');
 test('migration 045 adds hosting mode', migration.includes('hosting_mode VARCHAR(30)') && migration.includes("'luke_shared','custom_domain'"));
 test('migration 045 preserves existing public route keys', !migration.includes('SET public_route_key='));
 test('Luke shared Admin origin defaults to ar-ai666.com', env.includes("LUKE_SHARED_ADMIN_ORIGIN: source.LUKE_SHARED_ADMIN_ORIGIN || 'https://admin.ar-ai666.com'"));

@@ -47,6 +47,7 @@ import {
   type SupportConversation,
   type SupportMessage,
 } from "@/lib/api";
+import { installCommerceContextBridge, requestCommerceContextRefresh, type CommerceContextSession } from "@/lib/commerce-context";
 import { getChatConfig, normalizeChatLocale } from "@/lib/chat-config";
 import { ImageLightbox } from "@/components/ImageLightbox";
 
@@ -279,6 +280,7 @@ export default function App() {
   });
 
   const platformKey = getPlatformKey();
+  const [commerce, setCommerce] = useState<CommerceContextSession | null>(null);
   const effectiveLanguage = normalizeChatLocale(content?.default_locale, "en");
   const chatConfig = getChatConfig(effectiveLanguage, platformKey);
   const uiCopy = customerUiCopy(effectiveLanguage);
@@ -366,6 +368,15 @@ export default function App() {
     fetchPublicSupportSettings(platformKey,controller.signal).then((data)=>{setCustomerAttachmentsEnabled(data.support?.attachments?.customer_enabled===true);setSupportIdentity((current)=>({...current,...(data.support?.identity||{})}));setChatMenuEnabled(data.support?.chat_menu?.enabled!==false);setStickySupportHeader(data.support?.chat_menu?.sticky_support_header!==false);setChatMenuConfig({...DEFAULT_CHAT_MENU,...(data.support?.chat_menu?.config||{})});}).catch(()=>setCustomerAttachmentsEnabled(false));
     return () => controller.abort();
   }, [platformKey]);
+
+  useEffect(() => installCommerceContextBridge(platformKey, setCommerce), [platformKey]);
+  useEffect(() => {
+    if (!commerce) return;
+    const timer = window.setInterval(() => {
+      if (commerce.expires_at - Date.now() < 45000) requestCommerceContextRefresh();
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [commerce]);
 
   useEffect(() => {
     if (!showPromotions || displayPromotions.length < 2 || promotionTheme.promotion_autoplay === false) return;
@@ -659,6 +670,7 @@ export default function App() {
                   <span>{connectionCopy}</span>
                   {humanControlled && <><span>·</span><span>{modeCopy}</span></>}
                 </div>
+                {commerce && <div className="text-[10px] text-emerald-600 font-medium truncate" title="Signed Luke Shop customer context connected">Shop account connected{commerce.customer?.customer_code ? ` · ${commerce.customer.customer_code}` : ""}</div>}
               </div>
             </div>
             {chatMenuEnabled&&<button type="button" onClick={()=>setMenuOpen(true)} aria-label="Open conversation menu" className="shrink-0 w-10 h-10 rounded-full border border-border bg-surface grid place-items-center hover:bg-accent"><Menu className="h-5 w-5"/></button>}

@@ -1,3 +1,4 @@
+import { getCommerceContext } from './commerce-context';
 // BDG Chat Pro API client — v1.17.0 professional support workspace and human-only attachments.
 
 const configuredApiBase =
@@ -214,6 +215,8 @@ export interface ChatRequest {
   image_urls: string[];
   language?: string;
   platform_key?: string;
+  commerce_context?: string;
+  commerce_current_order_ref?: string;
 }
 
 const SESSION_KEY = "luke_chat_session_id";
@@ -286,6 +289,7 @@ export async function sendChatMessage(
   signal?: AbortSignal,
 ): Promise<ChatAcceptedResponse> {
   requireApiBase();
+  const commerce = getCommerceContext(platformKey);
   const body: ChatRequest = {
     message,
     session_id: getSessionId(platformKey),
@@ -293,6 +297,7 @@ export async function sendChatMessage(
     image_urls: [],
     language,
     platform_key: platformKey,
+    ...(commerce ? { commerce_context: commerce.context, commerce_current_order_ref: commerce.current_order_ref || undefined } : {}),
   };
   const timeoutSignal = AbortSignal.timeout(15000);
   const combinedSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;

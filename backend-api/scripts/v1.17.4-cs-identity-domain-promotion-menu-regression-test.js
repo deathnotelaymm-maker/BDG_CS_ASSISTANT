@@ -25,16 +25,16 @@ const allCurrent=[core,server,env,support,staffApp,staffApi,chatApp,chatApi,admi
 
 const checks=[];
 const check=(name,ok)=>checks.push([name,Boolean(ok)]);
-check('v1.17.4 backend release marker is active',core.includes('1.17.4-cs-identity-domain-promotion-menu-upgrade')&&server.includes('1.17.4-cs-identity-domain-promotion-menu-upgrade'));
-check('all application packages report 1.17.4',['package.json','backend-api/package.json','admin-pro/package.json','chat-pro/package.json','guide-pro/package.json','staff-pro/package.json'].every((f)=>json(f).version==='1.17.4'));
-check('Admin displays v1.17.4',adminLayout.includes('const ADMIN_VERSION = "v1.17.4"'));
+check('v1.17.4 features remain active on v1.18.0 runtime',core.includes('1.18.0-luke-commerce-connector-v2')&&server.includes('1.18.0-luke-commerce-connector-v2'));
+check('all application packages report current 1.18.0',['package.json','backend-api/package.json','admin-pro/package.json','chat-pro/package.json','guide-pro/package.json','staff-pro/package.json'].every((f)=>json(f).version==='1.18.0'));
+check('Admin displays current v1.18.0',adminLayout.includes('const ADMIN_VERSION = "v1.18.0"'));
 check('migration 047 is present and records the release',migration.includes('v1.17.4_cs_identity_domain_promotion_menu_upgrade'));
 check('migration 047 adds separate internal profile avatar',migration.includes('profile_avatar_url TEXT'));
 check('migration 047 adds staff self-profile policy',migration.includes('staff_profile_edit_enabled')&&migration.includes('staff_public_identity_edit_enabled'));
 check('migration 047 adds managed chat menu config',migration.includes('chat_menu_config_json JSONB'));
 check('migration 047 adds rich promotion fields',migration.includes('rich_html TEXT')&&migration.includes('cta_label')&&migration.includes('drawer_enabled'));
 check('migration 046 remains the v1.17.3 predecessor',fs.existsSync(path.join(root,'backend-api/migrations/046_v1.17.3_support_workspace_ux_admin_access_tenant_isolation.sql')));
-check('migration documentation advances next migration to 048',migrationReadme.includes('047_v1.17.4_cs_identity_domain_promotion_menu_upgrade.sql')&&migrationReadme.replace(/\s+/g,' ').toLowerCase().includes('next database change must use migration `048`'));
+check('migration 047 remains documented and migration 048 is its released successor',migrationReadme.includes('047_v1.17.4_cs_identity_domain_promotion_menu_upgrade.sql')&&migrationReadme.includes('048_v1.18.0_luke_shop_commerce_connector_v2.sql'));
 check('shared CS origin defaults to cs.ar-ai666.com',env.includes("'https://cs.ar-ai666.com'")&&core.includes("staff: 'https://cs.ar-ai666.com'")&&support.includes("'https://cs.ar-ai666.com'"));
 check('current runtime source contains no legacy staff.ar-ai666.com default',!allCurrent.includes('staff.ar-ai666.com'));
 check('Domain Mapping presents Staff site kind as CS Workspace',domain.includes('CS Workspace')&&domain.includes('site_kind'));
@@ -71,7 +71,7 @@ check('promotion CTA label is supported end-to-end',migration.includes('cta_labe
 check('promotion drawer visibility is supported end-to-end',migration.includes('drawer_enabled')&&support.includes('drawer_enabled')&&chatApp.includes('drawer_enabled')&&admin.includes('drawer_enabled'));
 check('Admin can update existing promotions',adminApi.includes('updateChatPromotion')&&support.includes("adminPromotion && method === 'PUT'"));
 check('internal support notes remain excluded from public customer messages',support.includes('is_internal=FALSE')||support.includes('is_internal = FALSE'));
-check('server advertises v1.17.4 CS and promotion features',server.includes('cs-workspace-shared-domain')&&server.includes('staff-self-profile-management')&&server.includes('managed-customer-chat-menu')&&server.includes('rich-promotion-carousel'));
+check('server still advertises v1.17.4 CS and promotion features',server.includes('cs-workspace-shared-domain')&&server.includes('staff-self-profile-management')&&server.includes('managed-customer-chat-menu')&&server.includes('rich-promotion-carousel'));
 
 let passed=0;
 for(const [name,ok] of checks){if(ok){console.log('PASS',name);passed++;}else{console.error('FAIL',name);process.exitCode=1;}}

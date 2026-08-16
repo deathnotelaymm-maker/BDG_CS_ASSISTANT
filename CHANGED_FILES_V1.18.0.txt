@@ -1,0 +1,54 @@
+Luke CS v1.18.0 — Luke Shop Commerce Connector v2
+Base: v1.17.4
+
+Changed/added files: 49
+
+ADD	CHANGED_FILES_V1.18.0.txt
+ADD	DEPLOYMENT_CHECKLIST_V1.18.0.md
+ADD	FILE_CHECKSUMS_V1.18.0.sha256
+ADD	MANIFEST_V1.18.0.json
+MODIFY	README.md
+ADD	RELEASE_NOTES_V1.18.0.md
+ADD	TECHNICAL_ANALYSIS_V1.18.0.md
+ADD	TEST_RESULT_V1.18.0.md
+MODIFY	admin-pro/package-lock.json
+MODIFY	admin-pro/package.json
+MODIFY	admin-pro/src/components/AdminLayout.tsx
+MODIFY	admin-pro/src/lib/api.ts
+MODIFY	admin-pro/src/routes/_admin.platform-control-center.tsx
+ADD	backend-api/migrations/048_v1.18.0_luke_shop_commerce_connector_v2.sql
+MODIFY	backend-api/migrations/README.md
+MODIFY	backend-api/package-lock.json
+MODIFY	backend-api/package.json
+ADD	backend-api/scripts/commerce-connector-v2-regression-test.js
+MODIFY	backend-api/scripts/regression-test.js
+MODIFY	backend-api/scripts/simplified-ai-runtime-regression-test.js
+MODIFY	backend-api/scripts/upload-regression-test.js
+MODIFY	backend-api/scripts/v1.16.1-realtime-ai-worker-regression-test.js
+MODIFY	backend-api/scripts/v1.16.2-conversation-continuity-regression-test.js
+MODIFY	backend-api/scripts/v1.16.3-admin-chat-theme-regression-test.js
+MODIFY	backend-api/scripts/v1.16.4-sse-delivery-regression-test.js
+MODIFY	backend-api/scripts/v1.17.0-professional-support-workspace-regression-test.js
+MODIFY	backend-api/scripts/v1.17.1-dynamic-cors-regression-test.js
+MODIFY	backend-api/scripts/v1.17.1-r2-dependency-audit-regression-test.js
+MODIFY	backend-api/scripts/v1.17.2-luke-shared-hosting-regression-test.js
+MODIFY	backend-api/scripts/v1.17.2-r2-integration-origin-contract-regression-test.js
+MODIFY	backend-api/scripts/v1.17.3-support-workspace-ux-regression-test.js
+MODIFY	backend-api/scripts/v1.17.4-cs-identity-domain-promotion-menu-regression-test.js
+MODIFY	backend-api/scripts/v1.17.4-r4-ant-design-v6-type-compatibility-regression-test.js
+ADD	backend-api/src/commerce-connector.js
+MODIFY	backend-api/src/core.js
+MODIFY	backend-api/src/network-safety.js
+MODIFY	backend-api/src/server.js
+MODIFY	chat-pro/package-lock.json
+MODIFY	chat-pro/package.json
+MODIFY	chat-pro/src/App.tsx
+ADD	chat-pro/src/commerce-connector-v2-source-test.txt
+MODIFY	chat-pro/src/lib/api.ts
+ADD	chat-pro/src/lib/commerce-context.ts
+MODIFY	guide-pro/package-lock.json
+MODIFY	guide-pro/package.json
+MODIFY	package.json
+ADD	scripts/v1.18.0-commerce-connector-regression-test.mjs
+MODIFY	staff-pro/package-lock.json
+MODIFY	staff-pro/package.json

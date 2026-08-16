@@ -1,6 +1,6 @@
 {
   "name": "bdg-help-render-backend",
-  "version": "1.17.4",
+  "version": "1.18.0",
   "private": true,
   "type": "module",
   "description": "Production Render backend using the existing Neon PostgreSQL database for BDG Guide Pro, Chat Pro, and Admin Pro.",
@@ -11,7 +11,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "migrate": "node src/migrate.js",
-    "check": "node --check src/server.js && node --check src/core.js && node --check src/chat-reliability.js && node --check src/prompt-runtime.js && node --check src/support-auth.js && node --check src/support-events.js && node --check src/support-service.js && node --check src/support-realtime.js && node --check src/plain-text-ai.js && node --check src/ai-job-worker.js && node --check src/r2-adapter.js && node --check src/env.js && node --check src/rich-html.js && node --check src/network-safety.js && node --check src/migration-files.js",
+    "check": "node --check src/server.js && node --check src/core.js && node --check src/chat-reliability.js && node --check src/prompt-runtime.js && node --check src/support-auth.js && node --check src/support-events.js && node --check src/support-service.js && node --check src/support-realtime.js && node --check src/plain-text-ai.js && node --check src/ai-job-worker.js && node --check src/r2-adapter.js && node --check src/env.js && node --check src/rich-html.js && node --check src/network-safety.js && node --check src/commerce-connector.js && node --check src/migration-files.js",
     "smoke": "node scripts/smoke-test.js",
     "test:regression": "node scripts/regression-test.js",
     "test:upload": "node scripts/upload-regression-test.js",
@@ -37,7 +37,8 @@
     "test:v1174r1": "node scripts/v1.17.4-r1-ci-source-sync-regression-test.js",
     "test:v1174r2": "node scripts/v1.17.4-r2-regression-contract-stabilization-test.js",
     "test:v1174r3": "node scripts/v1.17.4-r3-frontend-dependency-security-regression-test.js",
-    "test:v1174r4": "node scripts/v1.17.4-r4-ant-design-v6-type-compatibility-regression-test.js"
+    "test:v1174r4": "node scripts/v1.17.4-r4-ant-design-v6-type-compatibility-regression-test.js",
+    "test:commerce": "node scripts/commerce-connector-v2-regression-test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1085.0",

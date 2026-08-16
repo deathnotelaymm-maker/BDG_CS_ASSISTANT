@@ -93,14 +93,14 @@ export async function resolvePublicHttpsTarget(value, label = 'Connector URL', l
  * HTTPS-only request with the validated DNS result pinned into the socket.
  * This closes the DNS-rebinding gap between URL validation and connection.
  */
-export async function fetchPublicHttpsText(value, { headers = {}, signal, maxBytes = 1_000_000, label = 'Connector URL' } = {}) {
+export async function requestPublicHttpsText(value, { method = 'GET', headers = {}, body = '', signal, maxBytes = 1_000_000, label = 'Connector URL' } = {}) {
   const target = await resolvePublicHttpsTarget(value, label);
   const pinned = target.addresses[0];
   if (!pinned?.address || !pinned.family) throw blocked(`${label} has no usable public address`, 'CONNECTOR_DNS_LOOKUP_FAILED');
 
   return new Promise((resolve, reject) => {
     const request = httpsRequest(target.url, {
-      method: 'GET',
+      method: String(method || 'GET').toUpperCase(),
       headers,
       signal,
       agent: false,
@@ -135,6 +135,12 @@ export async function fetchPublicHttpsText(value, { headers = {}, signal, maxByt
       }));
     });
     request.on('error', reject);
+    if (body) request.write(body);
     request.end();
   });
 }
+
+export async function fetchPublicHttpsText(value, options = {}) {
+  return requestPublicHttpsText(value, { ...options, method: 'GET' });
+}
+

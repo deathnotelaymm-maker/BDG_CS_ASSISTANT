@@ -1,0 +1,1 @@
+Commerce Connector v2 source contract: context token lives in sessionStorage only; exact parent source/referrer origin is checked; token is sent only in POST /chat body; current order ref is a hint and Shop validates ownership.
