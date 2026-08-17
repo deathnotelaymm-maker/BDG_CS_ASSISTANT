@@ -1,30 +1,28 @@
-# Changed Files — v1.17.4-R4-R1
+# Changed Files — v1.18.0-R1
 
-The repair payload contains the exact R4 application/config changes plus corrected Windows installer/verifier and release-engineering files.
-
-- `.bdg_files.tsv`
 - `.github/workflows/bdg-production-release.yml`
 - `.github/workflows/ci.yml`
-- `admin-pro/src/components/RichKnowledgeEditor.tsx`
-- `admin-pro/src/routes/_admin.customer-service.tsx`
-- `backend-api/package.json`
-- `backend-api/scripts/v1.17.4-r4-ant-design-v6-type-compatibility-regression-test.js`
-- `CHANGED_FILES.md`
-- `CHANGED_FILES_V1.17.4-R4-R1.txt`
-- `DEPLOYMENT_CHECKLIST_V1.17.4-R4-R1.md`
-- `FILE_CHECKSUMS_V1.17.4-R4-R1.sha256`
-- `INSTALL-V1.17.4-R4-R1-WINDOWS-INSTALLER-COMPATIBILITY-HOTFIX.cmd`
-- `INSTALL-V1.17.4-R4-R1-WINDOWS-INSTALLER-COMPATIBILITY-HOTFIX.ps1`
-- `MANIFEST_V1.17.4-R4-R1.json`
-- `README-V1.17.4-R4-R1.txt`
 - `README.md`
-- `RELEASE_NOTES_V1.17.4-R4-R1.md`
-- `START-HERE-V1.17.4-R4-R1-WINDOWS-INSTALLER-COMPATIBILITY-HOTFIX.bat`
-- `START-HERE-WINDOWS.bat`
-- `TECHNICAL_ANALYSIS_V1.17.4-R4-R1.md`
-- `TEST_RESULT.md`
-- `TEST_RESULT_V1.17.4-R4-R1.md`
-- `V1.17.4_R4_R1_WINDOWS_INSTALLER_COMPATIBILITY_HOTFIX_INSTALLED.txt`
-- `VERIFY-V1.17.4-R4-R1-INSTALLED.ps1`
-- `VERIFY-V1.17.4-R4-R1-PAYLOAD.ps1`
-- `VERIFY-V1.17.4-R4-R1-TARGET.ps1`
+- `package.json`
+- `backend-api/package.json`
+- `backend-api/package-lock.json`
+- `backend-api/scripts/v1.17.1-r2-dependency-audit-regression-test.js`
+- `backend-api/scripts/v1.17.4-r3-frontend-dependency-security-regression-test.js`
+- `backend-api/scripts/v1.18.0-r1-nanoid-security-hotfix-regression-test.js`
+- `admin-pro/package.json`
+- `admin-pro/package-lock.json`
+- `chat-pro/package.json`
+- `chat-pro/package-lock.json`
+- `guide-pro/package.json`
+- `guide-pro/package-lock.json`
+- `staff-pro/package.json`
+- `staff-pro/package-lock.json`
+- `RELEASE_NOTES_V1.18.0-R1.md`
+- `TECHNICAL_ANALYSIS_V1.18.0-R1.md`
+- `DEPLOYMENT_CHECKLIST_V1.18.0-R1.md`
+- `TEST_RESULT_V1.18.0-R1.md`
+- `CHANGED_FILES.md`
+- `CHANGED_FILES_V1.18.0-R1.txt`
+- `MANIFEST_V1.18.0-R1.json`
+- `FILE_CHECKSUMS_V1.18.0-R1.sha256`
+- `V1.18.0_R1_NANOID_SECURITY_HOTFIX_INSTALLED.txt`

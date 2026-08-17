@@ -33,12 +33,12 @@ const postcss = lock.packages?.['node_modules/postcss'];
 const override = packageJson.overrides?.nanoid;
 
 test('backend runtime version is current v1.18.0', packageJson.version === '1.18.0');
-test('Nano ID override is pinned to the patched 3.x release', override === '3.3.17');
-test('lockfile resolves Nano ID at or above 3.3.17', nano && gte(nano.version, '3.3.17'));
-test('lockfile does not retain vulnerable Nano ID 3.3.16', nano?.version !== '3.3.16');
-test('lockfile points to the official npm registry tarball', nano?.resolved === 'https://registry.npmjs.org/nanoid/-/nanoid-3.3.17.tgz');
-test('lockfile preserves SHA-512 integrity for Nano ID 3.3.17', nano?.integrity === 'sha512-xQLf0A3HOMlgHq0n247/LRuAOYmB7dXJ/DvAxGvsSBij45XtBSmQycu+F8ODbHwns/XyFZagyL1+J0Offw1E0g==');
-test('PostCSS dependency range remains compatible with Nano ID 3.3.17', /^\^3\.3\.16$/.test(postcss?.dependencies?.nanoid || '') || /^\^3\.3\./.test(postcss?.dependencies?.nanoid || ''));
+test('Nano ID override is pinned to the patched 3.x release', override === '3.3.18');
+test('lockfile resolves Nano ID at or above 3.3.18', nano && gte(nano.version, '3.3.18'));
+test('lockfile does not retain vulnerable Nano ID below 3.3.18', nano && gte(nano.version, '3.3.18'));
+test('lockfile points to the official npm registry tarball', nano?.resolved === 'https://registry.npmjs.org/nanoid/-/nanoid-3.3.18.tgz');
+test('lockfile preserves SHA-512 integrity for Nano ID 3.3.18', nano?.integrity === 'sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==');
+test('PostCSS dependency range remains compatible with Nano ID 3.3.18', /^\^3\.3\.16$/.test(postcss?.dependencies?.nanoid || '') || /^\^3\.3\./.test(postcss?.dependencies?.nanoid || ''));
 test('existing UUID security override remains preserved', packageJson.overrides?.uuid === '^11.1.1');
 
 if (!process.exitCode) console.log(`\n${checks.length}/${checks.length} v1.17.1-r2 dependency audit security checks passed.`);

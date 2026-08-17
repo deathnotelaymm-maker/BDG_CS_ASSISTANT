@@ -27,6 +27,7 @@
     "test:v1172": "npm --prefix backend-api run test:v1172",
     "test:v1174": "npm --prefix backend-api run test:v1174",
     "test:commerce": "npm --prefix backend-api run test:commerce",
-    "test:v1180": "node scripts/v1.18.0-commerce-connector-regression-test.mjs"
+    "test:v1180": "node scripts/v1.18.0-commerce-connector-regression-test.mjs",
+    "test:v1180r1": "npm --prefix backend-api run test:v1180r1"
   }
 }

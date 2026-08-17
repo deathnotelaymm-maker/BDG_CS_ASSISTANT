@@ -1,0 +1,4 @@
+Luke CS v1.18.0-R1 Nano ID Dependency Security Hotfix
+Application version: 1.18.0
+Database migration: none
+Nano ID floor: 3.3.18

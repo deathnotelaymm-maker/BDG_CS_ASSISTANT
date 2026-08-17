@@ -13,7 +13,7 @@ const apps = ['admin-pro', 'chat-pro', 'guide-pro', 'staff-pro'];
 for (const app of apps) {
   const lock = readJson(app, 'package-lock.json');
   test(`${app} locks js-yaml at patched 4.3.1`, () => assert.equal(lock.packages['node_modules/js-yaml']?.version, '4.3.1'));
-  test(`${app} locks nanoid at patched 3.3.17`, () => assert.equal(lock.packages['node_modules/nanoid']?.version, '3.3.17'));
+  test(`${app} locks nanoid at patched 3.3.18`, () => assert.equal(lock.packages['node_modules/nanoid']?.version, '3.3.18'));
 }
 
 const guidePkg = readJson('guide-pro', 'package.json');
@@ -26,7 +26,7 @@ test('Guide DOMPurify resolves from the npm registry', () => assert.equal(guideL
 for (const app of apps) {
   const text = fs.readFileSync(path.join(repo, app, 'package-lock.json'), 'utf8');
   test(`${app} no longer locks vulnerable js-yaml 4.3.0`, () => assert.ok(!text.includes('js-yaml-4.3.0.tgz')));
-  test(`${app} no longer locks vulnerable nanoid 3.3.16`, () => assert.ok(!text.includes('nanoid-3.3.16.tgz')));
+  test(`${app} does not lock Nano ID below patched 3.3.18`, () => assert.ok(!text.includes('nanoid-3.3.16.tgz') && !text.includes('nanoid-3.3.17.tgz')));
 }
 
 test('Guide no longer locks vulnerable DOMPurify 3.4.12', () => {

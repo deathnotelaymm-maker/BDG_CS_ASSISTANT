@@ -1,8 +1,8 @@
-# Luke CS v1.18.0 — Luke Shop Commerce Connector v2
+# Luke CS v1.18.0-R1 — Nano ID Security Hotfix
 
-Current release: **v1.18.0**. This release is based on the real v1.17.4 CS source and adds the read-only Luke Shop Commerce Connector while preserving the v1.17.4 support workspace, identity, domain, promotion, realtime and Prompt Manager architecture.
+Current release: **v1.18.0-R1** (application version remains **1.18.0**). This security hotfix preserves the Luke Shop Commerce Connector v2 and all v1.17.4 carry-forward features while raising the Nano ID dependency floor from 3.3.17 to 3.3.18 across Backend, Admin Pro, Chat Pro, Guide Pro and Staff Pro.
 
-See `RELEASE_NOTES_V1.18.0.md`, `TECHNICAL_ANALYSIS_V1.18.0.md`, `DEPLOYMENT_CHECKLIST_V1.18.0.md`, and `TEST_RESULT_V1.18.0.md`.
+See `RELEASE_NOTES_V1.18.0-R1.md`, `TECHNICAL_ANALYSIS_V1.18.0-R1.md`, `DEPLOYMENT_CHECKLIST_V1.18.0-R1.md`, and `TEST_RESULT_V1.18.0-R1.md`. The original Connector v2 notes remain in the v1.18.0 documents.
 
 ---
 
